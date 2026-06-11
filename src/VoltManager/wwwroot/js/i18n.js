@@ -66,7 +66,11 @@ window.I18n = (function() {
             "msg_dl_install": "Download and install v",
             "msg_installing": "Installing power plans…",
             "msg_install_ok": "Plans installed successfully.",
-            "msg_install_part": "Partial installation: some plans were not created. Try again."
+            "msg_install_part": "Partial installation: some plans were not created. Try again.",
+            "upd_banner_title": "Update available: v",
+            "upd_banner_sub": "A new version of VoltManager is ready to install.",
+            "upd_banner_install": "Install now",
+            "upd_banner_later": "Later"
         },
         it: {
             "app_title": "VoltManager",
@@ -134,7 +138,11 @@ window.I18n = (function() {
             "msg_dl_install": "Scarica e installa v",
             "msg_installing": "Installazione dei piani energetici in corso…",
             "msg_install_ok": "Piani installati correttamente.",
-            "msg_install_part": "Installazione parziale: alcuni piani non sono stati creati. Riprova."
+            "msg_install_part": "Installazione parziale: alcuni piani non sono stati creati. Riprova.",
+            "upd_banner_title": "Aggiornamento disponibile: v",
+            "upd_banner_sub": "Una nuova versione di VoltManager è pronta per l'installazione.",
+            "upd_banner_install": "Installa ora",
+            "upd_banner_later": "Più tardi"
         }
     };
 

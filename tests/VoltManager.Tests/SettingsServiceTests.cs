@@ -15,7 +15,7 @@ public class SettingsServiceTests : IDisposable
         var svc = new SettingsService(SettingsPath);
         Assert.True(svc.Current.MasterAutomationEnabled);
         Assert.Equal(3, svc.Current.Rules.Count);
-        Assert.Equal("Albix4563/VoltManager", svc.Current.UpdateRepo);
+        Assert.Equal("Albix4563/power_efficency", svc.Current.UpdateRepo);
     }
 
     [Fact]

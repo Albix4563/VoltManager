@@ -1,6 +1,9 @@
 ; VoltManager installer (Inno Setup 6)
 #define MyAppName "VoltManager"
+; Version can be overridden by CI: ISCC /DMyAppVersion=1.0.N
+#ifndef MyAppVersion
 #define MyAppVersion "1.0.0"
+#endif
 #define MyAppPublisher "Albix4563"
 #define MyAppExeName "VoltManager.exe"
 
@@ -44,7 +47,7 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: de
 Filename: "{tmp}\MicrosoftEdgeWebview2Setup.exe"; Parameters: "/silent /install"; \
     StatusMsg: "Installazione Microsoft Edge WebView2 Runtime..."; Check: WebView2Missing
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#MyAppName}}"; \
-    Flags: nowait postinstall skipifsilent shellexec
+    Flags: nowait postinstall shellexec
 
 [UninstallRun]
 Filename: "taskkill"; Parameters: "/im {#MyAppExeName} /f"; Flags: runhidden; RunOnceId: "KillVoltManager"

@@ -45,7 +45,7 @@ public class AppSettings
     [JsonPropertyName("masterAutomationEnabled")] public bool MasterAutomationEnabled { get; set; } = true;
     [JsonPropertyName("closeToTray")] public bool CloseToTray { get; set; } = true;
     [JsonPropertyName("startWithWindows")] public bool StartWithWindows { get; set; } = false;
-    [JsonPropertyName("updateRepo")] public string UpdateRepo { get; set; } = "Albix4563/VoltManager";
+    [JsonPropertyName("updateRepo")] public string UpdateRepo { get; set; } = "Albix4563/power_efficency";
     [JsonPropertyName("rules")] public List<AutomationRule> Rules { get; set; } = DefaultRules();
     // duplicatescheme assigns new GUIDs; map canonical plan -> actual GUID on this machine.
     [JsonPropertyName("planGuidMap")] public Dictionary<string, string> PlanGuidMap { get; set; } = new();

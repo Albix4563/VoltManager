@@ -39,6 +39,9 @@ public class SettingsService
                 {
                     if (loaded.Rules == null || loaded.Rules.Count == 0)
                         loaded.Rules = AppSettings.DefaultRules();
+                    // Migrate stale repo name from pre-release installs.
+                    if (loaded.UpdateRepo == "Albix4563/VoltManager")
+                        loaded.UpdateRepo = "Albix4563/power_efficency";
                     return loaded;
                 }
             }

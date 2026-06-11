@@ -68,7 +68,31 @@ public partial class MainWindow : Window
         _app.ActivePlanChanged += p => _bridge.PushEvent("activePlanChanged", new { plan = p?.PlanId?.ToString(), guid = p?.Guid, name = p?.Name });
         _app.Settings.SettingsChanged += s => _bridge.PushEvent("automationStateChanged", new { masterEnabled = s.MasterAutomationEnabled });
 
+        bool startupCheckDone = false;
+        core.NavigationCompleted += (_, args) =>
+        {
+            if (!args.IsSuccess || startupCheckDone) return;
+            startupCheckDone = true;
+            _ = CheckForUpdatesOnStartupAsync();
+        };
+
         core.Navigate("https://app.local/index.html");
+    }
+
+    private async Task CheckForUpdatesOnStartupAsync()
+    {
+        try
+        {
+            // Small delay so JS event handlers are registered before the push.
+            await Task.Delay(TimeSpan.FromSeconds(3));
+            var info = await _app.Updates.CheckForUpdatesAsync();
+            if (info.UpdateAvailable && info.DownloadUrl != null)
+                _bridge?.PushEvent("updateAvailable", info);
+        }
+        catch
+        {
+            // Offline or rate-limited: stay silent, manual check remains available.
+        }
     }
 
     private void OnClosingToTray(object? sender, CancelEventArgs e)
