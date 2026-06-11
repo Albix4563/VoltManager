@@ -5,3 +5,4 @@ dist/
 .build_tools/
 installer/MicrosoftEdgeWebview2Setup.exe
 *.user
+AGENTS.md
