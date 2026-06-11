@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html class="dark" lang="it">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>VoltManager</title>
+<link href="css/app.css" rel="stylesheet"/>
+</head>
+<body class="bg-primary-container text-on-surface h-screen flex overflow-hidden selection:bg-secondary-container selection:text-on-secondary">
+
+<!-- SideNavBar -->
+<nav class="fixed left-0 top-0 h-full w-[280px] border-r border-white/10 backdrop-blur-[30px] bg-surface-container/70 shadow-xl z-50 flex flex-col py-lg gap-md">
+  <!-- Header -->
+  <div class="px-lg mb-8 flex items-center gap-3">
+    <div class="w-10 h-10 rounded-full bg-secondary-container/20 flex items-center justify-center border border-secondary-container/30 transition-transform duration-300 hover:scale-110 hover:shadow-[0_0_15px_rgba(0,241,254,0.3)]">
+      <span class="material-symbols-outlined text-secondary-container icon-fill">power_settings_new</span>
+    </div>
+    <div>
+      <h1 class="text-headline-md font-bold text-secondary-container" data-i18n="app_title">VoltManager</h1>
+      <p class="text-label-md text-on-surface-variant" data-i18n="app_subtitle">System Optimized</p>
+    </div>
+  </div>
+  <!-- Navigation Links -->
+  <div class="relative w-full">
+    <div class="nav-indicator" id="nav-indicator" style="top: 0px; height: 48px;"></div>
+    <ul class="flex flex-col gap-2 px-4 w-full relative z-20" id="nav-list">
+      <li>
+        <a class="nav-item flex items-center gap-3 text-secondary-container font-bold bg-surface-container-high/50 px-4 py-3 rounded-lg active:scale-[0.98] transition-all duration-300 hover:bg-white/10" data-view="home" href="#">
+          <span class="material-symbols-outlined icon-fill">home</span>
+          <span class="text-body-md font-medium" data-i18n="nav_home">Home</span>
+        </a>
+      </li>
+      <li>
+        <a class="nav-item flex items-center gap-3 text-on-surface-variant font-medium px-4 py-3 opacity-80 hover:bg-white/5 hover:text-secondary-fixed transition-all duration-300 rounded-lg active:scale-[0.98]" data-view="power" href="#">
+          <span class="material-symbols-outlined">bolt</span>
+          <span class="text-body-md" data-i18n="nav_power">Power Management</span>
+        </a>
+      </li>
+      <li>
+        <a class="nav-item flex items-center gap-3 text-on-surface-variant font-medium px-4 py-3 opacity-80 hover:bg-white/5 hover:text-secondary-fixed transition-all duration-300 rounded-lg active:scale-[0.98]" data-view="settings" href="#">
+          <span class="material-symbols-outlined">settings</span>
+          <span class="text-body-md" data-i18n="nav_settings">Settings &amp; Info</span>
+        </a>
+      </li>
+    </ul>
+  </div>
+  <div class="mt-auto px-lg pb-lg">
+    <div class="glass-card rounded-lg p-4 flex items-center gap-3 transition-all duration-300 hover:bg-white/5 cursor-default">
+      <div class="w-2 h-2 rounded-full bg-secondary-container animate-pulse shadow-[0_0_8px_#00f1fe]"></div>
+      <span class="text-label-md text-on-surface" data-i18n="nav_monitoring">Monitoring Active</span>
+    </div>
+    <p class="text-label-sm text-on-surface-variant opacity-60 mt-3 px-1" id="sidebar-version">VoltManager v1.0.0</p>
+  </div>
+</nav>
+
+<!-- Main Content Area -->
+<main class="flex-1 ml-[280px] h-full flex flex-col relative bg-[#0A1128]">
+  <!-- Ambient Background Glows -->
+  <div class="absolute top-0 left-1/4 w-96 h-96 bg-secondary-container/5 rounded-full blur-3xl pointer-events-none"></div>
+  <div class="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-primary-fixed-dim/5 rounded-full blur-[100px] pointer-events-none"></div>
+
+  <!-- TopNavBar -->
+  <header class="flex items-center justify-end h-16 px-lg w-full z-40 bg-transparent shrink-0">
+    <div class="flex items-center gap-4">
+      <button class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:text-secondary-container transition-all duration-300 hover:bg-white/5 hover:scale-110 active:opacity-80 hover:shadow-[0_0_15px_rgba(0,241,254,0.15)]" id="btn-minimize-tray" title="Riduci nell'area di notifica">
+        <span class="material-symbols-outlined">minimize</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Canvas -->
+  <div class="flex-1 overflow-y-auto px-lg pb-xl flex flex-col animate-in relative z-10" id="main-content">
+
+    <!-- ============ VIEW: HOME ============ -->
+    <section class="view flex-1 flex-col gap-8" id="view-home">
+      <div>
+        <h2 class="text-headline-lg text-on-surface mb-2" data-i18n="dash_title">Dashboard</h2>
+        <p class="text-body-lg text-on-surface-variant" data-i18n="dash_subtitle">Real-time hardware stress and performance metrics.</p>
+      </div>
+
+      <section class="mt-8">
+        <h3 class="text-title-lg text-on-surface mb-4 flex items-center gap-2">
+          <span class="material-symbols-outlined text-secondary-container">memory</span>
+          <span data-i18n="dash_task_manager">Task Manager</span>
+        </h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+          <!-- CPU Card (Circular) -->
+          <div class="glass-card rounded-xl p-6 flex flex-col items-center justify-center relative overflow-hidden group">
+            <div class="absolute top-4 left-4 flex items-center gap-2">
+              <span class="material-symbols-outlined text-secondary-container text-sm transition-transform duration-300 group-hover:scale-110">developer_board</span>
+              <span class="text-label-md text-on-surface uppercase" data-i18n="dash_cpu_core">CPU Core</span>
+            </div>
+            <div class="w-32 h-32 relative mt-6 transition-transform duration-500 group-hover:scale-105">
+              <svg class="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                <circle cx="50" cy="50" fill="transparent" r="40" stroke="#1E2A4A" stroke-width="8"></circle>
+                <circle class="progress-glow transition-all duration-1000 ease-out" cx="50" cy="50" fill="transparent" id="cpu-ring" r="40" stroke="#00f1fe" stroke-dasharray="251.2" stroke-dashoffset="251.2" stroke-linecap="round" stroke-width="8"></circle>
+              </svg>
+              <div class="absolute inset-0 flex items-center justify-center flex-col">
+                <span class="text-headline-md font-bold text-on-surface" id="cpu-pct">--%</span>
+              </div>
+            </div>
+            <p class="text-label-sm text-on-surface-variant mt-4 text-center" id="cpu-name">Rilevamento CPU…</p>
+          </div>
+
+          <!-- GPU Card (Circular) -->
+          <div class="glass-card rounded-xl p-6 flex flex-col items-center justify-center relative overflow-hidden group">
+            <div class="absolute top-4 left-4 flex items-center gap-2">
+              <span class="material-symbols-outlined text-secondary-container text-sm transition-transform duration-300 group-hover:scale-110">dns</span>
+              <span class="text-label-md text-on-surface uppercase" data-i18n="dash_gpu_load">GPU Load</span>
+            </div>
+            <div class="w-32 h-32 relative mt-6 transition-transform duration-500 group-hover:scale-105">
+              <svg class="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                <circle cx="50" cy="50" fill="transparent" r="40" stroke="#1E2A4A" stroke-width="8"></circle>
+                <circle class="progress-glow transition-all duration-1000 ease-out" cx="50" cy="50" fill="transparent" id="gpu-ring" r="40" stroke="#00f1fe" stroke-dasharray="251.2" stroke-dashoffset="251.2" stroke-linecap="round" stroke-width="8"></circle>
+              </svg>
+              <div class="absolute inset-0 flex items-center justify-center flex-col">
+                <span class="text-headline-md font-bold text-on-surface" id="gpu-pct">--%</span>
+              </div>
+            </div>
+            <p class="text-label-sm text-on-surface-variant mt-4 text-center" id="gpu-name">Rilevamento GPU…</p>
+          </div>
+
+          <!-- RAM Card (Linear) -->
+          <div class="glass-card rounded-xl p-6 flex flex-col justify-between relative overflow-hidden group">
+            <div>
+              <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center gap-2">
+                  <span class="material-symbols-outlined text-secondary-container text-sm transition-transform duration-300 group-hover:scale-110">memory_alt</span>
+                  <span class="text-label-md text-on-surface uppercase" data-i18n="dash_memory">Memory</span>
+                </div>
+                <span class="text-title-lg font-bold text-on-surface transition-colors duration-300 group-hover:text-secondary-container" id="ram-pct">--%</span>
+              </div>
+              <p class="text-label-sm text-on-surface-variant mb-6" id="ram-detail">-- GB / -- GB In Use</p>
+            </div>
+            <div class="w-full h-3 bg-[#1E2A4A] rounded-full overflow-hidden">
+              <div class="h-full bg-gradient-to-r from-[#006a70] to-secondary-container rounded-full progress-glow transition-all duration-1000 ease-out" id="ram-bar" style="width: 0%"></div>
+            </div>
+          </div>
+
+          <!-- Disk Card (Linear) -->
+          <div class="glass-card rounded-xl p-6 flex flex-col justify-between relative overflow-hidden group">
+            <div>
+              <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center gap-2">
+                  <span class="material-symbols-outlined text-secondary-container text-sm transition-transform duration-300 group-hover:scale-110">hard_drive</span>
+                  <span class="text-label-md text-on-surface uppercase" data-i18n="dash_disk">Disk I/O</span>
+                </div>
+                <span class="text-title-lg font-bold text-on-surface transition-colors duration-300 group-hover:text-secondary-container" id="disk-pct">--%</span>
+              </div>
+              <p class="text-label-sm text-on-surface-variant mb-6" data-i18n="dash_disk_sub">Attività disco totale</p>
+            </div>
+            <div class="w-full h-3 bg-[#1E2A4A] rounded-full overflow-hidden">
+              <div class="h-full bg-gradient-to-r from-[#006a70] to-secondary-container rounded-full progress-glow transition-all duration-1000 ease-out" id="disk-bar" style="width: 0%"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Bottom Control: Power Plan -->
+      <section class="mt-auto pt-8 flex justify-center w-full pb-8">
+        <div class="flex flex-col items-center">
+          <h4 class="text-label-md text-on-surface-variant mb-3 uppercase tracking-wider" data-i18n="dash_active_plan">Active Power Plan</h4>
+          <div class="segmented-control-bg p-1 rounded-xl flex items-center relative w-full max-w-md" id="plan-control">
+            <div class="absolute left-1 top-1 bottom-1 w-[32.5%] segmented-pill rounded-lg z-0" id="plan-pill" style="transform: translateX(102%);"></div>
+            <button class="flex-1 py-3 px-4 relative z-10 text-center text-body-md text-on-surface-variant hover:text-on-surface transition-all duration-300 focus:outline-none hover:scale-105" data-plan="powerSaver" data-i18n="dash_plan_saver">
+              Power Efficiency
+            </button>
+            <button class="flex-1 py-3 px-4 relative z-10 text-center text-body-md text-secondary-container font-semibold transition-all duration-300 focus:outline-none hover:scale-105" data-plan="balanced" data-i18n="dash_plan_balanced">
+              Balanced
+            </button>
+            <button class="flex-1 py-3 px-4 relative z-10 text-center text-body-md text-on-surface-variant hover:text-on-surface transition-all duration-300 focus:outline-none hover:scale-105" data-plan="performance" data-i18n="dash_plan_performance">
+              Performance
+            </button>
+          </div>
+        </div>
+      </section>
+    </section>
+
+    <!-- ============ VIEW: POWER MANAGEMENT ============ -->
+    <section class="view flex-1 flex-col hidden" id="view-power">
+      <div class="max-w-4xl mx-auto space-y-lg relative z-10 w-full">
+        <div class="mb-xl">
+          <h2 class="text-headline-lg text-on-surface mb-xs" data-i18n="power_title">Gestione Energetica</h2>
+          <p class="text-body-md text-on-surface-variant" data-i18n="power_subtitle">Configura le regole di automazione per ottimizzare le prestazioni e il consumo del sistema.</p>
+        </div>
+
+        <div class="space-y-md">
+          <!-- Rule: Risparmio Energetico -->
+          <div class="glass-panel p-lg rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-md group hover:border-white/20 transition-all duration-300">
+            <div class="flex items-center gap-md flex-1">
+              <div class="w-12 h-12 rounded-lg bg-surface-container-lowest border border-white/5 flex items-center justify-center group-hover:bg-surface-container transition-colors shrink-0">
+                <span class="material-symbols-outlined text-secondary-fixed-dim">battery_saver</span>
+              </div>
+              <div class="flex-1 flex flex-wrap items-center gap-x-xs gap-y-2 text-body-md text-on-surface">
+                <span data-i18n="power_rule_if">Se CPU &lt;</span>
+                <input class="w-12 h-8 bg-surface-container-lowest border-b border-white/20 rounded text-center text-body-md text-secondary-container input-glow transition-all" data-rule="saver" data-field="thresholdPct" id="rule-saver-threshold" max="99" min="1" type="number" value="10"/>
+                <span data-i18n="power_rule_for">% per</span>
+                <input class="w-12 h-8 bg-surface-container-lowest border-b border-white/20 rounded text-center text-body-md text-secondary-container input-glow transition-all" data-rule="saver" data-field="durationMinutes" id="rule-saver-minutes" max="60" min="1" type="number" value="1"/>
+                <span data-i18n="power_rule_min">minuto</span>
+                <span class="mx-2 text-on-surface-variant">→</span>
+                <span class="text-tertiary-fixed font-medium" data-i18n="power_rule_saver">Risparmio Energetico</span>
+              </div>
+            </div>
+            <div class="flex items-center justify-end">
+              <div class="relative inline-block w-12 h-6 align-middle select-none transition duration-200 ease-in">
+                <input checked class="toggle-checkbox" data-rule="saver" id="rule-saver-toggle" type="checkbox"/>
+                <label class="toggle-label cursor-pointer" for="rule-saver-toggle">
+                  <span class="sr-only">Attiva regola risparmio energetico</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- Rule: Balanced -->
+          <div class="glass-panel p-lg rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-md group hover:border-white/20 transition-all duration-300">
+            <div class="flex items-center gap-md flex-1">
+              <div class="w-12 h-12 rounded-lg bg-surface-container-lowest border border-white/5 flex items-center justify-center group-hover:bg-surface-container transition-colors shrink-0">
+                <span class="material-symbols-outlined text-secondary-fixed-dim">balance</span>
+              </div>
+              <div class="flex-1 flex flex-wrap items-center gap-x-xs gap-y-2 text-body-md text-on-surface">
+                <span data-i18n="power_rule_if_gt">Se CPU &gt;</span>
+                <input class="w-12 h-8 bg-surface-container-lowest border-b border-white/20 rounded text-center text-body-md text-secondary-container input-glow transition-all" data-rule="balanced" data-field="thresholdPct" id="rule-balanced-threshold" max="99" min="1" type="number" value="10"/>
+                <span data-i18n="power_rule_for">% per</span>
+                <input class="w-12 h-8 bg-surface-container-lowest border-b border-white/20 rounded text-center text-body-md text-secondary-container input-glow transition-all" data-rule="balanced" data-field="durationMinutes" id="rule-balanced-minutes" max="60" min="1" type="number" value="1"/>
+                <span data-i18n="power_rule_min">minuto</span>
+                <span class="mx-2 text-on-surface-variant">→</span>
+                <span class="text-tertiary-fixed font-medium" data-i18n="power_rule_balanced">Balanced</span>
+              </div>
+            </div>
+            <div class="flex items-center justify-end">
+              <div class="relative inline-block w-12 h-6 align-middle select-none transition duration-200 ease-in">
+                <input checked class="toggle-checkbox" data-rule="balanced" id="rule-balanced-toggle" type="checkbox"/>
+                <label class="toggle-label cursor-pointer" for="rule-balanced-toggle">
+                  <span class="sr-only">Attiva regola balanced</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- Rule: Performance -->
+          <div class="glass-panel p-lg rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-md group hover:border-white/20 transition-all duration-300">
+            <div class="flex items-center gap-md flex-1">
+              <div class="w-12 h-12 rounded-lg bg-surface-container-lowest border border-white/5 flex items-center justify-center group-hover:bg-surface-container transition-colors shrink-0">
+                <span class="material-symbols-outlined text-secondary-fixed-dim">speed</span>
+              </div>
+              <div class="flex-1 flex flex-wrap items-center gap-x-xs gap-y-2 text-body-md text-on-surface">
+                <span data-i18n="power_rule_if_gt">Se CPU &gt;</span>
+                <input class="w-12 h-8 bg-surface-container-lowest border-b border-white/20 rounded text-center text-body-md text-secondary-container input-glow transition-all" data-rule="performance" data-field="thresholdPct" id="rule-performance-threshold" max="99" min="1" type="number" value="50"/>
+                <span data-i18n="power_rule_for">% per</span>
+                <input class="w-12 h-8 bg-surface-container-lowest border-b border-white/20 rounded text-center text-body-md text-secondary-container input-glow transition-all" data-rule="performance" data-field="durationMinutes" id="rule-performance-minutes" max="60" min="1" type="number" value="1"/>
+                <span data-i18n="power_rule_min">minuto</span>
+                <span class="mx-2 text-on-surface-variant">→</span>
+                <span class="text-tertiary-fixed font-medium" data-i18n="power_rule_performance">Performance</span>
+              </div>
+            </div>
+            <div class="flex items-center justify-end">
+              <div class="relative inline-block w-12 h-6 align-middle select-none transition duration-200 ease-in">
+                <input checked class="toggle-checkbox" data-rule="performance" id="rule-performance-toggle" type="checkbox"/>
+                <label class="toggle-label cursor-pointer" for="rule-performance-toggle">
+                  <span class="sr-only">Attiva regola performance</span>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Master Toggle Footer -->
+        <div class="mt-xl pt-lg border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-md bg-surface-container-low/50 p-lg rounded-2xl backdrop-blur-md">
+          <div>
+            <h3 class="text-headline-md text-on-surface" data-i18n="power_master_title">Attiva Gestione Automatica in Background</h3>
+            <p class="text-body-md text-on-surface-variant mt-1" data-i18n="power_master_sub">Lascia che VoltManager applichi le regole in modo silenzioso.</p>
+          </div>
+          <div class="relative inline-block w-16 h-8 align-middle select-none transition duration-200 ease-in flex-shrink-0">
+            <input checked class="toggle-large" id="master-toggle" type="checkbox"/>
+            <label class="toggle-label-large cursor-pointer" for="master-toggle">
+              <span class="sr-only">Attiva Gestione Automatica in Background</span>
+            </label>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ VIEW: SETTINGS & INFO ============ -->
+    <section class="view flex-1 flex-col hidden" id="view-settings">
+      <div class="mb-xl">
+        <h2 class="text-headline-lg text-on-surface" data-i18n="set_title">Settings &amp; Info</h2>
+        <p class="text-body-lg text-on-surface-variant mt-xs" data-i18n="set_subtitle">Manage application preferences, updates, and system information.</p>
+      </div>
+
+      <div class="grid grid-cols-12 gap-gutter">
+        <!-- Left Column: Updates & Changelog -->
+        <div class="col-span-12 lg:col-span-8 flex flex-col gap-gutter">
+          <!-- Update Card -->
+          <div class="glass-panel rounded-xl p-lg relative overflow-hidden group">
+            <div class="absolute top-0 left-0 w-32 h-32 bg-white/5 rounded-full blur-2xl -translate-x-1/2 -translate-y-1/2"></div>
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-md relative z-10">
+              <div>
+                <h3 class="text-headline-md text-on-surface flex items-center gap-xs">
+                  <span class="material-symbols-outlined text-secondary-container">update</span>
+                  <span data-i18n="set_updates_title">Software Updates</span>
+                </h3>
+                <p class="text-body-md text-on-surface-variant mt-1" data-i18n="set_updates_sub">Keep VoltManager optimized with the latest performance enhancements.</p>
+                <div class="mt-sm inline-flex items-center gap-xs px-3 py-1 rounded-full bg-surface-container-high border border-white/5">
+                  <span class="w-2 h-2 rounded-full bg-secondary-container animate-pulse shadow-[0_0_8px_rgba(0,241,254,0.6)]"></span>
+                  <span class="text-label-md text-on-surface-variant" id="version-badge">Current Version: v1.0.0</span>
+                </div>
+                <p class="text-label-md text-on-surface-variant mt-sm hidden" id="update-status"></p>
+              </div>
+              <div class="flex flex-col gap-sm items-stretch">
+                <button class="btn-glow flex items-center justify-center gap-sm bg-secondary-container text-on-secondary-container text-label-md font-bold px-6 py-3 rounded-lg transition-all duration-200 whitespace-nowrap" id="btn-check-updates">
+                  <span class="material-symbols-outlined text-[18px]">download</span>
+                  <span data-i18n="set_btn_check">Cerca aggiornamenti da GitHub (Main Branch)</span>
+                </button>
+                <button class="btn-glow hidden items-center justify-center gap-sm bg-secondary-container text-on-secondary-container text-label-md font-bold px-6 py-3 rounded-lg transition-all duration-200 whitespace-nowrap" id="btn-download-update">
+                  <span class="material-symbols-outlined text-[18px]">system_update_alt</span>
+                  <span id="btn-download-label" data-i18n="set_btn_download">Scarica e installa</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Changelog Card -->
+          <div class="glass-panel rounded-xl p-0 flex flex-col flex-1 min-h-[300px]">
+            <div class="p-lg border-b border-white/5 flex items-center justify-between bg-surface-container/30">
+              <h3 class="text-title-lg text-on-surface flex items-center gap-xs">
+                <span class="material-symbols-outlined text-secondary-container">history</span>
+                <span data-i18n="set_changelog_title">Release Notes</span>
+              </h3>
+              <span class="text-label-sm px-2 py-1 bg-white/5 rounded text-on-surface-variant" data-i18n="set_changelog_latest">Latest</span>
+            </div>
+            <div class="p-lg flex-1 overflow-y-auto changelog-scroll" id="changelog">
+              <p class="text-body-md text-on-surface-variant opacity-70" data-i18n="set_changelog_empty">Premi "Cerca aggiornamenti" per caricare le note di rilascio e gli ultimi commit dal branch main.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Column -->
+        <div class="col-span-12 lg:col-span-4 flex flex-col gap-gutter">
+          <!-- App Info Card -->
+          <div class="glass-panel rounded-xl p-lg text-center flex flex-col items-center justify-center border-t-2 border-t-secondary-container/30">
+            <div class="w-20 h-20 rounded-2xl bg-gradient-to-br from-surface-container-high to-surface flex items-center justify-center mb-md shadow-lg border border-white/5 relative overflow-hidden">
+              <div class="absolute inset-0 bg-secondary-container/20 blur-xl rounded-full scale-150"></div>
+              <span class="material-symbols-outlined text-[40px] text-secondary-container relative z-10 icon-fill">bolt</span>
+            </div>
+            <h3 class="text-headline-md text-on-surface">VoltManager</h3>
+            <p class="text-body-md text-secondary-fixed-dim mt-1" id="info-version">v1.0.0</p>
+            <div class="w-full h-px bg-white/10 my-md"></div>
+            <div class="flex justify-between w-full text-body-md">
+              <span class="text-on-surface-variant">CPU</span>
+              <span class="text-on-surface text-right ml-4 truncate" id="info-cpu">--</span>
+            </div>
+            <div class="flex justify-between w-full text-body-md mt-sm">
+              <span class="text-on-surface-variant">GPU</span>
+              <span class="text-on-surface text-right ml-4 truncate" id="info-gpu">--</span>
+            </div>
+            <div class="flex justify-between w-full text-body-md mt-sm">
+              <span class="text-on-surface-variant">RAM</span>
+              <span class="text-on-surface" id="info-ram">--</span>
+            </div>
+            <div class="flex justify-between w-full text-body-md mt-sm">
+              <span class="text-on-surface-variant" data-i18n="set_sys_system">Sistema</span>
+              <span class="text-on-surface text-right ml-4 truncate" id="info-os">--</span>
+            </div>
+          </div>
+
+          <!-- Preferences Card -->
+          <div class="glass-panel rounded-xl p-lg">
+            <h3 class="text-title-lg text-on-surface mb-md" data-i18n="set_pref_title">General Preferences</h3>
+            <div class="space-y-md">
+              <div class="flex items-center justify-between group cursor-pointer" id="pref-autostart">
+                <div>
+                  <p class="text-body-md text-on-surface group-hover:text-secondary-fixed transition-colors" data-i18n="set_pref_autostart">Start with Windows</p>
+                  <p class="text-label-sm text-on-surface-variant" data-i18n="set_pref_autostart_sub">Avvio automatico ridotto a icona</p>
+                </div>
+                <div class="mini-toggle" data-on="false" id="toggle-autostart">
+                  <div class="mini-toggle-knob"></div>
+                </div>
+              </div>
+              <div class="flex items-center justify-between group cursor-pointer" id="pref-tray">
+                <div>
+                  <p class="text-body-md text-on-surface group-hover:text-secondary-fixed transition-colors" data-i18n="set_pref_tray">Chiudi nell'area di notifica</p>
+                  <p class="text-label-sm text-on-surface-variant" data-i18n="set_pref_tray_sub">La X nasconde l'app, automazione attiva</p>
+                </div>
+                <div class="mini-toggle" data-on="true" id="toggle-tray">
+                  <div class="mini-toggle-knob"></div>
+                </div>
+              </div>
+              <!-- NEW LANG PREF -->
+              <div class="flex items-center justify-between group mt-md" id="pref-lang">
+                <div>
+                  <p class="text-body-md text-on-surface group-hover:text-secondary-fixed transition-colors" data-i18n="set_pref_lang">Lingua</p>
+                  <p class="text-label-sm text-on-surface-variant" data-i18n="set_pref_lang_sub">Lingua dell'interfaccia</p>
+                </div>
+                <select id="lang-select" class="appearance-none bg-surface-container-low/80 text-secondary-container font-medium border border-white/10 rounded-lg py-2 px-4 pr-10 text-body-md focus:outline-none focus:border-secondary-container focus:shadow-[0_0_10px_rgba(0,241,254,0.3)] transition-all duration-300 cursor-pointer hover:bg-white/10 shadow-lg backdrop-blur-md" style="background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2300f1fe%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E'); background-repeat: no-repeat; background-position: right 0.75rem center; background-size: 1.2em 1.2em;">
+                  <option value="it" class="bg-[#0A1128] text-white">Italiano</option>
+                  <option value="en" class="bg-[#0A1128] text-white">English</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+</main>
+
+<!-- ============ SETUP MODAL OVERLAY ============ -->
+<div class="fixed inset-0 z-[100] bg-background hidden items-center justify-center" id="setup-overlay">
+  <div class="ambient-glow"></div>
+  <main class="w-full max-w-md px-lg z-10">
+    <div class="glass-modal rounded-3xl p-xl flex flex-col items-center text-center" id="setup-modal">
+      <div class="w-20 h-20 rounded-full bg-surface-container-high flex items-center justify-center mb-lg border border-white/5 relative">
+        <div class="absolute inset-0 rounded-full shadow-[0_0_20px_rgba(0,242,255,0.2)]"></div>
+        <span class="material-symbols-outlined text-4xl text-secondary-container icon-fill">bolt</span>
+      </div>
+      <h1 class="text-headline-md text-on-surface mb-sm" data-i18n="setup_req">Setup Richiesto</h1>
+      <p class="text-body-md text-on-surface-variant mb-xl max-w-[280px]" id="setup-message" data-i18n="setup_req_sub">
+        Piani energetici di base non rilevati. È necessario installarli per ottimizzare le prestazioni del sistema.
+      </p>
+      <div class="flex flex-col sm:flex-row gap-md w-full">
+        <button class="btn-ghost flex-1 rounded-lg py-3 px-4 text-label-md flex items-center justify-center gap-xs" id="btn-setup-exit">
+          <span class="material-symbols-outlined text-[18px]">close</span>
+          <span data-i18n="setup_btn_exit">No, esci</span>
+        </button>
+        <button class="btn-cyan flex-1 rounded-lg py-3 px-4 text-label-md flex items-center justify-center gap-xs" id="btn-setup-install">
+          <span class="material-symbols-outlined text-[18px]">download</span>
+          <span data-i18n="setup_btn_install">Installa piani di base</span>
+        </button>
+      </div>
+      <div class="mt-lg flex items-center gap-2 opacity-60">
+        <span class="material-symbols-outlined text-[14px] text-secondary-container">info</span>
+        <span class="text-label-sm text-on-surface-variant" data-i18n="setup_admin">Questa operazione richiede i privilegi di amministratore.</span>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="js/bridge.js"></script>
+<script src="js/i18n.js"></script>
+<script src="js/app.js"></script>
+<script src="js/dashboard.js"></script>
+<script src="js/power.js"></script>
+<script src="js/settings.js"></script>
+<script src="js/setup.js"></script>
+</body>
+</html>

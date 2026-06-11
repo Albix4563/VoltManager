@@ -1,0 +1,290 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ===== Offline fonts ===== */
+@font-face {
+    font-family: 'Inter';
+    font-style: normal;
+    font-weight: 100 900;
+    font-display: swap;
+    src: url('../vendor/fonts/inter-latin.woff2') format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+    font-family: 'Inter';
+    font-style: normal;
+    font-weight: 100 900;
+    font-display: swap;
+    src: url('../vendor/fonts/inter-latin-ext.woff2') format('woff2');
+    unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+    font-family: 'Material Symbols Outlined';
+    font-style: normal;
+    font-weight: 100 700;
+    font-display: block;
+    src: url('../vendor/fonts/material-symbols-outlined.woff2') format('woff2');
+}
+
+.material-symbols-outlined {
+    font-family: 'Material Symbols Outlined';
+    font-weight: normal;
+    font-style: normal;
+    font-size: 24px;
+    line-height: 1;
+    letter-spacing: normal;
+    text-transform: none;
+    display: inline-block;
+    white-space: nowrap;
+    word-wrap: normal;
+    direction: ltr;
+    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    -webkit-font-feature-settings: 'liga';
+    -webkit-font-smoothing: antialiased;
+}
+.icon-fill {
+    font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24 !important;
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: #0A1128;
+    color: #d4e4fa;
+    overflow: hidden;
+}
+
+/* ===== Custom Scrollbar ===== */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
+.changelog-scroll::-webkit-scrollbar-thumb { background-color: #273647; border-radius: 9999px; }
+
+/* ===== Glassmorphism ===== */
+.glass-panel {
+    background: rgba(30, 42, 74, 0.7);
+    backdrop-filter: blur(30px);
+    -webkit-backdrop-filter: blur(30px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.glass-card {
+    background: #1E2A4A;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: inset 1px 1px 0px rgba(255, 255, 255, 0.05);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.glass-card:hover {
+    transform: translateY(-4px);
+    box-shadow: inset 1px 1px 0px rgba(255, 255, 255, 0.1), 0 8px 24px -8px rgba(0, 241, 254, 0.2);
+}
+.glass-modal {
+    background: rgba(30, 42, 74, 0.7);
+    backdrop-filter: blur(30px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), 0px 4px 20px rgba(0, 242, 255, 0.05);
+}
+
+/* ===== Progress Bar Glow ===== */
+.progress-glow {
+    filter: drop-shadow(0 0 6px rgba(0, 242, 255, 0.6));
+}
+
+/* ===== Segmented Control Switcher ===== */
+.segmented-control-bg {
+    background: rgba(30, 42, 74, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+.segmented-pill {
+    background: #1E2A4A;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ===== Nav Animations ===== */
+.nav-indicator {
+    position: absolute;
+    left: 0;
+    width: 4px;
+    background: #00f1fe;
+    box-shadow: 0 0 10px #00f1fe;
+    border-radius: 0 4px 4px 0;
+    transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    z-index: 10;
+}
+.nav-item {
+    position: relative;
+    z-index: 20;
+}
+
+/* ===== Content Entrance Animation ===== */
+@keyframes fadeSlideUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+.animate-in {
+    animation: fadeSlideUp 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* ===== View router ===== */
+.view { display: none; }
+.view:not(.hidden) { display: flex; }
+
+/* ===== Rule Toggle Switches (Power view) =====
+   Checkbox is an invisible full-size hit area; the label is the track,
+   the knob is the label's ::after so it can never escape the track. */
+.toggle-checkbox,
+.toggle-large {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    opacity: 0;
+    cursor: pointer;
+    z-index: 10;
+    appearance: none;
+    -webkit-appearance: none;
+}
+.toggle-label,
+.toggle-label-large {
+    display: block;
+    height: 100%;
+    border-radius: 9999px;
+    background: #273647;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    position: relative;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.toggle-label::after,
+.toggle-label-large::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    border-radius: 9999px;
+    background: #909098;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.toggle-label::after {
+    left: 3px;
+    width: 18px;
+    height: 18px;
+}
+.toggle-label-large::after {
+    left: 4px;
+    width: 24px;
+    height: 24px;
+}
+.toggle-checkbox:checked + .toggle-label {
+    background-color: rgba(0, 242, 255, 0.2);
+    border-color: #00f1fe;
+    box-shadow: 0px 0px 10px rgba(0, 242, 255, 0.3);
+}
+.toggle-checkbox:checked + .toggle-label::after {
+    left: calc(100% - 21px);
+    background: #00f1fe;
+}
+.toggle-large:checked + .toggle-label-large {
+    background-color: rgba(0, 242, 255, 0.15);
+    border-color: #00f1fe;
+    box-shadow: 0px 0px 20px rgba(0, 242, 255, 0.4);
+}
+.toggle-large:checked + .toggle-label-large::after {
+    left: calc(100% - 28px);
+    background: #00f1fe;
+}
+
+/* ===== Number Inputs ===== */
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+.input-glow:focus {
+    outline: none;
+    border-bottom: 2px solid #00f1fe;
+    box-shadow: 0 4px 10px -4px rgba(0, 242, 255, 0.3);
+}
+
+/* ===== Buttons ===== */
+.btn-glow:hover {
+    box-shadow: 0 0 15px rgba(0, 241, 254, 0.4);
+    filter: brightness(1.1);
+}
+.btn-glow:active { transform: scale(0.98); }
+.btn-glow:disabled { opacity: 0.5; pointer-events: none; }
+.btn-cyan {
+    background-color: #00f1fe;
+    color: #006a70;
+    transition: all 0.2s ease;
+}
+.btn-cyan:hover {
+    filter: brightness(1.1);
+    box-shadow: 0px 4px 15px rgba(0, 242, 255, 0.3);
+    transform: translateY(-1px);
+}
+.btn-ghost {
+    background-color: transparent;
+    border: 1px solid #00f1fe;
+    color: #00f1fe;
+    transition: all 0.2s ease;
+}
+.btn-ghost:hover {
+    background-color: rgba(0, 242, 255, 0.1);
+    box-shadow: 0px 0px 10px rgba(0, 242, 255, 0.2) inset;
+}
+
+/* ===== Setup overlay ambient glow ===== */
+.ambient-glow {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 60vw;
+    height: 60vh;
+    background: radial-gradient(circle, rgba(0, 242, 255, 0.05) 0%, rgba(5, 20, 36, 0) 70%);
+    pointer-events: none;
+}
+#setup-overlay:not(.hidden) { display: flex; }
+
+/* ===== Mini toggles (Settings preferences) ===== */
+.mini-toggle {
+    width: 44px;
+    height: 24px;
+    border-radius: 9999px;
+    background: rgba(39, 54, 71, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    position: relative;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    flex-shrink: 0;
+}
+.mini-toggle-knob {
+    position: absolute;
+    left: 3px;
+    top: 3px;
+    width: 16px;
+    height: 16px;
+    border-radius: 9999px;
+    background: #909098;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
+.mini-toggle[data-on="true"] {
+    background: rgba(0, 241, 254, 0.2);
+    border-color: #00f1fe;
+    box-shadow: 0 0 10px rgba(0, 241, 254, 0.2);
+}
+.mini-toggle[data-on="true"] .mini-toggle-knob {
+    transform: translateX(20px);
+    background: #00f1fe;
+}
+
+/* ===== Update status colors ===== */
+#update-status.ok { color: #00f1fe; }
+#update-status.err { color: #ffb4ab; }
+
+/* ===== Spinner ===== */
+@keyframes spin360 { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+.spinning { animation: spin360 1s linear infinite; }

@@ -1,0 +1,15 @@
+﻿=== VoltManager smoke test 2026-06-11 14:38:17 ===
+[PASS] Installer exists - C:\power_efficency\dist\VoltManagerSetup-1.0.0.exe
+[PASS] Original scheme captured - 5e032f02-bd0d-4b6c-bf6f-b533772cdffb
+[PASS] Silent install exit 0 - exit=0
+[PASS] Installed exe present - C:\Program Files\VoltManager\VoltManager.exe
+[PASS] wwwroot deployed - index.html
+[PASS] Process running - pid=12432
+[PASS] Main window present - title=VoltManager
+[PASS] WebView2 renderer running - count=6
+[PASS] Settings file created - C:\Users\Albix4563\AppData\Roaming\VoltManager\settings.json
+[PASS] Plan switch to saver works - 5e032f02-bd0d-4b6c-bf6f-b533772cdffb
+[PASS] Silent uninstall exit 0 - exit=0
+[PASS] Install dir removed - C:\Program Files\VoltManager
+[PASS] Original scheme restored - 5e032f02-bd0d-4b6c-bf6f-b533772cdffb
+=== 13 checks, 0 failures ===
