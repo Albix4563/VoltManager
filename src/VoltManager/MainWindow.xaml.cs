@@ -77,7 +77,7 @@ public partial class MainWindow : Window
             _ = CheckForUpdatesOnStartupAsync();
         };
 
-        core.Navigate("https://app.local/index.html");
+        core.Navigate("https://app.local/index.html?v=" + DateTimeOffset.UtcNow.ToUnixTimeSeconds());
     }
 
     private async Task CheckForUpdatesOnStartupAsync()

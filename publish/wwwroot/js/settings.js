@@ -45,7 +45,7 @@
             html += '<div class="relative pl-6 border-l border-surface-variant/50">' +
                 '<div class="absolute left-0 top-1 w-3 h-3 rounded-full bg-surface-variant -translate-x-[6.5px] border-2 border-background"></div>' +
                 '<div class="flex items-center gap-sm mb-xs">' +
-                '<h4 class="text-title-lg text-on-surface opacity-80">Ultimi commit (main)</h4></div>' +
+                '<h4 class="text-title-lg text-on-surface opacity-80">' + esc(I18n.t('msg_latest_commits')) + '</h4></div>' +
                 '<ul class="text-body-md text-on-surface-variant space-y-2 mt-sm list-disc pl-4 marker:text-secondary-container/50">' +
                 info.commits.map(c =>
                     '<li><span class="text-secondary-fixed-dim font-mono text-label-md">' + esc(c.sha) + '</span> ' +
@@ -55,7 +55,7 @@
                 '</ul></div>';
         }
         if (!html) {
-            html = '<p class="text-body-md text-on-surface-variant opacity-70">Nessuna informazione disponibile.</p>';
+            html = '<p class="text-body-md text-on-surface-variant opacity-70">' + esc(I18n.t('msg_no_info')) + '</p>';
         }
         changelog.innerHTML = html;
     }
@@ -65,7 +65,7 @@
         const icon = btnCheck.querySelector('.material-symbols-outlined');
         icon.classList.add('spinning');
         icon.textContent = 'progress_activity';
-        setStatus('Controllo aggiornamenti in corso…', false);
+        setStatus(I18n.t('msg_check_update'), false);
         try {
             const info = await Host.call('checkForUpdates');
             if (info.status === 'ok') {
@@ -75,14 +75,14 @@
                     downloadUrl = info.downloadUrl;
                     btnDownload.classList.remove('hidden');
                     btnDownload.classList.add('flex');
-                    btnDownloadLabel.textContent = 'Scarica e installa v' + info.latestVersion;
+                    btnDownloadLabel.textContent = I18n.t('msg_dl_install') + info.latestVersion;
                 }
             } else {
-                setStatus(info.message || 'Errore durante il controllo.', true);
+                setStatus(info.message || I18n.t('msg_check_err'), true);
                 if (info.commits && info.commits.length) renderChangelog(info);
             }
         } catch (err) {
-            setStatus('Errore: ' + err.message, true);
+            setStatus(I18n.t('msg_err') + err.message, true);
         } finally {
             btnCheck.disabled = false;
             icon.classList.remove('spinning');
@@ -91,7 +91,52 @@
     });
 
     Host.on('updateDownloadProgress', (data) => {
-        btnDownloadLabel.textContent = 'Download… ' + data.pct + '%';
+        btnDownloadLabel.textContent = I18n.t('msg_dl_prog') + data.pct + '%';
+        const bannerBtn = document.getElementById('upd-banner-install');
+        if (bannerBtn) bannerBtn.textContent = I18n.t('msg_dl_prog') + data.pct + '%';
+    });
+
+    // ----- Startup update banner (pushed by host after auto-check) -----
+    Host.on('updateAvailable', (info) => {
+        if (!info || !info.downloadUrl) return;
+        // Sync Settings page state so the manual flow shows the update too.
+        downloadUrl = info.downloadUrl;
+        btnDownload.classList.remove('hidden');
+        btnDownload.classList.add('flex');
+        btnDownloadLabel.textContent = I18n.t('msg_dl_install') + info.latestVersion;
+        renderChangelog(info);
+
+        if (document.getElementById('upd-banner')) return;
+        const banner = document.createElement('div');
+        banner.id = 'upd-banner';
+        banner.style.cssText =
+            'position:fixed;bottom:24px;right:24px;z-index:1000;max-width:380px;' +
+            'background:#1b2330;border:1px solid rgba(0,241,254,0.35);border-radius:14px;' +
+            'padding:16px 18px;box-shadow:0 8px 32px rgba(0,0,0,0.55);color:#e2e8f0;' +
+            'font-size:14px;display:flex;flex-direction:column;gap:10px;';
+        banner.innerHTML =
+            '<div style="font-weight:700;color:#00f1fe;">' +
+                esc(I18n.t('upd_banner_title')) + esc(info.latestVersion) + '</div>' +
+            '<div style="opacity:0.8;">' + esc(I18n.t('upd_banner_sub')) + '</div>' +
+            '<div style="display:flex;gap:10px;justify-content:flex-end;">' +
+                '<button id="upd-banner-later" style="background:none;border:none;color:#94a3b8;cursor:pointer;padding:6px 10px;">' +
+                    esc(I18n.t('upd_banner_later')) + '</button>' +
+                '<button id="upd-banner-install" style="background:#00f1fe;border:none;color:#0b1118;font-weight:700;cursor:pointer;padding:6px 14px;border-radius:8px;">' +
+                    esc(I18n.t('upd_banner_install')) + '</button>' +
+            '</div>';
+        document.body.appendChild(banner);
+
+        document.getElementById('upd-banner-later').addEventListener('click', () => banner.remove());
+        document.getElementById('upd-banner-install').addEventListener('click', async (e) => {
+            e.target.disabled = true;
+            try {
+                await Host.call('downloadUpdate', { url: info.downloadUrl });
+                // Host launches installer and exits the app.
+            } catch (err) {
+                e.target.disabled = false;
+                setStatus(I18n.t('msg_dl_fail') + err.message, true);
+            }
+        });
     });
 
     btnDownload.addEventListener('click', async () => {
@@ -101,9 +146,9 @@
             await Host.call('downloadUpdate', { url: downloadUrl });
             // Host launches installer and exits the app.
         } catch (err) {
-            setStatus('Download fallito: ' + err.message, true);
+            setStatus(I18n.t('msg_dl_fail') + err.message, true);
             btnDownload.disabled = false;
-            btnDownloadLabel.textContent = 'Scarica e installa';
+            btnDownloadLabel.textContent = I18n.t('set_btn_download');
         }
     });
 
@@ -119,6 +164,13 @@
         const s = window.__voltSettings;
         setToggle(toggleAutostart, s.startWithWindows);
         setToggle(toggleTray, s.get().closeToTray);
+
+        const langSelect = document.getElementById('lang-select');
+        langSelect.value = I18n.getLang();
+        langSelect.addEventListener('change', (e) => {
+            I18n.setLang(e.target.value);
+            // Optionally dispatch a global event so others can re-render if needed
+        });
     });
 
     document.getElementById('pref-autostart').addEventListener('click', async () => {

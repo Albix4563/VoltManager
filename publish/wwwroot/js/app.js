@@ -69,7 +69,7 @@
             document.getElementById('info-os').textContent = info.osVersion;
             document.getElementById('info-version').textContent = 'v' + info.appVersion;
             document.getElementById('sidebar-version').textContent = 'VoltManager v' + info.appVersion;
-            document.getElementById('version-badge').textContent = 'Current Version: v' + info.appVersion;
+            document.getElementById('version-badge').textContent = I18n.t('set_updates_curr') + 'v' + info.appVersion;
         } catch (err) {
             console.error('getSystemInfo failed', err);
         }

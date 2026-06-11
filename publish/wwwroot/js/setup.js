@@ -31,18 +31,18 @@
 
     btnInstall.addEventListener('click', async () => {
         btnInstall.disabled = true;
-        message.textContent = 'Installazione dei piani energetici in corso…';
+        message.textContent = I18n.t('msg_installing');
         try {
             const res = await Host.call('restoreDefaultPlans');
             if (res.success) {
-                message.textContent = 'Piani installati correttamente.';
+                message.textContent = I18n.t('msg_install_ok');
                 setTimeout(hide, 600);
             } else {
-                message.textContent = 'Installazione parziale: alcuni piani non sono stati creati. Riprova.';
+                message.textContent = I18n.t('msg_install_part');
                 btnInstall.disabled = false;
             }
         } catch (err) {
-            message.textContent = 'Errore: ' + err.message;
+            message.textContent = I18n.t('msg_err') + err.message;
             btnInstall.disabled = false;
         }
     });

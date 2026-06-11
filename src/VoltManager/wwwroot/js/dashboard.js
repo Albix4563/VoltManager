@@ -136,6 +136,7 @@
     }
 
     function closeOverrideModal() {
+        overrideOverlay.style.display = 'none';
         overrideOverlay.classList.add('hidden');
         overrideOverlay.classList.remove('flex');
         pendingPlan = null;
@@ -146,6 +147,7 @@
         pendingPlan = plan;
         resetOverrideModal();
         overridePlanLabel.textContent = planName(plan);
+        overrideOverlay.style.display = 'flex';
         overrideOverlay.classList.remove('hidden');
         overrideOverlay.classList.add('flex');
     }
