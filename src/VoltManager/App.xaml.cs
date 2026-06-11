@@ -28,6 +28,7 @@ public partial class App : Application
 
     public PowerPlan? ActivePlan { get; private set; }
     public event Action<PowerPlan?>? ActivePlanChanged;
+    public event Action<ManualOverride?>? ManualOverrideChanged;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -59,6 +60,7 @@ public partial class App : Application
         Updates = new UpdateService(Settings);
         AutoStart = new StartupService();
         Automation = new AutomationEngine();
+        ClearExpiredManualOverride(DateTime.UtcNow);
 
         Monitor.Start();
         StartPlanPoll();
@@ -94,7 +96,9 @@ public partial class App : Application
             try
             {
                 double avg = Automation.AddSample(Monitor.Latest.Cpu);
-                var target = Automation.Evaluate(avg, DateTime.UtcNow, ActivePlan?.PlanId, Settings.Current);
+                var now = DateTime.UtcNow;
+                ClearExpiredManualOverride(now);
+                var target = Automation.Evaluate(avg, now, ActivePlan?.PlanId, Settings.Current);
                 if (target != null && Power.SetActivePlan(target.Value))
                 {
                     var current = Power.GetActivePlan();
@@ -108,6 +112,54 @@ public partial class App : Application
             }
         }, null, 3000, 1000);
     }
+
+    public bool SetManualOverride(PlanId plan, TimeSpan? duration)
+    {
+        if (!Power.SetActivePlan(plan)) return false;
+
+        Settings.Current.Override = new ManualOverride
+        {
+            Plan = ToPlanKey(plan),
+            ExpiresAtUtc = duration == null ? null : DateTime.UtcNow.Add(duration.Value),
+        };
+        Settings.Save();
+        Automation.Reset();
+
+        var current = Power.GetActivePlan();
+        ActivePlan = current;
+        ActivePlanChanged?.Invoke(current);
+        ManualOverrideChanged?.Invoke(Settings.Current.Override);
+        return true;
+    }
+
+    public void ClearManualOverride()
+    {
+        if (Settings.Current.Override == null) return;
+
+        Settings.Current.Override = null;
+        Settings.Save();
+        Automation.Reset();
+        ManualOverrideChanged?.Invoke(null);
+    }
+
+    private void ClearExpiredManualOverride(DateTime now)
+    {
+        if (Settings.Current.Override?.ExpiresAtUtc == null) return;
+        if (Settings.Current.Override.ExpiresAtUtc > now) return;
+
+        Settings.Current.Override = null;
+        Settings.Save();
+        Automation.Reset();
+        ManualOverrideChanged?.Invoke(null);
+    }
+
+    private static string ToPlanKey(PlanId plan) => plan switch
+    {
+        PlanId.PowerSaver => "powerSaver",
+        PlanId.Balanced => "balanced",
+        PlanId.Performance => "performance",
+        _ => "",
+    };
 
     public void ExitApp()
     {

@@ -40,6 +40,14 @@ public class AutomationRule
     [JsonPropertyName("targetPlan")] public PlanId TargetPlan { get; set; }
 }
 
+public class ManualOverride
+{
+    [JsonPropertyName("plan")] public string Plan { get; set; } = "";
+    [JsonPropertyName("expiresAtUtc")] public DateTime? ExpiresAtUtc { get; set; }
+
+    public bool IsActive(DateTime nowUtc) => ExpiresAtUtc == null || ExpiresAtUtc > nowUtc;
+}
+
 public class AppSettings
 {
     [JsonPropertyName("masterAutomationEnabled")] public bool MasterAutomationEnabled { get; set; } = true;
@@ -49,6 +57,7 @@ public class AppSettings
     [JsonPropertyName("rules")] public List<AutomationRule> Rules { get; set; } = DefaultRules();
     // duplicatescheme assigns new GUIDs; map canonical plan -> actual GUID on this machine.
     [JsonPropertyName("planGuidMap")] public Dictionary<string, string> PlanGuidMap { get; set; } = new();
+    [JsonPropertyName("override")] public ManualOverride? Override { get; set; }
 
     public static List<AutomationRule> DefaultRules() => new()
     {

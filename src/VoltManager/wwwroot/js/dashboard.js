@@ -44,8 +44,22 @@
     // ----- Power plan segmented control -----
     const planButtons = Array.from(document.querySelectorAll('#plan-control button'));
     const pill = document.getElementById('plan-pill');
+    const overrideChip = document.getElementById('manual-override-chip');
+    const overrideLabel = document.getElementById('manual-override-label');
+    const clearOverrideBtn = document.getElementById('btn-clear-manual-override');
+    const overrideOverlay = document.getElementById('manual-override-overlay');
+    const overridePlanLabel = document.getElementById('manual-override-plan');
+    const overrideWarning = document.getElementById('manual-override-warning');
+    const overrideConfirm = document.getElementById('btn-manual-override-confirm');
+    const overrideCancel = document.getElementById('btn-manual-override-cancel');
+    const overrideOptions = Array.from(document.querySelectorAll('.manual-override-option'));
     const planOrder = ['powerSaver', 'balanced', 'performance'];
     let switching = false;
+    let pendingPlan = null;
+    let pendingForever = false;
+    let pendingHours = null;
+    let activeOverride = null;
+    let overrideTimer = null;
 
     function reflectPlan(plan) {
         const index = planOrder.indexOf(plan);
@@ -65,32 +79,155 @@
         btn.classList.remove('text-on-surface-variant');
     }
 
-    planButtons.forEach((btn) => {
-        btn.addEventListener('click', async () => {
-            if (switching) return;
-            switching = true;
-            const previous = planButtons.find(b => b.classList.contains('text-secondary-container'));
-            reflectPlan(btn.dataset.plan); // optimistic
-            try {
-                const res = await Host.call('setActivePlan', { plan: btn.dataset.plan });
-                if (!res.success && previous) reflectPlan(previous.dataset.plan);
-            } catch (err) {
-                console.error('setActivePlan failed', err);
-                if (previous) reflectPlan(previous.dataset.plan);
-            } finally {
-                switching = false;
+    function planName(plan) {
+        const key = {
+            powerSaver: 'dash_plan_saver',
+            balanced: 'dash_plan_balanced',
+            performance: 'dash_plan_performance',
+        }[plan];
+        return key ? I18n.t(key) : plan;
+    }
+
+    function formatRemaining(expiresAtUtc) {
+        const expires = new Date(expiresAtUtc);
+        const ms = Math.max(0, expires.getTime() - Date.now());
+        const totalMinutes = Math.ceil(ms / 60000);
+        const hours = Math.floor(totalMinutes / 60);
+        const minutes = totalMinutes % 60;
+        if (hours > 0) return hours + 'h ' + minutes + 'm';
+        return minutes + 'm';
+    }
+
+    function renderOverrideStatus(override) {
+        activeOverride = override || null;
+        if (overrideTimer) {
+            clearInterval(overrideTimer);
+            overrideTimer = null;
+        }
+
+        if (!activeOverride) {
+            overrideChip.classList.add('hidden');
+            overrideChip.classList.remove('flex');
+            return;
+        }
+
+        const update = () => {
+            overrideChip.classList.remove('hidden');
+            overrideChip.classList.add('flex');
+            if (!activeOverride.expiresAtUtc) {
+                overrideLabel.textContent = I18n.t('override_locked_forever');
+                return;
             }
+            overrideLabel.textContent = I18n.t('override_locked_until') + formatRemaining(activeOverride.expiresAtUtc);
+        };
+
+        update();
+        if (activeOverride.expiresAtUtc) overrideTimer = setInterval(update, 30000);
+    }
+
+    function resetOverrideModal() {
+        pendingForever = false;
+        pendingHours = null;
+        overrideWarning.classList.add('hidden');
+        overrideConfirm.classList.add('hidden');
+        overrideOptions.forEach((option) => {
+            option.classList.remove('bg-white/10', 'text-secondary-container');
         });
+    }
+
+    function closeOverrideModal() {
+        overrideOverlay.classList.add('hidden');
+        overrideOverlay.classList.remove('flex');
+        pendingPlan = null;
+        resetOverrideModal();
+    }
+
+    function openOverrideModal(plan) {
+        pendingPlan = plan;
+        resetOverrideModal();
+        overridePlanLabel.textContent = planName(plan);
+        overrideOverlay.classList.remove('hidden');
+        overrideOverlay.classList.add('flex');
+    }
+
+    async function applyOverride() {
+        if (!pendingPlan || switching) return;
+        switching = true;
+        const previous = planButtons.find(b => b.classList.contains('text-secondary-container'));
+        reflectPlan(pendingPlan);
+        try {
+            const payload = { plan: pendingPlan };
+            if (!pendingForever) payload.hours = pendingHours;
+            const res = await Host.call('setManualOverride', payload);
+            if (!res.success && previous) reflectPlan(previous.dataset.plan);
+            renderOverrideStatus(res.override);
+            closeOverrideModal();
+        } catch (err) {
+            console.error('setManualOverride failed', err);
+            if (previous) reflectPlan(previous.dataset.plan);
+        } finally {
+            switching = false;
+        }
+    }
+
+    planButtons.forEach((btn) => {
+        btn.addEventListener('click', () => {
+            if (switching) return;
+            openOverrideModal(btn.dataset.plan);
+        });
+    });
+
+    overrideOptions.forEach((option) => {
+        option.addEventListener('click', async () => {
+            overrideOptions.forEach((o) => o.classList.remove('bg-white/10', 'text-secondary-container'));
+            option.classList.add('bg-white/10', 'text-secondary-container');
+
+            pendingForever = option.dataset.forever === 'true';
+            pendingHours = pendingForever ? null : Number(option.dataset.hours);
+            overrideWarning.classList.toggle('hidden', !pendingForever);
+            overrideConfirm.classList.toggle('hidden', !pendingForever);
+            if (!pendingForever) await applyOverride();
+        });
+    });
+
+    overrideConfirm.addEventListener('click', applyOverride);
+    overrideCancel.addEventListener('click', closeOverrideModal);
+    overrideOverlay.addEventListener('click', (event) => {
+        if (event.target === overrideOverlay) closeOverrideModal();
+    });
+
+    clearOverrideBtn.addEventListener('click', async () => {
+        try {
+            const res = await Host.call('clearManualOverride');
+            renderOverrideStatus(res.override);
+        } catch (err) {
+            console.error('clearManualOverride failed', err);
+        }
     });
 
     Host.on('activePlanChanged', (data) => {
         reflectPlan(data.plan ? data.plan : null);
     });
 
+    Host.on('automationStateChanged', (data) => {
+        renderOverrideStatus(data.override);
+    });
+
+    Host.on('manualOverrideChanged', (data) => {
+        renderOverrideStatus(data.override);
+    });
+
+    document.addEventListener('langchanged', () => {
+        renderOverrideStatus(activeOverride);
+    });
+
     // Initial active plan.
     if (Host.available) {
         Host.call('getActivePlan').then(p => {
             if (p && p.planId) reflectPlan(p.planId);
+        }).catch(() => {});
+        Host.call('getSettings').then(res => {
+            if (res && res.settings) renderOverrideStatus(res.settings.override);
         }).catch(() => {});
     }
 })();

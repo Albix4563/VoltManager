@@ -26,12 +26,13 @@ public class HostBridge
     private readonly SettingsService _settings;
     private readonly UpdateService _updates;
     private readonly StartupService _startup;
+    private readonly App _app;
 
     public event Action? ExitRequested;
     public event Action? MinimizeToTrayRequested;
 
     public HostBridge(WebView2 webView, HardwareInfoService hardware, PowerPlanService power,
-        SettingsService settings, UpdateService updates, StartupService startup)
+        SettingsService settings, UpdateService updates, StartupService startup, App app)
     {
         _webView = webView;
         _hardware = hardware;
@@ -39,6 +40,7 @@ public class HostBridge
         _settings = settings;
         _updates = updates;
         _startup = startup;
+        _app = app;
     }
 
     public void Attach()
@@ -121,6 +123,27 @@ public class HostBridge
                 return new { success = okSet };
             }
 
+            case "setManualOverride":
+            {
+                var planStr = payload.GetProperty("plan").GetString() ?? "";
+                if (!Enum.TryParse<PlanId>(planStr, true, out var plan))
+                    throw new ArgumentException($"Piano sconosciuto: {planStr}");
+
+                TimeSpan? duration = null;
+                if (payload.TryGetProperty("hours", out var hoursEl) &&
+                    hoursEl.ValueKind == JsonValueKind.Number)
+                {
+                    duration = TimeSpan.FromHours(hoursEl.GetDouble());
+                }
+
+                bool okOverride = await Task.Run(() => _app.SetManualOverride(plan, duration));
+                return new { success = okOverride, @override = _settings.Current.Override };
+            }
+
+            case "clearManualOverride":
+                await Task.Run(_app.ClearManualOverride);
+                return new { success = true, @override = _settings.Current.Override };
+
             case "getSettings":
                 return new
                 {
@@ -134,6 +157,7 @@ public class HostBridge
                     ?? throw new ArgumentException("Impostazioni non valide");
                 // Preserve machine-local guid map: UI never edits it.
                 settings.PlanGuidMap = _settings.Current.PlanGuidMap;
+                settings.Override = _settings.Current.Override;
                 _settings.Update(settings);
                 return new { success = true };
             }

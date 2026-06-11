@@ -172,6 +172,11 @@
               Performance
             </button>
           </div>
+          <div class="hidden mt-4 items-center gap-3 px-4 py-3 rounded-lg bg-surface-container-low/50 border border-white/10" id="manual-override-chip">
+            <span class="material-symbols-outlined text-secondary-container text-[18px]">lock</span>
+            <span class="text-body-md text-on-surface" id="manual-override-label">Piano bloccato</span>
+            <button class="btn-ghost rounded-lg py-1 px-3 text-label-md" id="btn-clear-manual-override" type="button" data-i18n="override_cancel">Annulla</button>
+          </div>
         </div>
       </section>
     </section>
@@ -403,6 +408,33 @@
     </section>
   </div>
 </main>
+
+<!-- ============ MANUAL OVERRIDE MODAL ============ -->
+<div class="fixed inset-0 z-[100] bg-background hidden items-center justify-center" id="manual-override-overlay">
+  <div class="ambient-glow"></div>
+  <main class="w-full max-w-md px-lg z-10">
+    <div class="glass-modal rounded-3xl p-xl flex flex-col" id="manual-override-modal">
+      <div class="flex items-center gap-3 mb-md">
+        <div class="w-10 h-10 rounded-lg bg-secondary-container/20 flex items-center justify-center border border-secondary-container/30">
+          <span class="material-symbols-outlined text-secondary-container icon-fill">lock</span>
+        </div>
+        <h1 class="text-headline-md text-on-surface" data-i18n="override_title">Per quanto tempo mantenere questo piano?</h1>
+      </div>
+      <p class="text-body-md text-on-surface-variant mb-lg" id="manual-override-plan"></p>
+      <div class="grid grid-cols-1 gap-sm">
+        <button class="manual-override-option btn-ghost rounded-lg py-3 px-4 text-body-md text-left" data-hours="1" type="button" data-i18n="override_1h">1 ora</button>
+        <button class="manual-override-option btn-ghost rounded-lg py-3 px-4 text-body-md text-left" data-hours="10" type="button" data-i18n="override_10h">10 ore</button>
+        <button class="manual-override-option btn-ghost rounded-lg py-3 px-4 text-body-md text-left" data-hours="12" type="button" data-i18n="override_12h">12 ore</button>
+        <button class="manual-override-option btn-ghost rounded-lg py-3 px-4 text-body-md text-left" data-forever="true" type="button" data-i18n="override_forever">Sempre</button>
+      </div>
+      <p class="hidden text-body-md text-on-surface-variant mt-md" id="manual-override-warning" data-i18n="override_forever_warning">L'app non cambiera piu il piano automaticamente finche non annulli.</p>
+      <div class="flex justify-end gap-md mt-lg">
+        <button class="btn-ghost rounded-lg py-3 px-4 text-label-md" id="btn-manual-override-cancel" type="button" data-i18n="override_cancel">Annulla</button>
+        <button class="btn-cyan rounded-lg py-3 px-4 text-label-md hidden" id="btn-manual-override-confirm" type="button" data-i18n="override_confirm">Conferma</button>
+      </div>
+    </div>
+  </main>
+</div>
 
 <!-- ============ SETUP MODAL OVERLAY ============ -->
 <div class="fixed inset-0 z-[100] bg-background hidden items-center justify-center" id="setup-overlay">

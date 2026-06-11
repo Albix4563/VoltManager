@@ -113,6 +113,36 @@ public class AutomationEngineTests
     }
 
     [Fact]
+    public void ActiveManualOverride_NeverFires()
+    {
+        var engine = new AutomationEngine();
+        var s = Settings();
+        s.Override = new ManualOverride
+        {
+            Plan = "balanced",
+            ExpiresAtUtc = T0.AddHours(1),
+        };
+
+        engine.Evaluate(80, T0, PlanId.Balanced, s);
+        Assert.Null(engine.Evaluate(80, T0.AddMinutes(5), PlanId.Balanced, s));
+    }
+
+    [Fact]
+    public void ExpiredManualOverride_DoesNotBlockAutomation()
+    {
+        var engine = new AutomationEngine();
+        var s = Settings();
+        s.Override = new ManualOverride
+        {
+            Plan = "balanced",
+            ExpiresAtUtc = T0.AddSeconds(-1),
+        };
+
+        engine.Evaluate(80, T0, PlanId.Balanced, s);
+        Assert.Equal(PlanId.Performance, engine.Evaluate(80, T0.AddSeconds(61), PlanId.Balanced, s));
+    }
+
+    [Fact]
     public void NoRuleMatches_NoCandidate()
     {
         // CPU exactly 10: not <10, not >10.

@@ -35,6 +35,12 @@ public class AutomationEngine
 
     public PlanId? Evaluate(double cpuAvg, DateTime now, PlanId? activePlan, AppSettings settings)
     {
+        if (settings.Override?.IsActive(now) == true)
+        {
+            Reset();
+            return null;
+        }
+
         if (!settings.MasterAutomationEnabled)
         {
             Reset();

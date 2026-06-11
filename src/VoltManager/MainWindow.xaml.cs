@@ -59,14 +59,15 @@ public partial class MainWindow : Window
         core.Settings.AreBrowserAcceleratorKeysEnabled = false;
         core.Settings.IsStatusBarEnabled = false;
 
-        _bridge = new HostBridge(WebView, _app.Hardware, _app.Power, _app.Settings, _app.Updates, _app.AutoStart);
+        _bridge = new HostBridge(WebView, _app.Hardware, _app.Power, _app.Settings, _app.Updates, _app.AutoStart, _app);
         _bridge.Attach();
         _bridge.ExitRequested += () => Dispatcher.Invoke(() => { _exiting = true; _app.ExitApp(); });
         _bridge.MinimizeToTrayRequested += () => Dispatcher.Invoke(HideToTray);
 
         _app.Monitor.MetricsUpdated += m => _bridge.PushEvent("metrics", m);
-        _app.ActivePlanChanged += p => _bridge.PushEvent("activePlanChanged", new { plan = p?.PlanId?.ToString(), guid = p?.Guid, name = p?.Name });
-        _app.Settings.SettingsChanged += s => _bridge.PushEvent("automationStateChanged", new { masterEnabled = s.MasterAutomationEnabled });
+        _app.ActivePlanChanged += p => _bridge.PushEvent("activePlanChanged", new { plan = p?.PlanId, guid = p?.Guid, name = p?.Name });
+        _app.Settings.SettingsChanged += s => _bridge.PushEvent("automationStateChanged", new { masterEnabled = s.MasterAutomationEnabled, @override = s.Override });
+        _app.ManualOverrideChanged += o => _bridge.PushEvent("manualOverrideChanged", new { @override = o });
 
         bool startupCheckDone = false;
         core.NavigationCompleted += (_, args) =>
