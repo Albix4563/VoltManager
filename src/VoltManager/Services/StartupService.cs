@@ -1,10 +1,15 @@
 using System.Diagnostics;
+using System.IO;
+using System.Security;
+using System.Security.Principal;
 
 namespace VoltManager.Services;
 
 /// <summary>
 /// Autostart for an elevated app: HKCU Run is blocked by UAC for requireAdministrator
-/// binaries, so use a scheduled task with /rl HIGHEST at logon.
+/// binaries, so use a scheduled task at logon. The task is registered via XML because
+/// the plain schtasks CLI applies defaults that break autostart on laptops
+/// (don't start on battery, stop on battery, 72h execution limit).
 /// </summary>
 public class StartupService
 {
@@ -16,7 +21,18 @@ public class StartupService
         {
             string exe = Environment.ProcessPath ?? "";
             if (string.IsNullOrEmpty(exe)) return false;
-            return RunSchtasks($"/create /f /tn \"{TaskName}\" /tr \"\\\"{exe}\\\" --minimized\" /sc onlogon /rl HIGHEST") == 0;
+
+            string xmlPath = Path.GetTempFileName();
+            try
+            {
+                // schtasks expects task XML files in UTF-16.
+                File.WriteAllText(xmlPath, BuildTaskXml(exe), System.Text.Encoding.Unicode);
+                return RunSchtasks($"/create /f /tn \"{TaskName}\" /xml \"{xmlPath}\"") == 0;
+            }
+            finally
+            {
+                try { File.Delete(xmlPath); } catch { }
+            }
         }
         RunSchtasks($"/delete /f /tn \"{TaskName}\"");
         return true;
@@ -25,6 +41,52 @@ public class StartupService
     public bool IsEnabled()
     {
         return RunSchtasks($"/query /tn \"{TaskName}\"") == 0;
+    }
+
+    private static string BuildTaskXml(string exePath)
+    {
+        string user = SecurityElement.Escape(WindowsIdentity.GetCurrent().Name);
+        string exe = SecurityElement.Escape(exePath);
+
+        return $"""
+            <?xml version="1.0" encoding="UTF-16"?>
+            <Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+              <Triggers>
+                <LogonTrigger>
+                  <Enabled>true</Enabled>
+                  <UserId>{user}</UserId>
+                </LogonTrigger>
+              </Triggers>
+              <Principals>
+                <Principal id="Author">
+                  <UserId>{user}</UserId>
+                  <LogonType>InteractiveToken</LogonType>
+                  <RunLevel>HighestAvailable</RunLevel>
+                </Principal>
+              </Principals>
+              <Settings>
+                <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
+                <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
+                <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
+                <AllowHardTerminate>true</AllowHardTerminate>
+                <StartWhenAvailable>false</StartWhenAvailable>
+                <RunOnlyIfNetworkAvailable>false</RunOnlyIfNetworkAvailable>
+                <AllowStartOnDemand>true</AllowStartOnDemand>
+                <Enabled>true</Enabled>
+                <Hidden>false</Hidden>
+                <RunOnlyIfIdle>false</RunOnlyIfIdle>
+                <WakeToRun>false</WakeToRun>
+                <ExecutionTimeLimit>PT0S</ExecutionTimeLimit>
+                <Priority>7</Priority>
+              </Settings>
+              <Actions Context="Author">
+                <Exec>
+                  <Command>{exe}</Command>
+                  <Arguments>--minimized</Arguments>
+                </Exec>
+              </Actions>
+            </Task>
+            """;
     }
 
     private static int RunSchtasks(string args)
