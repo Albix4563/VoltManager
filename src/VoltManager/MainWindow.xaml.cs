@@ -3,6 +3,7 @@ using System.IO;
 using System.Windows;
 using Microsoft.Web.WebView2.Core;
 using VoltManager.Bridge;
+using VoltManager.Models;
 
 namespace VoltManager;
 
@@ -18,6 +19,9 @@ public partial class MainWindow : Window
         InitializeComponent();
         Loaded += async (_, _) => await InitWebViewAsync();
         Closing += OnClosingToTray;
+        // Fires from timer threads; tooltip lives on the UI thread.
+        _app.ActivePlanChanged += p => Dispatcher.Invoke(() =>
+            TrayIcon.ToolTipText = "VoltManager – " + PlanDisplayName(p));
 
         if (startMinimized)
         {
@@ -127,6 +131,49 @@ public partial class MainWindow : Window
 
     private void TrayIcon_LeftClick(object sender, RoutedEventArgs e) => ShowFromTray();
     private void TrayOpen_Click(object sender, RoutedEventArgs e) => ShowFromTray();
+
+    private static string PlanDisplayName(Models.PowerPlan? plan) => plan?.PlanId switch
+    {
+        PlanId.PowerSaver => "Risparmio energia",
+        PlanId.Balanced => "Bilanciato",
+        PlanId.Performance => "Prestazioni",
+        _ => string.IsNullOrEmpty(plan?.Name) ? "Sconosciuto" : plan.Name,
+    };
+
+    private void TrayMenu_Opened(object sender, RoutedEventArgs e)
+    {
+        TrayActivePlanItem.Header = "Piano attivo: " + PlanDisplayName(_app.ActivePlan);
+        TrayAutomationItem.IsChecked = _app.Settings.Current.MasterAutomationEnabled;
+        TrayClearOverrideItem.Visibility = _app.Settings.Current.Override != null
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+    }
+
+    private void TrayPlanDuration_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not System.Windows.Controls.MenuItem { Tag: string tag }) return;
+        var parts = tag.Split('|');
+        if (parts.Length != 2 || !int.TryParse(parts[1], out int hours)) return;
+
+        PlanId plan = parts[0] switch
+        {
+            "powerSaver" => PlanId.PowerSaver,
+            "performance" => PlanId.Performance,
+            _ => PlanId.Balanced,
+        };
+        TimeSpan? duration = hours == 0 ? null : TimeSpan.FromHours(hours);
+        // SetManualOverride shells out to powercfg; keep it off the UI thread.
+        _ = Task.Run(() => _app.SetManualOverride(plan, duration));
+    }
+
+    private void TrayClearOverride_Click(object sender, RoutedEventArgs e)
+        => _ = Task.Run(_app.ClearManualOverride);
+
+    private void TrayAutomation_Click(object sender, RoutedEventArgs e)
+    {
+        _app.Settings.Current.MasterAutomationEnabled = TrayAutomationItem.IsChecked;
+        _app.Settings.Save();
+    }
 
     private void TrayExit_Click(object sender, RoutedEventArgs e)
     {

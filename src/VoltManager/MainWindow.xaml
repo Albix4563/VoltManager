@@ -16,8 +16,34 @@
                         Visibility="Visible"
                         TrayLeftMouseUp="TrayIcon_LeftClick">
             <tb:TaskbarIcon.ContextMenu>
-                <ContextMenu>
+                <ContextMenu Opened="TrayMenu_Opened">
                     <MenuItem Header="Apri VoltManager" Click="TrayOpen_Click" FontWeight="Bold" />
+                    <Separator />
+                    <MenuItem x:Name="TrayActivePlanItem" Header="Piano attivo: —" IsEnabled="False" />
+                    <MenuItem Header="Cambia piano">
+                        <MenuItem Header="Risparmio energia">
+                            <MenuItem Header="1 ora" Tag="powerSaver|1" Click="TrayPlanDuration_Click" />
+                            <MenuItem Header="10 ore" Tag="powerSaver|10" Click="TrayPlanDuration_Click" />
+                            <MenuItem Header="12 ore" Tag="powerSaver|12" Click="TrayPlanDuration_Click" />
+                            <MenuItem Header="Sempre" Tag="powerSaver|0" Click="TrayPlanDuration_Click" />
+                        </MenuItem>
+                        <MenuItem Header="Bilanciato">
+                            <MenuItem Header="1 ora" Tag="balanced|1" Click="TrayPlanDuration_Click" />
+                            <MenuItem Header="10 ore" Tag="balanced|10" Click="TrayPlanDuration_Click" />
+                            <MenuItem Header="12 ore" Tag="balanced|12" Click="TrayPlanDuration_Click" />
+                            <MenuItem Header="Sempre" Tag="balanced|0" Click="TrayPlanDuration_Click" />
+                        </MenuItem>
+                        <MenuItem Header="Prestazioni">
+                            <MenuItem Header="1 ora" Tag="performance|1" Click="TrayPlanDuration_Click" />
+                            <MenuItem Header="10 ore" Tag="performance|10" Click="TrayPlanDuration_Click" />
+                            <MenuItem Header="12 ore" Tag="performance|12" Click="TrayPlanDuration_Click" />
+                            <MenuItem Header="Sempre" Tag="performance|0" Click="TrayPlanDuration_Click" />
+                        </MenuItem>
+                    </MenuItem>
+                    <MenuItem x:Name="TrayClearOverrideItem" Header="Sblocca piano (riprendi automazione)"
+                              Visibility="Collapsed" Click="TrayClearOverride_Click" />
+                    <MenuItem x:Name="TrayAutomationItem" Header="Automazione piano" IsCheckable="True"
+                              Click="TrayAutomation_Click" />
                     <Separator />
                     <MenuItem Header="Esci" Click="TrayExit_Click" />
                 </ContextMenu>
