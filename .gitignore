@@ -1,8 +1,51 @@
+# ==============================
+# Cartelle di output e build (Già presenti)
+# ==============================
 bin/
 obj/
 publish/
 dist/
 .build_tools/
 installer/MicrosoftEdgeWebview2Setup.exe
+
+# ==============================
+# File e Tool dell'utente
+# ==============================
 *.user
 AGENTS.md
+sensordump.txt
+.claude/
+*.suo
+*.userosscache
+*.userprefs
+
+# ==============================
+# Visual Studio / IDE / ReSharper
+# ==============================
+.vs/
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+.idea/
+*.sln.docstates
+
+# ==============================
+# Test e Log generati localmente
+# ==============================
+TestResults/
+coverage/
+*.log
+msbuild.log
+
+# ==============================
+# Inno Setup e pacchettizzazione
+# ==============================
+installer/Output/
+*.tmp
+
+# ==============================
+# File generati dall'OS
+# ==============================
+.DS_Store
+Thumbs.db
