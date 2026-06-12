@@ -15,9 +15,11 @@
     const diskPct = document.getElementById('disk-pct');
     const diskBar = document.getElementById('disk-bar');
     const cpuTemp = document.getElementById('cpu-temp');
+    const cpuTempBadge = document.getElementById('cpu-temp-badge');
     const gpuTemp = document.getElementById('gpu-temp');
+    const gpuTempBadge = document.getElementById('gpu-temp-badge');
+    const tempSection = document.getElementById('temp-section');
     const sensorList = document.getElementById('sensor-list');
-    const sensorEmpty = document.getElementById('sensor-empty');
 
     function setRing(circle, label, pct) {
         circle.style.strokeDashoffset = (CIRC * (1 - pct / 100)).toFixed(1);
@@ -29,8 +31,10 @@
     // ----- Temperatures & fans -----
     const CATEGORY_ORDER = ['cpu', 'gpu', 'storage', 'motherboard'];
 
-    function formatTemp(value) {
-        return value != null ? Math.round(value) + '°C' : 'N/D';
+    // No reading -> hide the badge entirely instead of showing a useless N/D.
+    function setTempBadge(badge, label, value) {
+        badge.classList.toggle('hidden', value == null);
+        if (value != null) label.textContent = Math.round(value) + '°C';
     }
 
     function formatSensor(s) {
@@ -81,14 +85,12 @@
 
     function renderSensors(m) {
         const sensors = m.sensorsAvailable && m.sensors ? m.sensors : [];
+        // Nothing live to show -> whole section disappears.
+        tempSection.classList.toggle('hidden', sensors.length === 0);
         if (sensors.length === 0) {
-            sensorList.classList.add('hidden');
-            sensorEmpty.classList.remove('hidden');
             sensorKey = '';
             return;
         }
-        sensorEmpty.classList.add('hidden');
-        sensorList.classList.remove('hidden');
         const sorted = sortSensors(sensors);
         const key = sorted.map(s => s.category + '|' + s.hardware + '|' + s.name + '|' + s.type).join(';');
         if (key !== sensorKey) {
@@ -103,8 +105,8 @@
     });
 
     Host.on('metrics', (m) => {
-        cpuTemp.textContent = formatTemp(m.cpuTemp);
-        gpuTemp.textContent = formatTemp(m.gpuTemp);
+        setTempBadge(cpuTempBadge, cpuTemp, m.cpuTemp);
+        setTempBadge(gpuTempBadge, gpuTemp, m.gpuTemp);
         renderSensors(m);
         setRing(cpuRing, cpuPct, m.cpu);
         if (m.gpuAvailable) {
