@@ -1,5 +1,7 @@
+using System.IO;
 using System.Threading;
 using System.Windows;
+using System.Windows.Shell;
 using VoltManager.Models;
 using VoltManager.Services;
 
@@ -13,6 +15,7 @@ public partial class App : Application
     private Mutex? _mutex;
     private EventWaitHandle? _showEvent;
     private RegisteredWaitHandle? _showWait;
+    private RemoteCommandService? _remoteCommands;
 
     public HardwareInfoService Hardware { get; private set; } = null!;
     public SettingsService Settings { get; private set; } = null!;
@@ -32,13 +35,18 @@ public partial class App : Application
 
     protected override void OnStartup(StartupEventArgs e)
     {
+        string? startupPlan = RemoteCommandProtocol.ParsePlanArg(e.Args);
+
         _mutex = new Mutex(true, MutexName, out bool isNew);
         if (!isNew)
         {
-            // Another instance running: signal it to show its window, then quit.
+            // Another instance running: forward the plan command if any,
+            // otherwise signal it to show its window, then quit.
             try
             {
-                using var evt = EventWaitHandle.OpenExisting(ShowEventName);
+                using var evt = EventWaitHandle.OpenExisting(startupPlan != null
+                    ? RemoteCommandProtocol.EventName(startupPlan)
+                    : ShowEventName);
                 evt.Set();
             }
             catch { }
@@ -66,10 +74,79 @@ public partial class App : Application
         StartPlanPoll();
         StartAutomationLoop();
 
-        bool startMinimized = e.Args.Contains("--minimized");
+        _remoteCommands = new RemoteCommandService();
+        _remoteCommands.CommandReceived += ApplyRemoteCommand;
+        _remoteCommands.Start();
+
+        // Launched via jump list while closed: apply the plan, stay in tray.
+        bool startMinimized = e.Args.Contains("--minimized") || startupPlan != null;
         bool justUpdated    = e.Args.Contains("--updated");
         _mainWindow = new MainWindow(this, startMinimized, justUpdated);
         if (!startMinimized) _mainWindow.Show();
+
+        if (startupPlan != null)
+            _ = Task.Run(() => ApplyRemoteCommand(startupPlan));
+
+        SetupJumpList();
+    }
+
+    private void SetupJumpList()
+    {
+        try
+        {
+            // Tasks point at the non-elevated helper so clicking them never
+            // shows UAC; absent in dev builds, so the jump list is best-effort.
+            string helper = Path.Combine(AppContext.BaseDirectory, "VoltManagerPlanSwitch.exe");
+            if (!File.Exists(helper)) return;
+
+            var jumpList = new JumpList { ShowRecentCategory = false, ShowFrequentCategory = false };
+            AddPlanTask(jumpList, helper, "Risparmio energia", RemoteCommandProtocol.PowerSaverKey,
+                "Blocca il piano Risparmio energia");
+            AddPlanTask(jumpList, helper, "Bilanciato", RemoteCommandProtocol.BalancedKey,
+                "Blocca il piano Bilanciato");
+            AddPlanTask(jumpList, helper, "Prestazioni", RemoteCommandProtocol.PerformanceKey,
+                "Blocca il piano Prestazioni");
+            AddPlanTask(jumpList, helper, "Automatico", RemoteCommandProtocol.AutoKey,
+                "Lascia scegliere il piano a VoltManager");
+            JumpList.SetJumpList(this, jumpList);
+        }
+        catch
+        {
+            // A broken jump list must not block startup.
+        }
+    }
+
+    private static void AddPlanTask(JumpList jumpList, string helper, string title, string key, string description)
+    {
+        jumpList.JumpItems.Add(new JumpTask
+        {
+            CustomCategory = "Piano energetico",
+            Title = title,
+            Description = description,
+            ApplicationPath = helper,
+            Arguments = RemoteCommandProtocol.PlanArgName + " " + key,
+            WorkingDirectory = AppContext.BaseDirectory,
+            IconResourcePath = helper,
+            IconResourceIndex = 0,
+        });
+    }
+
+    private void ApplyRemoteCommand(string key)
+    {
+        try
+        {
+            switch (key)
+            {
+                case RemoteCommandProtocol.PowerSaverKey: SetManualOverride(PlanId.PowerSaver, null); break;
+                case RemoteCommandProtocol.BalancedKey: SetManualOverride(PlanId.Balanced, null); break;
+                case RemoteCommandProtocol.PerformanceKey: SetManualOverride(PlanId.Performance, null); break;
+                case RemoteCommandProtocol.AutoKey: SetAutomaticMode(); break;
+            }
+        }
+        catch
+        {
+            // Remote commands must never crash the app.
+        }
     }
 
     private void StartPlanPoll()
@@ -133,6 +210,16 @@ public partial class App : Application
         return true;
     }
 
+    /// <summary>Removes any manual override and re-enables automation ("Automatico").</summary>
+    public void SetAutomaticMode()
+    {
+        Settings.Current.Override = null;
+        Settings.Current.MasterAutomationEnabled = true;
+        Settings.Save();
+        Automation.Reset();
+        ManualOverrideChanged?.Invoke(null);
+    }
+
     public void ClearManualOverride()
     {
         if (Settings.Current.Override == null) return;
@@ -167,6 +254,7 @@ public partial class App : Application
         _automationTimer?.Dispose();
         _planPollTimer?.Dispose();
         Monitor.Dispose();
+        _remoteCommands?.Dispose();
         _showWait?.Unregister(null);
         _showEvent?.Dispose();
         _mutex?.ReleaseMutex();

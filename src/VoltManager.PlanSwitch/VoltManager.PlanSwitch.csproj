@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Tiny non-elevated helper launched by the taskbar jump list. Runs asInvoker
+       so clicking a jump-list task never triggers a UAC prompt; it just signals
+       the elevated VoltManager instance via named events. net48 keeps it
+       dependency-free on any Windows 10/11 machine. -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>..\VoltManager\Assets\voltmanager.ico</ApplicationIcon>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
+    <Version>1.0.0</Version>
+    <RootNamespace>VoltManager.PlanSwitch</RootNamespace>
+    <AssemblyName>VoltManagerPlanSwitch</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\VoltManager\Services\RemoteCommandProtocol.cs" Link="RemoteCommandProtocol.cs" />
+  </ItemGroup>
+
+</Project>

@@ -42,6 +42,20 @@ jobs:
           -p:FileVersion=${{ steps.ver.outputs.version }}.0
           -o publish
 
+      - name: Build jump-list helper (PlanSwitch)
+        shell: pwsh
+        run: |
+          dotnet build src/VoltManager.PlanSwitch/VoltManager.PlanSwitch.csproj `
+            -c Release `
+            -p:Version=${{ steps.ver.outputs.version }} `
+            -p:AssemblyVersion=${{ steps.ver.outputs.version }}.0 `
+            -p:FileVersion=${{ steps.ver.outputs.version }}.0 `
+            -o publish-planswitch
+          Copy-Item publish-planswitch/VoltManagerPlanSwitch.exe publish -Force
+          if (Test-Path publish-planswitch/VoltManagerPlanSwitch.exe.config) {
+            Copy-Item publish-planswitch/VoltManagerPlanSwitch.exe.config publish -Force
+          }
+
       - name: Download WebView2 bootstrapper
         shell: pwsh
         run: |

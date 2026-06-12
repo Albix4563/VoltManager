@@ -37,6 +37,22 @@ dotnet publish (Join-Path $root 'src\VoltManager\VoltManager.csproj') `
 if ($LASTEXITCODE -ne 0) { throw 'Publish failed.' }
 Write-Host ("Published to: " + $publishDir) -ForegroundColor Green
 
+# 2b. Jump-list helper (net48, asInvoker) copied next to the main exe
+Write-Host '[2b]  dotnet build VoltManager.PlanSwitch' -ForegroundColor Cyan
+$planSwitchOut = Join-Path $root 'publish-planswitch'
+if (Test-Path $planSwitchOut) { Remove-Item -Recurse -Force $planSwitchOut }
+dotnet build (Join-Path $root 'src\VoltManager.PlanSwitch\VoltManager.PlanSwitch.csproj') `
+    -c Release `
+    -p:Version=$Version `
+    -p:AssemblyVersion="$Version.0" `
+    -p:FileVersion="$Version.0" `
+    -o $planSwitchOut
+if ($LASTEXITCODE -ne 0) { throw 'PlanSwitch build failed.' }
+Copy-Item (Join-Path $planSwitchOut 'VoltManagerPlanSwitch.exe') $publishDir -Force
+$planSwitchConfig = Join-Path $planSwitchOut 'VoltManagerPlanSwitch.exe.config'
+if (Test-Path $planSwitchConfig) { Copy-Item $planSwitchConfig $publishDir -Force }
+Remove-Item -Recurse -Force $planSwitchOut
+
 if ($SkipInstaller) {
     Write-Host '[3/4][4/4] installer skipped' -ForegroundColor Yellow
     exit 0

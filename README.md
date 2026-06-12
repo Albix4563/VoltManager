@@ -12,6 +12,7 @@ App desktop Windows per la gestione dei piani energetici con monitoraggio hardwa
 3. **Cambio piano manuale**: selettore Power Efficiency / Balanced / Performance nella Home.
 4. **Automazione background**: regole configurabili (soglia %, minuti) in Gestione Energetica; media mobile 5 campioni, priorità a soglia più alta, cooldown anti-flapping 15s. Attiva anche con finestra nascosta (tray).
 5. **Aggiornamenti**: Settings → controlla `releases/latest` + commit del branch main del repo configurato in `%APPDATA%\VoltManager\settings.json` (`updateRepo`).
+6. **Jump list taskbar**: tasto destro sull'icona di VoltManager nella taskbar (o sull'icona pinnata) → categoria "Piano energetico" con Risparmio energia / Bilanciato / Prestazioni (blocco manuale permanente) e Automatico (sblocca e riattiva l'automazione). I click passano per l'helper non elevato `VoltManagerPlanSwitch.exe`, quindi nessun prompt UAC ad app aperta; ad app chiusa l'helper avvia VoltManager (un solo prompt UAC) applicando il piano.
 
 ## Build
 
@@ -47,5 +48,6 @@ Lo smoke test esegue: install silenziosa → avvio → verifica processo/WebView
 
 - Output `powercfg` analizzato solo per GUID (mai per nome: localizzato).
 - Avvio automatico con Windows: scheduled task `VoltManagerAutostart` (`/rl HIGHEST`), perché la chiave Run è bloccata per app elevate.
-- Singola istanza: mutex + EventWaitHandle (la seconda istanza riporta in primo piano la prima).
+- Singola istanza: mutex + EventWaitHandle (la seconda istanza riporta in primo piano la prima, oppure inoltra `--plan <chiave>` se presente).
+- Jump list: l'app elevata crea eventi nominati `VoltManager_PlanCmd_*` con DACL che concede Modify agli utenti autenticati; l'helper `asInvoker` (net48) li segnala senza elevazione.
 - Chiusura → riduzione nell'area di notifica (configurabile in Settings).
