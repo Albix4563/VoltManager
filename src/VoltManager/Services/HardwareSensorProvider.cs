@@ -107,6 +107,7 @@ public class HardwareSensorProvider : IDisposable
                 _ => "",
             };
             if (type.Length == 0) continue;
+            if (!SensorAggregation.IsLiveReading(type, sensor.Name, value)) continue;
             readings.Add(new SensorReading
             {
                 Hardware = hardware.Name,
@@ -157,6 +158,16 @@ public static class SensorAggregation
         HardwareType.Storage => "storage",
         _ => "motherboard", // Motherboard, SuperIO, EmbeddedController, coolers...
     };
+
+    // Failed reads surface as 0 °C (e.g. Lucienne APUs where LHM cannot read the
+    // SMU), and NVMe "Warning/Critical Temperature" are static thresholds, not
+    // live data. Both would mislead the dashboard. 0 RPM stays: stopped fan is real.
+    public static bool IsLiveReading(string type, string name, float value)
+    {
+        if (type != "temp") return true;
+        if (value <= 0) return false;
+        return !name.Contains("Warning") && !name.Contains("Critical");
+    }
 
     // AMD exposes "Core (Tctl/Tdie)", Intel "CPU Package"; fall back to hottest core.
     public static double? SelectCpuTemp(IReadOnlyList<SensorReading> readings)

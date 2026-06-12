@@ -85,6 +85,19 @@ public class SensorAggregationTests
         Assert.Equal(70, SensorAggregation.SelectGpuTemp(readings));
     }
 
+    [Theory]
+    [InlineData("temp", "Core (Tctl/Tdie)", 0, false)]     // failed SMU read
+    [InlineData("temp", "Core (Tctl/Tdie)", -1, false)]
+    [InlineData("temp", "Core (Tctl/Tdie)", 62.5f, true)]
+    [InlineData("temp", "Warning Temperature", 76, false)] // static SMART threshold
+    [InlineData("temp", "Critical Temperature", 79, false)]
+    [InlineData("temp", "Composite Temperature", 36, true)]
+    [InlineData("fan", "CPU Fan", 0, true)]                // stopped fan is real data
+    public void IsLiveReading_FiltersInvalidTemps(string type, string name, float value, bool expected)
+    {
+        Assert.Equal(expected, SensorAggregation.IsLiveReading(type, name, value));
+    }
+
     [Fact]
     public void MetricsSnapshot_SerializesSensorsCamelCase()
     {
