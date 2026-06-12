@@ -93,6 +93,10 @@
               <span class="material-symbols-outlined text-secondary-container text-sm transition-transform duration-300 group-hover:scale-110">developer_board</span>
               <span class="text-label-md text-on-surface uppercase" data-i18n="dash_cpu_core">CPU Core</span>
             </div>
+            <div class="absolute top-4 right-4 flex items-center gap-1 text-label-md text-on-surface-variant">
+              <span class="material-symbols-outlined text-secondary-container text-sm">device_thermostat</span>
+              <span id="cpu-temp">--°</span>
+            </div>
             <div class="w-32 h-32 relative mt-6 transition-transform duration-500 group-hover:scale-105">
               <svg class="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
                 <circle cx="50" cy="50" fill="transparent" r="40" stroke="#1E2A4A" stroke-width="8"></circle>
@@ -110,6 +114,10 @@
             <div class="absolute top-4 left-4 flex items-center gap-2">
               <span class="material-symbols-outlined text-secondary-container text-sm transition-transform duration-300 group-hover:scale-110">dns</span>
               <span class="text-label-md text-on-surface uppercase" data-i18n="dash_gpu_load">GPU Load</span>
+            </div>
+            <div class="absolute top-4 right-4 flex items-center gap-1 text-label-md text-on-surface-variant">
+              <span class="material-symbols-outlined text-secondary-container text-sm">device_thermostat</span>
+              <span id="gpu-temp">--°</span>
             </div>
             <div class="w-32 h-32 relative mt-6 transition-transform duration-500 group-hover:scale-105">
               <svg class="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
@@ -156,6 +164,18 @@
               <div class="h-full bg-gradient-to-r from-[#006a70] to-secondary-container rounded-full progress-glow transition-all duration-1000 ease-out" id="disk-bar" style="width: 0%"></div>
             </div>
           </div>
+        </div>
+      </section>
+
+      <!-- Temperatures & Fans -->
+      <section class="mt-8" id="temp-section">
+        <h3 class="text-title-lg text-on-surface mb-4 flex items-center gap-2">
+          <span class="material-symbols-outlined text-secondary-container">device_thermostat</span>
+          <span data-i18n="dash_temps_title">Temperatures &amp; Fans</span>
+        </h3>
+        <div class="glass-card rounded-xl p-6">
+          <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-x-8 gap-y-6 hidden" id="sensor-list"></div>
+          <p class="text-label-sm text-on-surface-variant" id="sensor-empty" data-i18n="dash_temps_unavailable">Temperature sensors unavailable</p>
         </div>
       </section>
 
@@ -470,12 +490,12 @@
   </main>
 </div>
 
-<script src="js/bridge.js?v=override1"></script>
-<script src="js/i18n.js?v=override1"></script>
-<script src="js/app.js?v=override1"></script>
-<script src="js/dashboard.js?v=override1"></script>
-<script src="js/power.js?v=override1"></script>
-<script src="js/settings.js?v=override1"></script>
-<script src="js/setup.js?v=override1"></script>
+<script src="js/bridge.js?v=temps1"></script>
+<script src="js/i18n.js?v=temps1"></script>
+<script src="js/app.js?v=temps1"></script>
+<script src="js/dashboard.js?v=temps1"></script>
+<script src="js/power.js?v=temps1"></script>
+<script src="js/settings.js?v=temps1"></script>
+<script src="js/setup.js?v=temps1"></script>
 </body>
 </html>

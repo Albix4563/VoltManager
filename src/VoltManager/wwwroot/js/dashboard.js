@@ -14,6 +14,10 @@
     const ramDetail = document.getElementById('ram-detail');
     const diskPct = document.getElementById('disk-pct');
     const diskBar = document.getElementById('disk-bar');
+    const cpuTemp = document.getElementById('cpu-temp');
+    const gpuTemp = document.getElementById('gpu-temp');
+    const sensorList = document.getElementById('sensor-list');
+    const sensorEmpty = document.getElementById('sensor-empty');
 
     function setRing(circle, label, pct) {
         circle.style.strokeDashoffset = (CIRC * (1 - pct / 100)).toFixed(1);
@@ -22,7 +26,86 @@
 
     let gpuUnavailableShown = false;
 
+    // ----- Temperatures & fans -----
+    const CATEGORY_ORDER = ['cpu', 'gpu', 'storage', 'motherboard'];
+
+    function formatTemp(value) {
+        return value != null ? Math.round(value) + '°C' : 'N/D';
+    }
+
+    function formatSensor(s) {
+        return s.type === 'fan' ? Math.round(s.value) + ' RPM' : Math.round(s.value) + '°C';
+    }
+
+    // DOM is rebuilt only when the sensor set changes (cached key); per-tick we
+    // just rewrite the cached value spans to avoid innerHTML churn every second.
+    let sensorKey = '';
+    let sensorValueEls = [];
+
+    function sortSensors(sensors) {
+        return sensors.slice().sort((a, b) =>
+            (CATEGORY_ORDER.indexOf(a.category) - CATEGORY_ORDER.indexOf(b.category)) ||
+            a.hardware.localeCompare(b.hardware) ||
+            (a.type === b.type ? 0 : a.type === 'temp' ? -1 : 1));
+    }
+
+    function buildSensorList(sorted) {
+        sensorList.innerHTML = '';
+        sensorValueEls = [];
+        let group = null;
+        let lastGroup = '';
+        sorted.forEach((s) => {
+            const groupKey = s.category + '|' + s.hardware;
+            if (groupKey !== lastGroup) {
+                lastGroup = groupKey;
+                group = document.createElement('div');
+                const header = document.createElement('p');
+                header.className = 'text-label-md text-secondary-container uppercase mb-2';
+                header.textContent = I18n.t('dash_cat_' + s.category) + ' · ' + s.hardware;
+                group.appendChild(header);
+                sensorList.appendChild(group);
+            }
+            const row = document.createElement('div');
+            row.className = 'flex items-center justify-between py-1 border-b border-white/5 last:border-0';
+            const name = document.createElement('span');
+            name.className = 'text-body-md text-on-surface-variant truncate pr-4';
+            name.textContent = s.name;
+            const value = document.createElement('span');
+            value.className = 'text-body-md font-semibold text-on-surface whitespace-nowrap';
+            row.appendChild(name);
+            row.appendChild(value);
+            group.appendChild(row);
+            sensorValueEls.push(value);
+        });
+    }
+
+    function renderSensors(m) {
+        const sensors = m.sensorsAvailable && m.sensors ? m.sensors : [];
+        if (sensors.length === 0) {
+            sensorList.classList.add('hidden');
+            sensorEmpty.classList.remove('hidden');
+            sensorKey = '';
+            return;
+        }
+        sensorEmpty.classList.add('hidden');
+        sensorList.classList.remove('hidden');
+        const sorted = sortSensors(sensors);
+        const key = sorted.map(s => s.category + '|' + s.hardware + '|' + s.name + '|' + s.type).join(';');
+        if (key !== sensorKey) {
+            sensorKey = key;
+            buildSensorList(sorted);
+        }
+        sorted.forEach((s, i) => { sensorValueEls[i].textContent = formatSensor(s); });
+    }
+
+    document.addEventListener('langchanged', () => {
+        sensorKey = ''; // force rebuild on next tick so group headers translate
+    });
+
     Host.on('metrics', (m) => {
+        cpuTemp.textContent = formatTemp(m.cpuTemp);
+        gpuTemp.textContent = formatTemp(m.gpuTemp);
+        renderSensors(m);
         setRing(cpuRing, cpuPct, m.cpu);
         if (m.gpuAvailable) {
             setRing(gpuRing, gpuPct, m.gpu);

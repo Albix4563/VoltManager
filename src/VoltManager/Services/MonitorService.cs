@@ -10,6 +10,7 @@ public class MonitorService : IDisposable
     private readonly PerformanceCounter? _cpuCounter;
     private readonly PerformanceCounter? _diskCounter;
     private readonly GpuCounterProvider _gpu;
+    private readonly HardwareSensorProvider _sensors;
     private readonly double _ramTotalGb;
     private System.Threading.Timer? _timer;
 
@@ -20,6 +21,7 @@ public class MonitorService : IDisposable
     {
         _ramTotalGb = hw.GetSystemInfo().RamTotalGb;
         _gpu = new GpuCounterProvider();
+        _sensors = new HardwareSensorProvider();
         _cpuCounter = TryCreate("Processor", "% Processor Time", "_Total");
         _diskCounter = TryCreate("PhysicalDisk", "% Disk Time", "_Total");
         _cpuCounter?.NextValue(); // prime: first NextValue() always returns 0
@@ -45,6 +47,7 @@ public class MonitorService : IDisposable
             double disk = Math.Min(100, SafeRead(_diskCounter));
             double gpu = _gpu.Read();
             var (usedGb, pct) = ReadRam();
+            var sensors = _sensors.Read();
 
             Latest = new MetricsSnapshot
             {
@@ -55,6 +58,10 @@ public class MonitorService : IDisposable
                 RamUsedGb = Math.Round(usedGb, 1),
                 RamTotalGb = _ramTotalGb,
                 Disk = Math.Round(disk, 1),
+                CpuTemp = sensors.CpuTemp,
+                GpuTemp = sensors.GpuTemp,
+                SensorsAvailable = _sensors.Available,
+                Sensors = sensors.Readings,
             };
             MetricsUpdated?.Invoke(Latest);
         }
@@ -94,5 +101,6 @@ public class MonitorService : IDisposable
         _cpuCounter?.Dispose();
         _diskCounter?.Dispose();
         _gpu.Dispose();
+        _sensors.Dispose();
     }
 }

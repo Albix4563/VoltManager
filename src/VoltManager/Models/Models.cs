@@ -18,6 +18,19 @@ public record MetricsSnapshot
     [JsonPropertyName("ramUsedGb")] public double RamUsedGb { get; init; }
     [JsonPropertyName("ramTotalGb")] public double RamTotalGb { get; init; }
     [JsonPropertyName("disk")] public double Disk { get; init; }
+    [JsonPropertyName("cpuTemp")] public double? CpuTemp { get; init; }
+    [JsonPropertyName("gpuTemp")] public double? GpuTemp { get; init; }
+    [JsonPropertyName("sensorsAvailable")] public bool SensorsAvailable { get; init; }
+    [JsonPropertyName("sensors")] public List<SensorReading> Sensors { get; init; } = new();
+}
+
+public record SensorReading
+{
+    [JsonPropertyName("hardware")] public string Hardware { get; init; } = "";  // device name
+    [JsonPropertyName("category")] public string Category { get; init; } = "";  // cpu|gpu|storage|motherboard
+    [JsonPropertyName("name")] public string Name { get; init; } = "";
+    [JsonPropertyName("type")] public string Type { get; init; } = "";          // temp|fan
+    [JsonPropertyName("value")] public double Value { get; init; }
 }
 
 public record SystemInfo
