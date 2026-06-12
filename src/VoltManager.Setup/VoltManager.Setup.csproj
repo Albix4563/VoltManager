@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
+    <Version>1.0.0</Version>
+    <PlatformTarget>x64</PlatformTarget>
+    <RootNamespace>VoltManager.Setup</RootNamespace>
+    <AssemblyName>VoltManagerSetup</AssemblyName>
+  </PropertyGroup>
+
+  <!-- Payload files embedded during build (absent at dev time — project still compiles) -->
+  <ItemGroup Condition="Exists('Payload\payload.zip')">
+    <EmbeddedResource Include="Payload\payload.zip" />
+  </ItemGroup>
+  <ItemGroup Condition="Exists('Payload\MicrosoftEdgeWebview2Setup.exe')">
+    <EmbeddedResource Include="Payload\MicrosoftEdgeWebview2Setup.exe" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="System.Windows.Forms" />
+  </ItemGroup>
+
+  <ItemGroup Condition="Exists('voltmanager.ico')">
+    <ApplicationDefinition Remove="App.xaml" />
+    <ApplicationDefinition Include="App.xaml">
+      <SubType>Designer</SubType>
+    </ApplicationDefinition>
+    <Resource Include="voltmanager.ico" />
+  </ItemGroup>
+
+</Project>

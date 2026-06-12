@@ -67,7 +67,8 @@ public partial class App : Application
         StartAutomationLoop();
 
         bool startMinimized = e.Args.Contains("--minimized");
-        _mainWindow = new MainWindow(this, startMinimized);
+        bool justUpdated    = e.Args.Contains("--updated");
+        _mainWindow = new MainWindow(this, startMinimized, justUpdated);
         if (!startMinimized) _mainWindow.Show();
     }
 

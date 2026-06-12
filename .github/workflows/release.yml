@@ -45,17 +45,38 @@ jobs:
       - name: Download WebView2 bootstrapper
         shell: pwsh
         run: |
+          New-Item -ItemType Directory -Force src/VoltManager.Setup/Payload | Out-Null
           Invoke-WebRequest -UseBasicParsing `
             -Uri 'https://go.microsoft.com/fwlink/p/?LinkId=2124703' `
-            -OutFile 'installer/MicrosoftEdgeWebview2Setup.exe'
+            -OutFile 'src/VoltManager.Setup/Payload/MicrosoftEdgeWebview2Setup.exe'
 
-      - name: Build installer (Inno Setup)
+      - name: Copy icon to Setup project
         shell: pwsh
         run: |
-          choco install innosetup -y --no-progress
-          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" `
-            /DMyAppVersion=${{ steps.ver.outputs.version }} `
-            installer/VoltManager.iss
+          Copy-Item src/VoltManager/Assets/voltmanager.ico src/VoltManager.Setup/voltmanager.ico -Force
+
+      - name: Zip publish folder into payload
+        shell: pwsh
+        run: |
+          Add-Type -Assembly 'System.IO.Compression.FileSystem'
+          [IO.Compression.ZipFile]::CreateFromDirectory(
+            (Resolve-Path 'publish').Path,
+            (Join-Path (Resolve-Path 'src/VoltManager.Setup/Payload').Path 'payload.zip'),
+            [IO.Compression.CompressionLevel]::Optimal, $false)
+
+      - name: Build Setup project
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist | Out-Null
+          dotnet build src/VoltManager.Setup/VoltManager.Setup.csproj `
+            -c Release `
+            -p:Platform=x64 `
+            -p:Version=${{ steps.ver.outputs.version }} `
+            -p:AssemblyVersion=${{ steps.ver.outputs.version }}.0 `
+            -p:FileVersion=${{ steps.ver.outputs.version }}.0 `
+            -o dist/setup-build
+          Copy-Item dist/setup-build/VoltManagerSetup.exe `
+            dist/VoltManagerSetup-${{ steps.ver.outputs.version }}.exe -Force
           Get-ChildItem dist
 
       - name: Create GitHub release

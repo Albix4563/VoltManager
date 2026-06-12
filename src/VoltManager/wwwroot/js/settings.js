@@ -12,6 +12,66 @@
 
     let downloadUrl = null;
 
+    // ── Update modal state machine ──────────────────────────────────
+    // States: idle | checking | update-available | downloading | installing
+    let _updateInfo = null;
+
+    function openUpdateModal(info) {
+        _updateInfo = info;
+        downloadUrl = info && info.downloadUrl ? info.downloadUrl : null;
+        const overlay = document.getElementById('update-modal-overlay');
+        if (!overlay) return;
+        // Populate modal
+        const curBadge  = document.getElementById('upd-modal-cur-ver');
+        const newBadge  = document.getElementById('upd-modal-new-ver');
+        const notesEl   = document.getElementById('upd-modal-notes');
+        const progWrap  = document.getElementById('upd-modal-progress-wrap');
+        const progBar   = document.getElementById('upd-modal-bar');
+        const progLabel = document.getElementById('upd-modal-prog-label');
+        const stateMsg  = document.getElementById('upd-modal-state-msg');
+        const btnInstall= document.getElementById('upd-modal-btn-install');
+        const btnDismiss= document.getElementById('upd-modal-btn-dismiss');
+
+        if (curBadge)  curBadge.textContent  = 'v' + (info && info.currentVersion ? info.currentVersion : '?');
+        if (newBadge)  newBadge.textContent  = 'v' + (info && info.latestVersion  ? info.latestVersion  : '?');
+        if (progWrap)  progWrap.classList.add('hidden');
+        if (stateMsg)  stateMsg.classList.add('hidden');
+        if (btnInstall) { btnInstall.disabled = false; btnInstall.textContent = I18n.t('upd_modal_btn_install'); }
+        if (btnDismiss) btnDismiss.textContent = I18n.t('upd_modal_btn_later');
+
+        if (notesEl) {
+            let html = '';
+            if (info && info.releaseNotes)
+                html += '<div class="text-body-sm text-on-surface-variant whitespace-pre-line leading-relaxed">' + esc(info.releaseNotes) + '</div>';
+            if (info && info.commits && info.commits.length) {
+                html += '<ul class="mt-3 space-y-1 text-label-md text-on-surface-variant list-disc pl-4">';
+                info.commits.slice(0, 8).forEach(c => {
+                    html += '<li><span class="text-secondary-fixed-dim font-mono">' + esc(c.sha) + '</span> ' + esc(c.message) + '</li>';
+                });
+                html += '</ul>';
+            }
+            notesEl.innerHTML = html || '<p class="text-label-md text-on-surface-variant opacity-60">' + esc(I18n.t('msg_no_info')) + '</p>';
+        }
+
+        overlay.classList.remove('hidden');
+        overlay.classList.add('flex');
+    }
+
+    function closeUpdateModal() {
+        const overlay = document.getElementById('update-modal-overlay');
+        if (!overlay) return;
+        overlay.classList.add('hidden');
+        overlay.classList.remove('flex');
+    }
+
+    // Wire modal buttons once DOM is ready
+    document.addEventListener('DOMContentLoaded', () => {
+        const btnInstall = document.getElementById('upd-modal-btn-install');
+        const btnDismiss = document.getElementById('upd-modal-btn-dismiss');
+        if (btnInstall) btnInstall.addEventListener('click', doDownloadAndInstall);
+        if (btnDismiss) btnDismiss.addEventListener('click', closeUpdateModal);
+    });
+
     function esc(s) {
         const div = document.createElement('div');
         div.textContent = s == null ? '' : String(s);
@@ -60,6 +120,35 @@
         changelog.innerHTML = html;
     }
 
+    async function doDownloadAndInstall() {
+        if (!downloadUrl) return;
+        const progWrap  = document.getElementById('upd-modal-progress-wrap');
+        const progBar   = document.getElementById('upd-modal-bar');
+        const progLabel = document.getElementById('upd-modal-prog-label');
+        const stateMsg  = document.getElementById('upd-modal-state-msg');
+        const btnInstall= document.getElementById('upd-modal-btn-install');
+        const btnDismiss= document.getElementById('upd-modal-btn-dismiss');
+
+        if (progWrap)  progWrap.classList.remove('hidden');
+        if (btnInstall) btnInstall.disabled = true;
+        if (btnDismiss) btnDismiss.disabled = true;
+        if (progLabel) progLabel.textContent = I18n.t('msg_dl_prog') + '0%';
+
+        try {
+            await Host.call('downloadUpdate', { url: downloadUrl });
+            // App exits and restarts — show transitional state
+            if (stateMsg) {
+                stateMsg.textContent = I18n.t('upd_modal_installing');
+                stateMsg.classList.remove('hidden');
+            }
+            if (progBar) progBar.style.width = '100%';
+        } catch (err) {
+            if (btnInstall) btnInstall.disabled = false;
+            if (btnDismiss) btnDismiss.disabled = false;
+            setStatus(I18n.t('msg_dl_fail') + err.message, true);
+        }
+    }
+
     btnCheck.addEventListener('click', async () => {
         btnCheck.disabled = true;
         const icon = btnCheck.querySelector('.material-symbols-outlined');
@@ -91,65 +180,49 @@
     });
 
     Host.on('updateDownloadProgress', (data) => {
+        const progBar   = document.getElementById('upd-modal-bar');
+        const progLabel = document.getElementById('upd-modal-prog-label');
+        if (progBar)   progBar.style.width = data.pct + '%';
+        if (progLabel) progLabel.textContent = I18n.t('msg_dl_prog') + data.pct + '%';
+        // Legacy settings-page label
         btnDownloadLabel.textContent = I18n.t('msg_dl_prog') + data.pct + '%';
-        const bannerBtn = document.getElementById('upd-banner-install');
-        if (bannerBtn) bannerBtn.textContent = I18n.t('msg_dl_prog') + data.pct + '%';
     });
 
-    // ----- Startup update banner (pushed by host after auto-check) -----
+    // Startup banner: update available → open branded modal
     Host.on('updateAvailable', (info) => {
         if (!info || !info.downloadUrl) return;
-        // Sync Settings page state so the manual flow shows the update too.
         downloadUrl = info.downloadUrl;
-        btnDownload.classList.remove('hidden');
-        btnDownload.classList.add('flex');
-        btnDownloadLabel.textContent = I18n.t('msg_dl_install') + info.latestVersion;
         renderChangelog(info);
-
-        if (document.getElementById('upd-banner')) return;
-        const banner = document.createElement('div');
-        banner.id = 'upd-banner';
-        banner.style.cssText =
-            'position:fixed;bottom:24px;right:24px;z-index:1000;max-width:380px;' +
-            'background:#1b2330;border:1px solid rgba(0,241,254,0.35);border-radius:14px;' +
-            'padding:16px 18px;box-shadow:0 8px 32px rgba(0,0,0,0.55);color:#e2e8f0;' +
-            'font-size:14px;display:flex;flex-direction:column;gap:10px;';
-        banner.innerHTML =
-            '<div style="font-weight:700;color:#00f1fe;">' +
-                esc(I18n.t('upd_banner_title')) + esc(info.latestVersion) + '</div>' +
-            '<div style="opacity:0.8;">' + esc(I18n.t('upd_banner_sub')) + '</div>' +
-            '<div style="display:flex;gap:10px;justify-content:flex-end;">' +
-                '<button id="upd-banner-later" style="background:none;border:none;color:#94a3b8;cursor:pointer;padding:6px 10px;">' +
-                    esc(I18n.t('upd_banner_later')) + '</button>' +
-                '<button id="upd-banner-install" style="background:#00f1fe;border:none;color:#0b1118;font-weight:700;cursor:pointer;padding:6px 14px;border-radius:8px;">' +
-                    esc(I18n.t('upd_banner_install')) + '</button>' +
-            '</div>';
-        document.body.appendChild(banner);
-
-        document.getElementById('upd-banner-later').addEventListener('click', () => banner.remove());
-        document.getElementById('upd-banner-install').addEventListener('click', async (e) => {
-            e.target.disabled = true;
-            try {
-                await Host.call('downloadUpdate', { url: info.downloadUrl });
-                // Host launches installer and exits the app.
-            } catch (err) {
-                e.target.disabled = false;
-                setStatus(I18n.t('msg_dl_fail') + err.message, true);
-            }
-        });
+        openUpdateModal(info);
     });
 
-    btnDownload.addEventListener('click', async () => {
+    // Post-update toast: app restarted with --updated flag
+    Host.on('appUpdated', (data) => {
+        const ver = (data && data.version) ? data.version : '';
+        showUpdatedToast(ver);
+    });
+
+    function showUpdatedToast(ver) {
+        if (document.getElementById('updated-toast')) return;
+        const toast = document.createElement('div');
+        toast.id = 'updated-toast';
+        toast.style.cssText =
+            'position:fixed;bottom:24px;right:24px;z-index:2000;' +
+            'background:#1E2A4A;border:1px solid rgba(0,241,254,0.4);border-radius:12px;' +
+            'padding:14px 18px;box-shadow:0 8px 32px rgba(0,0,0,0.6);color:#e2e8f0;' +
+            'font-size:13px;display:flex;align-items:center;gap:12px;' +
+            'animation:slideInRight 0.3s ease;';
+        toast.innerHTML =
+            '<span style="color:#00f1fe;font-size:18px;">✓</span>' +
+            '<span>' + esc(I18n.t('upd_toast_msg')) + (ver ? ' v' + esc(ver) : '') + '</span>' +
+            '<button onclick="this.parentElement.remove()" style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:16px;margin-left:4px;">×</button>';
+        document.body.appendChild(toast);
+        setTimeout(() => { if (toast.parentElement) toast.remove(); }, 6000);
+    }
+
+    btnDownload.addEventListener('click', () => {
         if (!downloadUrl) return;
-        btnDownload.disabled = true;
-        try {
-            await Host.call('downloadUpdate', { url: downloadUrl });
-            // Host launches installer and exits the app.
-        } catch (err) {
-            setStatus(I18n.t('msg_dl_fail') + err.message, true);
-            btnDownload.disabled = false;
-            btnDownloadLabel.textContent = I18n.t('set_btn_download');
-        }
+        openUpdateModal(_updateInfo || { downloadUrl });
     });
 
     // ----- Preferences toggles -----

@@ -24,6 +24,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\VoltManager\VoltManager.csproj" />
+    <ProjectReference Include="..\..\src\VoltManager.Setup\VoltManager.Setup.csproj" />
   </ItemGroup>
 
 </Project>

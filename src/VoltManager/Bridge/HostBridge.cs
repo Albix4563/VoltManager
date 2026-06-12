@@ -186,7 +186,8 @@ public class HostBridge
                 var url = payload.GetProperty("url").GetString()
                     ?? throw new ArgumentException("URL mancante");
                 string path = await _updates.DownloadUpdateAsync(url);
-                Process.Start(new ProcessStartInfo(path, "/SILENT") { UseShellExecute = true });
+                Process.Start(new ProcessStartInfo(path,
+                    $"/update --pid {Environment.ProcessId}") { UseShellExecute = true });
                 ExitRequested?.Invoke();
                 return new { success = true };
             }

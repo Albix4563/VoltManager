@@ -15,11 +15,11 @@ App desktop Windows per la gestione dei piani energetici con monitoraggio hardwa
 
 ## Build
 
-Prerequisiti: .NET 8 SDK, Inno Setup 6 (per l'installer).
+Prerequisiti: .NET 8 SDK (l'installer è un progetto WPF net48, nessun tool esterno richiesto).
 
 ```powershell
-.\build.ps1                # test + publish + installer -> dist\VoltManagerSetup-1.0.0.exe
-.\build.ps1 -SkipInstaller # solo portable -> publish\
+.\build.ps1                 # test + publish + installer -> dist\VoltManagerSetup-1.0.0.exe
+.\build.ps1 -SkipInstaller  # solo portable -> publish\
 ```
 
 CSS: se modifichi `index.html`/classi Tailwind, ricompila con:

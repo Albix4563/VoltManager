@@ -85,7 +85,13 @@ window.I18n = (function() {
             "upd_banner_title": "Update available: v",
             "upd_banner_sub": "A new version of VoltManager is ready to install.",
             "upd_banner_install": "Install now",
-            "upd_banner_later": "Later"
+            "upd_banner_later": "Later",
+            "upd_modal_title": "Update available",
+            "upd_modal_cur": "Current version",
+            "upd_modal_new": "New version",
+            "upd_modal_btn_install": "Download & install",
+            "upd_modal_installing": "Installing… app will restart shortly.",
+            "upd_toast_msg": "VoltManager updated to"
         },
         it: {
             "app_title": "VoltManager",
@@ -172,7 +178,13 @@ window.I18n = (function() {
             "upd_banner_title": "Aggiornamento disponibile: v",
             "upd_banner_sub": "Una nuova versione di VoltManager è pronta per l'installazione.",
             "upd_banner_install": "Installa ora",
-            "upd_banner_later": "Più tardi"
+            "upd_banner_later": "Più tardi",
+            "upd_modal_title": "Aggiornamento disponibile",
+            "upd_modal_cur": "Versione attuale",
+            "upd_modal_new": "Nuova versione",
+            "upd_modal_btn_install": "Scarica e installa",
+            "upd_modal_installing": "Installazione in corso, l'app si riavvierà…",
+            "upd_toast_msg": "VoltManager aggiornato a"
         }
     };
 

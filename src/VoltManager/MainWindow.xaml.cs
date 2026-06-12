@@ -12,10 +12,12 @@ public partial class MainWindow : Window
     private readonly App _app;
     private HostBridge? _bridge;
     private bool _exiting;
+    private readonly bool _justUpdated;
 
-    public MainWindow(App app, bool startMinimized)
+    public MainWindow(App app, bool startMinimized, bool justUpdated = false)
     {
         _app = app;
+        _justUpdated = justUpdated;
         InitializeComponent();
         Loaded += async (_, _) => await InitWebViewAsync();
         Closing += OnClosingToTray;
@@ -78,10 +80,22 @@ public partial class MainWindow : Window
         {
             if (!args.IsSuccess || startupCheckDone) return;
             startupCheckDone = true;
-            _ = CheckForUpdatesOnStartupAsync();
+            if (_justUpdated)
+                _ = PushUpdatedToastAsync();
+            else
+                _ = CheckForUpdatesOnStartupAsync();
         };
 
         core.Navigate("https://app.local/index.html?v=" + DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+    }
+
+    private async Task PushUpdatedToastAsync()
+    {
+        await Task.Delay(TimeSpan.FromSeconds(2));
+        string ver = _app.Updates.CurrentVersion;
+        _bridge?.PushEvent("appUpdated", new { version = ver });
+        // After toast, run regular update check in background.
+        _ = CheckForUpdatesOnStartupAsync();
     }
 
     private async Task CheckForUpdatesOnStartupAsync()
