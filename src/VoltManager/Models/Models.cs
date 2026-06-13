@@ -61,6 +61,13 @@ public class ManualOverride
     public bool IsActive(DateTime nowUtc) => ExpiresAtUtc == null || ExpiresAtUtc > nowUtc;
 }
 
+public class AutoShutdownSettings
+{
+    [JsonPropertyName("enabled")] public bool Enabled { get; set; } = false;
+    [JsonPropertyName("time")] public string Time { get; set; } = "23:00";
+    [JsonPropertyName("lastTriggeredLocalDate")] public string? LastTriggeredLocalDate { get; set; }
+}
+
 public class AppSettings
 {
     [JsonPropertyName("masterAutomationEnabled")] public bool MasterAutomationEnabled { get; set; } = true;
@@ -68,6 +75,7 @@ public class AppSettings
     [JsonPropertyName("startWithWindows")] public bool StartWithWindows { get; set; } = false;
     [JsonPropertyName("updateRepo")] public string UpdateRepo { get; set; } = "Albix4563/power_efficency";
     [JsonPropertyName("rules")] public List<AutomationRule> Rules { get; set; } = DefaultRules();
+    [JsonPropertyName("autoShutdown")] public AutoShutdownSettings AutoShutdown { get; set; } = new();
     // duplicatescheme assigns new GUIDs; map canonical plan -> actual GUID on this machine.
     [JsonPropertyName("planGuidMap")] public Dictionary<string, string> PlanGuidMap { get; set; } = new();
     [JsonPropertyName("override")] public ManualOverride? Override { get; set; }
