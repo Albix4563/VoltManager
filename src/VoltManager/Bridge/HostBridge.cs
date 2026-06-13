@@ -198,6 +198,15 @@ public class HostBridge
                 return new { success = true, entry };
             }
 
+            case "setStartupAppEnabled":
+            {
+                string id = payload.GetProperty("id").GetString()
+                    ?? throw new ArgumentException("ID mancante");
+                bool enabled = payload.GetProperty("enabled").GetBoolean();
+                bool changed = await Task.Run(() => _startupApps.SetStartupAppEnabled(id, enabled));
+                return new { success = changed };
+            }
+
             case "removeStartupApp":
             {
                 string id = payload.GetProperty("id").GetString()
