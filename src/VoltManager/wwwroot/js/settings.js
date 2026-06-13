@@ -16,9 +16,28 @@
     // States: idle | checking | update-available | downloading | installing
     let _updateInfo = null;
 
+    function normalizeUpdateInfo(info) {
+        const normalized = Object.assign({}, info || {});
+        normalized.currentVersion = normalized.currentVersion || normalized.version || '';
+        normalized.latestVersion = normalized.latestVersion || normalized.newVersion || normalized.targetVersion || '';
+        return normalized;
+    }
+
+    function formatVersion(ver) {
+        const value = ver == null ? '' : String(ver).trim();
+        if (!value || value === '?') return 'N/D';
+        return value.toLowerCase().startsWith('v') ? value : 'v' + value;
+    }
+
+    function setDownloadButtonVisible(visible) {
+        btnDownload.classList.toggle('hidden', !visible);
+        btnDownload.classList.toggle('flex', visible);
+    }
+
     function openUpdateModal(info) {
+        info = normalizeUpdateInfo(info);
         _updateInfo = info;
-        downloadUrl = info && info.downloadUrl ? info.downloadUrl : null;
+        downloadUrl = info && info.downloadUrl ? info.downloadUrl : downloadUrl;
         const overlay = document.getElementById('update-modal-overlay');
         if (!overlay) return;
         // Populate modal
@@ -32,8 +51,8 @@
         const btnInstall= document.getElementById('upd-modal-btn-install');
         const btnDismiss= document.getElementById('upd-modal-btn-dismiss');
 
-        if (curBadge)  curBadge.textContent  = 'v' + (info && info.currentVersion ? info.currentVersion : '?');
-        if (newBadge)  newBadge.textContent  = 'v' + (info && info.latestVersion  ? info.latestVersion  : '?');
+        if (curBadge)  curBadge.textContent  = formatVersion(info.currentVersion);
+        if (newBadge)  newBadge.textContent  = formatVersion(info.latestVersion);
         if (progWrap)  progWrap.classList.add('hidden');
         if (stateMsg)  stateMsg.classList.add('hidden');
         if (btnInstall) { btnInstall.disabled = false; btnInstall.textContent = I18n.t('upd_modal_btn_install'); }
@@ -91,12 +110,13 @@
     }
 
     function renderChangelog(info) {
+        info = normalizeUpdateInfo(info);
         let html = '';
         if (info.releaseNotes) {
             html += '<div class="relative pl-6 pb-6 border-l border-surface-variant/50">' +
                 '<div class="absolute left-0 top-1 w-3 h-3 rounded-full bg-secondary-container -translate-x-[6.5px] shadow-[0_0_10px_rgba(0,241,254,0.4)]"></div>' +
                 '<div class="flex items-center gap-sm mb-xs">' +
-                '<h4 class="text-title-lg text-on-surface">v' + esc(info.latestVersion) + (info.updateAvailable ? '' : ' (Current)') + '</h4>' +
+                '<h4 class="text-title-lg text-on-surface">' + esc(formatVersion(info.latestVersion)) + (info.updateAvailable ? '' : ' (Current)') + '</h4>' +
                 '<span class="text-label-sm text-on-surface-variant opacity-70">Release</span></div>' +
                 '<div class="text-body-md text-on-surface-variant mt-sm whitespace-pre-line">' + esc(info.releaseNotes) + '</div>' +
                 '</div>';
@@ -156,19 +176,24 @@
         icon.textContent = 'progress_activity';
         setStatus(I18n.t('msg_check_update'), false);
         try {
-            const info = await Host.call('checkForUpdates');
+            const info = normalizeUpdateInfo(await Host.call('checkForUpdates'));
+            _updateInfo = info;
             if (info.status === 'ok') {
                 setStatus(info.message, false);
                 renderChangelog(info);
                 if (info.updateAvailable && info.downloadUrl) {
                     downloadUrl = info.downloadUrl;
-                    btnDownload.classList.remove('hidden');
-                    btnDownload.classList.add('flex');
-                    btnDownloadLabel.textContent = I18n.t('msg_dl_install') + info.latestVersion;
+                    setDownloadButtonVisible(true);
+                    btnDownloadLabel.textContent = I18n.t('msg_dl_install') + formatVersion(info.latestVersion);
+                } else {
+                    downloadUrl = null;
+                    setDownloadButtonVisible(false);
                 }
             } else {
                 setStatus(info.message || I18n.t('msg_check_err'), true);
                 if (info.commits && info.commits.length) renderChangelog(info);
+                downloadUrl = null;
+                setDownloadButtonVisible(false);
             }
         } catch (err) {
             setStatus(I18n.t('msg_err') + err.message, true);
@@ -190,7 +215,9 @@
 
     // Startup banner: update available → open branded modal
     Host.on('updateAvailable', (info) => {
+        info = normalizeUpdateInfo(info);
         if (!info || !info.downloadUrl) return;
+        _updateInfo = info;
         downloadUrl = info.downloadUrl;
         renderChangelog(info);
         openUpdateModal(info);
