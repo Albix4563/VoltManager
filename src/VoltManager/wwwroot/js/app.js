@@ -17,6 +17,7 @@
             addTitle: 'Aggiungi app personalizzata', addSub: 'Seleziona un file .exe, .lnk, .bat o .cmd. Verrà registrato come app gestita da Miliano\'s App.',
             add: 'Aggiungi', refresh: 'Aggiorna', enabled: 'Avvio attivo', disabled: 'Avvio disattivato', loading: 'Caricamento…', empty: 'Nessuna applicazione trovata.',
             managed: 'Miliano\'s App', remove: 'Rimuovi', enableStartup: 'Attiva', disableStartup: 'Disattiva', unknown: 'App sconosciuta',
+            on: 'ON', off: 'OFF', active: 'Attivo', inactive: 'Disattivato', switchHint: 'Switch animato', source: 'Origine', command: 'Percorso',
             added: 'Applicazione aggiunta all\'avvio.', removed: 'Applicazione rimossa dall\'avvio.', toggled: 'Stato applicazione aggiornato.',
             loadErr: 'Errore caricamento app di avvio: ', addErr: 'Errore aggiunta app: ', removeErr: 'Errore rimozione app: ', toggleErr: 'Errore modifica stato app: '
         },
@@ -29,6 +30,7 @@
             addTitle: 'Add custom app', addSub: 'Select an .exe, .lnk, .bat, or .cmd file. It will be registered as a Miliano\'s App managed entry.',
             add: 'Add', refresh: 'Refresh', enabled: 'Enabled startup', disabled: 'Disabled startup', loading: 'Loading…', empty: 'No applications found.',
             managed: 'Miliano\'s App', remove: 'Remove', enableStartup: 'Enable', disableStartup: 'Disable', unknown: 'Unknown app',
+            on: 'ON', off: 'OFF', active: 'Active', inactive: 'Disabled', switchHint: 'Animated switch', source: 'Source', command: 'Path',
             added: 'Application added to startup.', removed: 'Application removed from startup.', toggled: 'Application state updated.',
             loadErr: 'Error loading startup apps: ', addErr: 'Error adding app: ', removeErr: 'Error removing app: ', toggleErr: 'Error changing app state: '
         }
@@ -50,6 +52,71 @@
 
     function escAttr(s) {
         return esc(s).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    function ensureSystemStyles() {
+        if (document.getElementById('system-startup-switch-styles')) return;
+        const style = document.createElement('style');
+        style.id = 'system-startup-switch-styles';
+        style.textContent = `
+@keyframes startupCardIn{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes startupSwitchPulse{0%{box-shadow:0 0 0 0 rgba(0,241,254,.34)}70%{box-shadow:0 0 0 12px rgba(0,241,254,0)}100%{box-shadow:0 0 0 0 rgba(0,241,254,0)}}
+@keyframes startupKnobPop{0%{transform:translateX(var(--knob-x)) scale(.92)}55%{transform:translateX(var(--knob-x)) scale(1.08)}100%{transform:translateX(var(--knob-x)) scale(1)}}
+@keyframes startupShimmer{0%{transform:translateX(-120%)}100%{transform:translateX(220%)}}
+.startup-summary-card{position:relative;overflow:hidden;border:1px solid rgba(255,255,255,.1);border-radius:16px;background:linear-gradient(135deg,rgba(18,33,49,.72),rgba(10,17,40,.62));padding:14px 16px;display:flex;align-items:center;gap:12px;box-shadow:inset 0 1px 0 rgba(255,255,255,.05);}
+.startup-summary-card:after{content:"";position:absolute;inset:0;background:radial-gradient(circle at 15% 0,rgba(0,241,254,.13),transparent 36%);opacity:.9;pointer-events:none;}
+.startup-summary-card[data-tone="off"]:after{background:radial-gradient(circle at 15% 0,rgba(151,161,176,.12),transparent 36%);}
+.startup-summary-icon{position:relative;z-index:1;width:36px;height:36px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:rgba(0,241,254,.1);border:1px solid rgba(0,241,254,.22);color:#00f1fe;box-shadow:0 0 20px rgba(0,241,254,.1);}
+.startup-summary-card[data-tone="off"] .startup-summary-icon{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.1);color:rgba(211,222,239,.78);box-shadow:none;}
+.startup-summary-card>div:not(.startup-summary-icon){position:relative;z-index:1;}
+.startup-card{position:relative;overflow:hidden;border:1px solid rgba(255,255,255,.1);border-radius:16px;background:linear-gradient(135deg,rgba(18,33,49,.66),rgba(10,17,40,.54));padding:16px;display:flex;flex-direction:column;gap:12px;animation:startupCardIn .32s cubic-bezier(.2,.8,.2,1) both;transition:border-color .25s ease,transform .25s ease,background .25s ease,box-shadow .25s ease;}
+.startup-card:hover{transform:translateY(-1px);border-color:rgba(0,241,254,.26);background:linear-gradient(135deg,rgba(18,33,49,.82),rgba(10,17,40,.66));box-shadow:0 18px 35px rgba(0,0,0,.18),0 0 0 1px rgba(0,241,254,.04);}
+.startup-card__accent{position:absolute;left:0;top:14px;bottom:14px;width:3px;border-radius:999px;background:rgba(148,163,184,.45);box-shadow:none;transition:background .25s ease,box-shadow .25s ease;}
+.startup-card[data-state="on"] .startup-card__accent{background:#00f1fe;box-shadow:0 0 16px rgba(0,241,254,.58);}
+.startup-card__header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;}
+.startup-card__title-wrap{min-width:0;display:flex;align-items:flex-start;gap:12px;}
+.startup-card__app-icon{width:42px;height:42px;border-radius:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);color:rgba(211,222,239,.8);transition:background .25s ease,border-color .25s ease,color .25s ease,box-shadow .25s ease;}
+.startup-card[data-state="on"] .startup-card__app-icon{background:rgba(0,241,254,.1);border-color:rgba(0,241,254,.22);color:#00f1fe;box-shadow:0 0 18px rgba(0,241,254,.08);}
+.startup-card__meta{min-width:0;}
+.startup-card__name{font-weight:700;color:#d3deef;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}
+.startup-card__badges{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px;}
+.startup-status-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 9px;border-radius:999px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);font-size:11px;line-height:1;color:rgba(211,222,239,.75);}
+.startup-status-chip:before{content:"";width:6px;height:6px;border-radius:999px;background:rgba(148,163,184,.85);}
+.startup-card[data-state="on"] .startup-status-chip{border-color:rgba(0,241,254,.2);background:rgba(0,241,254,.09);color:#00f1fe;}
+.startup-card[data-state="on"] .startup-status-chip:before{background:#00f1fe;box-shadow:0 0 8px rgba(0,241,254,.7);}
+.startup-managed-badge{display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border-radius:999px;background:rgba(0,241,254,.08);color:#00f1fe;border:1px solid rgba(0,241,254,.18);font-size:11px;line-height:1;}
+.startup-card__details{display:grid;gap:6px;padding-left:54px;}
+.startup-detail-line{display:flex;gap:8px;min-width:0;font-size:12px;color:rgba(211,222,239,.62);}
+.startup-detail-label{color:rgba(0,241,254,.78);font-weight:700;letter-spacing:.04em;text-transform:uppercase;flex:0 0 auto;}
+.startup-detail-value{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.startup-actions{display:flex;align-items:center;gap:10px;flex-shrink:0;}
+.startup-switch{--knob-x:3px;position:relative;width:96px;height:40px;border:0;padding:0;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;outline:none;flex:0 0 auto;isolation:isolate;}
+.startup-switch:focus-visible{box-shadow:0 0 0 3px rgba(0,241,254,.28);}
+.startup-switch__track{position:absolute;inset:0;border-radius:999px;overflow:hidden;background:linear-gradient(135deg,rgba(50,61,78,.92),rgba(18,33,49,.92));border:1px solid rgba(255,255,255,.12);box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 8px 20px rgba(0,0,0,.22);transition:background .32s ease,border-color .32s ease,box-shadow .32s ease;}
+.startup-switch__track:after{content:"";position:absolute;top:0;bottom:0;width:34px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.24),transparent);opacity:0;animation:startupShimmer 2.4s ease-in-out infinite;}
+.startup-switch__knob{position:absolute;z-index:2;left:3px;top:3px;width:34px;height:34px;border-radius:999px;background:linear-gradient(135deg,#f4fbff,#9fb4c8);display:flex;align-items:center;justify-content:center;color:#122131;box-shadow:0 8px 16px rgba(0,0,0,.32),inset 0 1px 0 rgba(255,255,255,.8);transform:translateX(var(--knob-x));transition:transform .32s cubic-bezier(.2,.85,.25,1.2),background .32s ease,color .32s ease;}
+.startup-switch__icon{position:absolute;font-size:17px;line-height:1;transition:opacity .18s ease,transform .18s ease;}
+.startup-switch__icon-on{opacity:0;transform:scale(.65) rotate(-45deg);}
+.startup-switch__icon-off{opacity:1;transform:scale(1) rotate(0deg);}
+.startup-switch__label{position:absolute;top:50%;transform:translateY(-50%);z-index:1;font-size:11px;font-weight:800;letter-spacing:.08em;line-height:1;transition:opacity .22s ease,transform .22s ease;color:rgba(211,222,239,.78);}
+.startup-switch__label-on{left:15px;opacity:0;transform:translateY(-50%) translateX(-4px);color:#06262c;}
+.startup-switch__label-off{right:13px;opacity:1;transform:translateY(-50%) translateX(0);}
+.startup-switch[data-state="on"],.startup-switch[data-on="true"]{--knob-x:56px;animation:startupSwitchPulse .7s ease-out;}
+.startup-switch[data-state="on"] .startup-switch__track,.startup-switch[data-on="true"] .startup-switch__track{background:linear-gradient(135deg,#00f1fe,#00a8b5);border-color:rgba(0,241,254,.78);box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 0 24px rgba(0,241,254,.28),0 10px 24px rgba(0,0,0,.2);}
+.startup-switch[data-state="on"] .startup-switch__track:after,.startup-switch[data-on="true"] .startup-switch__track:after{opacity:1;}
+.startup-switch[data-state="on"] .startup-switch__knob,.startup-switch[data-on="true"] .startup-switch__knob{background:linear-gradient(135deg,#f8ffff,#bffcff);color:#006a70;animation:startupKnobPop .34s ease-out;}
+.startup-switch[data-state="on"] .startup-switch__icon-on,.startup-switch[data-on="true"] .startup-switch__icon-on{opacity:1;transform:scale(1) rotate(0deg);}
+.startup-switch[data-state="on"] .startup-switch__icon-off,.startup-switch[data-on="true"] .startup-switch__icon-off{opacity:0;transform:scale(.65) rotate(45deg);}
+.startup-switch[data-state="on"] .startup-switch__label-on,.startup-switch[data-on="true"] .startup-switch__label-on{opacity:1;transform:translateY(-50%) translateX(0);}
+.startup-switch[data-state="on"] .startup-switch__label-off,.startup-switch[data-on="true"] .startup-switch__label-off{opacity:0;transform:translateY(-50%) translateX(4px);}
+.startup-switch:disabled{opacity:.65;cursor:wait;filter:saturate(.65);}
+.system-power-switch{width:106px;height:44px;}
+.system-power-switch.startup-switch[data-on="true"]{--knob-x:62px;}
+.startup-remove-btn{width:38px;height:38px;border-radius:12px;border:1px solid rgba(255,255,255,.1);display:inline-flex;align-items:center;justify-content:center;color:rgba(211,222,239,.72);background:rgba(255,255,255,.04);transition:color .2s ease,border-color .2s ease,background .2s ease,transform .2s ease;}
+.startup-remove-btn:hover{color:#ffb4ab;border-color:rgba(255,180,171,.25);background:rgba(255,180,171,.08);transform:translateY(-1px);}
+@media (max-width:720px){.startup-card__header{flex-direction:column}.startup-actions{align-self:stretch;justify-content:space-between}.startup-card__details{padding-left:0}.startup-switch{width:104px}.startup-switch[data-state="on"],.startup-switch[data-on="true"]{--knob-x:64px}}
+        `.trim();
+        document.head.appendChild(style);
     }
 
     function getNavLinks() {
@@ -95,6 +162,7 @@
     }
 
     function mountSystemTab() {
+        ensureSystemStyles();
         if (!navList || document.querySelector('#nav-list a[data-view="system"]')) return;
         const settingsLi = document.querySelector('#nav-list a[data-view="settings"]')?.parentElement;
         const item = document.createElement('li');
@@ -113,18 +181,28 @@
         document.dispatchEvent(new CustomEvent('navmounted'));
     }
 
+    function switchHtml(id, enabled, extraClass) {
+        const state = enabled ? 'on' : 'off';
+        const idAttr = id ? ' id="' + escAttr(id) + '"' : '';
+        const dataOn = id === 'toggle-scheduled-power' ? ' data-on="' + (enabled ? 'true' : 'false') + '"' : '';
+        return '<button class="startup-switch ' + (extraClass || '') + '"' + idAttr + dataOn + ' data-state="' + state + '" aria-pressed="' + (enabled ? 'true' : 'false') + '" type="button">' +
+            '<span class="startup-switch__track"><span class="startup-switch__label startup-switch__label-on system-switch-on">' + esc(t('on')) + '</span><span class="startup-switch__label startup-switch__label-off system-switch-off">' + esc(t('off')) + '</span><span class="startup-switch__knob"><span class="material-symbols-outlined startup-switch__icon startup-switch__icon-on">check</span><span class="material-symbols-outlined startup-switch__icon startup-switch__icon-off">close</span></span></span>' +
+            '</button>';
+    }
+
     function systemViewHtml() {
         return '<div class="max-w-5xl mx-auto space-y-lg relative z-10 w-full">' +
             '<div class="mb-xl"><h2 class="text-headline-lg text-on-surface mb-xs system-title"></h2><p class="text-body-md text-on-surface-variant system-sub"></p></div>' +
             '<div class="grid grid-cols-12 gap-gutter">' +
             '<div class="col-span-12 lg:col-span-5 flex flex-col gap-gutter">' +
             '<div class="glass-panel rounded-xl p-lg space-y-md"><h3 class="text-title-lg text-on-surface flex items-center gap-xs"><span class="material-symbols-outlined text-secondary-container">schedule</span><span class="system-schedule-title"></span></h3><p class="text-body-md text-on-surface-variant system-schedule-sub"></p>' +
-            '<div class="flex items-center justify-between group pt-sm"><div><p class="text-body-md text-on-surface system-enable"></p><p class="text-label-sm text-on-surface-variant system-note"></p></div><div class="mini-toggle cursor-pointer" data-on="false" id="toggle-scheduled-power"><div class="mini-toggle-knob"></div></div></div>' +
+            '<div class="flex items-center justify-between group pt-sm gap-md"><div><p class="text-body-md text-on-surface system-enable"></p><p class="text-label-sm text-on-surface-variant system-note"></p></div>' + switchHtml('toggle-scheduled-power', false, 'system-power-switch cursor-pointer') + '</div>' +
             '<label class="flex items-center justify-between gap-md"><span class="text-label-sm text-on-surface-variant system-action"></span><select id="scheduled-power-action" class="bg-surface-container-low/50 text-secondary-container font-medium border border-white/10 rounded-lg py-2 px-3 text-body-md focus:outline-none focus:border-secondary-container"><option value="shutdown" class="sys-opt-shutdown"></option><option value="restart" class="sys-opt-restart"></option><option value="sleep" class="sys-opt-sleep"></option></select></label>' +
             '<label class="flex items-center justify-between gap-md"><span class="text-label-sm text-on-surface-variant system-time"></span><input id="scheduled-power-time" type="time" class="bg-surface-container-low/50 text-secondary-container font-medium border border-white/10 rounded-lg py-2 px-3 text-body-md focus:outline-none focus:border-secondary-container" /></label>' +
             '<p class="text-label-md text-on-surface-variant hidden" id="system-status"></p></div>' +
             '<div class="glass-panel rounded-xl p-lg"><h3 class="text-title-lg text-on-surface flex items-center gap-xs"><span class="material-symbols-outlined text-secondary-container">add_circle</span><span class="system-add-title"></span></h3><p class="text-body-md text-on-surface-variant mt-1 system-add-sub"></p><button class="btn-glow mt-md bg-secondary-container text-on-secondary-container text-label-md font-bold px-5 py-3 rounded-lg flex items-center gap-sm" id="btn-add-startup-app"><span class="material-symbols-outlined text-[18px]">add</span><span class="system-add-btn"></span></button></div>' +
             '</div><div class="col-span-12 lg:col-span-7"><div class="glass-panel rounded-xl p-lg"><div class="flex items-start justify-between gap-md mb-lg"><div><h3 class="text-title-lg text-on-surface flex items-center gap-xs"><span class="material-symbols-outlined text-secondary-container">apps</span><span class="system-startup-title"></span></h3><p class="text-body-md text-on-surface-variant mt-1 system-startup-sub"></p></div><button class="btn-ghost rounded-lg py-2 px-4 text-label-md flex items-center gap-xs" id="btn-refresh-startup-apps"><span class="material-symbols-outlined text-[18px]">refresh</span><span class="system-refresh"></span></button></div>' +
+            '<div class="grid grid-cols-2 gap-sm mb-lg"><div class="startup-summary-card" data-tone="on"><div class="startup-summary-icon"><span class="material-symbols-outlined text-[20px]">rocket_launch</span></div><div><p class="text-title-lg text-on-surface" id="startup-enabled-count">--</p><p class="text-label-sm text-on-surface-variant system-enabled"></p></div></div><div class="startup-summary-card" data-tone="off"><div class="startup-summary-icon"><span class="material-symbols-outlined text-[20px]">pause_circle</span></div><div><p class="text-title-lg text-on-surface" id="startup-disabled-count">--</p><p class="text-label-sm text-on-surface-variant system-disabled"></p></div></div></div>' +
             '<div class="space-y-lg"><div><h4 class="text-label-md uppercase tracking-wider text-secondary-container mb-sm system-enabled"></h4><div class="space-y-sm" id="startup-enabled-list"></div></div><div><h4 class="text-label-md uppercase tracking-wider text-on-surface-variant mb-sm system-disabled"></h4><div class="space-y-sm" id="startup-disabled-list"></div></div></div>' +
             '</div></div></div></div>';
     }
@@ -135,7 +213,7 @@
             ['.system-title','title'], ['.system-sub','sub'], ['.system-schedule-title','scheduleTitle'], ['.system-schedule-sub','scheduleSub'],
             ['.system-enable','enable'], ['.system-note','note'], ['.system-action','action'], ['.system-time','time'], ['.system-add-title','addTitle'],
             ['.system-add-sub','addSub'], ['.system-add-btn','add'], ['.system-startup-title','startupTitle'], ['.system-startup-sub','startupSub'],
-            ['.system-refresh','refresh'], ['.system-enabled','enabled'], ['.system-disabled','disabled']
+            ['.system-refresh','refresh'], ['.system-enabled','enabled'], ['.system-disabled','disabled'], ['.system-switch-on','on'], ['.system-switch-off','off']
         ];
         pairs.forEach(([sel, key]) => document.querySelectorAll(sel).forEach(el => el.textContent = t(key)));
         const opts = { '.sys-opt-shutdown': 'shutdown', '.sys-opt-restart': 'restart', '.sys-opt-sleep': 'sleep' };
@@ -150,7 +228,10 @@
     }
 
     function setMiniToggle(el, enabled) {
-        if (el) el.dataset.on = enabled ? 'true' : 'false';
+        if (!el) return;
+        el.dataset.on = enabled ? 'true' : 'false';
+        el.dataset.state = enabled ? 'on' : 'off';
+        el.setAttribute('aria-pressed', enabled ? 'true' : 'false');
     }
 
     function applyScheduledUi() {
@@ -269,15 +350,27 @@
         if (!enabledList || !disabledList) return;
         enabledList.innerHTML = loadingRow();
         disabledList.innerHTML = loadingRow();
+        updateStartupCounters(null, null);
         try {
             const data = await Host.call('getStartupApps');
-            renderStartupList(enabledList, data.enabled || []);
-            renderStartupList(disabledList, data.disabled || []);
+            const enabled = data.enabled || [];
+            const disabled = data.disabled || [];
+            renderStartupList(enabledList, enabled, true);
+            renderStartupList(disabledList, disabled, false);
+            updateStartupCounters(enabled.length, disabled.length);
             startupLoaded = true;
         } catch (err) {
             enabledList.innerHTML = errorRow(t('loadErr') + err.message);
             disabledList.innerHTML = '';
+            updateStartupCounters(null, null);
         }
+    }
+
+    function updateStartupCounters(enabled, disabled) {
+        const enabledCount = document.getElementById('startup-enabled-count');
+        const disabledCount = document.getElementById('startup-disabled-count');
+        if (enabledCount) enabledCount.textContent = enabled == null ? '--' : String(enabled);
+        if (disabledCount) disabledCount.textContent = disabled == null ? '--' : String(disabled);
     }
 
     function loadingRow() {
@@ -288,21 +381,36 @@
         return '<div class="text-body-md text-on-surface-variant opacity-70 py-3">' + esc(text) + '</div>';
     }
 
-    function renderStartupList(container, apps) {
+    function renderStartupList(container, apps, fallbackEnabled) {
         if (!apps.length) {
             container.innerHTML = '<div class="text-body-md text-on-surface-variant opacity-70 py-3">' + esc(t('empty')) + '</div>';
             return;
         }
         container.innerHTML = apps.map(app => {
-            const managedBadge = app.isManaged ? '<span class="text-label-sm px-2 py-1 rounded bg-secondary-container/10 text-secondary-container border border-secondary-container/20">' + esc(t('managed')) + '</span>' : '';
-            const toggleButton = '<button class="btn-ghost rounded-lg py-1.5 px-3 text-label-md" data-toggle-startup-id="' + escAttr(app.id) + '" data-toggle-startup-enabled="' + (app.enabled ? 'false' : 'true') + '" type="button">' + esc(app.enabled ? t('disableStartup') : t('enableStartup')) + '</button>';
-            const removeButton = app.isManaged ? '<button class="btn-ghost rounded-lg py-1.5 px-3 text-label-md" data-remove-startup-id="' + escAttr(app.id) + '" type="button">' + esc(t('remove')) + '</button>' : '';
-            const actionButtons = '<div class="flex items-center gap-xs shrink-0">' + toggleButton + removeButton + '</div>';
-            return '<div class="rounded-lg border border-white/10 bg-surface-container-low/40 p-md flex flex-col gap-xs">' +
-                '<div class="flex items-start justify-between gap-md"><div class="min-w-0"><div class="flex items-center gap-sm flex-wrap">' +
-                '<p class="text-body-md text-on-surface font-medium truncate">' + esc(app.name || t('unknown')) + '</p>' + managedBadge +
-                '</div><p class="text-label-sm text-on-surface-variant mt-1">' + esc(app.source || '') + '</p></div>' + actionButtons + '</div>' +
-                '<p class="text-label-sm text-on-surface-variant opacity-70 break-all">' + esc(app.path || app.command || '') + '</p></div>';
+            const isEnabled = typeof app.enabled === 'boolean' ? app.enabled : !!fallbackEnabled;
+            const state = isEnabled ? 'on' : 'off';
+            const name = app.name || t('unknown');
+            const source = app.source || '';
+            const command = app.path || app.command || '';
+            const nextEnabled = !isEnabled;
+            const managedBadge = app.isManaged
+                ? '<span class="startup-managed-badge"><span class="material-symbols-outlined text-[13px]">verified</span>' + esc(t('managed')) + '</span>'
+                : '';
+            const statusChip = '<span class="startup-status-chip">' + esc(isEnabled ? t('active') : t('inactive')) + '</span>';
+            const toggleButton = '<button class="startup-switch" data-state="' + state + '" aria-pressed="' + (isEnabled ? 'true' : 'false') + '" aria-label="' + escAttr((isEnabled ? t('disableStartup') : t('enableStartup')) + ' ' + name) + '" title="' + escAttr(t('switchHint')) + '" data-toggle-startup-id="' + escAttr(app.id) + '" data-toggle-startup-enabled="' + (nextEnabled ? 'true' : 'false') + '" type="button">' +
+                '<span class="startup-switch__track"><span class="startup-switch__label startup-switch__label-on">' + esc(t('on')) + '</span><span class="startup-switch__label startup-switch__label-off">' + esc(t('off')) + '</span><span class="startup-switch__knob"><span class="material-symbols-outlined startup-switch__icon startup-switch__icon-on">check</span><span class="material-symbols-outlined startup-switch__icon startup-switch__icon-off">close</span></span></span>' +
+                '</button>';
+            const removeButton = app.isManaged
+                ? '<button class="startup-remove-btn" data-remove-startup-id="' + escAttr(app.id) + '" aria-label="' + escAttr(t('remove') + ' ' + name) + '" title="' + escAttr(t('remove')) + '" type="button"><span class="material-symbols-outlined text-[18px]">delete</span></button>'
+                : '';
+            return '<article class="startup-card" data-state="' + state + '">' +
+                '<div class="startup-card__accent"></div>' +
+                '<div class="startup-card__header"><div class="startup-card__title-wrap"><div class="startup-card__app-icon"><span class="material-symbols-outlined">apps</span></div><div class="startup-card__meta"><p class="startup-card__name">' + esc(name) + '</p><div class="startup-card__badges">' + statusChip + managedBadge + '</div></div></div>' +
+                '<div class="startup-actions">' + toggleButton + removeButton + '</div></div>' +
+                '<div class="startup-card__details">' +
+                '<div class="startup-detail-line"><span class="startup-detail-label">' + esc(t('source')) + '</span><span class="startup-detail-value">' + esc(source) + '</span></div>' +
+                '<div class="startup-detail-line"><span class="startup-detail-label">' + esc(t('command')) + '</span><span class="startup-detail-value" title="' + escAttr(command) + '">' + esc(command) + '</span></div>' +
+                '</div></article>';
         }).join('');
     }
 
