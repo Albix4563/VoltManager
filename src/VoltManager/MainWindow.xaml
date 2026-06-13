@@ -40,6 +40,8 @@
                             <MenuItem Header="Sempre" Tag="performance|0" Click="TrayPlanDuration_Click" />
                         </MenuItem>
                     </MenuItem>
+                    <MenuItem x:Name="TrayKeepAwakeItem" Header="Tieni PC attivo (no sospensione)"
+                              IsCheckable="True" Click="TrayKeepAwake_Click" />
                     <MenuItem x:Name="TrayClearOverrideItem" Header="Sblocca piano (riprendi automazione)"
                               Visibility="Collapsed" Click="TrayClearOverride_Click" />
                     <MenuItem x:Name="TrayAutomationItem" Header="Automazione piano" IsCheckable="True"

@@ -45,9 +45,12 @@ public class SettingsService
                         loaded.AutoUpdates = new AutoUpdateSettings();
                     if (loaded.HeavyAppDetection == null)
                         loaded.HeavyAppDetection = new HeavyAppDetectionSettings();
+                    if (loaded.KeepAwake == null)
+                        loaded.KeepAwake = new KeepAwakeSettings();
                     NormalizeScheduledPowerAction(loaded.AutoShutdown);
                     NormalizeAutoUpdateSettings(loaded.AutoUpdates);
                     NormalizeHeavyAppDetectionSettings(loaded.HeavyAppDetection);
+                    NormalizeKeepAwakeSettings(loaded.KeepAwake);
                     // Migrate stale repo name from pre-release installs.
                     if (loaded.UpdateRepo == "Albix4563/VoltManager")
                         loaded.UpdateRepo = "Albix4563/power_efficency";
@@ -93,6 +96,12 @@ public class SettingsService
             settings.UseWindowsGpuPreferences = true;
     }
 
+    private static void NormalizeKeepAwakeSettings(KeepAwakeSettings settings)
+    {
+        // Keep-awake intentionally has no timeout: it remains active until the user
+        // disables it from the app or tray, then Windows resumes the normal plan rules.
+    }
+
     public void Save()
     {
         lock (_lock)
@@ -100,9 +109,11 @@ public class SettingsService
             Current.AutoShutdown ??= new AutoShutdownSettings();
             Current.AutoUpdates ??= new AutoUpdateSettings();
             Current.HeavyAppDetection ??= new HeavyAppDetectionSettings();
+            Current.KeepAwake ??= new KeepAwakeSettings();
             NormalizeScheduledPowerAction(Current.AutoShutdown);
             NormalizeAutoUpdateSettings(Current.AutoUpdates);
             NormalizeHeavyAppDetectionSettings(Current.HeavyAppDetection);
+            NormalizeKeepAwakeSettings(Current.KeepAwake);
             var dir = Path.GetDirectoryName(_path)!;
             Directory.CreateDirectory(dir);
             var tmp = _path + ".tmp";

@@ -1,6 +1,7 @@
 /**
  * Gestione Energetica: automation rules editor, debounced save.
  * Heavy app detection: Windows GPU preferences + generic game/heavy workload heuristics.
+ * Keep-awake mode: runtime Windows power request to prevent automatic sleep.
  */
 (function () {
     if (!Host.available) return;
@@ -9,6 +10,8 @@
     let saveTimer = null;
     let heavyAppWired = false;
     let heavyAppStatus = null;
+    let keepAwakeWired = false;
+    let keepAwakeState = null;
 
     const ruleIds = ['saver', 'balanced', 'performance'];
     const planIds = ['powerSaver', 'balanced', 'performance'];
@@ -27,6 +30,15 @@
             heavyGamePathsSub: 'Rileva Steam, Epic, GOG, Xbox, Riot, Battle.net e simili senza database dei giochi.',
             heavyResources: 'Carichi pesanti generici',
             heavyResourcesSub: 'Rileva processi utente con memoria elevata quando non esiste una preferenza Windows.',
+            keepTitle: 'Tieni il PC attivo',
+            keepSub: 'Blocca la sospensione automatica senza modificare permanentemente i timeout dei piani energetici.',
+            keepToggle: 'Impedisci autosospensione',
+            keepToggleSub: 'Utile per download notturni, rendering, training AI e task lunghi.',
+            keepStatusActive: 'Attivo: il PC non andrà in sospensione automatica.',
+            keepStatusIdle: 'Disattivo: valgono le normali regole del piano energetico.',
+            keepBadgeActive: 'No sospensione',
+            keepBadgeIdle: 'Sospensione normale',
+            keepNote: 'Lo schermo continua a seguire le impostazioni di Windows; viene bloccata solo la sospensione del sistema.',
             statusIdle: 'In ascolto',
             statusDisabled: 'Disattivato',
             statusActive: 'Modalità app pesante attiva',
@@ -53,6 +65,15 @@
             heavyGamePathsSub: 'Detects Steam, Epic, GOG, Xbox, Riot, Battle.net, and similar paths without a game database.',
             heavyResources: 'Generic heavy workloads',
             heavyResourcesSub: 'Detects user processes with high memory usage when no Windows preference exists.',
+            keepTitle: 'Keep PC awake',
+            keepSub: 'Prevents automatic system sleep without permanently changing power-plan timeout values.',
+            keepToggle: 'Prevent automatic sleep',
+            keepToggleSub: 'Useful for overnight downloads, rendering, AI training, and long-running jobs.',
+            keepStatusActive: 'Active: the PC will not automatically go to sleep.',
+            keepStatusIdle: 'Off: the current power plan controls sleep normally.',
+            keepBadgeActive: 'Sleep blocked',
+            keepBadgeIdle: 'Normal sleep',
+            keepNote: 'The display still follows Windows settings; only system sleep is blocked.',
             statusIdle: 'Listening',
             statusDisabled: 'Disabled',
             statusActive: 'Heavy app mode active',
@@ -77,14 +98,18 @@
         return (text[l] && text[l][key]) || text.it[key] || key;
     }
 
-    function esc(s) {
+    function esc(value) {
         const div = document.createElement('div');
-        div.textContent = s == null ? '' : String(s);
+        div.textContent = value == null ? '' : String(value);
         return div.innerHTML;
     }
 
     function ruleById(id) {
         return settings.rules.find(r => r.id === id);
+    }
+
+    function setToggle(el, on) {
+        if (el) el.dataset.on = on ? 'true' : 'false';
     }
 
     function normalizeHeavyAppDetection() {
@@ -98,6 +123,7 @@
                 minWorkingSetMb: 1536
             };
         }
+
         const cfg = settings.heavyAppDetection;
         if (!planIds.includes(cfg.targetPlan)) cfg.targetPlan = 'performance';
         if (!Number.isFinite(Number(cfg.minWorkingSetMb))) cfg.minWorkingSetMb = 1536;
@@ -108,74 +134,115 @@
         return cfg;
     }
 
-    function ensureHeavyAppStyles() {
-        if (document.getElementById('heavy-app-detection-styles')) return;
+    function normalizeKeepAwake() {
+        if (!settings.keepAwake) settings.keepAwake = { enabled: false, lastChangedUtc: null };
+        settings.keepAwake.enabled = !!settings.keepAwake.enabled;
+        return settings.keepAwake;
+    }
+
+    function ensurePowerStyles() {
+        if (document.getElementById('power-feature-styles')) return;
+
         const style = document.createElement('style');
-        style.id = 'heavy-app-detection-styles';
+        style.id = 'power-feature-styles';
         style.textContent = `
 @keyframes heavyAppGlow{0%{box-shadow:0 0 0 0 rgba(0,241,254,.26)}70%{box-shadow:0 0 0 13px rgba(0,241,254,0)}100%{box-shadow:0 0 0 0 rgba(0,241,254,0)}}
-.heavy-app-panel{position:relative;overflow:hidden;border:1px solid rgba(0,241,254,.13);background:linear-gradient(135deg,rgba(18,33,49,.82),rgba(10,17,40,.68));}
-.heavy-app-panel:before{content:"";position:absolute;inset:-40% auto auto -12%;width:320px;height:320px;border-radius:999px;background:radial-gradient(circle,rgba(0,241,254,.14),transparent 66%);pointer-events:none;}
+.heavy-app-panel,.keep-awake-panel{position:relative;overflow:hidden;border:1px solid rgba(0,241,254,.13);background:linear-gradient(135deg,rgba(18,33,49,.82),rgba(10,17,40,.68));}
+.heavy-app-panel:before,.keep-awake-panel:before{content:"";position:absolute;inset:-40% auto auto -12%;width:320px;height:320px;border-radius:999px;background:radial-gradient(circle,rgba(0,241,254,.14),transparent 66%);pointer-events:none;}
 .heavy-app-grid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(260px,.85fr);gap:18px;position:relative;z-index:1;}
 .heavy-app-option{border:1px solid rgba(255,255,255,.09);background:rgba(255,255,255,.035);border-radius:16px;padding:14px;display:flex;align-items:center;justify-content:space-between;gap:14px;transition:border-color .22s ease,background .22s ease,transform .22s ease;}
 .heavy-app-option:hover{border-color:rgba(0,241,254,.24);background:rgba(255,255,255,.055);transform:translateY(-1px);}
-.heavy-app-badge{display:inline-flex;align-items:center;gap:7px;padding:5px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);color:rgba(211,222,239,.74);font-size:12px;line-height:1;}
-.heavy-app-badge[data-active="true"]{border-color:rgba(0,241,254,.32);background:rgba(0,241,254,.1);color:#00f1fe;animation:heavyAppGlow .9s ease-out;}
+.heavy-app-badge,.keep-awake-badge{display:inline-flex;align-items:center;gap:7px;padding:5px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);color:rgba(211,222,239,.74);font-size:12px;line-height:1;}
+.heavy-app-badge[data-active="true"],.keep-awake-badge[data-active="true"]{border-color:rgba(0,241,254,.32);background:rgba(0,241,254,.1);color:#00f1fe;animation:heavyAppGlow .9s ease-out;}
 .heavy-app-list{display:grid;gap:8px;max-height:190px;overflow:auto;padding-right:2px;}
 .heavy-app-row{border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.035);border-radius:12px;padding:10px 12px;}
 .heavy-app-path{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:rgba(211,222,239,.58);font-size:11px;margin-top:3px;}
-@media (max-width:960px){.heavy-app-grid{grid-template-columns:1fr}}
+.keep-awake-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(240px,.38fr);gap:18px;position:relative;z-index:1;align-items:stretch;}
+.keep-awake-status{border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.035);border-radius:16px;padding:16px;display:flex;flex-direction:column;justify-content:space-between;gap:12px;}
+@media (max-width:960px){.heavy-app-grid,.keep-awake-grid{grid-template-columns:1fr}}
         `.trim();
         document.head.appendChild(style);
     }
 
+    function optionHtml(id, titleKey, subKey, icon, on) {
+        return '<div class="heavy-app-option" id="pref-' + id + '">' +
+            '<div class="flex items-center gap-md">' +
+            '<div class="w-11 h-11 rounded-xl bg-surface-container-lowest border border-white/5 flex items-center justify-center">' +
+            '<span class="material-symbols-outlined text-secondary-container">' + icon + '</span>' +
+            '</div><div><p class="text-body-md text-on-surface" id="' + id + '-title"></p>' +
+            '<p class="text-label-sm text-on-surface-variant" id="' + id + '-sub"></p></div></div>' +
+            '<div class="mini-toggle cursor-pointer" data-on="' + (on ? 'true' : 'false') + '" id="toggle-' + id + '">' +
+            '<div class="mini-toggle-knob"></div></div></div>';
+    }
+
+    function mountKeepAwakeUi() {
+        if (document.getElementById('keep-awake-panel')) return;
+        ensurePowerStyles();
+
+        const rulesWrap = document.querySelector('#view-power .space-y-md');
+        if (!rulesWrap) return;
+
+        rulesWrap.insertAdjacentHTML('beforebegin',
+            '<section class="glass-panel rounded-xl p-lg keep-awake-panel" id="keep-awake-panel">' +
+            '<div class="flex flex-col sm:flex-row sm:items-start justify-between gap-md mb-lg relative z-10">' +
+            '<div><h3 class="text-title-lg text-on-surface flex items-center gap-xs">' +
+            '<span class="material-symbols-outlined text-secondary-container">bedtime_off</span>' +
+            '<span id="keep-awake-title"></span></h3>' +
+            '<p class="text-body-md text-on-surface-variant mt-1 max-w-2xl" id="keep-awake-sub"></p></div>' +
+            '<span class="keep-awake-badge" id="keep-awake-badge" data-active="false">' +
+            '<span class="material-symbols-outlined text-[16px]">power_settings_new</span>' +
+            '<span id="keep-awake-badge-label"></span></span></div>' +
+            '<div class="keep-awake-grid"><div class="space-y-sm">' +
+            optionHtml('keep-awake-toggle', 'keepToggle', 'keepToggleSub', 'lock_clock', false) +
+            '</div><aside class="keep-awake-status">' +
+            '<p class="text-body-md text-on-surface" id="keep-awake-status"></p>' +
+            '<p class="text-label-sm text-on-surface-variant opacity-80" id="keep-awake-note"></p>' +
+            '</aside></div></section>');
+        refreshPowerLabels();
+    }
+
     function mountHeavyAppUi() {
         if (document.getElementById('heavy-app-detection-panel')) return;
-        ensureHeavyAppStyles();
+        ensurePowerStyles();
+
         const rulesWrap = document.querySelector('#view-power .space-y-md');
         if (!rulesWrap) return;
 
         rulesWrap.insertAdjacentHTML('beforebegin',
             '<section class="glass-panel rounded-xl p-lg heavy-app-panel" id="heavy-app-detection-panel">' +
-            '  <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-md mb-lg relative z-10">' +
-            '    <div>' +
-            '      <h3 class="text-title-lg text-on-surface flex items-center gap-xs"><span class="material-symbols-outlined text-secondary-container">sports_esports</span><span id="heavy-app-title"></span></h3>' +
-            '      <p class="text-body-md text-on-surface-variant mt-1 max-w-2xl" id="heavy-app-sub"></p>' +
-            '    </div>' +
-            '    <button class="btn-ghost rounded-lg py-2 px-4 text-label-md flex items-center gap-xs" id="btn-heavy-app-refresh" type="button"><span class="material-symbols-outlined text-[18px]">refresh</span><span id="heavy-app-refresh-label"></span></button>' +
-            '  </div>' +
-            '  <div class="heavy-app-grid">' +
-            '    <div class="space-y-sm">' +
+            '<div class="flex flex-col sm:flex-row sm:items-start justify-between gap-md mb-lg relative z-10">' +
+            '<div><h3 class="text-title-lg text-on-surface flex items-center gap-xs">' +
+            '<span class="material-symbols-outlined text-secondary-container">sports_esports</span>' +
+            '<span id="heavy-app-title"></span></h3>' +
+            '<p class="text-body-md text-on-surface-variant mt-1 max-w-2xl" id="heavy-app-sub"></p></div>' +
+            '<button class="btn-ghost rounded-lg py-2 px-4 text-label-md flex items-center gap-xs" id="btn-heavy-app-refresh" type="button">' +
+            '<span class="material-symbols-outlined text-[18px]">refresh</span><span id="heavy-app-refresh-label"></span></button></div>' +
+            '<div class="heavy-app-grid"><div class="space-y-sm">' +
             optionHtml('heavy-main', 'heavyToggle', 'heavyToggleSub', 'bolt', true) +
-            '      <div class="heavy-app-option">' +
-            '        <div class="flex items-center gap-md"><div class="w-11 h-11 rounded-xl bg-surface-container-lowest border border-white/5 flex items-center justify-center"><span class="material-symbols-outlined text-secondary-container">speed</span></div><div><p class="text-body-md text-on-surface" id="heavy-app-target-title"></p><p class="text-label-sm text-on-surface-variant" id="heavy-app-target-sub"></p></div></div>' +
-            '        <select id="heavy-app-target-plan" class="bg-surface-container-low/50 text-secondary-container font-medium border border-white/10 rounded-lg py-2 px-3 text-body-md focus:outline-none focus:border-secondary-container">' +
-            '          <option value="performance" id="heavy-plan-performance"></option>' +
-            '          <option value="balanced" id="heavy-plan-balanced"></option>' +
-            '          <option value="powerSaver" id="heavy-plan-powerSaver"></option>' +
-            '        </select>' +
-            '      </div>' +
+            '<div class="heavy-app-option"><div class="flex items-center gap-md">' +
+            '<div class="w-11 h-11 rounded-xl bg-surface-container-lowest border border-white/5 flex items-center justify-center">' +
+            '<span class="material-symbols-outlined text-secondary-container">speed</span></div>' +
+            '<div><p class="text-body-md text-on-surface" id="heavy-app-target-title"></p>' +
+            '<p class="text-label-sm text-on-surface-variant" id="heavy-app-target-sub"></p></div></div>' +
+            '<select id="heavy-app-target-plan" class="bg-surface-container-low/50 text-secondary-container font-medium border border-white/10 rounded-lg py-2 px-3 text-body-md focus:outline-none focus:border-secondary-container">' +
+            '<option value="performance" id="heavy-plan-performance"></option>' +
+            '<option value="balanced" id="heavy-plan-balanced"></option>' +
+            '<option value="powerSaver" id="heavy-plan-powerSaver"></option></select></div>' +
             optionHtml('heavy-windows', 'heavyWindows', 'heavyWindowsSub', 'display_settings', true) +
             optionHtml('heavy-gamepaths', 'heavyGamePaths', 'heavyGamePathsSub', 'folder_special', true) +
             optionHtml('heavy-resources', 'heavyResources', 'heavyResourcesSub', 'memory', true) +
-            '    </div>' +
-            '    <aside class="glass-card rounded-xl p-md border border-white/10 bg-surface-container-low/30">' +
-            '      <div class="flex items-center justify-between gap-md mb-md"><span class="heavy-app-badge" id="heavy-app-state-badge" data-active="false"><span class="material-symbols-outlined text-[16px]">radio_button_checked</span><span id="heavy-app-state-label"></span></span><span class="text-label-md text-on-surface-variant"><span id="heavy-app-count">0</span> <span id="heavy-app-detected-label"></span></span></div>' +
-            '      <div class="heavy-app-list" id="heavy-app-list"></div>' +
-            '    </aside>' +
-            '  </div>' +
-            '</section>');
-        refreshHeavyAppLabels();
+            '</div><aside class="glass-card rounded-xl p-md border border-white/10 bg-surface-container-low/30">' +
+            '<div class="flex items-center justify-between gap-md mb-md">' +
+            '<span class="heavy-app-badge" id="heavy-app-state-badge" data-active="false">' +
+            '<span class="material-symbols-outlined text-[16px]">radio_button_checked</span>' +
+            '<span id="heavy-app-state-label"></span></span>' +
+            '<span class="text-label-md text-on-surface-variant"><span id="heavy-app-count">0</span> ' +
+            '<span id="heavy-app-detected-label"></span></span></div>' +
+            '<div class="heavy-app-list" id="heavy-app-list"></div></aside></div></section>');
+        refreshPowerLabels();
     }
 
-    function optionHtml(id, titleKey, subKey, icon, on) {
-        return '<div class="heavy-app-option" id="pref-' + id + '">' +
-            '<div class="flex items-center gap-md"><div class="w-11 h-11 rounded-xl bg-surface-container-lowest border border-white/5 flex items-center justify-center"><span class="material-symbols-outlined text-secondary-container">' + icon + '</span></div><div><p class="text-body-md text-on-surface" id="' + id + '-title"></p><p class="text-label-sm text-on-surface-variant" id="' + id + '-sub"></p></div></div>' +
-            '<div class="mini-toggle cursor-pointer" data-on="' + (on ? 'true' : 'false') + '" id="toggle-' + id + '"><div class="mini-toggle-knob"></div></div>' +
-            '</div>';
-    }
-
-    function refreshHeavyAppLabels() {
+    function refreshPowerLabels() {
         const map = {
             'heavy-app-title': 'heavyTitle',
             'heavy-app-sub': 'heavySub',
@@ -193,17 +260,20 @@
             'heavy-app-detected-label': 'detected',
             'heavy-plan-powerSaver': 'plan_powerSaver',
             'heavy-plan-balanced': 'plan_balanced',
-            'heavy-plan-performance': 'plan_performance'
+            'heavy-plan-performance': 'plan_performance',
+            'keep-awake-title': 'keepTitle',
+            'keep-awake-sub': 'keepSub',
+            'keep-awake-toggle-title': 'keepToggle',
+            'keep-awake-toggle-sub': 'keepToggleSub',
+            'keep-awake-note': 'keepNote'
         };
+
         Object.entries(map).forEach(([id, key]) => {
             const el = document.getElementById(id);
             if (el) el.textContent = tt(key);
         });
         renderHeavyAppStatus(heavyAppStatus);
-    }
-
-    function setToggle(el, on) {
-        if (el) el.dataset.on = on ? 'true' : 'false';
+        renderKeepAwakeState(keepAwakeState);
     }
 
     function syncHeavyAppUi() {
@@ -214,6 +284,24 @@
         setToggle(document.getElementById('toggle-heavy-resources'), cfg.useResourceHeuristics);
         const select = document.getElementById('heavy-app-target-plan');
         if (select) select.value = cfg.targetPlan;
+    }
+
+    function syncKeepAwakeUi() {
+        setToggle(document.getElementById('toggle-keep-awake-toggle'), normalizeKeepAwake().enabled);
+        renderKeepAwakeState(keepAwakeState);
+    }
+
+    function renderKeepAwakeState(state) {
+        const cfg = settings ? normalizeKeepAwake() : { enabled: false };
+        const active = !!(state ? state.enabled : cfg.enabled);
+        const badge = document.getElementById('keep-awake-badge');
+        const badgeLabel = document.getElementById('keep-awake-badge-label');
+        const status = document.getElementById('keep-awake-status');
+
+        setToggle(document.getElementById('toggle-keep-awake-toggle'), active);
+        if (badge) badge.dataset.active = active ? 'true' : 'false';
+        if (badgeLabel) badgeLabel.textContent = active ? tt('keepBadgeActive') : tt('keepBadgeIdle');
+        if (status) status.textContent = active ? tt('keepStatusActive') : tt('keepStatusIdle');
     }
 
     function renderHeavyAppStatus(status) {
@@ -238,7 +326,10 @@
         list.innerHTML = apps.map(app => {
             const reason = tt('reason_' + app.reason);
             const mb = Number.isFinite(Number(app.workingSetMb)) ? ' · ' + Number(app.workingSetMb) + ' MB' : '';
-            return '<div class="heavy-app-row"><div class="flex items-center justify-between gap-sm"><span class="text-body-md text-on-surface truncate">' + esc(app.name || 'App') + '</span><span class="text-label-sm text-secondary-container whitespace-nowrap">' + esc(reason) + mb + '</span></div><span class="heavy-app-path" title="' + esc(app.path || '') + '">' + esc(app.path || '') + '</span></div>';
+            return '<div class="heavy-app-row"><div class="flex items-center justify-between gap-sm">' +
+                '<span class="text-body-md text-on-surface truncate">' + esc(app.name || 'App') + '</span>' +
+                '<span class="text-label-sm text-secondary-container whitespace-nowrap">' + esc(reason) + mb + '</span>' +
+                '</div><span class="heavy-app-path" title="' + esc(app.path || '') + '">' + esc(app.path || '') + '</span></div>';
         }).join('');
     }
 
@@ -251,6 +342,7 @@
 
     function wireHeavyAppUi() {
         if (heavyAppWired) return;
+
         document.addEventListener('click', async (e) => {
             const pref = e.target.closest('#pref-heavy-main,#pref-heavy-windows,#pref-heavy-gamepaths,#pref-heavy-resources');
             if (pref && settings) {
@@ -287,8 +379,30 @@
             heavyAppStatus = status;
             renderHeavyAppStatus(status);
         });
-
         heavyAppWired = true;
+    }
+
+    function wireKeepAwakeUi() {
+        if (keepAwakeWired) return;
+
+        document.addEventListener('click', (e) => {
+            const pref = e.target.closest('#pref-keep-awake-toggle');
+            if (!pref || !settings) return;
+
+            const cfg = normalizeKeepAwake();
+            cfg.enabled = !cfg.enabled;
+            cfg.lastChangedUtc = new Date().toISOString();
+            keepAwakeState = { enabled: cfg.enabled, applied: cfg.enabled };
+            syncKeepAwakeUi();
+            scheduleSave();
+        });
+
+        Host.on('keepAwakeChanged', (state) => {
+            keepAwakeState = state;
+            if (settings) normalizeKeepAwake().enabled = !!state.enabled;
+            renderKeepAwakeState(state);
+        });
+        keepAwakeWired = true;
     }
 
     function loadIntoUi() {
@@ -299,14 +413,22 @@
             document.getElementById('rule-' + id + '-minutes').value = rule.durationMinutes;
             document.getElementById('rule-' + id + '-toggle').checked = rule.enabled;
         });
+
         document.getElementById('master-toggle').checked = settings.masterAutomationEnabled;
         mountHeavyAppUi();
+        mountKeepAwakeUi();
         syncHeavyAppUi();
+        syncKeepAwakeUi();
         wireHeavyAppUi();
+        wireKeepAwakeUi();
+
         Host.call('getHeavyAppStatus').then(status => {
             heavyAppStatus = status;
             renderHeavyAppStatus(status);
         }).catch(err => console.error('getHeavyAppStatus failed', err));
+
+        keepAwakeState = { enabled: normalizeKeepAwake().enabled, applied: normalizeKeepAwake().enabled };
+        renderKeepAwakeState(keepAwakeState);
     }
 
     function scheduleSave() {
@@ -357,7 +479,6 @@
         settings = res.settings;
         loadIntoUi();
         wireUi();
-        // Expose for settings.js (preferences card shares the same object).
         window.__voltSettings = {
             get: () => settings,
             save: scheduleSave,
@@ -366,5 +487,5 @@
         document.dispatchEvent(new CustomEvent('settingsloaded'));
     }).catch(err => console.error('getSettings failed', err));
 
-    document.addEventListener('langchanged', refreshHeavyAppLabels);
+    document.addEventListener('langchanged', refreshPowerLabels);
 })();

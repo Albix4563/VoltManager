@@ -23,6 +23,7 @@ public partial class App : Application
     public HardwareInfoService Hardware { get; private set; } = null!;
     public SettingsService Settings { get; private set; } = null!;
     public PowerPlanService Power { get; private set; } = null!;
+    public PowerAwakeService Awake { get; private set; } = null!;
     public MonitorService Monitor { get; private set; } = null!;
     public UpdateService Updates { get; private set; } = null!;
     public StartupService AutoStart { get; private set; } = null!;
@@ -45,17 +46,17 @@ public partial class App : Application
 
     protected override void OnStartup(StartupEventArgs e)
     {
-        string? startupPlan = RemoteCommandProtocol.ParsePlanArg(e.Args);
+        string? startupCommand = RemoteCommandProtocol.ParseCommandArg(e.Args);
 
         _mutex = new Mutex(true, MutexName, out bool isNew);
         if (!isNew)
         {
-            // Another instance running: forward the plan command if any,
+            // Another instance running: forward the command if any,
             // otherwise signal it to show its window, then quit.
             try
             {
-                using var evt = EventWaitHandle.OpenExisting(startupPlan != null
-                    ? RemoteCommandProtocol.EventName(startupPlan)
+                using var evt = EventWaitHandle.OpenExisting(startupCommand != null
+                    ? RemoteCommandProtocol.EventName(startupCommand)
                     : ShowEventName);
                 evt.Set();
             }
@@ -74,6 +75,7 @@ public partial class App : Application
         Hardware = new HardwareInfoService();
         Settings = new SettingsService();
         Power = new PowerPlanService(Settings);
+        Awake = new PowerAwakeService(Settings);
         Monitor = new MonitorService(Hardware);
         Updates = new UpdateService(Settings);
         AutoStart = new StartupService();
@@ -91,14 +93,14 @@ public partial class App : Application
         _remoteCommands.CommandReceived += ApplyRemoteCommand;
         _remoteCommands.Start();
 
-        // Launched via jump list while closed: apply the plan, stay in tray.
-        bool startMinimized = e.Args.Contains("--minimized") || startupPlan != null;
+        // Launched via jump list while closed: apply the command, stay in tray.
+        bool startMinimized = e.Args.Contains("--minimized") || startupCommand != null;
         bool justUpdated    = e.Args.Contains("--updated");
         _mainWindow = new MainWindow(this, startMinimized, justUpdated);
         if (!startMinimized) _mainWindow.Show();
 
-        if (startupPlan != null)
-            _ = Task.Run(() => ApplyRemoteCommand(startupPlan));
+        if (startupCommand != null)
+            _ = Task.Run(() => ApplyRemoteCommand(startupCommand));
 
         SetupJumpList();
     }
@@ -121,6 +123,10 @@ public partial class App : Application
                 "Blocca il piano Prestazioni");
             AddPlanTask(jumpList, helper, "Automatico", RemoteCommandProtocol.AutoKey,
                 "Lascia scegliere il piano a VoltManager");
+            AddCommandTask(jumpList, helper, "Tieni PC attivo", RemoteCommandProtocol.KeepAwakeOnKey,
+                "Impedisce la sospensione automatica finché VoltManager è attivo", "Sistema");
+            AddCommandTask(jumpList, helper, "Riprendi sospensione", RemoteCommandProtocol.KeepAwakeOffKey,
+                "Ripristina le regole di sospensione del piano energetico", "Sistema");
             JumpList.SetJumpList(this, jumpList);
         }
         catch
@@ -130,14 +136,20 @@ public partial class App : Application
     }
 
     private static void AddPlanTask(JumpList jumpList, string helper, string title, string key, string description)
+        => AddJumpTask(jumpList, helper, title, RemoteCommandProtocol.PlanArgName + " " + key, description, "Piano energetico");
+
+    private static void AddCommandTask(JumpList jumpList, string helper, string title, string key, string description, string category)
+        => AddJumpTask(jumpList, helper, title, RemoteCommandProtocol.CommandArgName + " " + key, description, category);
+
+    private static void AddJumpTask(JumpList jumpList, string helper, string title, string arguments, string description, string category)
     {
         jumpList.JumpItems.Add(new JumpTask
         {
-            CustomCategory = "Piano energetico",
+            CustomCategory = category,
             Title = title,
             Description = description,
             ApplicationPath = helper,
-            Arguments = RemoteCommandProtocol.PlanArgName + " " + key,
+            Arguments = arguments,
             WorkingDirectory = AppContext.BaseDirectory,
             IconResourcePath = helper,
             IconResourceIndex = 0,
@@ -154,6 +166,11 @@ public partial class App : Application
                 case RemoteCommandProtocol.BalancedKey: SetManualOverride(PlanId.Balanced, null); break;
                 case RemoteCommandProtocol.PerformanceKey: SetManualOverride(PlanId.Performance, null); break;
                 case RemoteCommandProtocol.AutoKey: SetAutomaticMode(); break;
+                case RemoteCommandProtocol.KeepAwakeOnKey: SetKeepAwake(true); break;
+                case RemoteCommandProtocol.KeepAwakeOffKey: SetKeepAwake(false); break;
+                case RemoteCommandProtocol.KeepAwakeToggleKey:
+                    SetKeepAwake(!(Settings.Current.KeepAwake?.Enabled == true));
+                    break;
             }
         }
         catch
@@ -320,6 +337,8 @@ public partial class App : Application
         });
     }
 
+    public KeepAwakeState SetKeepAwake(bool enabled) => Awake.SetEnabled(enabled);
+
     public bool SetManualOverride(PlanId plan, TimeSpan? duration)
     {
         _heavyAppPlanSessionActive = false;
@@ -392,6 +411,7 @@ public partial class App : Application
         _planPollTimer?.Dispose();
         Monitor.Dispose();
         HeavyApps.Dispose();
+        Awake.Dispose();
         _remoteCommands?.Dispose();
         _showWait?.Unregister(null);
         _showEvent?.Dispose();

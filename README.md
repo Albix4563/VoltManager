@@ -10,10 +10,11 @@ App desktop Windows per la gestione dei piani energetici con monitoraggio hardwa
 1. **Setup**: al primo avvio verifica i piani energetici predefiniti di Windows; se mancanti li ripristina con `powercfg -duplicatescheme` (i nuovi GUID vengono salvati in `planGuidMap`).
 2. **Task Manager**: stress CPU/GPU/RAM/Disco in tempo reale (performance counters, 1s). GPU = somma contatori "GPU Engine" engtype_3D; se assenti mostra N/D.
 3. **Cambio piano manuale**: selettore Power Efficiency / Balanced / Performance nella Home.
-4. **Automazione background**: regole configurabili (soglia %, minuti) in Gestione Energetica; media mobile 5 campioni, priorità a soglia più alta, cooldown anti-flapping 15s. Attiva anche con finestra nascosta (tray).
-5. **Aggiornamenti**: Settings → controlla `releases/latest` + commit del branch main del repo configurato in `%APPDATA%\VoltManager\settings.json` (`updateRepo`). Il controllo all'avvio resta attivo; dalle impostazioni si può abilitare/disabilitare anche l'autoricerca periodica ogni 30 minuti, con prompt Windows quando l'app non è in primo piano, installazione immediata, rinvio temporizzato e salto della versione corrente.
-6. **Jump list taskbar**: tasto destro sull'icona di VoltManager nella taskbar (o sull'icona pinnata) → categoria "Piano energetico" con Risparmio energia / Bilanciato / Prestazioni (blocco manuale permanente) e Automatico (sblocca e riattiva l'automazione). I click passano per l'helper non elevato `VoltManagerPlanSwitch.exe`, quindi nessun prompt UAC ad app aperta; ad app chiusa l'helper avvia VoltManager (un solo prompt UAC) applicando il piano.
-7. **Automazioni di sistema**: tab dedicata per spegnere, riavviare o sospendere il PC a un orario scelto, più inventario delle applicazioni abilitate/disabilitate all'avvio di Windows e aggiunta/rimozione di app custom gestite da Miliano's App.
+4. **Mantieni PC attivo**: opzione in Gestione Energetica e nel menu tray per bloccare la sospensione automatica tramite richiesta runtime Windows, valida su qualsiasi piano energetico attivo e senza modificare permanentemente i timeout dei piani. Disattivandola, Windows torna alle regole normali del piano corrente.
+5. **Automazione background**: regole configurabili (soglia %, minuti) in Gestione Energetica; media mobile 5 campioni, priorità a soglia più alta, cooldown anti-flapping 15s. Attiva anche con finestra nascosta (tray).
+6. **Aggiornamenti**: Settings → controlla `releases/latest` + commit del branch main del repo configurato in `%APPDATA%\VoltManager\settings.json` (`updateRepo`). Il controllo all'avvio resta attivo; dalle impostazioni si può abilitare/disabilitare anche l'autoricerca periodica ogni 30 minuti, con prompt Windows quando l'app non è in primo piano, installazione immediata, rinvio temporizzato e salto della versione corrente.
+7. **Jump list taskbar**: tasto destro sull'icona di VoltManager nella taskbar (o sull'icona pinnata) → categoria "Piano energetico" con Risparmio energia / Bilanciato / Prestazioni (blocco manuale permanente) e Automatico (sblocca e riattiva l'automazione), più categoria "Sistema" con Tieni PC attivo / Riprendi sospensione. I click passano per l'helper non elevato `VoltManagerPlanSwitch.exe`, quindi nessun prompt UAC ad app aperta; ad app chiusa l'helper avvia VoltManager (un solo prompt UAC) applicando il comando.
+8. **Automazioni di sistema**: tab dedicata per spegnere, riavviare o sospendere il PC a un orario scelto, più inventario delle applicazioni abilitate/disabilitate all'avvio di Windows e aggiunta/rimozione di app custom gestite da Miliano's App.
 
 ## Build
 
@@ -49,7 +50,7 @@ Lo smoke test esegue: install silenziosa → avvio → verifica processo/WebView
 
 - Output `powercfg` analizzato solo per GUID (mai per nome: localizzato).
 - Avvio automatico con Windows: scheduled task `VoltManagerAutostart` (`/rl HIGHEST`), perché la chiave Run è bloccata per app elevate.
-- Singola istanza: mutex + EventWaitHandle (la seconda istanza riporta in primo piano la prima, oppure inoltra `--plan <chiave>` se presente).
+- Singola istanza: mutex + EventWaitHandle (la seconda istanza riporta in primo piano la prima, oppure inoltra `--plan <chiave>` / `--command <chiave>` se presente).
 - Jump list: l'app elevata crea eventi nominati `VoltManager_PlanCmd_*` con DACL che concede Modify agli utenti autenticati; l'helper `asInvoker` (net48) li segnala senza elevazione.
 - Chiusura → riduzione nell'area di notifica (configurabile in Settings).
 - App custom all'avvio: vengono registrate in `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` con prefisso `Miliano's App -`, così la rimozione dall'interfaccia è limitata alle voci create dall'app.
