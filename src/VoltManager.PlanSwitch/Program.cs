@@ -11,7 +11,7 @@ internal static class Program
     [STAThread]
     private static int Main(string[] args)
     {
-        string? key = RemoteCommandProtocol.ParsePlanArg(args);
+        string? key = RemoteCommandProtocol.ParseCommandArg(args);
         if (key == null) return 1;
 
         // App running: signal its command event and exit, no UAC involved.
@@ -33,7 +33,7 @@ internal static class Program
         }
 
         // Pinned jump list used while the app is closed: start VoltManager
-        // (elevated, so Windows shows UAC once) with the plan argument.
+        // (elevated, so Windows shows UAC once) with the command argument.
         string exe = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "VoltManager.exe");
         if (!File.Exists(exe)) return 1;
         try
@@ -41,7 +41,7 @@ internal static class Program
             Process.Start(new ProcessStartInfo
             {
                 FileName = exe,
-                Arguments = RemoteCommandProtocol.PlanArgName + " " + key,
+                Arguments = RemoteCommandProtocol.CommandArgName + " " + key,
                 UseShellExecute = true,
                 WorkingDirectory = AppDomain.CurrentDomain.BaseDirectory,
             });
