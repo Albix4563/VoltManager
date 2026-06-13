@@ -69,6 +69,14 @@ public class AutoShutdownSettings
     [JsonPropertyName("lastTriggeredLocalDate")] public string? LastTriggeredLocalDate { get; set; }
 }
 
+public class AutoUpdateSettings
+{
+    [JsonPropertyName("enabled")] public bool Enabled { get; set; } = true;
+    [JsonPropertyName("intervalMinutes")] public int IntervalMinutes { get; set; } = 30;
+    [JsonPropertyName("snoozedUntilUtc")] public DateTime? SnoozedUntilUtc { get; set; }
+    [JsonPropertyName("skippedVersion")] public string? SkippedVersion { get; set; }
+}
+
 public class AppSettings
 {
     [JsonPropertyName("masterAutomationEnabled")] public bool MasterAutomationEnabled { get; set; } = true;
@@ -78,6 +86,7 @@ public class AppSettings
     [JsonPropertyName("rules")] public List<AutomationRule> Rules { get; set; } = DefaultRules();
     // Kept as autoShutdown for backwards compatibility with existing settings.json files.
     [JsonPropertyName("autoShutdown")] public AutoShutdownSettings AutoShutdown { get; set; } = new();
+    [JsonPropertyName("autoUpdates")] public AutoUpdateSettings AutoUpdates { get; set; } = new();
     // duplicatescheme assigns new GUIDs; map canonical plan -> actual GUID on this machine.
     [JsonPropertyName("planGuidMap")] public Dictionary<string, string> PlanGuidMap { get; set; } = new();
     [JsonPropertyName("override")] public ManualOverride? Override { get; set; }
