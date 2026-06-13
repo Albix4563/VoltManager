@@ -155,9 +155,11 @@ public class HostBridge
             {
                 var settings = payload.Deserialize<AppSettings>(JsonOpts)
                     ?? throw new ArgumentException("Impostazioni non valide");
-                // Preserve machine-local guid map: UI never edits it.
+                // Preserve machine-local/runtime-owned settings: UI never edits them.
                 settings.PlanGuidMap = _settings.Current.PlanGuidMap;
                 settings.Override = _settings.Current.Override;
+                settings.AutoShutdown ??= new AutoShutdownSettings();
+                settings.AutoShutdown.LastTriggeredLocalDate = _settings.Current.AutoShutdown.LastTriggeredLocalDate;
                 _settings.Update(settings);
                 return new { success = true };
             }

@@ -64,6 +64,10 @@ window.I18n = (function() {
             "set_pref_autostart_sub": "Minimized automatic startup",
             "set_pref_tray": "Close to notification area",
             "set_pref_tray_sub": "Closing hides the app, automation active",
+            "set_pref_autoshutdown": "Auto shutdown",
+            "set_pref_autoshutdown_sub": "Shuts down the PC at the selected time, if it is on",
+            "set_pref_autoshutdown_time": "Time",
+            "set_pref_autoshutdown_note": "Does not force-close apps with unsaved work.",
             "set_pref_lang": "Language",
             "set_pref_lang_sub": "Application interface language",
             "setup_req": "Setup Required",
@@ -90,6 +94,7 @@ window.I18n = (function() {
             "upd_modal_cur": "Current version",
             "upd_modal_new": "New version",
             "upd_modal_btn_install": "Download & install",
+            "upd_modal_btn_later": "Later",
             "upd_modal_installing": "Installing… app will restart shortly.",
             "upd_toast_msg": "VoltManager updated to"
         },
@@ -157,6 +162,10 @@ window.I18n = (function() {
             "set_pref_autostart_sub": "Avvio automatico ridotto a icona",
             "set_pref_tray": "Chiudi nell'area di notifica",
             "set_pref_tray_sub": "La chiusura nasconde l'app, automazione attiva",
+            "set_pref_autoshutdown": "Autospegnimento",
+            "set_pref_autoshutdown_sub": "Spegne il PC all'orario indicato, se è acceso",
+            "set_pref_autoshutdown_time": "Orario",
+            "set_pref_autoshutdown_note": "Non forza la chiusura delle app con lavoro non salvato.",
             "set_pref_lang": "Lingua",
             "set_pref_lang_sub": "Lingua dell'interfaccia",
             "setup_req": "Setup Richiesto",
@@ -183,6 +192,7 @@ window.I18n = (function() {
             "upd_modal_cur": "Versione attuale",
             "upd_modal_new": "Nuova versione",
             "upd_modal_btn_install": "Scarica e installa",
+            "upd_modal_btn_later": "Più tardi",
             "upd_modal_installing": "Installazione in corso, l'app si riavvierà…",
             "upd_toast_msg": "VoltManager aggiornato a"
         }

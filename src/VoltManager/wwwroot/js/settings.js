@@ -233,10 +233,84 @@
         el.dataset.on = on ? 'true' : 'false';
     }
 
+    function normalizeAutoShutdownSettings(settings) {
+        if (!settings.autoShutdown) {
+            settings.autoShutdown = { enabled: false, time: '23:00', lastTriggeredLocalDate: null };
+        }
+        if (!/^\d{2}:\d{2}$/.test(settings.autoShutdown.time || '')) {
+            settings.autoShutdown.time = '23:00';
+        }
+        return settings.autoShutdown;
+    }
+
+    function mountAutoShutdownUi() {
+        if (document.getElementById('auto-shutdown-panel')) return;
+        const prefs = document.getElementById('pref-tray')?.parentElement;
+        if (!prefs) return;
+
+        prefs.insertAdjacentHTML('beforeend',
+            '<div class="space-y-sm pt-md border-t border-white/10" id="auto-shutdown-panel">' +
+            '  <div class="flex items-center justify-between group">' +
+            '    <div>' +
+            '      <p class="text-body-md text-on-surface group-hover:text-secondary-fixed transition-colors" data-i18n="set_pref_autoshutdown">Autospegnimento</p>' +
+            '      <p class="text-label-sm text-on-surface-variant" data-i18n="set_pref_autoshutdown_sub">Spegne il PC all\'orario indicato, se è acceso</p>' +
+            '    </div>' +
+            '    <div class="mini-toggle cursor-pointer" data-on="false" id="toggle-auto-shutdown">' +
+            '      <div class="mini-toggle-knob"></div>' +
+            '    </div>' +
+            '  </div>' +
+            '  <label class="flex items-center justify-between gap-md" for="auto-shutdown-time">' +
+            '    <span class="text-label-sm text-on-surface-variant" data-i18n="set_pref_autoshutdown_time">Orario</span>' +
+            '    <input id="auto-shutdown-time" type="time" class="bg-surface-container-low/50 text-secondary-container font-medium border border-white/10 rounded-lg py-2 px-3 text-body-md focus:outline-none focus:border-secondary-container transition-all duration-300" />' +
+            '  </label>' +
+            '  <p class="text-label-sm text-on-surface-variant opacity-70" data-i18n="set_pref_autoshutdown_note">Non forza la chiusura delle app con lavoro non salvato.</p>' +
+            '</div>');
+        I18n.apply();
+    }
+
+    function setAutoShutdownUi(autoShutdown) {
+        const toggle = document.getElementById('toggle-auto-shutdown');
+        const timeInput = document.getElementById('auto-shutdown-time');
+        if (!toggle || !timeInput) return;
+
+        setToggle(toggle, autoShutdown.enabled);
+        timeInput.value = autoShutdown.time;
+        timeInput.disabled = !autoShutdown.enabled;
+        timeInput.classList.toggle('opacity-50', !autoShutdown.enabled);
+    }
+
+    function wireAutoShutdownUi() {
+        const toggle = document.getElementById('toggle-auto-shutdown');
+        const timeInput = document.getElementById('auto-shutdown-time');
+        if (!toggle || !timeInput || !window.__voltSettings) return;
+
+        toggle.addEventListener('click', () => {
+            const settings = window.__voltSettings.get();
+            const autoShutdown = normalizeAutoShutdownSettings(settings);
+            autoShutdown.enabled = toggle.dataset.on !== 'true';
+            setAutoShutdownUi(autoShutdown);
+            window.__voltSettings.save();
+        });
+
+        timeInput.addEventListener('change', (e) => {
+            const value = e.target.value;
+            if (!/^\d{2}:\d{2}$/.test(value)) return;
+            const settings = window.__voltSettings.get();
+            const autoShutdown = normalizeAutoShutdownSettings(settings);
+            autoShutdown.time = value;
+            setAutoShutdownUi(autoShutdown);
+            window.__voltSettings.save();
+        });
+    }
+
     document.addEventListener('settingsloaded', () => {
         const s = window.__voltSettings;
         setToggle(toggleAutostart, s.startWithWindows);
         setToggle(toggleTray, s.get().closeToTray);
+
+        mountAutoShutdownUi();
+        setAutoShutdownUi(normalizeAutoShutdownSettings(s.get()));
+        wireAutoShutdownUi();
 
         const langSelect = document.getElementById('lang-select');
         langSelect.value = I18n.getLang();
