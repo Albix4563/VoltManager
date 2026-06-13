@@ -64,6 +64,7 @@ public class ManualOverride
 public class AutoShutdownSettings
 {
     [JsonPropertyName("enabled")] public bool Enabled { get; set; } = false;
+    [JsonPropertyName("action")] public string Action { get; set; } = "shutdown"; // shutdown|restart|sleep
     [JsonPropertyName("time")] public string Time { get; set; } = "23:00";
     [JsonPropertyName("lastTriggeredLocalDate")] public string? LastTriggeredLocalDate { get; set; }
 }
@@ -75,6 +76,7 @@ public class AppSettings
     [JsonPropertyName("startWithWindows")] public bool StartWithWindows { get; set; } = false;
     [JsonPropertyName("updateRepo")] public string UpdateRepo { get; set; } = "Albix4563/power_efficency";
     [JsonPropertyName("rules")] public List<AutomationRule> Rules { get; set; } = DefaultRules();
+    // Kept as autoShutdown for backwards compatibility with existing settings.json files.
     [JsonPropertyName("autoShutdown")] public AutoShutdownSettings AutoShutdown { get; set; } = new();
     // duplicatescheme assigns new GUIDs; map canonical plan -> actual GUID on this machine.
     [JsonPropertyName("planGuidMap")] public Dictionary<string, string> PlanGuidMap { get; set; } = new();
