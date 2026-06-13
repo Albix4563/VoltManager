@@ -1,56 +1,79 @@
-# ==============================
-# Cartelle di output e build (Già presenti)
-# ==============================
+# Build output
 bin/
 obj/
 publish/
+publish-planswitch/
 dist/
+artifacts/
+**/bin/
+**/obj/
+src/VoltManager.Setup/Payload/
+src/VoltManager.Setup/voltmanager.ico
+
+# Generated packages and binaries
+*.exe
+*.dll
+*.pdb
+*.appx
+*.appxbundle
+*.msi
+*.msix
+*.msixbundle
+*.nupkg
+*.snupkg
+*.zip
+
+# Keep real source assets
+!src/**/wwwroot/**
+!src/**/Assets/**
+!src/**/*.ico
+!src/**/*.woff2
+!src/**/*.png
+!src/**/*.jpg
+!src/**/*.jpeg
+!src/**/*.svg
+
+# Local tools and downloaded payloads
 .build_tools/
 installer/MicrosoftEdgeWebview2Setup.exe
+installer/Output/
 
-# ==============================
-# File e Tool dell'utente
-# ==============================
-*.user
-AGENTS.md
+# Test, logs, coverage
+TestResults/
+coverage/
+*.coverage
+*.coveragexml
+*.trx
+*.log
+msbuild.log
+scripts/smoke_test_results.txt
 sensordump.txt
-.claude/
+
+# User, IDE, AI tools
+*.user
+*.rsuser
 *.suo
 *.userosscache
 *.userprefs
-
-# ==============================
-# Visual Studio / IDE / ReSharper
-# ==============================
+*.sln.docstates
 .vs/
+.idea/
 .vscode/*
 !.vscode/settings.json
 !.vscode/tasks.json
 !.vscode/launch.json
-.idea/
-*.sln.docstates
+.claude/
+.codex/
+CLAUDE.md
+AGENTS.md
 
-# ==============================
-# Test e Log generati localmente
-# ==============================
-TestResults/
-coverage/
-*.log
-msbuild.log
-
-# ==============================
-# Inno Setup e pacchettizzazione
-# ==============================
-installer/Output/
+# Temp and OS files
 *.tmp
-
-# ==============================
-# File generati dall'OS
-# ==============================
+*.cache
+*.bak
+*.orig
 .DS_Store
 Thumbs.db
 
-# ==============================
-# Graphify (knowledge graph output)
-# ==============================
+# Repo-local analysis output
 graphify-out/
