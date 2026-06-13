@@ -26,6 +26,7 @@ public class HostBridge
     private readonly SettingsService _settings;
     private readonly UpdateService _updates;
     private readonly StartupService _startup;
+    private readonly StartupAppsService _startupApps = new();
     private readonly App _app;
 
     public event Action? ExitRequested;
@@ -178,6 +179,31 @@ public class HostBridge
                 _settings.Current.CloseToTray = payload.GetProperty("enabled").GetBoolean();
                 _settings.Save();
                 return new { success = true };
+            }
+
+            case "getStartupApps":
+                return await Task.Run(() => _startupApps.GetStartupApps());
+
+            case "pickStartupExecutable":
+            {
+                string? path = await _webView.Dispatcher.InvokeAsync(() => _startupApps.PickExecutablePath());
+                return new { path };
+            }
+
+            case "addStartupApp":
+            {
+                string path = payload.GetProperty("path").GetString()
+                    ?? throw new ArgumentException("Percorso mancante");
+                var entry = await Task.Run(() => _startupApps.AddManagedStartupApp(path));
+                return new { success = true, entry };
+            }
+
+            case "removeStartupApp":
+            {
+                string id = payload.GetProperty("id").GetString()
+                    ?? throw new ArgumentException("ID mancante");
+                bool removed = await Task.Run(() => _startupApps.RemoveManagedStartupApp(id));
+                return new { success = removed };
             }
 
             case "checkForUpdates":

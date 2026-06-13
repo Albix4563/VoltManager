@@ -41,6 +41,7 @@ public class SettingsService
                         loaded.Rules = AppSettings.DefaultRules();
                     if (loaded.AutoShutdown == null)
                         loaded.AutoShutdown = new AutoShutdownSettings();
+                    NormalizeScheduledPowerAction(loaded.AutoShutdown);
                     // Migrate stale repo name from pre-release installs.
                     if (loaded.UpdateRepo == "Albix4563/VoltManager")
                         loaded.UpdateRepo = "Albix4563/power_efficency";
@@ -55,10 +56,23 @@ public class SettingsService
         return new AppSettings();
     }
 
+    private static void NormalizeScheduledPowerAction(AutoShutdownSettings settings)
+    {
+        if (string.IsNullOrWhiteSpace(settings.Time))
+            settings.Time = "23:00";
+
+        settings.Action = settings.Action switch
+        {
+            "shutdown" or "restart" or "sleep" => settings.Action,
+            _ => "shutdown",
+        };
+    }
+
     public void Save()
     {
         lock (_lock)
         {
+            NormalizeScheduledPowerAction(Current.AutoShutdown);
             var dir = Path.GetDirectoryName(_path)!;
             Directory.CreateDirectory(dir);
             var tmp = _path + ".tmp";
