@@ -81,6 +81,7 @@ public partial class MainWindow : Window
         _app.ActivePlanChanged += p => _bridge.PushEvent("activePlanChanged", new { plan = p?.PlanId, guid = p?.Guid, name = p?.Name });
         _app.Settings.SettingsChanged += s => _bridge.PushEvent("automationStateChanged", new { masterEnabled = s.MasterAutomationEnabled, @override = s.Override });
         _app.ManualOverrideChanged += o => _bridge.PushEvent("manualOverrideChanged", new { @override = o });
+        _app.Awake.StateChanged += s => _bridge.PushEvent("keepAwakeChanged", s);
 
         bool startupCheckDone = false;
         core.NavigationCompleted += (_, args) =>
@@ -296,6 +297,7 @@ public partial class MainWindow : Window
     private void TrayMenu_Opened(object sender, RoutedEventArgs e)
     {
         TrayActivePlanItem.Header = "Piano attivo: " + PlanDisplayName(_app.ActivePlan);
+        TrayKeepAwakeItem.IsChecked = _app.Awake.GetState().Enabled;
         TrayAutomationItem.IsChecked = _app.Settings.Current.MasterAutomationEnabled;
         TrayClearOverrideItem.Visibility = _app.Settings.Current.Override != null
             ? Visibility.Visible
@@ -317,6 +319,12 @@ public partial class MainWindow : Window
         TimeSpan? duration = hours == 0 ? null : TimeSpan.FromHours(hours);
         // SetManualOverride shells out to powercfg; keep it off the UI thread.
         _ = Task.Run(() => _app.SetManualOverride(plan, duration));
+    }
+
+    private void TrayKeepAwake_Click(object sender, RoutedEventArgs e)
+    {
+        bool enable = TrayKeepAwakeItem.IsChecked;
+        _ = Task.Run(() => _app.SetKeepAwake(enable));
     }
 
     private void TrayClearOverride_Click(object sender, RoutedEventArgs e)
