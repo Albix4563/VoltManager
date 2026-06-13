@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows;
 using System.Windows.Shell;
@@ -28,13 +29,16 @@ public partial class App : Application
     public AutomationEngine Automation { get; private set; } = null!;
 
     private System.Threading.Timer? _automationTimer;
-    private System.Threading.Timer? _autoShutdownTimer;
+    private System.Threading.Timer? _scheduledPowerActionTimer;
     private System.Threading.Timer? _planPollTimer;
     private MainWindow? _mainWindow;
 
     public PowerPlan? ActivePlan { get; private set; }
     public event Action<PowerPlan?>? ActivePlanChanged;
     public event Action<ManualOverride?>? ManualOverrideChanged;
+
+    [DllImport("powrprof.dll", SetLastError = true)]
+    private static extern bool SetSuspendState(bool hibernate, bool forceCritical, bool disableWakeEvent);
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -76,7 +80,7 @@ public partial class App : Application
         Monitor.Start();
         StartPlanPoll();
         StartAutomationLoop();
-        StartAutoShutdownLoop();
+        StartScheduledPowerActionLoop();
 
         _remoteCommands = new RemoteCommandService();
         _remoteCommands.CommandReceived += ApplyRemoteCommand;
@@ -195,42 +199,65 @@ public partial class App : Application
         }, null, 3000, 1000);
     }
 
-    private void StartAutoShutdownLoop()
+    private void StartScheduledPowerActionLoop()
     {
-        _autoShutdownTimer = new System.Threading.Timer(_ =>
+        _scheduledPowerActionTimer = new System.Threading.Timer(_ =>
         {
             try
             {
-                var autoShutdown = Settings.Current.AutoShutdown;
-                if (autoShutdown is not { Enabled: true }) return;
-                if (!TryParseAutoShutdownTime(autoShutdown.Time, out var shutdownTime)) return;
+                var scheduled = Settings.Current.AutoShutdown;
+                if (scheduled is not { Enabled: true }) return;
+                if (!TryParseScheduledPowerTime(scheduled.Time, out var scheduledTime)) return;
 
                 var now = DateTime.Now;
-                if (now.Hour != shutdownTime.Hour || now.Minute != shutdownTime.Minute) return;
+                if (now.Hour != scheduledTime.Hour || now.Minute != scheduledTime.Minute) return;
 
                 string today = now.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
-                if (string.Equals(autoShutdown.LastTriggeredLocalDate, today, StringComparison.Ordinal)) return;
+                if (string.Equals(scheduled.LastTriggeredLocalDate, today, StringComparison.Ordinal)) return;
 
-                autoShutdown.LastTriggeredLocalDate = today;
+                scheduled.LastTriggeredLocalDate = today;
                 Settings.Save();
-                ShutdownComputer();
+                ExecuteScheduledPowerAction(scheduled.Action);
             }
             catch
             {
-                // Auto-shutdown must never crash the app.
+                // Scheduled power actions must never crash the app.
             }
         }, null, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(15));
     }
 
-    private static bool TryParseAutoShutdownTime(string? value, out TimeOnly time)
+    private static bool TryParseScheduledPowerTime(string? value, out TimeOnly time)
         => TimeOnly.TryParseExact(value, "HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.None, out time);
 
-    private static void ShutdownComputer()
+    private static void ExecuteScheduledPowerAction(string? action)
+    {
+        switch (NormalizeScheduledPowerAction(action))
+        {
+            case "restart":
+                StartShutdownCommand("/r /t 0");
+                break;
+            case "sleep":
+                SetSuspendState(hibernate: false, forceCritical: false, disableWakeEvent: false);
+                break;
+            default:
+                StartShutdownCommand("/s /t 0");
+                break;
+        }
+    }
+
+    private static string NormalizeScheduledPowerAction(string? action) => action switch
+    {
+        "restart" => "restart",
+        "sleep" => "sleep",
+        _ => "shutdown",
+    };
+
+    private static void StartShutdownCommand(string arguments)
     {
         using var process = Process.Start(new ProcessStartInfo
         {
             FileName = "shutdown",
-            Arguments = "/s /t 0",
+            Arguments = arguments,
             UseShellExecute = false,
             CreateNoWindow = true,
         });
@@ -297,7 +324,7 @@ public partial class App : Application
     public void ExitApp()
     {
         _automationTimer?.Dispose();
-        _autoShutdownTimer?.Dispose();
+        _scheduledPowerActionTimer?.Dispose();
         _planPollTimer?.Dispose();
         Monitor.Dispose();
         _remoteCommands?.Dispose();
