@@ -25,6 +25,9 @@ public class SettingsServiceTests : IDisposable
         Assert.Equal(30, svc.Current.AutoUpdates.IntervalMinutes);
         Assert.Null(svc.Current.AutoUpdates.SnoozedUntilUtc);
         Assert.Null(svc.Current.AutoUpdates.SkippedVersion);
+        Assert.NotNull(svc.Current.KeepAwake);
+        Assert.False(svc.Current.KeepAwake.Enabled);
+        Assert.Null(svc.Current.KeepAwake.LastChangedUtc);
     }
 
     [Fact]
@@ -42,6 +45,8 @@ public class SettingsServiceTests : IDisposable
         svc.Current.AutoUpdates.IntervalMinutes = 45;
         svc.Current.AutoUpdates.SnoozedUntilUtc = new DateTime(2026, 06, 13, 16, 30, 00, DateTimeKind.Utc);
         svc.Current.AutoUpdates.SkippedVersion = "1.2.3";
+        svc.Current.KeepAwake.Enabled = true;
+        svc.Current.KeepAwake.LastChangedUtc = new DateTime(2026, 06, 13, 17, 00, 00, DateTimeKind.Utc);
         svc.Save();
 
         var reloaded = new SettingsService(SettingsPath);
@@ -56,6 +61,8 @@ public class SettingsServiceTests : IDisposable
         Assert.Equal(45, reloaded.Current.AutoUpdates.IntervalMinutes);
         Assert.Equal(new DateTime(2026, 06, 13, 16, 30, 00, DateTimeKind.Utc), reloaded.Current.AutoUpdates.SnoozedUntilUtc);
         Assert.Equal("1.2.3", reloaded.Current.AutoUpdates.SkippedVersion);
+        Assert.True(reloaded.Current.KeepAwake.Enabled);
+        Assert.Equal(new DateTime(2026, 06, 13, 17, 00, 00, DateTimeKind.Utc), reloaded.Current.KeepAwake.LastChangedUtc);
     }
 
     [Fact]
@@ -99,6 +106,17 @@ public class SettingsServiceTests : IDisposable
         Assert.Equal(30, svc.Current.AutoUpdates.IntervalMinutes);
         Assert.Null(svc.Current.AutoUpdates.SnoozedUntilUtc);
         Assert.Null(svc.Current.AutoUpdates.SkippedVersion);
+    }
+
+    [Fact]
+    public void NullKeepAwake_RestoredToDefaults()
+    {
+        Directory.CreateDirectory(_dir);
+        File.WriteAllText(SettingsPath, "{\"keepAwake\":null}");
+        var svc = new SettingsService(SettingsPath);
+        Assert.NotNull(svc.Current.KeepAwake);
+        Assert.False(svc.Current.KeepAwake.Enabled);
+        Assert.Null(svc.Current.KeepAwake.LastChangedUtc);
     }
 
     [Fact]
