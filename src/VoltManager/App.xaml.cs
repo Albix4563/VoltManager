@@ -27,11 +27,14 @@ public partial class App : Application
     public UpdateService Updates { get; private set; } = null!;
     public StartupService AutoStart { get; private set; } = null!;
     public AutomationEngine Automation { get; private set; } = null!;
+    public HeavyAppDetectionService HeavyApps { get; private set; } = null!;
 
     private System.Threading.Timer? _automationTimer;
     private System.Threading.Timer? _scheduledPowerActionTimer;
     private System.Threading.Timer? _planPollTimer;
     private MainWindow? _mainWindow;
+    private bool _heavyAppPlanSessionActive;
+    private PlanId? _planBeforeHeavyAppSession;
 
     public PowerPlan? ActivePlan { get; private set; }
     public event Action<PowerPlan?>? ActivePlanChanged;
@@ -75,9 +78,11 @@ public partial class App : Application
         Updates = new UpdateService(Settings);
         AutoStart = new StartupService();
         Automation = new AutomationEngine();
+        HeavyApps = new HeavyAppDetectionService(Settings);
         ClearExpiredManualOverride(DateTime.UtcNow);
 
         Monitor.Start();
+        HeavyApps.Start();
         StartPlanPoll();
         StartAutomationLoop();
         StartScheduledPowerActionLoop();
@@ -184,6 +189,10 @@ public partial class App : Application
                 double avg = Automation.AddSample(Monitor.Latest.Cpu);
                 var now = DateTime.UtcNow;
                 ClearExpiredManualOverride(now);
+
+                if (HandleHeavyAppDetection(now))
+                    return;
+
                 var target = Automation.Evaluate(avg, now, ActivePlan?.PlanId, Settings.Current);
                 if (target != null && Power.SetActivePlan(target.Value))
                 {
@@ -197,6 +206,54 @@ public partial class App : Application
                 // Automation must never crash the app.
             }
         }, null, 3000, 1000);
+    }
+
+    private bool HandleHeavyAppDetection(DateTime now)
+    {
+        var config = Settings.Current.HeavyAppDetection;
+        bool userOverrideActive = Settings.Current.Override?.IsActive(now) == true;
+        bool canAutoSwitch = Settings.Current.MasterAutomationEnabled && config.Enabled && !userOverrideActive;
+        var state = HeavyApps.Current;
+
+        if (canAutoSwitch && state.Active)
+        {
+            if (!_heavyAppPlanSessionActive)
+            {
+                _planBeforeHeavyAppSession = ActivePlan?.PlanId;
+                _heavyAppPlanSessionActive = true;
+                Automation.Reset();
+            }
+
+            var target = state.TargetPlan;
+            if (ActivePlan?.PlanId == target)
+                return true;
+
+            if (Power.SetActivePlan(target))
+            {
+                var current = Power.GetActivePlan();
+                ActivePlan = current;
+                ActivePlanChanged?.Invoke(current);
+            }
+            return true;
+        }
+
+        if (_heavyAppPlanSessionActive)
+        {
+            _heavyAppPlanSessionActive = false;
+            var previous = _planBeforeHeavyAppSession;
+            _planBeforeHeavyAppSession = null;
+            Automation.Reset();
+
+            if (!userOverrideActive && previous != null && ActivePlan?.PlanId != previous && Power.SetActivePlan(previous.Value))
+            {
+                var current = Power.GetActivePlan();
+                ActivePlan = current;
+                ActivePlanChanged?.Invoke(current);
+            }
+            return true;
+        }
+
+        return false;
     }
 
     private void StartScheduledPowerActionLoop()
@@ -265,6 +322,9 @@ public partial class App : Application
 
     public bool SetManualOverride(PlanId plan, TimeSpan? duration)
     {
+        _heavyAppPlanSessionActive = false;
+        _planBeforeHeavyAppSession = null;
+
         if (!Power.SetActivePlan(plan)) return false;
 
         Settings.Current.Override = new ManualOverride
@@ -302,6 +362,10 @@ public partial class App : Application
         ManualOverrideChanged?.Invoke(null);
     }
 
+    public HeavyAppDetectionState GetHeavyAppStatus() => HeavyApps.Current;
+
+    public HeavyAppDetectionState RefreshHeavyAppDetection() => HeavyApps.Refresh();
+
     private void ClearExpiredManualOverride(DateTime now)
     {
         if (Settings.Current.Override?.ExpiresAtUtc == null) return;
@@ -327,6 +391,7 @@ public partial class App : Application
         _scheduledPowerActionTimer?.Dispose();
         _planPollTimer?.Dispose();
         Monitor.Dispose();
+        HeavyApps.Dispose();
         _remoteCommands?.Dispose();
         _showWait?.Unregister(null);
         _showEvent?.Dispose();

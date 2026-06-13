@@ -52,6 +52,7 @@ public class HostBridge
             await HandleMessageAsync(json);
         };
         _updates.DownloadProgress += pct => PushEvent("updateDownloadProgress", new { pct });
+        _app.HeavyApps.ActivityChanged += state => PushEvent("heavyAppActivityChanged", state);
     }
 
     public void PushEvent(string name, object data)
@@ -161,10 +162,14 @@ public class HostBridge
                 settings.Override = _settings.Current.Override;
                 settings.AutoShutdown ??= new AutoShutdownSettings();
                 settings.AutoUpdates ??= new AutoUpdateSettings();
+                settings.HeavyAppDetection ??= new HeavyAppDetectionSettings();
+                _settings.Current.AutoShutdown ??= new AutoShutdownSettings();
+                _settings.Current.AutoUpdates ??= new AutoUpdateSettings();
                 settings.AutoShutdown.LastTriggeredLocalDate = _settings.Current.AutoShutdown.LastTriggeredLocalDate;
                 settings.AutoUpdates.SnoozedUntilUtc = _settings.Current.AutoUpdates.SnoozedUntilUtc;
                 settings.AutoUpdates.SkippedVersion = _settings.Current.AutoUpdates.SkippedVersion;
                 _settings.Update(settings);
+                _app.RefreshHeavyAppDetection();
                 return new { success = true };
             }
 
@@ -219,6 +224,12 @@ public class HostBridge
                 _settings.Save();
                 return new { success = true, skippedVersion = version };
             }
+
+            case "getHeavyAppStatus":
+                return await Task.Run(_app.GetHeavyAppStatus);
+
+            case "refreshHeavyAppDetection":
+                return await Task.Run(_app.RefreshHeavyAppDetection);
 
             case "getStartupApps":
                 return await Task.Run(() => _startupApps.GetStartupApps());

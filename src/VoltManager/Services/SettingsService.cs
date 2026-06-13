@@ -43,8 +43,11 @@ public class SettingsService
                         loaded.AutoShutdown = new AutoShutdownSettings();
                     if (loaded.AutoUpdates == null)
                         loaded.AutoUpdates = new AutoUpdateSettings();
+                    if (loaded.HeavyAppDetection == null)
+                        loaded.HeavyAppDetection = new HeavyAppDetectionSettings();
                     NormalizeScheduledPowerAction(loaded.AutoShutdown);
                     NormalizeAutoUpdateSettings(loaded.AutoUpdates);
+                    NormalizeHeavyAppDetectionSettings(loaded.HeavyAppDetection);
                     // Migrate stale repo name from pre-release installs.
                     if (loaded.UpdateRepo == "Albix4563/VoltManager")
                         loaded.UpdateRepo = "Albix4563/power_efficency";
@@ -82,14 +85,24 @@ public class SettingsService
             settings.SkippedVersion = settings.SkippedVersion.Trim().TrimStart('v', 'V');
     }
 
+    private static void NormalizeHeavyAppDetectionSettings(HeavyAppDetectionSettings settings)
+    {
+        settings.MinWorkingSetMb = Math.Clamp(settings.MinWorkingSetMb, 256, 8192);
+
+        if (!settings.UseWindowsGpuPreferences && !settings.UseGameInstallHeuristics && !settings.UseResourceHeuristics)
+            settings.UseWindowsGpuPreferences = true;
+    }
+
     public void Save()
     {
         lock (_lock)
         {
             Current.AutoShutdown ??= new AutoShutdownSettings();
             Current.AutoUpdates ??= new AutoUpdateSettings();
+            Current.HeavyAppDetection ??= new HeavyAppDetectionSettings();
             NormalizeScheduledPowerAction(Current.AutoShutdown);
             NormalizeAutoUpdateSettings(Current.AutoUpdates);
+            NormalizeHeavyAppDetectionSettings(Current.HeavyAppDetection);
             var dir = Path.GetDirectoryName(_path)!;
             Directory.CreateDirectory(dir);
             var tmp = _path + ".tmp";
