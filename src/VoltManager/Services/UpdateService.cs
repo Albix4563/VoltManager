@@ -63,24 +63,8 @@ public class UpdateService
             }
 
             // Changelog from main branch commits.
-            var commits = new List<CommitInfo>();
-            var comResp = await _http.GetAsync($"https://api.github.com/repos/{repo}/commits?sha=main&per_page=20");
-            if (comResp.IsSuccessStatusCode)
-            {
-                using var doc = JsonDocument.Parse(await comResp.Content.ReadAsStringAsync());
-                foreach (var c in doc.RootElement.EnumerateArray())
-                {
-                    var commit = c.GetProperty("commit");
-                    commits.Add(new CommitInfo
-                    {
-                        Sha = (c.GetProperty("sha").GetString() ?? "")[..Math.Min(7, (c.GetProperty("sha").GetString() ?? "").Length)],
-                        Message = (commit.GetProperty("message").GetString() ?? "").Split('\n')[0],
-                        Author = commit.GetProperty("author").GetProperty("name").GetString() ?? "",
-                        Date = commit.GetProperty("author").GetProperty("date").GetString() ?? "",
-                    });
-                }
-            }
-            else if (!hasRelease)
+            var (commits, commitsOk) = await FetchMainCommitsAsync(repo);
+            if (!commitsOk && !hasRelease)
             {
                 return new UpdateInfo { Status = "norelease", CurrentVersion = CurrentVersion, Message = "Repository non trovato o nessuna release pubblicata." };
             }
@@ -109,6 +93,90 @@ public class UpdateService
         catch (Exception ex)
         {
             return new UpdateInfo { Status = "error", CurrentVersion = CurrentVersion, Message = ex.Message };
+        }
+    }
+
+    /// <summary>Fetches last 20 commits from main. Returns list + whether the call succeeded.</summary>
+    private async Task<(List<CommitInfo> commits, bool ok)> FetchMainCommitsAsync(string repo)
+    {
+        var commits = new List<CommitInfo>();
+        var comResp = await _http.GetAsync($"https://api.github.com/repos/{repo}/commits?sha=main&per_page=20");
+        if (!comResp.IsSuccessStatusCode) return (commits, false);
+
+        using var doc = JsonDocument.Parse(await comResp.Content.ReadAsStringAsync());
+        foreach (var c in doc.RootElement.EnumerateArray())
+        {
+            var commit = c.GetProperty("commit");
+            var sha = c.GetProperty("sha").GetString() ?? "";
+            commits.Add(new CommitInfo
+            {
+                Sha = sha[..Math.Min(7, sha.Length)],
+                Message = (commit.GetProperty("message").GetString() ?? "").Split('\n')[0],
+                Author = commit.GetProperty("author").GetProperty("name").GetString() ?? "",
+                Date = commit.GetProperty("author").GetProperty("date").GetString() ?? "",
+            });
+        }
+        return (commits, true);
+    }
+
+    /// <summary>Full release history from GitHub. Falls back to main commits if no release.</summary>
+    public async Task<ReleaseHistory> GetReleaseHistoryAsync()
+    {
+        string repo = _settings.Current.UpdateRepo;
+        try
+        {
+            var resp = await _http.GetAsync($"https://api.github.com/repos/{repo}/releases?per_page=100");
+            if (resp.StatusCode == System.Net.HttpStatusCode.Forbidden || (int)resp.StatusCode == 429)
+                return new ReleaseHistory { Status = "ratelimited", CurrentVersion = CurrentVersion, Message = "Limite richieste GitHub raggiunto. Riprova più tardi." };
+
+            var releases = new List<ReleaseEntry>();
+            if (resp.IsSuccessStatusCode)
+            {
+                using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync());
+                foreach (var r in doc.RootElement.EnumerateArray())
+                {
+                    var version = (r.TryGetProperty("tag_name", out var t) ? t.GetString() : null)?.TrimStart('v', 'V') ?? "";
+                    releases.Add(new ReleaseEntry
+                    {
+                        Version = version,
+                        Name = r.TryGetProperty("name", out var n) ? n.GetString() : null,
+                        Date = r.TryGetProperty("published_at", out var d) ? d.GetString() ?? "" : "",
+                        Notes = r.TryGetProperty("body", out var b) ? b.GetString() : null,
+                        HtmlUrl = r.TryGetProperty("html_url", out var h) ? h.GetString() : null,
+                        Prerelease = r.TryGetProperty("prerelease", out var p) && p.GetBoolean(),
+                        IsCurrent = version.Length > 0 && CompareVersions(version, CurrentVersion) == 0,
+                    });
+                }
+            }
+            else if (resp.StatusCode != System.Net.HttpStatusCode.NotFound)
+            {
+                return new ReleaseHistory { Status = "error", CurrentVersion = CurrentVersion, Message = $"GitHub ha risposto {(int)resp.StatusCode}." };
+            }
+
+            if (releases.Count > 0)
+            {
+                return new ReleaseHistory { Status = "ok", CurrentVersion = CurrentVersion, Releases = releases };
+            }
+
+            // No published release: fall back to recent main commits.
+            var (commits, commitsOk) = await FetchMainCommitsAsync(repo);
+            return new ReleaseHistory
+            {
+                Status = "norelease",
+                CurrentVersion = CurrentVersion,
+                Commits = commits,
+                Message = commitsOk
+                    ? "Nessuna release pubblicata. Mostro gli ultimi commit del branch main."
+                    : "Repository non trovato o nessuna release pubblicata.",
+            };
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+        {
+            return new ReleaseHistory { Status = "offline", CurrentVersion = CurrentVersion, Message = "Impossibile contattare GitHub. Verifica la connessione." };
+        }
+        catch (Exception ex)
+        {
+            return new ReleaseHistory { Status = "error", CurrentVersion = CurrentVersion, Message = ex.Message };
         }
     }
 

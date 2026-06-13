@@ -4,7 +4,7 @@
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <title>VoltManager</title>
-<link href="css/app.css?v=zfix1" rel="stylesheet"/>
+<link href="css/app.css?v=zfix2" rel="stylesheet"/>
 <style>
 @keyframes slideInRight{from{transform:translateX(110%);opacity:0}to{transform:translateX(0);opacity:1}}
 </style>
@@ -43,6 +43,12 @@
         <a class="nav-item flex items-center gap-3 text-on-surface-variant font-medium px-4 py-3 opacity-80 hover:bg-white/5 hover:text-secondary-fixed transition-all duration-300 rounded-lg active:scale-[0.98]" data-view="settings" href="#">
           <span class="material-symbols-outlined">settings</span>
           <span class="text-body-md" data-i18n="nav_settings">Settings &amp; Info</span>
+        </a>
+      </li>
+      <li>
+        <a class="nav-item flex items-center gap-3 text-on-surface-variant font-medium px-4 py-3 opacity-80 hover:bg-white/5 hover:text-secondary-fixed transition-all duration-300 rounded-lg active:scale-[0.98]" data-view="changelog" href="#">
+          <span class="material-symbols-outlined">history</span>
+          <span class="text-body-md" data-i18n="nav_changelog">Changelog</span>
         </a>
       </li>
     </ul>
@@ -348,20 +354,6 @@
               </div>
             </div>
           </div>
-
-          <!-- Changelog Card -->
-          <div class="glass-panel rounded-xl p-0 flex flex-col flex-1 min-h-[300px]">
-            <div class="p-lg border-b border-white/5 flex items-center justify-between bg-surface-container/30">
-              <h3 class="text-title-lg text-on-surface flex items-center gap-xs">
-                <span class="material-symbols-outlined text-secondary-container">history</span>
-                <span data-i18n="set_changelog_title">Release Notes</span>
-              </h3>
-              <span class="text-label-sm px-2 py-1 bg-white/5 rounded text-on-surface-variant" data-i18n="set_changelog_latest">Latest</span>
-            </div>
-            <div class="p-lg flex-1 overflow-y-auto changelog-scroll" id="changelog">
-              <p class="text-body-md text-on-surface-variant opacity-70" data-i18n="set_changelog_empty">Premi "Cerca aggiornamenti" per caricare le note di rilascio e gli ultimi commit dal branch main.</p>
-            </div>
-          </div>
         </div>
 
         <!-- Right Column -->
@@ -429,6 +421,24 @@
             </div>
           </div>
         </div>
+      </div>
+    </section>
+
+    <!-- ============ VIEW: CHANGELOG ============ -->
+    <section class="view flex-1 flex-col hidden" id="view-changelog">
+      <div class="mb-xl flex flex-col sm:flex-row sm:items-end justify-between gap-md">
+        <div>
+          <h2 class="text-headline-lg text-on-surface" data-i18n="changelog_title">Changelog</h2>
+          <p class="text-body-lg text-on-surface-variant mt-xs" data-i18n="changelog_sub">Storico completo di tutte le versioni pubblicate.</p>
+        </div>
+        <button class="btn-ghost rounded-lg py-2.5 px-4 text-label-md flex items-center gap-xs self-start sm:self-auto" id="btn-refresh-changelog">
+          <span class="material-symbols-outlined text-[18px]">refresh</span>
+          <span data-i18n="changelog_refresh">Aggiorna</span>
+        </button>
+      </div>
+      <p class="text-label-md text-on-surface-variant mb-md hidden" id="changelog-status"></p>
+      <div class="glass-panel rounded-xl p-lg flex-1 overflow-y-auto changelog-scroll" id="changelog-list">
+        <p class="text-body-md text-on-surface-variant opacity-70" data-i18n="changelog_loading">Caricamento…</p>
       </div>
     </section>
   </div>
@@ -545,11 +555,12 @@
 </div>
 
 <script src="js/bridge.js?v=temps1"></script>
-<script src="js/i18n.js?v=temps2"></script>
+<script src="js/i18n.js?v=temps3"></script>
 <script src="js/app.js?v=temps1"></script>
 <script src="js/dashboard.js?v=temps2"></script>
 <script src="js/power.js?v=temps1"></script>
-<script src="js/settings.js?v=temps1"></script>
+<script src="js/settings.js?v=temps2"></script>
+<script src="js/changelog.js?v=temps1"></script>
 <script src="js/setup.js?v=temps1"></script>
 </body>
 </html>

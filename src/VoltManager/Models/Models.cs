@@ -126,3 +126,23 @@ public record CommitInfo
     [JsonPropertyName("author")] public string Author { get; init; } = "";
     [JsonPropertyName("date")] public string Date { get; init; } = "";
 }
+
+public record ReleaseEntry
+{
+    [JsonPropertyName("version")] public string Version { get; init; } = "";
+    [JsonPropertyName("name")] public string? Name { get; init; }
+    [JsonPropertyName("date")] public string Date { get; init; } = "";
+    [JsonPropertyName("notes")] public string? Notes { get; init; }
+    [JsonPropertyName("htmlUrl")] public string? HtmlUrl { get; init; }
+    [JsonPropertyName("prerelease")] public bool Prerelease { get; init; }
+    [JsonPropertyName("isCurrent")] public bool IsCurrent { get; init; }
+}
+
+public record ReleaseHistory
+{
+    [JsonPropertyName("status")] public string Status { get; init; } = "ok"; // ok|offline|ratelimited|norelease|error
+    [JsonPropertyName("currentVersion")] public string CurrentVersion { get; init; } = "";
+    [JsonPropertyName("releases")] public List<ReleaseEntry> Releases { get; init; } = new();
+    [JsonPropertyName("commits")] public List<CommitInfo> Commits { get; init; } = new(); // fallback se nessuna release
+    [JsonPropertyName("message")] public string? Message { get; init; }
+}

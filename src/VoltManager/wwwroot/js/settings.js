@@ -8,7 +8,6 @@
     const btnDownload = document.getElementById('btn-download-update');
     const btnDownloadLabel = document.getElementById('btn-download-label');
     const statusEl = document.getElementById('update-status');
-    const changelog = document.getElementById('changelog');
 
     let downloadUrl = null;
     let _updateInfo = null;
@@ -85,43 +84,6 @@
         statusEl.textContent = text;
         statusEl.classList.remove('hidden', 'ok', 'err');
         statusEl.classList.add(isError ? 'err' : 'ok');
-    }
-
-    function fmtDate(iso) {
-        try {
-            return new Date(iso).toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: 'numeric' });
-        } catch { return ''; }
-    }
-
-    function renderChangelog(info) {
-        info = normalizeUpdateInfo(info);
-        let html = '';
-        if (info.releaseNotes) {
-            html += '<div class="relative pl-6 pb-6 border-l border-surface-variant/50">' +
-                '<div class="absolute left-0 top-1 w-3 h-3 rounded-full bg-secondary-container -translate-x-[6.5px] shadow-[0_0_10px_rgba(0,241,254,0.4)]"></div>' +
-                '<div class="flex items-center gap-sm mb-xs">' +
-                '<h4 class="text-title-lg text-on-surface">' + esc(formatVersion(info.latestVersion)) + (info.updateAvailable ? '' : ' (Current)') + '</h4>' +
-                '<span class="text-label-sm text-on-surface-variant opacity-70">Release</span></div>' +
-                '<div class="text-body-md text-on-surface-variant mt-sm whitespace-pre-line">' + esc(info.releaseNotes) + '</div>' +
-                '</div>';
-        }
-        if (info.commits && info.commits.length) {
-            html += '<div class="relative pl-6 border-l border-surface-variant/50">' +
-                '<div class="absolute left-0 top-1 w-3 h-3 rounded-full bg-surface-variant -translate-x-[6.5px] border-2 border-background"></div>' +
-                '<div class="flex items-center gap-sm mb-xs">' +
-                '<h4 class="text-title-lg text-on-surface opacity-80">' + esc(I18n.t('msg_latest_commits')) + '</h4></div>' +
-                '<ul class="text-body-md text-on-surface-variant space-y-2 mt-sm list-disc pl-4 marker:text-secondary-container/50">' +
-                info.commits.map(c =>
-                    '<li><span class="text-secondary-fixed-dim font-mono text-label-md">' + esc(c.sha) + '</span> ' +
-                    esc(c.message) +
-                    ' <span class="opacity-60 text-label-sm">— ' + esc(c.author) + ', ' + esc(fmtDate(c.date)) + '</span></li>'
-                ).join('') +
-                '</ul></div>';
-        }
-        if (!html) {
-            html = '<p class="text-body-md text-on-surface-variant opacity-70">' + esc(I18n.t('msg_no_info')) + '</p>';
-        }
-        changelog.innerHTML = html;
     }
 
     function mountUpdateModalActions() {
@@ -305,7 +267,6 @@
             _updateInfo = info;
             if (info.status === 'ok') {
                 setStatus(info.message, false);
-                renderChangelog(info);
                 if (info.updateAvailable && info.downloadUrl) {
                     downloadUrl = info.downloadUrl;
                     setDownloadButtonVisible(true);
@@ -316,7 +277,6 @@
                 }
             } else {
                 setStatus(info.message || I18n.t('msg_check_err'), true);
-                if (info.commits && info.commits.length) renderChangelog(info);
                 downloadUrl = null;
                 setDownloadButtonVisible(false);
             }
@@ -342,7 +302,6 @@
         if (!info || !info.downloadUrl) return;
         _updateInfo = info;
         downloadUrl = info.downloadUrl;
-        renderChangelog(info);
         openUpdateModal(info);
     });
 

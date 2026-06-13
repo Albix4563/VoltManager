@@ -257,6 +257,9 @@ public class HostBridge
             case "checkForUpdates":
                 return await _updates.CheckForUpdatesAsync();
 
+            case "getReleaseHistory":
+                return await _updates.GetReleaseHistoryAsync();
+
             case "downloadUpdate":
             {
                 var url = payload.GetProperty("url").GetString()
