@@ -87,6 +87,20 @@ public class HeavyAppDetectionSettings
     [JsonPropertyName("minWorkingSetMb")] public int MinWorkingSetMb { get; set; } = 1536;
 }
 
+public class KeepAwakeSettings
+{
+    [JsonPropertyName("enabled")] public bool Enabled { get; set; } = false;
+    [JsonPropertyName("lastChangedUtc")] public DateTime? LastChangedUtc { get; set; }
+}
+
+public record KeepAwakeState
+{
+    [JsonPropertyName("enabled")] public bool Enabled { get; init; }
+    [JsonPropertyName("applied")] public bool Applied { get; init; }
+    [JsonPropertyName("lastChangedUtc")] public DateTime? LastChangedUtc { get; init; }
+    [JsonPropertyName("message")] public string Message { get; init; } = "";
+}
+
 public class AppSettings
 {
     [JsonPropertyName("masterAutomationEnabled")] public bool MasterAutomationEnabled { get; set; } = true;
@@ -98,6 +112,7 @@ public class AppSettings
     [JsonPropertyName("autoShutdown")] public AutoShutdownSettings AutoShutdown { get; set; } = new();
     [JsonPropertyName("autoUpdates")] public AutoUpdateSettings AutoUpdates { get; set; } = new();
     [JsonPropertyName("heavyAppDetection")] public HeavyAppDetectionSettings HeavyAppDetection { get; set; } = new();
+    [JsonPropertyName("keepAwake")] public KeepAwakeSettings KeepAwake { get; set; } = new();
     // duplicatescheme assigns new GUIDs; map canonical plan -> actual GUID on this machine.
     [JsonPropertyName("planGuidMap")] public Dictionary<string, string> PlanGuidMap { get; set; } = new();
     [JsonPropertyName("override")] public ManualOverride? Override { get; set; }
