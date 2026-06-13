@@ -20,7 +20,7 @@ App desktop Windows per la gestione dei piani energetici con monitoraggio hardwa
 Prerequisiti: .NET 8 SDK (l'installer è un progetto WPF net48, nessun tool esterno richiesto).
 
 ```powershell
-.\build.ps1                 # test + publish + installer -> dist\VoltManagerSetup-1.1.0.exe
+.\build.ps1                 # test + publish + installer -> dist\VoltManagerSetup-1.1.1.exe
 .\build.ps1 -SkipInstaller  # solo portable -> publish\
 ```
 
@@ -42,7 +42,7 @@ Lo smoke test esegue: install silenziosa → avvio → verifica processo/WebView
 
 ## Distribuzione
 
-- `dist\VoltManagerSetup-1.1.0.exe` — installer (include bootstrapper WebView2 per macchine senza runtime, es. LTSC).
+- `dist\VoltManagerSetup-1.1.1.exe` — installer (include bootstrapper WebView2 per macchine senza runtime, es. LTSC).
 - `publish\` — cartella portable self-contained (richiede WebView2 Runtime già presente sul PC di destinazione).
 
 ## Note tecniche
@@ -53,3 +53,4 @@ Lo smoke test esegue: install silenziosa → avvio → verifica processo/WebView
 - Jump list: l'app elevata crea eventi nominati `VoltManager_PlanCmd_*` con DACL che concede Modify agli utenti autenticati; l'helper `asInvoker` (net48) li segnala senza elevazione.
 - Chiusura → riduzione nell'area di notifica (configurabile in Settings).
 - App custom all'avvio: vengono registrate in `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` con prefisso `Miliano's App -`, così la rimozione dall'interfaccia è limitata alle voci create dall'app.
+- Abilitazione/disabilitazione app di avvio: la tab Sistema aggiorna lo stato `StartupApproved` di Windows per le voci Run e Startup folder, in modo coerente con il comportamento del Task Manager.
