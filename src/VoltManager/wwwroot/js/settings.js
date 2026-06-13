@@ -2,7 +2,7 @@
  * Settings & Info: GitHub updates + changelog + preferences toggles.
  */
 (function () {
-    if (!Host.available) return;
+    if (!window.Host || !Host.available) return;
 
     const btnCheck = document.getElementById('btn-check-updates');
     const btnDownload = document.getElementById('btn-download-update');
@@ -21,9 +21,20 @@
             snoozeFor: 'Rimanda di',
             snooze: 'Rimanda',
             skip: 'Salta versione',
+            later: 'Più tardi',
+            install: 'Scarica e installa',
+            noInfo: 'Nessuna informazione disponibile.',
+            check: 'Controllo aggiornamenti…',
+            err: 'Errore: ',
+            checkErr: 'Impossibile controllare gli aggiornamenti.',
+            dlInstall: 'Scarica e installa ',
+            dlProg: 'Download… ',
+            dlFail: 'Download non riuscito: ',
+            installing: "Installazione in corso, l'app si riavvierà…",
             snoozed: 'Aggiornamento rimandato.',
             skipped: 'Questa versione verrà saltata.',
-            min15: '15 minuti', min30: '30 minuti', hour1: '1 ora', hours2: '2 ore'
+            min15: '15 minuti', min30: '30 minuti', hour1: '1 ora', hours2: '2 ore',
+            updatedToast: 'VoltManager aggiornato correttamente'
         },
         en: {
             autoUpdates: 'Automatic update checks',
@@ -31,9 +42,20 @@
             snoozeFor: 'Snooze for',
             snooze: 'Snooze',
             skip: 'Skip version',
+            later: 'Later',
+            install: 'Download and install',
+            noInfo: 'No information available.',
+            check: 'Checking for updates…',
+            err: 'Error: ',
+            checkErr: 'Unable to check for updates.',
+            dlInstall: 'Download and install ',
+            dlProg: 'Download… ',
+            dlFail: 'Download failed: ',
+            installing: 'Installing, the app will restart…',
             snoozed: 'Update postponed.',
             skipped: 'This version will be skipped.',
-            min15: '15 minutes', min30: '30 minutes', hour1: '1 hour', hours2: '2 hours'
+            min15: '15 minutes', min30: '30 minutes', hour1: '1 hour', hours2: '2 hours',
+            updatedToast: 'VoltManager updated successfully'
         }
     };
 
@@ -76,24 +98,95 @@
     }
 
     function setDownloadButtonVisible(visible) {
+        if (!btnDownload) return;
         btnDownload.classList.toggle('hidden', !visible);
         btnDownload.classList.toggle('flex', visible);
     }
 
     function setStatus(text, isError) {
-        statusEl.textContent = text;
+        if (!statusEl) return;
+        statusEl.textContent = text || '';
         statusEl.classList.remove('hidden', 'ok', 'err');
         statusEl.classList.add(isError ? 'err' : 'ok');
     }
 
+    function injectUpdateModalLayoutStyles() {
+        if (document.getElementById('update-modal-layout-fix')) return;
+        const style = document.createElement('style');
+        style.id = 'update-modal-layout-fix';
+        style.textContent = `
+#update-modal-overlay{overflow:hidden;padding:16px;box-sizing:border-box;}
+#update-modal{width:min(640px,calc(100vw - 32px));max-width:min(640px,calc(100vw - 32px));max-height:calc(100vh - 32px);display:flex;flex-direction:column;overflow:hidden;box-sizing:border-box;}
+#update-modal,#update-modal *{min-width:0;box-sizing:border-box;}
+#update-modal .update-modal-header{flex:0 0 auto;}
+#update-modal .update-modal-versions{display:flex;align-items:center;gap:16px;flex-wrap:wrap;flex:0 0 auto;}
+#update-modal .update-modal-version-card{flex:1 1 150px;max-width:210px;}
+#upd-modal-notes{flex:1 1 auto;max-height:min(42vh,260px);overflow-y:auto;overflow-x:hidden;scrollbar-gutter:stable;}
+#upd-modal-notes,#upd-modal-notes *{max-width:100%;overflow-wrap:anywhere;word-break:break-word;}
+#upd-modal-progress-wrap,#upd-modal-state-msg{flex:0 0 auto;}
+#update-modal .update-modal-footer{flex:0 0 auto;display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:12px;overflow:hidden;}
+#upd-modal-snooze-wrap{display:flex;align-items:end;gap:8px;flex-wrap:wrap;min-width:0;}
+#upd-modal-snooze-label{width:100%;}
+#upd-modal-snooze-minutes{width:128px;max-width:100%;}
+#update-modal .update-modal-actions{display:flex;justify-content:flex-end;gap:12px;flex-wrap:wrap;min-width:0;}
+#update-modal .update-modal-actions button,#upd-modal-btn-snooze{min-height:42px;white-space:normal;text-align:center;}
+#upd-modal-btn-install{min-width:130px;max-width:160px;justify-content:center;}
+@media (max-width:680px){
+  #update-modal{width:calc(100vw - 24px);max-width:calc(100vw - 24px);}
+  #update-modal .update-modal-footer{grid-template-columns:1fr;align-items:stretch;}
+  #update-modal .update-modal-actions{justify-content:stretch;}
+  #update-modal .update-modal-actions button,#upd-modal-btn-snooze,#upd-modal-btn-install,#upd-modal-btn-dismiss,#upd-modal-btn-skip{flex:1 1 140px;max-width:none;}
+}`;
+        document.head.appendChild(style);
+    }
+
+    function applyUpdateModalLayout() {
+        injectUpdateModalLayoutStyles();
+
+        const modal = document.getElementById('update-modal');
+        const notesEl = document.getElementById('upd-modal-notes');
+        const footer = document.getElementById('upd-modal-btn-dismiss')?.parentElement;
+        const versionsRow = document.getElementById('upd-modal-cur-ver')?.closest('.px-6');
+        const header = document.getElementById('upd-modal-btn-dismiss')?.closest('#update-modal')?.firstElementChild;
+
+        if (modal) modal.classList.add('update-modal-shell');
+        if (header) header.classList.add('update-modal-header');
+        if (versionsRow) {
+            versionsRow.classList.add('update-modal-versions');
+            Array.from(versionsRow.children).forEach(child => {
+                if (child.id !== 'upd-modal-cur-ver' && child.id !== 'upd-modal-new-ver' && child.tagName !== 'SPAN') {
+                    child.classList.add('update-modal-version-card');
+                }
+            });
+        }
+        if (notesEl) notesEl.classList.add('update-modal-notes');
+        if (footer) {
+            footer.classList.add('update-modal-footer');
+            let actions = document.getElementById('upd-modal-actions');
+            if (!actions) {
+                actions = document.createElement('div');
+                actions.id = 'upd-modal-actions';
+                actions.className = 'update-modal-actions';
+                ['upd-modal-btn-skip', 'upd-modal-btn-dismiss', 'upd-modal-btn-install'].forEach(id => {
+                    const button = document.getElementById(id);
+                    if (button) actions.appendChild(button);
+                });
+                footer.appendChild(actions);
+            }
+        }
+    }
+
     function mountUpdateModalActions() {
-        if (modalActionsMounted) return;
+        if (modalActionsMounted) {
+            applyUpdateModalLayout();
+            return;
+        }
         const dismiss = document.getElementById('upd-modal-btn-dismiss');
         const footer = dismiss?.parentElement;
         if (!footer) return;
 
         footer.insertAdjacentHTML('afterbegin',
-            '<div id="upd-modal-snooze-wrap" class="mr-auto flex flex-wrap items-center gap-2">' +
+            '<div id="upd-modal-snooze-wrap">' +
             '  <span class="text-label-md text-on-surface-variant" id="upd-modal-snooze-label"></span>' +
             '  <select id="upd-modal-snooze-minutes" class="bg-surface-container-low/50 text-secondary-container font-medium border border-white/10 rounded-lg py-2 px-3 text-label-md focus:outline-none focus:border-secondary-container">' +
             '    <option value="15" id="upd-modal-snooze-15"></option>' +
@@ -110,6 +203,7 @@
         document.getElementById('upd-modal-btn-snooze')?.addEventListener('click', snoozeUpdateFromModal);
         document.getElementById('upd-modal-btn-skip')?.addEventListener('click', skipUpdateFromModal);
         modalActionsMounted = true;
+        applyUpdateModalLayout();
         refreshUpdateModalLabels();
     }
 
@@ -144,6 +238,7 @@
         const overlay = document.getElementById('update-modal-overlay');
         if (!overlay) return;
         mountUpdateModalActions();
+        applyUpdateModalLayout();
         refreshUpdateModalLabels();
 
         const curBadge  = document.getElementById('upd-modal-cur-ver');
@@ -164,15 +259,16 @@
         if (stateMsg)  stateMsg.classList.add('hidden');
         if (btnInstall) {
             btnInstall.disabled = false;
-            btnInstall.innerHTML = '<span class="material-symbols-outlined text-[16px]">download</span>' + esc(I18n.t('upd_modal_btn_install'));
+            btnInstall.innerHTML = '<span class="material-symbols-outlined text-[16px]">download</span>' + esc(tr('upd_modal_btn_install', lt('install')));
         }
-        if (btnDismiss) btnDismiss.textContent = I18n.t('upd_modal_btn_later');
+        if (btnDismiss) btnDismiss.textContent = tr('upd_modal_btn_later', lt('later'));
         setModalActionsDisabled(false);
 
         if (notesEl) {
             let html = '';
-            if (info && info.releaseNotes)
-                html += '<div class="text-body-sm text-on-surface-variant whitespace-pre-line leading-relaxed">' + esc(info.releaseNotes) + '</div>';
+            if (info && info.releaseNotes) {
+                html += '<div class="update-modal-release-notes text-body-sm text-on-surface-variant whitespace-pre-line leading-relaxed">' + esc(info.releaseNotes) + '</div>';
+            }
             if (info && info.commits && info.commits.length) {
                 html += '<ul class="mt-3 space-y-1 text-label-md text-on-surface-variant list-disc pl-4">';
                 info.commits.slice(0, 8).forEach(c => {
@@ -180,7 +276,7 @@
                 });
                 html += '</ul>';
             }
-            notesEl.innerHTML = html || '<p class="text-label-md text-on-surface-variant opacity-60">' + esc(I18n.t('msg_no_info')) + '</p>';
+            notesEl.innerHTML = html || '<p class="text-label-md text-on-surface-variant opacity-60">' + esc(tr('msg_no_info', lt('noInfo'))) + '</p>';
         }
 
         overlay.classList.remove('hidden');
@@ -203,7 +299,7 @@
             closeUpdateModal();
             setStatus(tr('msg_update_snoozed', lt('snoozed')), false);
         } catch (err) {
-            setStatus(I18n.t('msg_err') + err.message, true);
+            setStatus(tr('msg_err', lt('err')) + err.message, true);
             setModalActionsDisabled(false);
         }
     }
@@ -219,7 +315,7 @@
             closeUpdateModal();
             setStatus(tr('msg_update_skipped', lt('skipped')), false);
         } catch (err) {
-            setStatus(I18n.t('msg_err') + err.message, true);
+            setStatus(tr('msg_err', lt('err')) + err.message, true);
             setModalActionsDisabled(false);
         }
     }
@@ -239,29 +335,31 @@
         const progLabel = document.getElementById('upd-modal-prog-label');
         const stateMsg  = document.getElementById('upd-modal-state-msg');
 
-        if (progWrap)  progWrap.classList.remove('hidden');
+        if (progWrap) progWrap.classList.remove('hidden');
         setModalActionsDisabled(true);
-        if (progLabel) progLabel.textContent = I18n.t('msg_dl_prog') + '0%';
+        if (progLabel) progLabel.textContent = tr('msg_dl_prog', lt('dlProg')) + '0%';
 
         try {
             await Host.call('downloadUpdate', { url: downloadUrl });
             if (stateMsg) {
-                stateMsg.textContent = I18n.t('upd_modal_installing');
+                stateMsg.textContent = tr('upd_modal_installing', lt('installing'));
                 stateMsg.classList.remove('hidden');
             }
             if (progBar) progBar.style.width = '100%';
         } catch (err) {
             setModalActionsDisabled(false);
-            setStatus(I18n.t('msg_dl_fail') + err.message, true);
+            setStatus(tr('msg_dl_fail', lt('dlFail')) + err.message, true);
         }
     }
 
-    btnCheck.addEventListener('click', async () => {
+    btnCheck?.addEventListener('click', async () => {
         btnCheck.disabled = true;
         const icon = btnCheck.querySelector('.material-symbols-outlined');
-        icon.classList.add('spinning');
-        icon.textContent = 'progress_activity';
-        setStatus(I18n.t('msg_check_update'), false);
+        if (icon) {
+            icon.classList.add('spinning');
+            icon.textContent = 'progress_activity';
+        }
+        setStatus(tr('msg_check_update', lt('check')), false);
         try {
             const info = normalizeUpdateInfo(await Host.call('checkForUpdates'));
             _updateInfo = info;
@@ -270,31 +368,34 @@
                 if (info.updateAvailable && info.downloadUrl) {
                     downloadUrl = info.downloadUrl;
                     setDownloadButtonVisible(true);
-                    btnDownloadLabel.textContent = I18n.t('msg_dl_install') + formatVersion(info.latestVersion);
+                    if (btnDownloadLabel) btnDownloadLabel.textContent = tr('msg_dl_install', lt('dlInstall')) + formatVersion(info.latestVersion);
                 } else {
                     downloadUrl = null;
                     setDownloadButtonVisible(false);
                 }
             } else {
-                setStatus(info.message || I18n.t('msg_check_err'), true);
+                setStatus(info.message || tr('msg_check_err', lt('checkErr')), true);
                 downloadUrl = null;
                 setDownloadButtonVisible(false);
             }
         } catch (err) {
-            setStatus(I18n.t('msg_err') + err.message, true);
+            setStatus(tr('msg_err', lt('err')) + err.message, true);
         } finally {
             btnCheck.disabled = false;
-            icon.classList.remove('spinning');
-            icon.textContent = 'download';
+            if (icon) {
+                icon.classList.remove('spinning');
+                icon.textContent = 'download';
+            }
         }
     });
 
     Host.on('updateDownloadProgress', (data) => {
+        const pct = Math.max(0, Math.min(100, Number(data && data.pct) || 0));
         const progBar   = document.getElementById('upd-modal-bar');
         const progLabel = document.getElementById('upd-modal-prog-label');
-        if (progBar)   progBar.style.width = data.pct + '%';
-        if (progLabel) progLabel.textContent = I18n.t('msg_dl_prog') + data.pct + '%';
-        btnDownloadLabel.textContent = I18n.t('msg_dl_prog') + data.pct + '%';
+        if (progBar)   progBar.style.width = pct + '%';
+        if (progLabel) progLabel.textContent = tr('msg_dl_prog', lt('dlProg')) + pct + '%';
+        if (btnDownloadLabel) btnDownloadLabel.textContent = tr('msg_dl_prog', lt('dlProg')) + pct + '%';
     });
 
     Host.on('updateAvailable', (info) => {
@@ -318,17 +419,17 @@
             'position:fixed;bottom:24px;right:24px;z-index:2000;' +
             'background:#1E2A4A;border:1px solid rgba(0,241,254,0.4);border-radius:12px;' +
             'padding:14px 18px;box-shadow:0 8px 32px rgba(0,0,0,0.6);color:#e2e8f0;' +
-            'font-size:13px;display:flex;align-items:center;gap:12px;' +
-            'animation:slideInRight 0.3s ease;';
+            'font-size:13px;display:flex;align-items:center;gap:12px;max-width:calc(100vw - 48px);' +
+            'overflow-wrap:anywhere;animation:slideInRight 0.3s ease;';
         toast.innerHTML =
             '<span style="color:#00f1fe;font-size:18px;">✓</span>' +
-            '<span>' + esc(I18n.t('upd_toast_msg')) + (ver ? ' v' + esc(ver) : '') + '</span>' +
+            '<span>' + esc(tr('upd_toast_msg', lt('updatedToast'))) + (ver ? ' v' + esc(ver) : '') + '</span>' +
             '<button onclick="this.parentElement.remove()" style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:16px;margin-left:4px;">×</button>';
         document.body.appendChild(toast);
         setTimeout(() => { if (toast.parentElement) toast.remove(); }, 6000);
     }
 
-    btnDownload.addEventListener('click', () => {
+    btnDownload?.addEventListener('click', () => {
         if (!downloadUrl) return;
         openUpdateModal(_updateInfo || { downloadUrl });
     });
@@ -378,15 +479,16 @@
             const pref = e.target.closest('#pref-auto-updates');
             if (!pref || !window.__voltSettings) return;
 
+            const settings = window.__voltSettings.get ? window.__voltSettings.get() : window.__voltSettings;
             const toggle = document.getElementById('toggle-auto-updates');
             const enable = toggle?.dataset.on !== 'true';
             setToggle(toggle, enable);
-            normalizeAutoUpdates(window.__voltSettings.get()).enabled = enable;
+            normalizeAutoUpdates(settings).enabled = enable;
             try {
                 await Host.call('setAutoUpdateChecks', { enabled: enable });
             } catch {
                 setToggle(toggle, !enable);
-                normalizeAutoUpdates(window.__voltSettings.get()).enabled = !enable;
+                normalizeAutoUpdates(settings).enabled = !enable;
             }
         });
         autoUpdatesWired = true;
@@ -422,7 +524,7 @@
             '  </label>' +
             '  <p class="text-label-sm text-on-surface-variant opacity-70" data-i18n="set_pref_autoshutdown_note">Non forza la chiusura delle app con lavoro non salvato.</p>' +
             '</div>');
-        I18n.apply();
+        if (window.I18n && I18n.apply) I18n.apply();
     }
 
     function setAutoShutdownUi(autoShutdown) {
@@ -444,42 +546,46 @@
         timeInput.dataset.wired = 'true';
 
         toggle.addEventListener('click', () => {
-            const settings = window.__voltSettings.get();
+            const settings = window.__voltSettings.get ? window.__voltSettings.get() : window.__voltSettings;
             const autoShutdown = normalizeAutoShutdownSettings(settings);
             autoShutdown.enabled = toggle.dataset.on !== 'true';
             setAutoShutdownUi(autoShutdown);
-            window.__voltSettings.save();
+            if (window.__voltSettings.save) window.__voltSettings.save();
         });
 
         timeInput.addEventListener('change', (e) => {
             const value = e.target.value;
             if (!/^[0-9]{2}:[0-9]{2}$/.test(value)) return;
-            const settings = window.__voltSettings.get();
+            const settings = window.__voltSettings.get ? window.__voltSettings.get() : window.__voltSettings;
             const autoShutdown = normalizeAutoShutdownSettings(settings);
             autoShutdown.time = value;
             setAutoShutdownUi(autoShutdown);
-            window.__voltSettings.save();
+            if (window.__voltSettings.save) window.__voltSettings.save();
         });
     }
 
     document.addEventListener('settingsloaded', () => {
         const s = window.__voltSettings;
+        if (!s) return;
+        const settings = s.get ? s.get() : s;
         setToggle(toggleAutostart, s.startWithWindows);
-        setToggle(toggleTray, s.get().closeToTray);
+        setToggle(toggleTray, settings.closeToTray);
 
         mountAutoUpdateUi();
-        setToggle(document.getElementById('toggle-auto-updates'), normalizeAutoUpdates(s.get()).enabled);
+        setToggle(document.getElementById('toggle-auto-updates'), normalizeAutoUpdates(settings).enabled);
         wireAutoUpdateUi();
 
         mountAutoShutdownUi();
-        setAutoShutdownUi(normalizeAutoShutdownSettings(s.get()));
+        setAutoShutdownUi(normalizeAutoShutdownSettings(settings));
         wireAutoShutdownUi();
 
         const langSelect = document.getElementById('lang-select');
-        langSelect.value = I18n.getLang();
-        if (langSelect.dataset.wired !== 'true') {
-            langSelect.dataset.wired = 'true';
-            langSelect.addEventListener('change', (e) => I18n.setLang(e.target.value));
+        if (langSelect && window.I18n && I18n.getLang) {
+            langSelect.value = I18n.getLang();
+            if (langSelect.dataset.wired !== 'true') {
+                langSelect.dataset.wired = 'true';
+                langSelect.addEventListener('change', (e) => I18n.setLang(e.target.value));
+            }
         }
     });
 
@@ -488,23 +594,26 @@
         refreshAutoUpdateLabels();
     });
 
-    document.getElementById('pref-autostart').addEventListener('click', async () => {
-        const enable = toggleAutostart.dataset.on !== 'true';
+    document.getElementById('pref-autostart')?.addEventListener('click', async () => {
+        const enable = toggleAutostart?.dataset.on !== 'true';
         setToggle(toggleAutostart, enable);
         try {
             const res = await Host.call('setStartWithWindows', { enabled: enable });
-            if (!res.success) setToggle(toggleAutostart, !enable);
+            if (res && res.success === false) setToggle(toggleAutostart, !enable);
         } catch {
             setToggle(toggleAutostart, !enable);
         }
     });
 
-    document.getElementById('pref-tray').addEventListener('click', async () => {
-        const enable = toggleTray.dataset.on !== 'true';
+    document.getElementById('pref-tray')?.addEventListener('click', async () => {
+        const enable = toggleTray?.dataset.on !== 'true';
         setToggle(toggleTray, enable);
         try {
             await Host.call('setCloseToTray', { enabled: enable });
-            if (window.__voltSettings) window.__voltSettings.get().closeToTray = enable;
+            if (window.__voltSettings) {
+                const settings = window.__voltSettings.get ? window.__voltSettings.get() : window.__voltSettings;
+                settings.closeToTray = enable;
+            }
         } catch {
             setToggle(toggleTray, !enable);
         }
