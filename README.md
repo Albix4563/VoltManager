@@ -44,19 +44,6 @@ Lo smoke test esegue: install silenziosa → avvio → verifica processo/WebView
 - `dist\VoltManagerSetup-1.0.0.exe` — installer (include bootstrapper WebView2 per macchine senza runtime, es. LTSC).
 - `publish\` — cartella portable self-contained (richiede WebView2 Runtime già presente sul PC di destinazione).
 
-## Repository hygiene
-
-Su GitHub devono finire solo sorgenti, asset necessari al sorgente, file build/release del progetto e documentazione utile.
-
-Non devono finire nel repository:
-
-- file agent/AI locali, cartelle tool locali, cache IDE;
-- credenziali, certificati, file `.env`, configurazioni cloud locali;
-- output build/test/publish/installazione, log, report, payload scaricati;
-- cartelle temporanee, backup, materiale vecchio, progetti esterni copiati dentro repo.
-
-Se durante sviluppo compaiono nuovi file o cartelle superflui, aggiungerli subito a `.gitignore` prima di fare `git add`, commit o push.
-
 ## Note tecniche
 
 - Output `powercfg` analizzato solo per GUID (mai per nome: localizzato).
