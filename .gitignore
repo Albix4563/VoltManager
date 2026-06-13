@@ -5,6 +5,7 @@ publish/
 publish-planswitch/
 dist/
 artifacts/
+installer/
 **/bin/
 **/obj/
 src/VoltManager.Setup/Payload/
@@ -64,8 +65,34 @@ sensordump.txt
 !.vscode/launch.json
 .claude/
 .codex/
+.agents/
 CLAUDE.md
 AGENTS.md
+
+# Secrets, cloud state, local deploy config
+.env
+.env.*
+*.local
+*.secret
+*.secrets.*
+*.key
+*.pem
+*.pfx
+*.p12
+*.jks
+*.keystore
+*.crt
+*.cer
+*.mobileprovision
+.aws/
+.azure/
+.gcloud/
+.terraform/
+.pulumi/
+.serverless/
+.vercel/
+.netlify/
+.supabase/
 
 # Temp and OS files
 *.tmp
@@ -77,3 +104,15 @@ Thumbs.db
 
 # Repo-local analysis output
 graphify-out/
+
+# Local scratch, external projects, old material
+albyfit/
+tmp/
+temp/
+scratch/
+backup/
+backups/
+old/
+archive/
+project_logo.png
+sponsor_logo.png
