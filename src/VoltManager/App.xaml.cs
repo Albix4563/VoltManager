@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Threading;
 using System.Windows;
@@ -26,6 +28,7 @@ public partial class App : Application
     public AutomationEngine Automation { get; private set; } = null!;
 
     private System.Threading.Timer? _automationTimer;
+    private System.Threading.Timer? _autoShutdownTimer;
     private System.Threading.Timer? _planPollTimer;
     private MainWindow? _mainWindow;
 
@@ -73,6 +76,7 @@ public partial class App : Application
         Monitor.Start();
         StartPlanPoll();
         StartAutomationLoop();
+        StartAutoShutdownLoop();
 
         _remoteCommands = new RemoteCommandService();
         _remoteCommands.CommandReceived += ApplyRemoteCommand;
@@ -191,6 +195,47 @@ public partial class App : Application
         }, null, 3000, 1000);
     }
 
+    private void StartAutoShutdownLoop()
+    {
+        _autoShutdownTimer = new System.Threading.Timer(_ =>
+        {
+            try
+            {
+                var autoShutdown = Settings.Current.AutoShutdown;
+                if (autoShutdown is not { Enabled: true }) return;
+                if (!TryParseAutoShutdownTime(autoShutdown.Time, out var shutdownTime)) return;
+
+                var now = DateTime.Now;
+                if (now.Hour != shutdownTime.Hour || now.Minute != shutdownTime.Minute) return;
+
+                string today = now.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+                if (string.Equals(autoShutdown.LastTriggeredLocalDate, today, StringComparison.Ordinal)) return;
+
+                autoShutdown.LastTriggeredLocalDate = today;
+                Settings.Save();
+                ShutdownComputer();
+            }
+            catch
+            {
+                // Auto-shutdown must never crash the app.
+            }
+        }, null, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(15));
+    }
+
+    private static bool TryParseAutoShutdownTime(string? value, out TimeOnly time)
+        => TimeOnly.TryParseExact(value, "HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.None, out time);
+
+    private static void ShutdownComputer()
+    {
+        using var process = Process.Start(new ProcessStartInfo
+        {
+            FileName = "shutdown",
+            Arguments = "/s /t 0",
+            UseShellExecute = false,
+            CreateNoWindow = true,
+        });
+    }
+
     public bool SetManualOverride(PlanId plan, TimeSpan? duration)
     {
         if (!Power.SetActivePlan(plan)) return false;
@@ -252,6 +297,7 @@ public partial class App : Application
     public void ExitApp()
     {
         _automationTimer?.Dispose();
+        _autoShutdownTimer?.Dispose();
         _planPollTimer?.Dispose();
         Monitor.Dispose();
         _remoteCommands?.Dispose();
