@@ -105,6 +105,35 @@ public class StartupAppsService
         };
     }
 
+    public bool SetStartupAppEnabled(string id, bool enabled)
+    {
+        if (string.IsNullOrWhiteSpace(id))
+            throw new ArgumentException("ID mancante.");
+
+        var entry = FindStartupAppById(id)
+            ?? throw new InvalidOperationException("Applicazione di avvio non trovata.");
+
+        string valueName = DecodeStartupValueName(entry);
+
+        switch (entry.Source)
+        {
+            case "HKCU Run":
+                TrySetStartupApproved(Registry.CurrentUser, StartupApprovedRunKeyPath, valueName, enabled);
+                return true;
+            case "HKLM Run":
+                TrySetStartupApproved(Registry.LocalMachine, StartupApprovedRunKeyPath, valueName, enabled);
+                return true;
+            case "Startup folder":
+                TrySetStartupApproved(Registry.CurrentUser, StartupApprovedFolderKeyPath, valueName, enabled);
+                return true;
+            case "Common startup folder":
+                TrySetStartupApproved(Registry.LocalMachine, StartupApprovedFolderKeyPath, valueName, enabled);
+                return true;
+            default:
+                throw new InvalidOperationException("Origine applicazione di avvio non supportata.");
+        }
+    }
+
     public bool RemoveManagedStartupApp(string id)
     {
         if (string.IsNullOrWhiteSpace(id) || !id.StartsWith(ManagedPrefix, StringComparison.Ordinal))
@@ -121,6 +150,25 @@ public class StartupAppsService
         }
 
         return false;
+    }
+
+    private StartupAppEntry? FindStartupAppById(string id)
+    {
+        var snapshot = GetStartupApps();
+        return snapshot.Enabled.Concat(snapshot.Disabled)
+            .FirstOrDefault(e => string.Equals(e.Id, id, StringComparison.Ordinal));
+    }
+
+    private static string DecodeStartupValueName(StartupAppEntry entry)
+    {
+        if (entry.IsManaged)
+            return entry.Id;
+
+        string prefix = entry.Source + ":";
+        if (entry.Id.StartsWith(prefix, StringComparison.Ordinal))
+            return entry.Id[prefix.Length..];
+
+        return entry.Name;
     }
 
     private static IEnumerable<StartupAppEntry> ReadRunKey(RegistryKey root, string source, string approvalKeyPath)

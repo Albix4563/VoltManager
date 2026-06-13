@@ -16,8 +16,9 @@
             startupTitle: 'Applicazioni di avvio', startupSub: 'Controlla le applicazioni che partono o risultano disattivate all\'avvio di Windows.',
             addTitle: 'Aggiungi app personalizzata', addSub: 'Seleziona un file .exe, .lnk, .bat o .cmd. Verrà registrato come app gestita da Miliano\'s App.',
             add: 'Aggiungi', refresh: 'Aggiorna', enabled: 'Avvio attivo', disabled: 'Avvio disattivato', loading: 'Caricamento…', empty: 'Nessuna applicazione trovata.',
-            managed: 'Miliano\'s App', remove: 'Rimuovi', unknown: 'App sconosciuta', added: 'Applicazione aggiunta all\'avvio.', removed: 'Applicazione rimossa dall\'avvio.',
-            loadErr: 'Errore caricamento app di avvio: ', addErr: 'Errore aggiunta app: ', removeErr: 'Errore rimozione app: '
+            managed: 'Miliano\'s App', remove: 'Rimuovi', enableStartup: 'Attiva', disableStartup: 'Disattiva', unknown: 'App sconosciuta',
+            added: 'Applicazione aggiunta all\'avvio.', removed: 'Applicazione rimossa dall\'avvio.', toggled: 'Stato applicazione aggiornato.',
+            loadErr: 'Errore caricamento app di avvio: ', addErr: 'Errore aggiunta app: ', removeErr: 'Errore rimozione app: ', toggleErr: 'Errore modifica stato app: '
         },
         en: {
             nav: 'System', title: 'System', sub: 'Manage shutdown, restart, sleep, and Windows startup applications.',
@@ -27,8 +28,9 @@
             startupTitle: 'Startup applications', startupSub: 'Review applications that start, or are disabled, when Windows starts.',
             addTitle: 'Add custom app', addSub: 'Select an .exe, .lnk, .bat, or .cmd file. It will be registered as a Miliano\'s App managed entry.',
             add: 'Add', refresh: 'Refresh', enabled: 'Enabled startup', disabled: 'Disabled startup', loading: 'Loading…', empty: 'No applications found.',
-            managed: 'Miliano\'s App', remove: 'Remove', unknown: 'Unknown app', added: 'Application added to startup.', removed: 'Application removed from startup.',
-            loadErr: 'Error loading startup apps: ', addErr: 'Error adding app: ', removeErr: 'Error removing app: '
+            managed: 'Miliano\'s App', remove: 'Remove', enableStartup: 'Enable', disableStartup: 'Disable', unknown: 'Unknown app',
+            added: 'Application added to startup.', removed: 'Application removed from startup.', toggled: 'Application state updated.',
+            loadErr: 'Error loading startup apps: ', addErr: 'Error adding app: ', removeErr: 'Error removing app: ', toggleErr: 'Error changing app state: '
         }
     };
 
@@ -206,6 +208,24 @@
                 return;
             }
 
+            const startupToggle = e.target.closest('[data-toggle-startup-id]');
+            if (startupToggle && Host.available) {
+                startupToggle.disabled = true;
+                try {
+                    await Host.call('setStartupAppEnabled', {
+                        id: startupToggle.dataset.toggleStartupId,
+                        enabled: startupToggle.dataset.toggleStartupEnabled === 'true',
+                    });
+                    setSystemStatus(t('toggled'), false);
+                    await loadStartupApps(true);
+                } catch (err) {
+                    setSystemStatus(t('toggleErr') + err.message, true);
+                } finally {
+                    startupToggle.disabled = false;
+                }
+                return;
+            }
+
             const remove = e.target.closest('[data-remove-startup-id]');
             if (remove && Host.available) {
                 remove.disabled = true;
@@ -275,11 +295,13 @@
         }
         container.innerHTML = apps.map(app => {
             const managedBadge = app.isManaged ? '<span class="text-label-sm px-2 py-1 rounded bg-secondary-container/10 text-secondary-container border border-secondary-container/20">' + esc(t('managed')) + '</span>' : '';
+            const toggleButton = '<button class="btn-ghost rounded-lg py-1.5 px-3 text-label-md" data-toggle-startup-id="' + escAttr(app.id) + '" data-toggle-startup-enabled="' + (app.enabled ? 'false' : 'true') + '" type="button">' + esc(app.enabled ? t('disableStartup') : t('enableStartup')) + '</button>';
             const removeButton = app.isManaged ? '<button class="btn-ghost rounded-lg py-1.5 px-3 text-label-md" data-remove-startup-id="' + escAttr(app.id) + '" type="button">' + esc(t('remove')) + '</button>' : '';
+            const actionButtons = '<div class="flex items-center gap-xs shrink-0">' + toggleButton + removeButton + '</div>';
             return '<div class="rounded-lg border border-white/10 bg-surface-container-low/40 p-md flex flex-col gap-xs">' +
                 '<div class="flex items-start justify-between gap-md"><div class="min-w-0"><div class="flex items-center gap-sm flex-wrap">' +
                 '<p class="text-body-md text-on-surface font-medium truncate">' + esc(app.name || t('unknown')) + '</p>' + managedBadge +
-                '</div><p class="text-label-sm text-on-surface-variant mt-1">' + esc(app.source || '') + '</p></div>' + removeButton + '</div>' +
+                '</div><p class="text-label-sm text-on-surface-variant mt-1">' + esc(app.source || '') + '</p></div>' + actionButtons + '</div>' +
                 '<p class="text-label-sm text-on-surface-variant opacity-70 break-all">' + esc(app.path || app.command || '') + '</p></div>';
         }).join('');
     }
