@@ -19,7 +19,7 @@ App desktop Windows per la gestione dei piani energetici con monitoraggio hardwa
 Prerequisiti: .NET 8 SDK (l'installer è un progetto WPF net48, nessun tool esterno richiesto).
 
 ```powershell
-.\build.ps1                 # test + publish + installer -> dist\VoltManagerSetup-1.0.0.exe
+.\build.ps1                 # test + publish + installer -> dist\VoltManagerSetup-1.0.1.exe
 .\build.ps1 -SkipInstaller  # solo portable -> publish\
 ```
 
@@ -41,7 +41,7 @@ Lo smoke test esegue: install silenziosa → avvio → verifica processo/WebView
 
 ## Distribuzione
 
-- `dist\VoltManagerSetup-1.0.0.exe` — installer (include bootstrapper WebView2 per macchine senza runtime, es. LTSC).
+- `dist\VoltManagerSetup-1.0.1.exe` — installer (include bootstrapper WebView2 per macchine senza runtime, es. LTSC).
 - `publish\` — cartella portable self-contained (richiede WebView2 Runtime già presente sul PC di destinazione).
 
 ## Note tecniche
