@@ -41,7 +41,10 @@ public class SettingsService
                         loaded.Rules = AppSettings.DefaultRules();
                     if (loaded.AutoShutdown == null)
                         loaded.AutoShutdown = new AutoShutdownSettings();
+                    if (loaded.AutoUpdates == null)
+                        loaded.AutoUpdates = new AutoUpdateSettings();
                     NormalizeScheduledPowerAction(loaded.AutoShutdown);
+                    NormalizeAutoUpdateSettings(loaded.AutoUpdates);
                     // Migrate stale repo name from pre-release installs.
                     if (loaded.UpdateRepo == "Albix4563/VoltManager")
                         loaded.UpdateRepo = "Albix4563/power_efficency";
@@ -68,11 +71,25 @@ public class SettingsService
         };
     }
 
+    private static void NormalizeAutoUpdateSettings(AutoUpdateSettings settings)
+    {
+        if (settings.IntervalMinutes < 5)
+            settings.IntervalMinutes = 30;
+        else if (settings.IntervalMinutes > 1440)
+            settings.IntervalMinutes = 1440;
+
+        if (!string.IsNullOrWhiteSpace(settings.SkippedVersion))
+            settings.SkippedVersion = settings.SkippedVersion.Trim().TrimStart('v', 'V');
+    }
+
     public void Save()
     {
         lock (_lock)
         {
+            Current.AutoShutdown ??= new AutoShutdownSettings();
+            Current.AutoUpdates ??= new AutoUpdateSettings();
             NormalizeScheduledPowerAction(Current.AutoShutdown);
+            NormalizeAutoUpdateSettings(Current.AutoUpdates);
             var dir = Path.GetDirectoryName(_path)!;
             Directory.CreateDirectory(dir);
             var tmp = _path + ".tmp";

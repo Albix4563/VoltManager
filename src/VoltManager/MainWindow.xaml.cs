@@ -1,5 +1,7 @@
 using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
+using System.Threading;
 using System.Windows;
 using Microsoft.Web.WebView2.Core;
 using VoltManager.Bridge;
@@ -9,10 +11,14 @@ namespace VoltManager;
 
 public partial class MainWindow : Window
 {
+    private static readonly TimeSpan AutoUpdateInitialDelay = TimeSpan.FromMinutes(30);
     private readonly App _app;
     private HostBridge? _bridge;
     private bool _exiting;
     private readonly bool _justUpdated;
+    private System.Threading.Timer? _autoUpdateTimer;
+    private int _autoUpdateCheckRunning;
+    private bool _updatePromptOpen;
 
     public MainWindow(App app, bool startMinimized, bool justUpdated = false)
     {
@@ -21,6 +27,7 @@ public partial class MainWindow : Window
         InitializeComponent();
         Loaded += async (_, _) => await InitWebViewAsync();
         Closing += OnClosingToTray;
+        Closed += (_, _) => _autoUpdateTimer?.Dispose();
         // Fires from timer threads; tooltip lives on the UI thread.
         _app.ActivePlanChanged += p => Dispatcher.Invoke(() =>
             TrayIcon.ToolTipText = "VoltManager – " + PlanDisplayName(p));
@@ -86,6 +93,7 @@ public partial class MainWindow : Window
                 _ = CheckForUpdatesOnStartupAsync();
         };
 
+        StartAutoUpdateLoop();
         core.Navigate("https://app.local/index.html?v=" + DateTimeOffset.UtcNow.ToUnixTimeSeconds());
     }
 
@@ -105,13 +113,144 @@ public partial class MainWindow : Window
             // Small delay so JS event handlers are registered before the push.
             await Task.Delay(TimeSpan.FromSeconds(3));
             var info = await _app.Updates.CheckForUpdatesAsync();
-            if (info.UpdateAvailable && info.DownloadUrl != null)
+            if (info.UpdateAvailable && info.DownloadUrl != null && !IsUpdateSuppressed(info, respectSnooze: true))
                 _bridge?.PushEvent("updateAvailable", info);
         }
         catch
         {
             // Offline or rate-limited: stay silent, manual check remains available.
         }
+    }
+
+    private void StartAutoUpdateLoop()
+    {
+        var interval = GetAutoUpdateInterval();
+        _autoUpdateTimer = new System.Threading.Timer(_ =>
+        {
+            _ = Dispatcher.InvokeAsync(async () => await RunAutoUpdateCheckAsync());
+        }, null, AutoUpdateInitialDelay, interval);
+    }
+
+    private TimeSpan GetAutoUpdateInterval()
+    {
+        int minutes = _app.Settings.Current.AutoUpdates?.IntervalMinutes ?? 30;
+        if (minutes < 5) minutes = 30;
+        if (minutes > 1440) minutes = 1440;
+        return TimeSpan.FromMinutes(minutes);
+    }
+
+    private async Task RunAutoUpdateCheckAsync()
+    {
+        if (Interlocked.Exchange(ref _autoUpdateCheckRunning, 1) == 1) return;
+
+        try
+        {
+            var autoUpdates = _app.Settings.Current.AutoUpdates;
+            if (autoUpdates is not { Enabled: true }) return;
+            if (autoUpdates.SnoozedUntilUtc is DateTime snoozedUntil && snoozedUntil > DateTime.UtcNow) return;
+
+            var info = await _app.Updates.CheckForUpdatesAsync();
+            if (!info.UpdateAvailable || string.IsNullOrWhiteSpace(info.DownloadUrl)) return;
+            if (IsUpdateSuppressed(info, respectSnooze: true)) return;
+
+            if (IsAppInForeground())
+                _bridge?.PushEvent("updateAvailable", info);
+            else
+                await ShowBackgroundUpdatePromptAsync(info);
+        }
+        catch
+        {
+            // Automatic checks must stay silent when the network or GitHub is unavailable.
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _autoUpdateCheckRunning, 0);
+        }
+    }
+
+    private bool IsUpdateSuppressed(UpdateInfo info, bool respectSnooze)
+    {
+        var autoUpdates = _app.Settings.Current.AutoUpdates;
+        if (autoUpdates == null) return false;
+
+        if (respectSnooze && autoUpdates.SnoozedUntilUtc is DateTime snoozedUntil && snoozedUntil > DateTime.UtcNow)
+            return true;
+
+        string latest = NormalizeVersion(info.LatestVersion);
+        string skipped = NormalizeVersion(autoUpdates.SkippedVersion);
+        return latest.Length > 0 && skipped.Length > 0 &&
+               string.Equals(latest, skipped, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string NormalizeVersion(string? version)
+        => string.IsNullOrWhiteSpace(version) ? "" : version.Trim().TrimStart('v', 'V');
+
+    private bool IsAppInForeground()
+        => IsVisible && WindowState != WindowState.Minimized && IsActive;
+
+    private async Task ShowBackgroundUpdatePromptAsync(UpdateInfo info)
+    {
+        if (_updatePromptOpen) return;
+        _updatePromptOpen = true;
+        try
+        {
+            var prompt = new UpdatePromptWindow(info);
+            if (IsVisible) prompt.Owner = this;
+            prompt.Icon = Icon;
+            prompt.ShowDialog();
+
+            switch (prompt.Action)
+            {
+                case UpdatePromptAction.Install:
+                    await DownloadAndInstallUpdateAsync(info.DownloadUrl!);
+                    break;
+                case UpdatePromptAction.Snooze:
+                    SnoozeUpdate(prompt.SnoozeMinutes);
+                    break;
+                case UpdatePromptAction.Skip:
+                    SkipUpdateVersion(info.LatestVersion);
+                    break;
+            }
+        }
+        finally
+        {
+            _updatePromptOpen = false;
+        }
+    }
+
+    private async Task DownloadAndInstallUpdateAsync(string url)
+    {
+        try
+        {
+            string path = await _app.Updates.DownloadUpdateAsync(url);
+            Process.Start(new ProcessStartInfo(path,
+                $"/update --pid {Environment.ProcessId}") { UseShellExecute = true });
+            _exiting = true;
+            _app.ExitApp();
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show("Download aggiornamento fallito: " + ex.Message,
+                "VoltManager", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private void SnoozeUpdate(int minutes)
+    {
+        minutes = Math.Clamp(minutes, 5, 1440);
+        _app.Settings.Current.AutoUpdates ??= new AutoUpdateSettings();
+        _app.Settings.Current.AutoUpdates.SnoozedUntilUtc = DateTime.UtcNow.AddMinutes(minutes);
+        _app.Settings.Save();
+    }
+
+    private void SkipUpdateVersion(string? version)
+    {
+        string normalized = NormalizeVersion(version);
+        if (normalized.Length == 0) return;
+        _app.Settings.Current.AutoUpdates ??= new AutoUpdateSettings();
+        _app.Settings.Current.AutoUpdates.SkippedVersion = normalized;
+        _app.Settings.Current.AutoUpdates.SnoozedUntilUtc = null;
+        _app.Settings.Save();
     }
 
     private void OnClosingToTray(object? sender, CancelEventArgs e)

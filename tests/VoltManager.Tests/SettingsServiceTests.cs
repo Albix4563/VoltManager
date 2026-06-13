@@ -20,6 +20,11 @@ public class SettingsServiceTests : IDisposable
         Assert.False(svc.Current.AutoShutdown.Enabled);
         Assert.Equal("shutdown", svc.Current.AutoShutdown.Action);
         Assert.Equal("23:00", svc.Current.AutoShutdown.Time);
+        Assert.NotNull(svc.Current.AutoUpdates);
+        Assert.True(svc.Current.AutoUpdates.Enabled);
+        Assert.Equal(30, svc.Current.AutoUpdates.IntervalMinutes);
+        Assert.Null(svc.Current.AutoUpdates.SnoozedUntilUtc);
+        Assert.Null(svc.Current.AutoUpdates.SkippedVersion);
     }
 
     [Fact]
@@ -33,6 +38,10 @@ public class SettingsServiceTests : IDisposable
         svc.Current.AutoShutdown.Action = "restart";
         svc.Current.AutoShutdown.Time = "22:30";
         svc.Current.AutoShutdown.LastTriggeredLocalDate = "2026-06-13";
+        svc.Current.AutoUpdates.Enabled = false;
+        svc.Current.AutoUpdates.IntervalMinutes = 45;
+        svc.Current.AutoUpdates.SnoozedUntilUtc = new DateTime(2026, 06, 13, 16, 30, 00, DateTimeKind.Utc);
+        svc.Current.AutoUpdates.SkippedVersion = "1.2.3";
         svc.Save();
 
         var reloaded = new SettingsService(SettingsPath);
@@ -43,6 +52,10 @@ public class SettingsServiceTests : IDisposable
         Assert.Equal("restart", reloaded.Current.AutoShutdown.Action);
         Assert.Equal("22:30", reloaded.Current.AutoShutdown.Time);
         Assert.Equal("2026-06-13", reloaded.Current.AutoShutdown.LastTriggeredLocalDate);
+        Assert.False(reloaded.Current.AutoUpdates.Enabled);
+        Assert.Equal(45, reloaded.Current.AutoUpdates.IntervalMinutes);
+        Assert.Equal(new DateTime(2026, 06, 13, 16, 30, 00, DateTimeKind.Utc), reloaded.Current.AutoUpdates.SnoozedUntilUtc);
+        Assert.Equal("1.2.3", reloaded.Current.AutoUpdates.SkippedVersion);
     }
 
     [Fact]
@@ -76,6 +89,19 @@ public class SettingsServiceTests : IDisposable
     }
 
     [Fact]
+    public void NullAutoUpdates_RestoredToDefaults()
+    {
+        Directory.CreateDirectory(_dir);
+        File.WriteAllText(SettingsPath, "{\"autoUpdates\":null}");
+        var svc = new SettingsService(SettingsPath);
+        Assert.NotNull(svc.Current.AutoUpdates);
+        Assert.True(svc.Current.AutoUpdates.Enabled);
+        Assert.Equal(30, svc.Current.AutoUpdates.IntervalMinutes);
+        Assert.Null(svc.Current.AutoUpdates.SnoozedUntilUtc);
+        Assert.Null(svc.Current.AutoUpdates.SkippedVersion);
+    }
+
+    [Fact]
     public void InvalidScheduledAction_RestoredToShutdown()
     {
         Directory.CreateDirectory(_dir);
@@ -84,6 +110,26 @@ public class SettingsServiceTests : IDisposable
         Assert.True(svc.Current.AutoShutdown.Enabled);
         Assert.Equal("shutdown", svc.Current.AutoShutdown.Action);
         Assert.Equal("21:15", svc.Current.AutoShutdown.Time);
+    }
+
+    [Fact]
+    public void InvalidAutoUpdateInterval_RestoredToDefaultAndSkippedVersionNormalized()
+    {
+        Directory.CreateDirectory(_dir);
+        File.WriteAllText(SettingsPath, "{\"autoUpdates\":{\"enabled\":false,\"intervalMinutes\":2,\"skippedVersion\":\"v1.2.3\"}}");
+        var svc = new SettingsService(SettingsPath);
+        Assert.False(svc.Current.AutoUpdates.Enabled);
+        Assert.Equal(30, svc.Current.AutoUpdates.IntervalMinutes);
+        Assert.Equal("1.2.3", svc.Current.AutoUpdates.SkippedVersion);
+    }
+
+    [Fact]
+    public void ExcessiveAutoUpdateInterval_IsCapped()
+    {
+        Directory.CreateDirectory(_dir);
+        File.WriteAllText(SettingsPath, "{\"autoUpdates\":{\"intervalMinutes\":2000}}");
+        var svc = new SettingsService(SettingsPath);
+        Assert.Equal(1440, svc.Current.AutoUpdates.IntervalMinutes);
     }
 
     public void Dispose()

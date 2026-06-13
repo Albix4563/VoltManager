@@ -160,7 +160,10 @@ public class HostBridge
                 settings.PlanGuidMap = _settings.Current.PlanGuidMap;
                 settings.Override = _settings.Current.Override;
                 settings.AutoShutdown ??= new AutoShutdownSettings();
+                settings.AutoUpdates ??= new AutoUpdateSettings();
                 settings.AutoShutdown.LastTriggeredLocalDate = _settings.Current.AutoShutdown.LastTriggeredLocalDate;
+                settings.AutoUpdates.SnoozedUntilUtc = _settings.Current.AutoUpdates.SnoozedUntilUtc;
+                settings.AutoUpdates.SkippedVersion = _settings.Current.AutoUpdates.SkippedVersion;
                 _settings.Update(settings);
                 return new { success = true };
             }
@@ -179,6 +182,42 @@ public class HostBridge
                 _settings.Current.CloseToTray = payload.GetProperty("enabled").GetBoolean();
                 _settings.Save();
                 return new { success = true };
+            }
+
+            case "setAutoUpdateChecks":
+            {
+                bool enable = payload.GetProperty("enabled").GetBoolean();
+                _settings.Current.AutoUpdates ??= new AutoUpdateSettings();
+                _settings.Current.AutoUpdates.Enabled = enable;
+                if (enable)
+                    _settings.Current.AutoUpdates.SnoozedUntilUtc = null;
+                _settings.Save();
+                return new { success = true, autoUpdates = _settings.Current.AutoUpdates };
+            }
+
+            case "snoozeUpdate":
+            {
+                int minutes = payload.TryGetProperty("minutes", out var minutesEl) && minutesEl.ValueKind == JsonValueKind.Number
+                    ? minutesEl.GetInt32()
+                    : 30;
+                minutes = Math.Clamp(minutes, 5, 1440);
+                _settings.Current.AutoUpdates ??= new AutoUpdateSettings();
+                _settings.Current.AutoUpdates.SnoozedUntilUtc = DateTime.UtcNow.AddMinutes(minutes);
+                _settings.Save();
+                return new { success = true, snoozedUntilUtc = _settings.Current.AutoUpdates.SnoozedUntilUtc };
+            }
+
+            case "skipUpdateVersion":
+            {
+                string version = payload.GetProperty("version").GetString() ?? "";
+                version = version.Trim().TrimStart('v', 'V');
+                if (version.Length == 0)
+                    throw new ArgumentException("Versione aggiornamento mancante");
+                _settings.Current.AutoUpdates ??= new AutoUpdateSettings();
+                _settings.Current.AutoUpdates.SkippedVersion = version;
+                _settings.Current.AutoUpdates.SnoozedUntilUtc = null;
+                _settings.Save();
+                return new { success = true, skippedVersion = version };
             }
 
             case "getStartupApps":
