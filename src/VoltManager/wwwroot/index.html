@@ -54,9 +54,9 @@
     </ul>
   </div>
   <div class="mt-auto px-lg pb-lg">
-    <div class="glass-card rounded-lg p-4 flex items-center gap-3 transition-all duration-300 hover:bg-white/5 cursor-default">
-      <div class="w-2 h-2 rounded-full bg-secondary-container animate-pulse shadow-[0_0_8px_#00f1fe]"></div>
-      <span class="text-label-md text-on-surface" data-i18n="nav_monitoring">Monitoring Active</span>
+    <div id="btn-monitoring-toggle" class="glass-card rounded-lg p-4 flex items-center gap-3 transition-all duration-300 hover:bg-white/10 cursor-pointer active:scale-[0.98]">
+      <div id="monitoring-dot" class="w-2 h-2 rounded-full bg-secondary-container animate-pulse shadow-[0_0_8px_#00f1fe]"></div>
+      <span id="monitoring-label" class="text-label-md text-on-surface" data-i18n="nav_monitoring">Monitoring Active</span>
     </div>
     <p class="text-label-sm text-on-surface-variant opacity-60 mt-3 px-1" id="sidebar-version">VoltManager v1.0.0</p>
     <div class="mt-sm px-1 flex items-center gap-2 opacity-70 hover:opacity-100 transition-opacity duration-300">

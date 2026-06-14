@@ -462,6 +462,48 @@
         }
     }
 
+    // --- Monitoring Toggle Logic ---
+    const btnMonitoring = document.getElementById('btn-monitoring-toggle');
+    const monitoringDot = document.getElementById('monitoring-dot');
+    const monitoringLabel = document.getElementById('monitoring-label');
+
+    function renderMonitoringState() {
+        if (!window.__voltSettings || !btnMonitoring) return;
+        const enabled = window.__voltSettings.get().masterAutomationEnabled;
+        if (enabled) {
+            monitoringDot.className = 'w-2 h-2 rounded-full bg-secondary-container animate-pulse shadow-[0_0_8px_#00f1fe]';
+            monitoringLabel.dataset.i18n = 'nav_monitoring';
+            monitoringLabel.textContent = I18n.t('nav_monitoring');
+        } else {
+            monitoringDot.className = 'w-2 h-2 rounded-full bg-on-surface-variant';
+            monitoringLabel.dataset.i18n = 'nav_monitoring_paused';
+            monitoringLabel.textContent = I18n.t('nav_monitoring_paused');
+        }
+    }
+
+    if (btnMonitoring) {
+        btnMonitoring.addEventListener('click', async () => {
+            if (!window.__voltSettings || !Host.available) return;
+            const settings = window.__voltSettings.get();
+            settings.masterAutomationEnabled = !settings.masterAutomationEnabled;
+            
+            const masterToggle = document.getElementById('master-toggle');
+            if (masterToggle) masterToggle.checked = settings.masterAutomationEnabled;
+
+            if (!settings.masterAutomationEnabled) {
+                try {
+                    await Host.call('clearManualOverride');
+                    await Host.call('setActivePlan', { plan: 'balanced' });
+                } catch (e) {
+                    console.error('Failed to set plan to balanced', e);
+                }
+            }
+            
+            renderMonitoringState();
+            window.__voltSettings.save();
+        });
+    }
+
     mountSystemTab();
     wireSystemUi();
     boot();
@@ -469,6 +511,7 @@
     document.addEventListener('settingsloaded', () => {
         mountSystemTab();
         applyScheduledUi();
+        renderMonitoringState();
         setTimeout(removeLegacyAutoShutdownPanel, 0);
     });
 
@@ -482,6 +525,7 @@
 
     document.addEventListener('langchanged', () => {
         refreshSystemLabels();
+        renderMonitoringState();
         if (startupLoaded) loadStartupApps(true);
     });
 
