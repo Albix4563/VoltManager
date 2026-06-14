@@ -469,8 +469,11 @@
 
     function renderMonitoringState() {
         if (!window.__voltSettings || !btnMonitoring) return;
-        const enabled = window.__voltSettings.get().masterAutomationEnabled;
-        if (enabled) {
+        const settings = window.__voltSettings.get();
+        // It's active only if master automation is on AND no manual override is active
+        const isPaused = !settings.masterAutomationEnabled || !!settings.override;
+        
+        if (!isPaused) {
             monitoringDot.className = 'w-2 h-2 rounded-full bg-secondary-container animate-pulse shadow-[0_0_8px_#00f1fe]';
             monitoringLabel.dataset.i18n = 'nav_monitoring';
             monitoringLabel.textContent = I18n.t('nav_monitoring');
@@ -485,28 +488,56 @@
         btnMonitoring.addEventListener('click', async () => {
             if (!window.__voltSettings || !Host.available) return;
             const settings = window.__voltSettings.get();
-            settings.masterAutomationEnabled = !settings.masterAutomationEnabled;
+            const isPaused = !settings.masterAutomationEnabled || !!settings.override;
             
-            const masterToggle = document.getElementById('master-toggle');
-            if (masterToggle) masterToggle.checked = settings.masterAutomationEnabled;
+            if (!isPaused) {
+                // Currently active -> Ask user how long to pause
+                if (window.openOverrideModal) {
+                    window.openOverrideModal('balanced');
+                }
+            } else {
+                // Currently paused -> Resume monitoring
+                settings.masterAutomationEnabled = true;
+                const masterToggle = document.getElementById('master-toggle');
+                if (masterToggle) masterToggle.checked = true;
 
-            if (!settings.masterAutomationEnabled) {
                 try {
                     await Host.call('clearManualOverride');
-                    await Host.call('setActivePlan', { plan: 'balanced' });
                 } catch (e) {
-                    console.error('Failed to set plan to balanced', e);
+                    console.error('Failed to clear manual override', e);
                 }
+                
+                renderMonitoringState();
+                window.__voltSettings.save();
             }
-            
-            renderMonitoringState();
-            window.__voltSettings.save();
         });
     }
 
     mountSystemTab();
     wireSystemUi();
     boot();
+
+    if (Host.available) {
+        Host.on('automationStateChanged', () => {
+            // Re-fetch settings since they changed
+            Host.call('getSettings').then(res => {
+                if (res && res.settings && window.__voltSettings) {
+                    // Update local copy
+                    Object.assign(window.__voltSettings.get(), res.settings);
+                    renderMonitoringState();
+                }
+            }).catch(() => {});
+        });
+
+        Host.on('manualOverrideChanged', () => {
+            Host.call('getSettings').then(res => {
+                if (res && res.settings && window.__voltSettings) {
+                    Object.assign(window.__voltSettings.get(), res.settings);
+                    renderMonitoringState();
+                }
+            }).catch(() => {});
+        });
+    }
 
     document.addEventListener('settingsloaded', () => {
         mountSystemTab();

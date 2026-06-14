@@ -236,6 +236,7 @@
         overrideOverlay.classList.remove('hidden');
         overrideOverlay.classList.add('flex');
     }
+    window.openOverrideModal = openOverrideModal;
 
     async function applyOverride() {
         if (!pendingPlan || switching) return;
