@@ -18,6 +18,8 @@
         it: {
             autoUpdates: 'Autoricerca aggiornamenti',
             autoUpdatesSub: 'Controlla automaticamente nuove versioni ogni 30 minuti',
+            previewUpdates: 'Aggiornamenti Preview',
+            previewUpdatesSub: 'Ricevi in anteprima le versioni beta dal branch Preview',
             snoozeFor: 'Rimanda di',
             snooze: 'Rimanda',
             skip: 'Salta versione',
@@ -39,6 +41,8 @@
         en: {
             autoUpdates: 'Automatic update checks',
             autoUpdatesSub: 'Automatically checks for new versions every 30 minutes',
+            previewUpdates: 'Preview Updates',
+            previewUpdatesSub: 'Get beta versions early from the Preview branch',
             snoozeFor: 'Snooze for',
             snooze: 'Snooze',
             skip: 'Skip version',
@@ -443,7 +447,7 @@
 
     function normalizeAutoUpdates(settings) {
         if (!settings.autoUpdates) {
-            settings.autoUpdates = { enabled: true, intervalMinutes: 30, snoozedUntilUtc: null, skippedVersion: null };
+            settings.autoUpdates = { enabled: true, previewChannel: false, intervalMinutes: 30, snoozedUntilUtc: null, skippedVersion: null };
         }
         if (!Number.isFinite(settings.autoUpdates.intervalMinutes) || settings.autoUpdates.intervalMinutes < 5) {
             settings.autoUpdates.intervalMinutes = 30;
@@ -461,7 +465,13 @@
             '    <p class="text-body-md text-on-surface group-hover:text-secondary-fixed transition-colors" id="pref-auto-updates-title"></p>' +
             '    <p class="text-label-sm text-on-surface-variant" id="pref-auto-updates-sub"></p>' +
             '  </div>' +
-            '  <div class="mini-toggle" data-on="true" id="toggle-auto-updates"><div class="mini-toggle-knob"></div></div>' +
+            '</div>' +
+            '<div class="flex items-center justify-between group cursor-pointer mt-md" id="pref-preview-updates">' +
+            '  <div>' +
+            '    <p class="text-body-md text-on-surface group-hover:text-secondary-fixed transition-colors" id="pref-preview-updates-title"></p>' +
+            '    <p class="text-label-sm text-on-surface-variant" id="pref-preview-updates-sub"></p>' +
+            '  </div>' +
+            '  <div class="mini-toggle" data-on="false" id="toggle-preview-updates"><div class="mini-toggle-knob"></div></div>' +
             '</div>');
         refreshAutoUpdateLabels();
     }
@@ -471,24 +481,45 @@
         const sub = document.getElementById('pref-auto-updates-sub');
         if (title) title.textContent = lt('autoUpdates');
         if (sub) sub.textContent = lt('autoUpdatesSub');
+        
+        const pTitle = document.getElementById('pref-preview-updates-title');
+        const pSub = document.getElementById('pref-preview-updates-sub');
+        if (pTitle) pTitle.textContent = lt('previewUpdates');
+        if (pSub) pSub.textContent = lt('previewUpdatesSub');
     }
 
     function wireAutoUpdateUi() {
         if (autoUpdatesWired) return;
         document.addEventListener('click', async (e) => {
-            const pref = e.target.closest('#pref-auto-updates');
-            if (!pref || !window.__voltSettings) return;
+            let pref = e.target.closest('#pref-auto-updates');
+            if (pref && window.__voltSettings) {
+                const settings = window.__voltSettings.get ? window.__voltSettings.get() : window.__voltSettings;
+                const toggle = document.getElementById('toggle-auto-updates');
+                const enable = toggle?.dataset.on !== 'true';
+                setToggle(toggle, enable);
+                normalizeAutoUpdates(settings).enabled = enable;
+                try {
+                    await Host.call('setAutoUpdateChecks', { enabled: enable });
+                } catch {
+                    setToggle(toggle, !enable);
+                    normalizeAutoUpdates(settings).enabled = !enable;
+                }
+                return;
+            }
 
-            const settings = window.__voltSettings.get ? window.__voltSettings.get() : window.__voltSettings;
-            const toggle = document.getElementById('toggle-auto-updates');
-            const enable = toggle?.dataset.on !== 'true';
-            setToggle(toggle, enable);
-            normalizeAutoUpdates(settings).enabled = enable;
-            try {
-                await Host.call('setAutoUpdateChecks', { enabled: enable });
-            } catch {
-                setToggle(toggle, !enable);
-                normalizeAutoUpdates(settings).enabled = !enable;
+            pref = e.target.closest('#pref-preview-updates');
+            if (pref && window.__voltSettings) {
+                const settings = window.__voltSettings.get ? window.__voltSettings.get() : window.__voltSettings;
+                const toggle = document.getElementById('toggle-preview-updates');
+                const enable = toggle?.dataset.on !== 'true';
+                setToggle(toggle, enable);
+                normalizeAutoUpdates(settings).previewChannel = enable;
+                try {
+                    await Host.call('setPreviewUpdates', { enabled: enable });
+                } catch {
+                    setToggle(toggle, !enable);
+                    normalizeAutoUpdates(settings).previewChannel = !enable;
+                }
             }
         });
         autoUpdatesWired = true;
@@ -573,6 +604,7 @@
 
         mountAutoUpdateUi();
         setToggle(document.getElementById('toggle-auto-updates'), normalizeAutoUpdates(settings).enabled);
+        setToggle(document.getElementById('toggle-preview-updates'), normalizeAutoUpdates(settings).previewChannel);
         wireAutoUpdateUi();
 
         mountAutoShutdownUi();

@@ -72,6 +72,7 @@ public class AutoShutdownSettings
 public class AutoUpdateSettings
 {
     [JsonPropertyName("enabled")] public bool Enabled { get; set; } = true;
+    [JsonPropertyName("previewChannel")] public bool PreviewChannel { get; set; } = false;
     [JsonPropertyName("intervalMinutes")] public int IntervalMinutes { get; set; } = 30;
     [JsonPropertyName("snoozedUntilUtc")] public DateTime? SnoozedUntilUtc { get; set; }
     [JsonPropertyName("skippedVersion")] public string? SkippedVersion { get; set; }

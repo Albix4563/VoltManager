@@ -200,6 +200,15 @@ public class HostBridge
                 return new { success = true, autoUpdates = _settings.Current.AutoUpdates };
             }
 
+            case "setPreviewUpdates":
+            {
+                bool enable = payload.GetProperty("enabled").GetBoolean();
+                _settings.Current.AutoUpdates ??= new AutoUpdateSettings();
+                _settings.Current.AutoUpdates.PreviewChannel = enable;
+                _settings.Save();
+                return new { success = true, autoUpdates = _settings.Current.AutoUpdates };
+            }
+
             case "snoozeUpdate":
             {
                 int minutes = payload.TryGetProperty("minutes", out var minutesEl) && minutesEl.ValueKind == JsonValueKind.Number

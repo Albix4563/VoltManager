@@ -27,21 +27,54 @@ public class UpdateService
     public async Task<UpdateInfo> CheckForUpdatesAsync()
     {
         string repo = _settings.Current.UpdateRepo;
+        bool preview = _settings.Current.AutoUpdates?.PreviewChannel == true;
         try
         {
             string? latestVersion = null, notes = null, downloadUrl = null;
             bool hasRelease = false;
 
-            var relResp = await _http.GetAsync($"https://api.github.com/repos/{repo}/releases/latest");
+            HttpResponseMessage relResp;
+            JsonElement root = default;
+            bool found = false;
+
+            if (preview)
+            {
+                relResp = await _http.GetAsync($"https://api.github.com/repos/{repo}/releases?per_page=10");
+                if (relResp.IsSuccessStatusCode)
+                {
+                    using var doc = JsonDocument.Parse(await relResp.Content.ReadAsStringAsync());
+                    foreach (var rel in doc.RootElement.EnumerateArray())
+                    {
+                        if (rel.TryGetProperty("prerelease", out var p) && p.GetBoolean())
+                        {
+                            root = rel.Clone();
+                            found = true;
+                            break;
+                        }
+                    }
+                }
+            }
+            else
+            {
+                relResp = await _http.GetAsync($"https://api.github.com/repos/{repo}/releases/latest");
+                if (relResp.IsSuccessStatusCode)
+                {
+                    using var doc = JsonDocument.Parse(await relResp.Content.ReadAsStringAsync());
+                    root = doc.RootElement.Clone();
+                    found = true;
+                }
+            }
+
             if (relResp.StatusCode == System.Net.HttpStatusCode.Forbidden ||
                 (int)relResp.StatusCode == 429)
                 return new UpdateInfo { Status = "ratelimited", CurrentVersion = CurrentVersion, Message = "Limite richieste GitHub raggiunto. Riprova più tardi." };
 
-            if (relResp.IsSuccessStatusCode)
+            if (found)
             {
-                using var doc = JsonDocument.Parse(await relResp.Content.ReadAsStringAsync());
-                var root = doc.RootElement;
                 latestVersion = root.GetProperty("tag_name").GetString()?.TrimStart('v', 'V');
+                if (preview && latestVersion != null && !latestVersion.Contains("BETA", StringComparison.OrdinalIgnoreCase))
+                    latestVersion += "-BETA";
+
                 notes = root.TryGetProperty("body", out var b) ? b.GetString() : null;
                 if (root.TryGetProperty("assets", out var assets))
                 {
@@ -57,13 +90,13 @@ public class UpdateService
                 }
                 hasRelease = true;
             }
-            else if (relResp.StatusCode != System.Net.HttpStatusCode.NotFound)
+            else if (relResp.StatusCode != System.Net.HttpStatusCode.NotFound && !relResp.IsSuccessStatusCode)
             {
                 return new UpdateInfo { Status = "error", CurrentVersion = CurrentVersion, Message = $"GitHub ha risposto {(int)relResp.StatusCode}." };
             }
 
-            // Changelog from main branch commits.
-            var (commits, commitsOk) = await FetchMainCommitsAsync(repo);
+            // Changelog from branch commits.
+            var (commits, commitsOk) = await FetchCommitsAsync(repo, preview ? "Preview" : "main");
             if (!commitsOk && !hasRelease)
             {
                 return new UpdateInfo { Status = "norelease", CurrentVersion = CurrentVersion, Message = "Repository non trovato o nessuna release pubblicata." };
@@ -82,8 +115,8 @@ public class UpdateService
                 DownloadUrl = downloadUrl,
                 Commits = commits,
                 Message = updateAvailable
-                    ? $"Nuova versione {latestVersion} disponibile."
-                    : hasRelease ? "VoltManager è aggiornato." : "Nessuna release pubblicata. Mostro gli ultimi commit del branch main.",
+                    ? $"Nuova versione {(preview ? "BETA " : "")}{latestVersion} disponibile."
+                    : hasRelease ? "VoltManager è aggiornato." : $"Nessuna release pubblicata. Mostro gli ultimi commit del branch {(preview ? "Preview" : "main")}.",
             };
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
@@ -96,11 +129,11 @@ public class UpdateService
         }
     }
 
-    /// <summary>Fetches last 20 commits from main. Returns list + whether the call succeeded.</summary>
-    private async Task<(List<CommitInfo> commits, bool ok)> FetchMainCommitsAsync(string repo)
+    /// <summary>Fetches last 20 commits from branch. Returns list + whether the call succeeded.</summary>
+    private async Task<(List<CommitInfo> commits, bool ok)> FetchCommitsAsync(string repo, string branch)
     {
         var commits = new List<CommitInfo>();
-        var comResp = await _http.GetAsync($"https://api.github.com/repos/{repo}/commits?sha=main&per_page=20");
+        var comResp = await _http.GetAsync($"https://api.github.com/repos/{repo}/commits?sha={branch}&per_page=20");
         if (!comResp.IsSuccessStatusCode) return (commits, false);
 
         using var doc = JsonDocument.Parse(await comResp.Content.ReadAsStringAsync());
@@ -123,6 +156,7 @@ public class UpdateService
     public async Task<ReleaseHistory> GetReleaseHistoryAsync()
     {
         string repo = _settings.Current.UpdateRepo;
+        bool preview = _settings.Current.AutoUpdates?.PreviewChannel == true;
         try
         {
             var resp = await _http.GetAsync($"https://api.github.com/repos/{repo}/releases?per_page=100");
@@ -136,6 +170,10 @@ public class UpdateService
                 foreach (var r in doc.RootElement.EnumerateArray())
                 {
                     var version = (r.TryGetProperty("tag_name", out var t) ? t.GetString() : null)?.TrimStart('v', 'V') ?? "";
+                    var p = r.TryGetProperty("prerelease", out var prereleaseProp) ? prereleaseProp.GetBoolean() : false;
+                    if (preview && version.Length > 0 && p && !version.Contains("BETA", StringComparison.OrdinalIgnoreCase))
+                        version += "-BETA";
+
                     releases.Add(new ReleaseEntry
                     {
                         Version = version,
@@ -143,7 +181,7 @@ public class UpdateService
                         Date = r.TryGetProperty("published_at", out var d) ? d.GetString() ?? "" : "",
                         Notes = r.TryGetProperty("body", out var b) ? b.GetString() : null,
                         HtmlUrl = r.TryGetProperty("html_url", out var h) ? h.GetString() : null,
-                        Prerelease = r.TryGetProperty("prerelease", out var p) && p.GetBoolean(),
+                        Prerelease = p,
                         IsCurrent = version.Length > 0 && CompareVersions(version, CurrentVersion) == 0,
                     });
                 }
@@ -158,15 +196,15 @@ public class UpdateService
                 return new ReleaseHistory { Status = "ok", CurrentVersion = CurrentVersion, Releases = releases };
             }
 
-            // No published release: fall back to recent main commits.
-            var (commits, commitsOk) = await FetchMainCommitsAsync(repo);
+            // No published release: fall back to recent branch commits.
+            var (commits, commitsOk) = await FetchCommitsAsync(repo, preview ? "Preview" : "main");
             return new ReleaseHistory
             {
                 Status = "norelease",
                 CurrentVersion = CurrentVersion,
                 Commits = commits,
                 Message = commitsOk
-                    ? "Nessuna release pubblicata. Mostro gli ultimi commit del branch main."
+                    ? $"Nessuna release pubblicata. Mostro gli ultimi commit del branch {(preview ? "Preview" : "main")}."
                     : "Repository non trovato o nessuna release pubblicata.",
             };
         }
