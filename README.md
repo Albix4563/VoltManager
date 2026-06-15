@@ -15,6 +15,7 @@ App desktop Windows per la gestione dei piani energetici con monitoraggio hardwa
 6. **Aggiornamenti**: Settings → controlla `releases/latest` + commit del branch main del repo configurato in `%APPDATA%\VoltManager\settings.json` (`updateRepo`). Il controllo all'avvio resta attivo; dalle impostazioni si può abilitare/disabilitare anche l'autoricerca periodica ogni 30 minuti, con prompt Windows quando l'app non è in primo piano, installazione immediata, rinvio temporizzato e salto della versione corrente.
 7. **Jump list taskbar**: tasto destro sull'icona di VoltManager nella taskbar (o sull'icona pinnata) → categoria "Piano energetico" con Risparmio energia / Bilanciato / Prestazioni (blocco manuale permanente) e Automatico (sblocca e riattiva l'automazione), più categoria "Sistema" con Tieni PC attivo / Riprendi sospensione. I click passano per l'helper non elevato `VoltManagerPlanSwitch.exe`, quindi nessun prompt UAC ad app aperta; ad app chiusa l'helper avvia VoltManager (un solo prompt UAC) applicando il comando.
 8. **Automazioni di sistema**: tab dedicata per spegnere, riavviare o sospendere il PC a un orario scelto, più inventario delle applicazioni abilitate/disabilitate all'avvio di Windows e aggiunta/rimozione di app custom gestite da Miliano's App.
+9. **Applicazioni installate**: categoria dedicata per leggere le app installate da Windows, cercarle per nome/editore/versione/percorso, aprire le impostazioni App di Windows e avviare il programma ufficiale registrato nel sistema per la rimozione dell'app scelta.
 
 ## Build
 
@@ -55,3 +56,4 @@ Lo smoke test esegue: install silenziosa → avvio → verifica processo/WebView
 - Chiusura → riduzione nell'area di notifica (configurabile in Settings).
 - App custom all'avvio: vengono registrate in `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` con prefisso `Miliano's App -`, così la rimozione dall'interfaccia è limitata alle voci create dall'app.
 - Abilitazione/disabilitazione app di avvio: la tab Sistema aggiorna lo stato `StartupApproved` di Windows per le voci Run e Startup folder, in modo coerente con il comportamento del Task Manager.
+- Inventario app installate: la categoria Applicazioni legge le chiavi `Uninstall` di HKLM/HKCU nelle viste 32/64 bit, filtra componenti di sistema e aggiornamenti, non espone i comandi nel frontend e usa solo il programma ufficiale registrato da Windows per l'app selezionata.

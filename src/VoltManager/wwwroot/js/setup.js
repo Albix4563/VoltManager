@@ -47,3 +47,11 @@
         }
     });
 })();
+
+(function () {
+    if (!window.Host || !Host.available || document.getElementById('installed-apps-script')) return;
+    const script = document.createElement('script');
+    script.id = 'installed-apps-script';
+    script.src = 'js/installed-apps.js?v=apps1';
+    document.body.appendChild(script);
+})();
