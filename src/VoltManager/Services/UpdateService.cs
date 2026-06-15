@@ -171,6 +171,8 @@ public class UpdateService
                 {
                     var version = (r.TryGetProperty("tag_name", out var t) ? t.GetString() : null)?.TrimStart('v', 'V') ?? "";
                     var p = r.TryGetProperty("prerelease", out var prereleaseProp) ? prereleaseProp.GetBoolean() : false;
+                    // Filtro per canale: Beta vede solo prerelease, Stabile solo le normali.
+                    if (p != preview) continue;
                     if (preview && version.Length > 0 && p && !version.Contains("BETA", StringComparison.OrdinalIgnoreCase))
                         version += "-BETA";
 
