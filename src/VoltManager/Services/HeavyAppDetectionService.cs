@@ -53,6 +53,12 @@ public sealed class HeavyAppDetectionService : IDisposable
     private Timer? _timer;
     private HeavyAppDetectionState _current = new();
 
+    // Processes already classified as heavy stay tracked by PID across scans, even if their
+    // working set later drops below the resource threshold (e.g. when a fullscreen game is
+    // alt-tabbed/minimized and Windows trims its memory). A sticky PID is dropped only when the
+    // process no longer appears in the enumeration, i.e. it has actually exited.
+    private readonly Dictionary<int, DetectedHeavyApp> _sticky = new();
+
     public event Action<HeavyAppDetectionState>? ActivityChanged;
 
     public HeavyAppDetectionService(SettingsService settings)
@@ -93,6 +99,7 @@ public sealed class HeavyAppDetectionService : IDisposable
         var config = _settings.Current.HeavyAppDetection ?? new HeavyAppDetectionSettings();
         if (!config.Enabled)
         {
+            lock (_lock) _sticky.Clear();
             Publish(new HeavyAppDetectionState
             {
                 Enabled = false,
@@ -108,11 +115,13 @@ public sealed class HeavyAppDetectionService : IDisposable
             : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         var detected = new List<DetectedHeavyApp>();
+        var livePids = new HashSet<int>();
         foreach (var process in Process.GetProcesses())
         {
             try
             {
                 if (process.Id == Environment.ProcessId) continue;
+                livePids.Add(process.Id);
 
                 string path = TryGetProcessPath(process);
                 if (string.IsNullOrWhiteSpace(path)) continue;
@@ -137,6 +146,22 @@ public sealed class HeavyAppDetectionService : IDisposable
             {
                 process.Dispose();
             }
+        }
+
+        // Merge with sticky tracking: refresh entries for freshly classified processes, drop
+        // sticky PIDs whose process has exited, and keep alive-but-no-longer-qualifying processes
+        // (e.g. a minimized game whose working set was trimmed) as still detected.
+        lock (_lock)
+        {
+            foreach (var app in detected)
+                _sticky[app.ProcessId] = app;
+
+            foreach (var stalePid in _sticky.Keys.Where(pid => !livePids.Contains(pid)).ToList())
+                _sticky.Remove(stalePid);
+
+            var detectedPids = detected.Select(a => a.ProcessId).ToHashSet();
+            foreach (var kept in _sticky.Where(kv => !detectedPids.Contains(kv.Key)))
+                detected.Add(kept.Value);
         }
 
         var unique = detected

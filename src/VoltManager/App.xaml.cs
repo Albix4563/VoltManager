@@ -36,6 +36,10 @@ public partial class App : Application
     private MainWindow? _mainWindow;
     private bool _heavyAppPlanSessionActive;
     private PlanId? _planBeforeHeavyAppSession;
+    private DateTime _heavyAppLastActiveUtc;
+    // Grace before tearing down a heavy-app session: absorbs transient scan misses so an
+    // alt-tabbed/minimized game does not immediately revert the power plan.
+    private static readonly TimeSpan HeavyAppTeardownGrace = TimeSpan.FromSeconds(15);
 
     public PowerPlan? ActivePlan { get; private set; }
     public event Action<PowerPlan?>? ActivePlanChanged;
@@ -234,6 +238,7 @@ public partial class App : Application
 
         if (canAutoSwitch && state.Active)
         {
+            _heavyAppLastActiveUtc = now;
             if (!_heavyAppPlanSessionActive)
             {
                 _planBeforeHeavyAppSession = ActivePlan?.PlanId;
@@ -256,6 +261,11 @@ public partial class App : Application
 
         if (_heavyAppPlanSessionActive)
         {
+            // Keep the session (and performance plan) alive until the game has been gone for the
+            // full grace window; a single missed scan or alt-tab must not revert the plan.
+            if (canAutoSwitch && now - _heavyAppLastActiveUtc < HeavyAppTeardownGrace)
+                return true;
+
             _heavyAppPlanSessionActive = false;
             var previous = _planBeforeHeavyAppSession;
             _planBeforeHeavyAppSession = null;
