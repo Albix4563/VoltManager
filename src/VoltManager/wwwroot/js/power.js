@@ -159,6 +159,16 @@
 .heavy-app-path{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:rgba(211,222,239,.58);font-size:11px;margin-top:3px;}
 .keep-awake-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(240px,.38fr);gap:18px;position:relative;z-index:1;align-items:stretch;}
 .keep-awake-status{border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.035);border-radius:16px;padding:16px;display:flex;flex-direction:column;justify-content:space-between;gap:12px;}
+.vm-acc-item{overflow:hidden;}
+.vm-acc-header{display:flex;align-items:center;gap:12px;width:100%;padding:18px 24px;background:transparent;border:0;cursor:pointer;text-align:left;color:inherit;font:inherit;transition:background .2s ease;}
+.vm-acc-header:hover{background:rgba(255,255,255,.04);}
+.vm-acc-title{flex:1;min-width:0;}
+.vm-acc-chevron{margin-left:auto;color:rgba(198,198,206,.8);transition:transform .3s cubic-bezier(.4,0,.2,1);flex-shrink:0;}
+.vm-acc-item[data-open="true"] .vm-acc-chevron{transform:rotate(180deg);color:#00f1fe;}
+.vm-acc-body{display:grid;grid-template-rows:0fr;transition:grid-template-rows .32s cubic-bezier(.4,0,.2,1);}
+.vm-acc-item[data-open="true"] .vm-acc-body{grid-template-rows:1fr;}
+.vm-acc-body-inner{overflow:hidden;min-height:0;padding:0 24px 24px;}
+.heavy-app-panel-inner,.keep-awake-panel-inner{position:relative;}
 @media (max-width:960px){.heavy-app-grid,.keep-awake-grid{grid-template-columns:1fr}}
         `.trim();
         document.head.appendChild(style);
@@ -179,16 +189,13 @@
         if (document.getElementById('keep-awake-panel')) return;
         ensurePowerStyles();
 
-        const rulesWrap = document.querySelector('#view-power .space-y-md');
-        if (!rulesWrap) return;
+        const mount = document.getElementById('keep-awake-mount');
+        if (!mount) return;
 
-        rulesWrap.insertAdjacentHTML('beforebegin',
-            '<section class="glass-panel rounded-xl p-lg keep-awake-panel" id="keep-awake-panel">' +
+        mount.innerHTML =
+            '<div class="keep-awake-panel-inner" id="keep-awake-panel">' +
             '<div class="flex flex-col sm:flex-row sm:items-start justify-between gap-md mb-lg relative z-10">' +
-            '<div><h3 class="text-title-lg text-on-surface flex items-center gap-xs">' +
-            '<span class="material-symbols-outlined text-secondary-container">bedtime_off</span>' +
-            '<span id="keep-awake-title"></span></h3>' +
-            '<p class="text-body-md text-on-surface-variant mt-1 max-w-2xl" id="keep-awake-sub"></p></div>' +
+            '<p class="text-body-md text-on-surface-variant max-w-2xl" id="keep-awake-sub"></p>' +
             '<span class="keep-awake-badge" id="keep-awake-badge" data-active="false">' +
             '<span class="material-symbols-outlined text-[16px]">power_settings_new</span>' +
             '<span id="keep-awake-badge-label"></span></span></div>' +
@@ -197,7 +204,7 @@
             '</div><aside class="keep-awake-status">' +
             '<p class="text-body-md text-on-surface" id="keep-awake-status"></p>' +
             '<p class="text-label-sm text-on-surface-variant opacity-80" id="keep-awake-note"></p>' +
-            '</aside></div></section>');
+            '</aside></div></div>';
         refreshPowerLabels();
     }
 
@@ -205,17 +212,14 @@
         if (document.getElementById('heavy-app-detection-panel')) return;
         ensurePowerStyles();
 
-        const rulesWrap = document.querySelector('#view-power .space-y-md');
-        if (!rulesWrap) return;
+        const mount = document.getElementById('heavy-app-mount');
+        if (!mount) return;
 
-        rulesWrap.insertAdjacentHTML('beforebegin',
-            '<section class="glass-panel rounded-xl p-lg heavy-app-panel" id="heavy-app-detection-panel">' +
+        mount.innerHTML =
+            '<div class="heavy-app-panel-inner" id="heavy-app-detection-panel">' +
             '<div class="flex flex-col sm:flex-row sm:items-start justify-between gap-md mb-lg relative z-10">' +
-            '<div><h3 class="text-title-lg text-on-surface flex items-center gap-xs">' +
-            '<span class="material-symbols-outlined text-secondary-container">sports_esports</span>' +
-            '<span id="heavy-app-title"></span></h3>' +
-            '<p class="text-body-md text-on-surface-variant mt-1 max-w-2xl" id="heavy-app-sub"></p></div>' +
-            '<button class="btn-ghost rounded-lg py-2 px-4 text-label-md flex items-center gap-xs" id="btn-heavy-app-refresh" type="button">' +
+            '<p class="text-body-md text-on-surface-variant max-w-2xl" id="heavy-app-sub"></p>' +
+            '<button class="btn-ghost rounded-lg py-2 px-4 text-label-md flex items-center gap-xs whitespace-nowrap" id="btn-heavy-app-refresh" type="button">' +
             '<span class="material-symbols-outlined text-[18px]">refresh</span><span id="heavy-app-refresh-label"></span></button></div>' +
             '<div class="heavy-app-grid"><div class="space-y-sm">' +
             optionHtml('heavy-main', 'heavyToggle', 'heavyToggleSub', 'bolt', true) +
@@ -238,7 +242,7 @@
             '<span id="heavy-app-state-label"></span></span>' +
             '<span class="text-label-md text-on-surface-variant"><span id="heavy-app-count">0</span> ' +
             '<span id="heavy-app-detected-label"></span></span></div>' +
-            '<div class="heavy-app-list" id="heavy-app-list"></div></aside></div></section>');
+            '<div class="heavy-app-list" id="heavy-app-list"></div></aside></div></div>';
         refreshPowerLabels();
     }
 
@@ -488,4 +492,13 @@
     }).catch(err => console.error('getSettings failed', err));
 
     document.addEventListener('langchanged', refreshPowerLabels);
+
+    // Accordion: collapse/expand the power feature groups.
+    ensurePowerStyles();
+    document.addEventListener('click', (e) => {
+        const header = e.target.closest('#view-power .vm-acc-header');
+        if (!header) return;
+        const item = header.closest('.vm-acc-item');
+        if (item) item.dataset.open = item.dataset.open === 'true' ? 'false' : 'true';
+    });
 })();

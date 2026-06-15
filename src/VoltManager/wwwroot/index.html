@@ -90,6 +90,28 @@
         <p class="text-body-lg text-on-surface-variant" data-i18n="dash_subtitle">Real-time hardware stress and performance metrics.</p>
       </div>
 
+      <!-- Active Power Plan card -->
+      <section class="glass-card rounded-xl p-6 flex flex-col items-center">
+        <h4 class="text-label-md text-on-surface-variant mb-3 uppercase tracking-wider" data-i18n="dash_active_plan">Active Power Plan</h4>
+        <div class="segmented-control-bg p-1 rounded-xl flex items-center relative w-full max-w-md" id="plan-control">
+          <div class="absolute left-1 top-1 bottom-1 w-[32.5%] segmented-pill rounded-lg z-0" id="plan-pill" style="transform: translateX(102%);"></div>
+          <button class="flex-1 py-3 px-4 relative z-10 text-center text-body-md text-on-surface-variant hover:text-on-surface transition-all duration-300 focus:outline-none hover:scale-105" data-plan="powerSaver" data-i18n="dash_plan_saver">
+            Power Efficiency
+          </button>
+          <button class="flex-1 py-3 px-4 relative z-10 text-center text-body-md text-secondary-container font-semibold transition-all duration-300 focus:outline-none hover:scale-105" data-plan="balanced" data-i18n="dash_plan_balanced">
+            Balanced
+          </button>
+          <button class="flex-1 py-3 px-4 relative z-10 text-center text-body-md text-on-surface-variant hover:text-on-surface transition-all duration-300 focus:outline-none hover:scale-105" data-plan="performance" data-i18n="dash_plan_performance">
+            Performance
+          </button>
+        </div>
+        <div class="hidden mt-4 items-center gap-3 px-4 py-3 rounded-lg bg-surface-container-low/50 border border-white/10" id="manual-override-chip">
+          <span class="material-symbols-outlined text-secondary-container text-[18px]">lock</span>
+          <span class="text-body-md text-on-surface" id="manual-override-label">Piano bloccato</span>
+          <button class="btn-ghost rounded-lg py-1 px-3 text-label-md" id="btn-clear-manual-override" type="button" data-i18n="override_cancel">Annulla</button>
+        </div>
+      </section>
+
       <section class="mt-8">
         <h3 class="text-title-lg text-on-surface mb-4 flex items-center gap-2">
           <span class="material-symbols-outlined text-secondary-container">memory</span>
@@ -187,29 +209,6 @@
         </div>
       </section>
 
-      <!-- Bottom Control: Power Plan -->
-      <section class="mt-auto pt-8 flex justify-center w-full pb-8">
-        <div class="flex flex-col items-center">
-          <h4 class="text-label-md text-on-surface-variant mb-3 uppercase tracking-wider" data-i18n="dash_active_plan">Active Power Plan</h4>
-          <div class="segmented-control-bg p-1 rounded-xl flex items-center relative w-full max-w-md" id="plan-control">
-            <div class="absolute left-1 top-1 bottom-1 w-[32.5%] segmented-pill rounded-lg z-0" id="plan-pill" style="transform: translateX(102%);"></div>
-            <button class="flex-1 py-3 px-4 relative z-10 text-center text-body-md text-on-surface-variant hover:text-on-surface transition-all duration-300 focus:outline-none hover:scale-105" data-plan="powerSaver" data-i18n="dash_plan_saver">
-              Power Efficiency
-            </button>
-            <button class="flex-1 py-3 px-4 relative z-10 text-center text-body-md text-secondary-container font-semibold transition-all duration-300 focus:outline-none hover:scale-105" data-plan="balanced" data-i18n="dash_plan_balanced">
-              Balanced
-            </button>
-            <button class="flex-1 py-3 px-4 relative z-10 text-center text-body-md text-on-surface-variant hover:text-on-surface transition-all duration-300 focus:outline-none hover:scale-105" data-plan="performance" data-i18n="dash_plan_performance">
-              Performance
-            </button>
-          </div>
-          <div class="hidden mt-4 items-center gap-3 px-4 py-3 rounded-lg bg-surface-container-low/50 border border-white/10" id="manual-override-chip">
-            <span class="material-symbols-outlined text-secondary-container text-[18px]">lock</span>
-            <span class="text-body-md text-on-surface" id="manual-override-label">Piano bloccato</span>
-            <button class="btn-ghost rounded-lg py-1 px-3 text-label-md" id="btn-clear-manual-override" type="button" data-i18n="override_cancel">Annulla</button>
-          </div>
-        </div>
-      </section>
     </section>
 
     <!-- ============ VIEW: POWER MANAGEMENT ============ -->
@@ -220,7 +219,32 @@
           <p class="text-body-md text-on-surface-variant" data-i18n="power_subtitle">Configura le regole di automazione per ottimizzare le prestazioni e il consumo del sistema.</p>
         </div>
 
-        <div class="space-y-md">
+        <div class="vm-accordion space-y-md">
+
+        <!-- Accordion item 1: CPU automation rules (open by default) -->
+        <div class="vm-acc-item glass-panel rounded-xl" data-open="true">
+          <button class="vm-acc-header" type="button">
+            <span class="material-symbols-outlined text-secondary-container">tune</span>
+            <span class="vm-acc-title text-title-lg text-on-surface" data-i18n="power_group_rules">CPU automation rules</span>
+            <span class="material-symbols-outlined vm-acc-chevron">expand_more</span>
+          </button>
+          <div class="vm-acc-body"><div class="vm-acc-body-inner">
+
+            <!-- Master Toggle (gate for the rules below) -->
+            <div class="flex flex-col sm:flex-row items-center justify-between gap-md bg-surface-container-low/50 p-lg rounded-2xl backdrop-blur-md mb-md">
+              <div>
+                <h3 class="text-headline-md text-on-surface" data-i18n="power_master_title">Attiva Gestione Automatica in Background</h3>
+                <p class="text-body-md text-on-surface-variant mt-1" data-i18n="power_master_sub">Lascia che VoltManager applichi le regole in modo silenzioso.</p>
+              </div>
+              <div class="relative inline-block w-16 h-8 align-middle select-none transition duration-200 ease-in flex-shrink-0">
+                <input checked class="toggle-large" id="master-toggle" type="checkbox"/>
+                <label class="toggle-label-large cursor-pointer" for="master-toggle">
+                  <span class="sr-only">Attiva Gestione Automatica in Background</span>
+                </label>
+              </div>
+            </div>
+
+            <div class="space-y-md">
           <!-- Rule: Risparmio Energetico -->
           <div class="glass-panel p-lg rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-md group hover:border-white/20 transition-all duration-300">
             <div class="flex items-center gap-md flex-1">
@@ -298,21 +322,36 @@
               </div>
             </div>
           </div>
+            </div><!-- end rules .space-y-md -->
+
+          </div></div>
+        </div><!-- end accordion item 1 -->
+
+        <!-- Accordion item 2: Game & heavy app detection -->
+        <div class="vm-acc-item glass-panel rounded-xl" data-open="false">
+          <button class="vm-acc-header" type="button">
+            <span class="material-symbols-outlined text-secondary-container">sports_esports</span>
+            <span class="vm-acc-title text-title-lg text-on-surface" data-i18n="power_group_heavy">Game &amp; heavy app detection</span>
+            <span class="material-symbols-outlined vm-acc-chevron">expand_more</span>
+          </button>
+          <div class="vm-acc-body"><div class="vm-acc-body-inner">
+            <div id="heavy-app-mount"></div>
+          </div></div>
         </div>
 
-        <!-- Master Toggle Footer -->
-        <div class="mt-xl pt-lg border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-md bg-surface-container-low/50 p-lg rounded-2xl backdrop-blur-md">
-          <div>
-            <h3 class="text-headline-md text-on-surface" data-i18n="power_master_title">Attiva Gestione Automatica in Background</h3>
-            <p class="text-body-md text-on-surface-variant mt-1" data-i18n="power_master_sub">Lascia che VoltManager applichi le regole in modo silenzioso.</p>
-          </div>
-          <div class="relative inline-block w-16 h-8 align-middle select-none transition duration-200 ease-in flex-shrink-0">
-            <input checked class="toggle-large" id="master-toggle" type="checkbox"/>
-            <label class="toggle-label-large cursor-pointer" for="master-toggle">
-              <span class="sr-only">Attiva Gestione Automatica in Background</span>
-            </label>
-          </div>
+        <!-- Accordion item 3: Keep PC awake -->
+        <div class="vm-acc-item glass-panel rounded-xl" data-open="false">
+          <button class="vm-acc-header" type="button">
+            <span class="material-symbols-outlined text-secondary-container">bedtime_off</span>
+            <span class="vm-acc-title text-title-lg text-on-surface" data-i18n="power_group_keepawake">Keep PC awake</span>
+            <span class="material-symbols-outlined vm-acc-chevron">expand_more</span>
+          </button>
+          <div class="vm-acc-body"><div class="vm-acc-body-inner">
+            <div id="keep-awake-mount"></div>
+          </div></div>
         </div>
+
+        </div><!-- end .vm-accordion -->
       </div>
     </section>
 
@@ -569,10 +608,10 @@
 </div>
 
 <script src="js/bridge.js?v=temps1"></script>
-<script src="js/i18n.js?v=temps3"></script>
+<script src="js/i18n.js?v=reorg1"></script>
 <script src="js/app.js?v=temps1"></script>
 <script src="js/dashboard.js?v=temps2"></script>
-<script src="js/power.js?v=temps1"></script>
+<script src="js/power.js?v=reorg1"></script>
 <script src="js/settings.js?v=temps2"></script>
 <script src="js/changelog.js?v=temps1"></script>
 <script src="js/setup.js?v=temps1"></script>
