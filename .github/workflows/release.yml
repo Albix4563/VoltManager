@@ -2,7 +2,7 @@ name: Release
 
 on:
   push:
-    branches: [main]
+    branches: [main, Preview]
 
 permissions:
   contents: write
@@ -22,8 +22,19 @@ jobs:
         shell: pwsh
         run: |
           $version = "1.0.${{ github.run_number }}"
-          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-          Write-Host "Release version: $version"
+          $isPreview = ('${{ github.ref_name }}' -eq 'Preview')
+          if ($isPreview) {
+            $tag = "v$version-beta"
+            $name = "VoltManager v$version-beta (Preview)"
+          } else {
+            $tag = "v$version"
+            $name = "VoltManager v$version"
+          }
+          "version=$version"            | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "tag=$tag"                    | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "name=$name"                  | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "is_preview=$($isPreview.ToString().ToLower())" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          Write-Host "Release: $name (tag $tag, prerelease=$isPreview)"
 
       - uses: actions/setup-dotnet@v4
         with:
@@ -78,6 +89,19 @@ jobs:
             (Join-Path (Resolve-Path 'src/VoltManager.Setup/Payload').Path 'payload.zip'),
             [IO.Compression.CompressionLevel]::Optimal, $false)
 
+      - name: Build portable zip (self-contained, no installer)
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist | Out-Null
+          # Bundle the WebView2 bootstrapper so users can install the runtime if missing.
+          Copy-Item src/VoltManager.Setup/Payload/MicrosoftEdgeWebview2Setup.exe publish/ -Force
+          Add-Type -Assembly 'System.IO.Compression.FileSystem'
+          $zip = Join-Path (Resolve-Path 'dist').Path 'VoltManager-portable-${{ steps.ver.outputs.version }}-win-x64.zip'
+          [IO.Compression.ZipFile]::CreateFromDirectory(
+            (Resolve-Path 'publish').Path, $zip,
+            [IO.Compression.CompressionLevel]::Optimal, $false)
+          Write-Host "Portable zip: $zip"
+
       - name: Build Setup project
         shell: pwsh
         run: |
@@ -96,7 +120,10 @@ jobs:
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ steps.ver.outputs.version }}
-          name: VoltManager v${{ steps.ver.outputs.version }}
+          tag_name: ${{ steps.ver.outputs.tag }}
+          name: ${{ steps.ver.outputs.name }}
+          prerelease: ${{ steps.ver.outputs.is_preview }}
           generate_release_notes: true
-          files: dist/VoltManagerSetup-${{ steps.ver.outputs.version }}.exe
+          files: |
+            dist/VoltManagerSetup-${{ steps.ver.outputs.version }}.exe
+            dist/VoltManager-portable-${{ steps.ver.outputs.version }}-win-x64.zip

@@ -18,8 +18,10 @@
         it: {
             autoUpdates: 'Autoricerca aggiornamenti',
             autoUpdatesSub: 'Controlla automaticamente nuove versioni ogni 30 minuti',
-            previewUpdates: 'Aggiornamenti Preview',
-            previewUpdatesSub: 'Ricevi in anteprima le versioni beta dal branch Preview',
+            channelStable: 'Stabile',
+            channelPreview: 'Preview (Beta)',
+            channelBadgeStable: 'Canale: Stabile',
+            channelBadgePreview: 'Canale: Preview (Beta)',
             snoozeFor: 'Rimanda di',
             snooze: 'Rimanda',
             skip: 'Salta versione',
@@ -41,8 +43,10 @@
         en: {
             autoUpdates: 'Automatic update checks',
             autoUpdatesSub: 'Automatically checks for new versions every 30 minutes',
-            previewUpdates: 'Preview Updates',
-            previewUpdatesSub: 'Get beta versions early from the Preview branch',
+            channelStable: 'Stable',
+            channelPreview: 'Preview (Beta)',
+            channelBadgeStable: 'Channel: Stable',
+            channelBadgePreview: 'Channel: Preview (Beta)',
             snoozeFor: 'Snooze for',
             snooze: 'Snooze',
             skip: 'Skip version',
@@ -256,7 +260,24 @@
         const btnDismiss= document.getElementById('upd-modal-btn-dismiss');
 
         if (curBadge)  curBadge.textContent  = formatVersion(info.currentVersion);
-        if (newBadge)  newBadge.textContent  = formatVersion(info.latestVersion);
+        if (newBadge) {
+            newBadge.textContent = formatVersion(info.latestVersion);
+            const isBeta = /-?beta/i.test(String(info.latestVersion || ''));
+            let betaTag = document.getElementById('upd-modal-beta-tag');
+            if (isBeta) {
+                if (!betaTag) {
+                    betaTag = document.createElement('span');
+                    betaTag.id = 'upd-modal-beta-tag';
+                    betaTag.textContent = 'BETA';
+                    betaTag.style.cssText =
+                        'margin-top:4px;padding:2px 8px;border-radius:9999px;font-size:11px;font-weight:700;' +
+                        'background:rgba(251,191,36,0.18);color:#fcd34d;border:1px solid rgba(251,191,36,0.45);';
+                    newBadge.parentElement?.appendChild(betaTag);
+                }
+            } else if (betaTag) {
+                betaTag.remove();
+            }
+        }
         if (progWrap)  progWrap.classList.add('hidden');
         if (progBar)   progBar.style.width = '0%';
         if (progLabel) progLabel.textContent = '0%';
@@ -465,13 +486,6 @@
             '    <p class="text-body-md text-on-surface group-hover:text-secondary-fixed transition-colors" id="pref-auto-updates-title"></p>' +
             '    <p class="text-label-sm text-on-surface-variant" id="pref-auto-updates-sub"></p>' +
             '  </div>' +
-            '</div>' +
-            '<div class="flex items-center justify-between group cursor-pointer mt-md" id="pref-preview-updates">' +
-            '  <div>' +
-            '    <p class="text-body-md text-on-surface group-hover:text-secondary-fixed transition-colors" id="pref-preview-updates-title"></p>' +
-            '    <p class="text-label-sm text-on-surface-variant" id="pref-preview-updates-sub"></p>' +
-            '  </div>' +
-            '  <div class="mini-toggle" data-on="false" id="toggle-preview-updates"><div class="mini-toggle-knob"></div></div>' +
             '</div>');
         refreshAutoUpdateLabels();
     }
@@ -481,11 +495,14 @@
         const sub = document.getElementById('pref-auto-updates-sub');
         if (title) title.textContent = lt('autoUpdates');
         if (sub) sub.textContent = lt('autoUpdatesSub');
-        
-        const pTitle = document.getElementById('pref-preview-updates-title');
-        const pSub = document.getElementById('pref-preview-updates-sub');
-        if (pTitle) pTitle.textContent = lt('previewUpdates');
-        if (pSub) pSub.textContent = lt('previewUpdatesSub');
+    }
+
+    // Reflects the selected channel in the dropdown + the card badge.
+    function setChannelUi(preview) {
+        const select = document.getElementById('update-channel-select');
+        if (select) select.value = preview ? 'preview' : 'stable';
+        const badgeText = document.getElementById('update-channel-badge-text');
+        if (badgeText) badgeText.textContent = preview ? lt('channelBadgePreview') : lt('channelBadgeStable');
     }
 
     function wireAutoUpdateUi() {
@@ -506,22 +523,25 @@
                 }
                 return;
             }
-
-            pref = e.target.closest('#pref-preview-updates');
-            if (pref && window.__voltSettings) {
-                const settings = window.__voltSettings.get ? window.__voltSettings.get() : window.__voltSettings;
-                const toggle = document.getElementById('toggle-preview-updates');
-                const enable = toggle?.dataset.on !== 'true';
-                setToggle(toggle, enable);
-                normalizeAutoUpdates(settings).previewChannel = enable;
-                try {
-                    await Host.call('setPreviewUpdates', { enabled: enable });
-                } catch {
-                    setToggle(toggle, !enable);
-                    normalizeAutoUpdates(settings).previewChannel = !enable;
-                }
-            }
         });
+
+        const channelSelect = document.getElementById('update-channel-select');
+        if (channelSelect) {
+            channelSelect.addEventListener('change', async () => {
+                if (!window.__voltSettings) return;
+                const settings = window.__voltSettings.get ? window.__voltSettings.get() : window.__voltSettings;
+                const preview = channelSelect.value === 'preview';
+                const prev = normalizeAutoUpdates(settings).previewChannel;
+                setChannelUi(preview);
+                normalizeAutoUpdates(settings).previewChannel = preview;
+                try {
+                    await Host.call('setPreviewUpdates', { enabled: preview });
+                } catch {
+                    setChannelUi(prev);
+                    normalizeAutoUpdates(settings).previewChannel = prev;
+                }
+            });
+        }
         autoUpdatesWired = true;
     }
 
@@ -604,7 +624,7 @@
 
         mountAutoUpdateUi();
         setToggle(document.getElementById('toggle-auto-updates'), normalizeAutoUpdates(settings).enabled);
-        setToggle(document.getElementById('toggle-preview-updates'), normalizeAutoUpdates(settings).previewChannel);
+        setChannelUi(normalizeAutoUpdates(settings).previewChannel);
         wireAutoUpdateUi();
 
         mountAutoShutdownUi();
