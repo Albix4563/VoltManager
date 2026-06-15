@@ -74,6 +74,7 @@ public partial class MainWindow : Window
 
         _bridge = new HostBridge(WebView, _app.Hardware, _app.Power, _app.Settings, _app.Updates, _app.AutoStart, _app);
         _bridge.Attach();
+        InstalledApplicationsBridge.Attach(WebView);
         _bridge.ExitRequested += () => Dispatcher.Invoke(() => { _exiting = true; _app.ExitApp(); });
         _bridge.MinimizeToTrayRequested += () => Dispatcher.Invoke(HideToTray);
 
