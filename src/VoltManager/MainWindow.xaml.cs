@@ -72,9 +72,9 @@ public partial class MainWindow : Window
         core.Settings.AreBrowserAcceleratorKeysEnabled = false;
         core.Settings.IsStatusBarEnabled = false;
 
+        InstalledApplicationsBridge.Attach(WebView);
         _bridge = new HostBridge(WebView, _app.Hardware, _app.Power, _app.Settings, _app.Updates, _app.AutoStart, _app);
         _bridge.Attach();
-        InstalledApplicationsBridge.Attach(WebView);
         _bridge.ExitRequested += () => Dispatcher.Invoke(() => { _exiting = true; _app.ExitApp(); });
         _bridge.MinimizeToTrayRequested += () => Dispatcher.Invoke(HideToTray);
 
