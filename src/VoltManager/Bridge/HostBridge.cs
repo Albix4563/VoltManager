@@ -27,6 +27,8 @@ public class HostBridge
     private readonly UpdateService _updates;
     private readonly StartupService _startup;
     private readonly StartupAppsService _startupApps = new();
+    private readonly PowerPlanParameterService _planParams;
+    private readonly MemoryOptimizerService _memoryOptimizer;
     private readonly App _app;
 
     public event Action? ExitRequested;
@@ -41,6 +43,8 @@ public class HostBridge
         _settings = settings;
         _updates = updates;
         _startup = startup;
+        _planParams = new PowerPlanParameterService(power);
+        _memoryOptimizer = new MemoryOptimizerService();
         _app = app;
     }
 
@@ -315,6 +319,35 @@ public class HostBridge
             case "minimizeToTray":
                 MinimizeToTrayRequested?.Invoke();
                 return new { success = true };
+
+            case "getPlanParameters":
+            {
+                string? guid = payload.TryGetProperty("planGuid", out var guidEl)
+                    ? guidEl.GetString() : null;
+                return await Task.Run(() => _planParams.GetPlanParameters(guid));
+            }
+
+            case "setPlanParameter":
+            {
+                string planGuid = payload.GetProperty("planGuid").GetString()
+                    ?? throw new ArgumentException("planGuid mancante");
+                string settingKey = payload.GetProperty("settingKey").GetString()
+                    ?? throw new ArgumentException("settingKey mancante");
+                int acValue = payload.GetProperty("acValue").GetInt32();
+                int dcValue = payload.GetProperty("dcValue").GetInt32();
+                bool ok = await Task.Run(() => _planParams.SetPlanParameter(planGuid, settingKey, acValue, dcValue));
+                return new { success = ok };
+            }
+
+            case "getMemoryStatus":
+                return await Task.Run(() => _memoryOptimizer.GetMemoryStatus());
+
+            case "purgeStandbyList":
+            {
+                bool purged = await Task.Run(() => _memoryOptimizer.PurgeStandbyList());
+                var status = await Task.Run(() => _memoryOptimizer.GetMemoryStatus());
+                return new { success = purged, memory = status };
+            }
 
             default:
                 throw new ArgumentException($"Metodo sconosciuto: {method}");

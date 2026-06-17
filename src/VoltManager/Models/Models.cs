@@ -186,3 +186,44 @@ public record ReleaseHistory
     [JsonPropertyName("commits")] public List<CommitInfo> Commits { get; init; } = new(); // fallback se nessuna release
     [JsonPropertyName("message")] public string? Message { get; init; }
 }
+
+/// <summary>
+/// Advanced power plan parameters readable/writable via powercfg.
+/// AC = alimentazione di rete; DC = batteria.
+/// </summary>
+public record PlanParameterSet
+{
+    [JsonPropertyName("planGuid")]   public string PlanGuid { get; init; } = "";
+    [JsonPropertyName("planName")]   public string PlanName { get; init; } = "";
+
+    // Processor state 0-100 %
+    [JsonPropertyName("processorMinAc")]  public int ProcessorMinAc  { get; init; } = 5;
+    [JsonPropertyName("processorMaxAc")]  public int ProcessorMaxAc  { get; init; } = 100;
+    [JsonPropertyName("processorMinDc")]  public int ProcessorMinDc  { get; init; } = 5;
+    [JsonPropertyName("processorMaxDc")]  public int ProcessorMaxDc  { get; init; } = 100;
+
+    // Processor Performance Boost Mode:
+    //   0 = Disabled, 1 = Enabled, 2 = Aggressive, 4 = Efficient Aggressive
+    [JsonPropertyName("boostModeAc")] public int BoostModeAc { get; init; } = 2;
+    [JsonPropertyName("boostModeDc")] public int BoostModeDc { get; init; } = 2;
+
+    // PCI Express Active State Power Management:
+    //   0 = Off, 1 = Moderate Power Saving, 2 = Maximum Power Saving
+    [JsonPropertyName("pcieLinkStateAc")] public int PcieLinkStateAc { get; init; } = 0;
+    [JsonPropertyName("pcieLinkStateDc")] public int PcieLinkStateDc { get; init; } = 2;
+
+    [JsonPropertyName("error")] public string? Error { get; init; }
+}
+
+/// <summary>
+/// Snapshot dettagliato della memoria RAM (in GB e percentuale).
+/// </summary>
+public record MemoryStatus
+{
+    [JsonPropertyName("totalGb")]     public double TotalGb     { get; init; }
+    [JsonPropertyName("inUseGb")]     public double InUseGb     { get; init; }
+    [JsonPropertyName("standbyGb")]   public double StandbyGb   { get; init; }
+    [JsonPropertyName("freeGb")]      public double FreeGb      { get; init; }
+    [JsonPropertyName("standbyPct")]  public double StandbyPct  { get; init; }
+    [JsonPropertyName("inUsePct")]    public double InUsePct    { get; init; }
+}
