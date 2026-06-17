@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Microsoft.Win32;
 using Microsoft.Web.WebView2.Wpf;
 using VoltManager.Models;
 using VoltManager.Services;
@@ -57,6 +58,7 @@ public class HostBridge
         };
         _updates.DownloadProgress += pct => PushEvent("updateDownloadProgress", new { pct });
         _app.HeavyApps.ActivityChanged += state => PushEvent("heavyAppActivityChanged", state);
+        _app.AppProfiles.ActivityChanged += state => PushEvent("appPowerProfileActivityChanged", state);
     }
 
     public void PushEvent(string name, object data)
@@ -167,12 +169,14 @@ public class HostBridge
                 settings.AutoShutdown ??= new AutoShutdownSettings();
                 settings.AutoUpdates ??= new AutoUpdateSettings();
                 settings.HeavyAppDetection ??= new HeavyAppDetectionSettings();
+                settings.AppPowerProfiles ??= new AppPowerProfileSettings();
                 _settings.Current.AutoShutdown ??= new AutoShutdownSettings();
                 _settings.Current.AutoUpdates ??= new AutoUpdateSettings();
                 settings.AutoShutdown.LastTriggeredLocalDate = _settings.Current.AutoShutdown.LastTriggeredLocalDate;
                 settings.AutoUpdates.SnoozedUntilUtc = _settings.Current.AutoUpdates.SnoozedUntilUtc;
                 settings.AutoUpdates.SkippedVersion = _settings.Current.AutoUpdates.SkippedVersion;
                 _settings.Update(settings);
+                _app.RefreshAppPowerProfiles();
                 _app.RefreshHeavyAppDetection();
                 return new { success = true };
             }
@@ -252,6 +256,18 @@ public class HostBridge
 
             case "refreshHeavyAppDetection":
                 return await Task.Run(_app.RefreshHeavyAppDetection);
+
+            case "getAppPowerProfileStatus":
+                return await Task.Run(_app.GetAppPowerProfileStatus);
+
+            case "refreshAppPowerProfiles":
+                return await Task.Run(_app.RefreshAppPowerProfiles);
+
+            case "pickAppPowerProfileExecutable":
+            {
+                string? path = await _webView.Dispatcher.InvokeAsync(PickAppPowerProfileExecutable);
+                return new { path };
+            }
 
             case "getStartupApps":
                 return await Task.Run(() => _startupApps.GetStartupApps());
@@ -352,5 +368,18 @@ public class HostBridge
             default:
                 throw new ArgumentException($"Metodo sconosciuto: {method}");
         }
+    }
+
+    private static string? PickAppPowerProfileExecutable()
+    {
+        var dialog = new OpenFileDialog
+        {
+            Title = "Seleziona applicazione per profilo energetico",
+            Filter = "Applicazioni (*.exe)|*.exe",
+            CheckFileExists = true,
+            Multiselect = false,
+        };
+
+        return dialog.ShowDialog() == true ? dialog.FileName : null;
     }
 }

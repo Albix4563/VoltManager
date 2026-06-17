@@ -8,6 +8,8 @@
 
     let settings = null;
     let saveTimer = null;
+    let appProfileWired = false;
+    let appProfileStatus = null;
     let heavyAppWired = false;
     let heavyAppStatus = null;
     let keepAwakeWired = false;
@@ -18,6 +20,18 @@
 
     const text = {
         it: {
+            appProfileTitle: 'Piani energetici per app',
+            appProfileSub: 'Scegli un file .exe e VoltManager applichera il piano energetico selezionato mentre quell app e aperta.',
+            appProfileToggle: 'Attiva profili per app',
+            appProfileToggleSub: 'Le regole funzionano solo quando l automazione background e attiva.',
+            appProfileAdd: 'Aggiungi app',
+            appProfileEmpty: 'Nessuna app configurata.',
+            appProfileStatusIdle: 'In ascolto',
+            appProfileStatusDisabled: 'Disattivato',
+            appProfileStatusActive: 'Profilo app attivo',
+            appProfileDetected: 'Attive',
+            appProfileMissing: 'File non trovato',
+            appProfileRemove: 'Rimuovi',
             heavyTitle: 'Rilevamento giochi e app pesanti',
             heavySub: 'Quando VoltManager rileva un gioco o un carico pesante applica automaticamente il piano scelto, senza creare liste infinite di applicazioni.',
             heavyToggle: 'Attiva rilevamento automatico',
@@ -53,6 +67,18 @@
             plan_performance: 'Prestazioni elevate'
         },
         en: {
+            appProfileTitle: 'Per-app power plans',
+            appProfileSub: 'Choose an .exe file and VoltManager will apply the selected power plan while that app is open.',
+            appProfileToggle: 'Enable app profiles',
+            appProfileToggleSub: 'Rules run only while background automation is enabled.',
+            appProfileAdd: 'Add app',
+            appProfileEmpty: 'No app configured.',
+            appProfileStatusIdle: 'Listening',
+            appProfileStatusDisabled: 'Disabled',
+            appProfileStatusActive: 'App profile active',
+            appProfileDetected: 'Active',
+            appProfileMissing: 'File not found',
+            appProfileRemove: 'Remove',
             heavyTitle: 'Game and heavy app detection',
             heavySub: 'When VoltManager detects a game or heavy workload, it applies the selected plan automatically without maintaining a huge app list.',
             heavyToggle: 'Enable automatic detection',
@@ -134,6 +160,42 @@
         return cfg;
     }
 
+    function normalizeAppPowerProfiles() {
+        if (!settings.appPowerProfiles) {
+            settings.appPowerProfiles = {
+                enabled: true,
+                rules: []
+            };
+        }
+
+        const cfg = settings.appPowerProfiles;
+        cfg.enabled = cfg.enabled !== false;
+        if (!Array.isArray(cfg.rules)) cfg.rules = [];
+        const seen = new Set();
+        cfg.rules = cfg.rules.filter(rule => {
+            if (!rule || !rule.path) return false;
+            rule.path = String(rule.path).trim().replace(/^"+|"+$/g, '');
+            const key = rule.path.toLowerCase();
+            if (!key || seen.has(key)) return false;
+            seen.add(key);
+            if (!rule.id) rule.id = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now() + Math.random());
+            if (!rule.name) rule.name = appNameFromPath(rule.path);
+            if (!planIds.includes(rule.targetPlan)) rule.targetPlan = 'performance';
+            rule.enabled = rule.enabled !== false;
+            return true;
+        });
+        return cfg;
+    }
+
+    function appNameFromPath(path) {
+        const file = String(path || '').split(/[\\/]/).pop() || 'App';
+        return file.replace(/\.[^.]+$/, '') || 'App';
+    }
+
+    function planPriority(plan) {
+        return { performance: 3, balanced: 2, powerSaver: 1 }[plan] || 0;
+    }
+
     function normalizeKeepAwake() {
         if (!settings.keepAwake) settings.keepAwake = { enabled: false, lastChangedUtc: null };
         settings.keepAwake.enabled = !!settings.keepAwake.enabled;
@@ -147,8 +209,8 @@
         style.id = 'power-feature-styles';
         style.textContent = `
 @keyframes heavyAppGlow{0%{box-shadow:0 0 0 0 rgba(0,241,254,.26)}70%{box-shadow:0 0 0 13px rgba(0,241,254,0)}100%{box-shadow:0 0 0 0 rgba(0,241,254,0)}}
-.heavy-app-panel,.keep-awake-panel{position:relative;overflow:hidden;border:1px solid rgba(0,241,254,.13);background:linear-gradient(135deg,rgba(18,33,49,.82),rgba(10,17,40,.68));}
-.heavy-app-panel:before,.keep-awake-panel:before{content:"";position:absolute;inset:-40% auto auto -12%;width:320px;height:320px;border-radius:999px;background:radial-gradient(circle,rgba(0,241,254,.14),transparent 66%);pointer-events:none;}
+.app-profile-panel,.heavy-app-panel,.keep-awake-panel{position:relative;overflow:hidden;border:1px solid rgba(0,241,254,.13);background:linear-gradient(135deg,rgba(18,33,49,.82),rgba(10,17,40,.68));}
+.app-profile-panel:before,.heavy-app-panel:before,.keep-awake-panel:before{content:"";position:absolute;inset:-40% auto auto -12%;width:320px;height:320px;border-radius:999px;background:radial-gradient(circle,rgba(0,241,254,.14),transparent 66%);pointer-events:none;}
 .heavy-app-grid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(260px,.85fr);gap:18px;position:relative;z-index:1;}
 .heavy-app-option{border:1px solid rgba(255,255,255,.09);background:rgba(255,255,255,.035);border-radius:16px;padding:14px;display:flex;align-items:center;justify-content:space-between;gap:14px;transition:border-color .22s ease,background .22s ease,transform .22s ease;}
 .heavy-app-option:hover{border-color:rgba(0,241,254,.24);background:rgba(255,255,255,.055);transform:translateY(-1px);}
@@ -157,6 +219,12 @@
 .heavy-app-list{display:grid;gap:8px;max-height:190px;overflow:auto;padding-right:2px;}
 .heavy-app-row{border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.035);border-radius:12px;padding:10px 12px;}
 .heavy-app-path{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:rgba(211,222,239,.58);font-size:11px;margin-top:3px;}
+.app-profile-list{display:grid;gap:10px;position:relative;z-index:1;}
+.app-profile-row{display:grid;grid-template-columns:minmax(0,1fr) 170px 42px 42px;gap:10px;align-items:center;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.035);border-radius:14px;padding:12px;}
+.app-profile-path{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:rgba(211,222,239,.58);font-size:11px;margin-top:3px;}
+.app-profile-icon-btn{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.04);color:rgba(211,222,239,.72);transition:border-color .2s ease,color .2s ease,background .2s ease;}
+.app-profile-icon-btn:hover{border-color:rgba(0,241,254,.26);color:#00f1fe;background:rgba(0,241,254,.08);}
+.app-profile-missing{color:#ffb4ab;}
 .keep-awake-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(240px,.38fr);gap:18px;position:relative;z-index:1;align-items:stretch;}
 .keep-awake-status{border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.035);border-radius:16px;padding:16px;display:flex;flex-direction:column;justify-content:space-between;gap:12px;}
 .vm-acc-item{overflow:hidden;}
@@ -170,7 +238,7 @@
 .vm-acc-body-inner{overflow:hidden;min-height:0;padding:0 24px;transition:padding .32s cubic-bezier(.4,0,.2,1);}
 .vm-acc-item[data-open="true"] .vm-acc-body-inner{padding:0 24px 24px;}
 .heavy-app-panel-inner,.keep-awake-panel-inner{position:relative;}
-@media (max-width:960px){.heavy-app-grid,.keep-awake-grid{grid-template-columns:1fr}}
+@media (max-width:960px){.heavy-app-grid,.keep-awake-grid{grid-template-columns:1fr}.app-profile-row{grid-template-columns:1fr 1fr 38px 38px}}
         `.trim();
         document.head.appendChild(style);
     }
@@ -184,6 +252,30 @@
             '<p class="text-label-sm text-on-surface-variant" id="' + id + '-sub"></p></div></div>' +
             '<div class="mini-toggle cursor-pointer" data-on="' + (on ? 'true' : 'false') + '" id="toggle-' + id + '">' +
             '<div class="mini-toggle-knob"></div></div></div>';
+    }
+
+    function mountAppPowerProfileUi() {
+        if (document.getElementById('app-power-profile-panel')) return;
+        ensurePowerStyles();
+
+        const mount = document.getElementById('app-power-profile-mount');
+        if (!mount) return;
+
+        mount.innerHTML =
+            '<div class="app-profile-panel app-profile-panel-inner rounded-xl p-lg" id="app-power-profile-panel">' +
+            '<div class="flex flex-col sm:flex-row sm:items-start justify-between gap-md mb-lg relative z-10">' +
+            '<div><p class="text-body-md text-on-surface-variant max-w-2xl" id="app-profile-sub"></p>' +
+            '<div class="mt-sm flex items-center gap-sm"><span class="heavy-app-badge" id="app-profile-state-badge" data-active="false">' +
+            '<span class="material-symbols-outlined text-[16px]">radio_button_checked</span>' +
+            '<span id="app-profile-state-label"></span></span>' +
+            '<span class="text-label-md text-on-surface-variant"><span id="app-profile-count">0</span> <span id="app-profile-detected-label"></span></span></div></div>' +
+            '<button class="btn-cyan rounded-lg py-2 px-4 text-label-md flex items-center gap-xs whitespace-nowrap" id="btn-app-profile-add" type="button">' +
+            '<span class="material-symbols-outlined text-[18px]">add</span><span id="app-profile-add-label"></span></button></div>' +
+            '<div class="space-y-sm mb-md relative z-10">' +
+            optionHtml('app-profile-main', 'appProfileToggle', 'appProfileToggleSub', 'app_shortcut', true) +
+            '</div>' +
+            '<div class="app-profile-list" id="app-profile-list"></div></div>';
+        refreshPowerLabels();
     }
 
     function mountKeepAwakeUi() {
@@ -249,6 +341,11 @@
 
     function refreshPowerLabels() {
         const map = {
+            'app-profile-sub': 'appProfileSub',
+            'app-profile-main-title': 'appProfileToggle',
+            'app-profile-main-sub': 'appProfileToggleSub',
+            'app-profile-add-label': 'appProfileAdd',
+            'app-profile-detected-label': 'appProfileDetected',
             'heavy-app-title': 'heavyTitle',
             'heavy-app-sub': 'heavySub',
             'heavy-main-title': 'heavyToggle',
@@ -277,8 +374,16 @@
             const el = document.getElementById(id);
             if (el) el.textContent = tt(key);
         });
+        renderAppPowerProfiles();
+        renderAppPowerProfileStatus(appProfileStatus);
         renderHeavyAppStatus(heavyAppStatus);
         renderKeepAwakeState(keepAwakeState);
+    }
+
+    function syncAppPowerProfileUi() {
+        setToggle(document.getElementById('toggle-app-profile-main'), normalizeAppPowerProfiles().enabled);
+        renderAppPowerProfiles();
+        renderAppPowerProfileStatus(appProfileStatus);
     }
 
     function syncHeavyAppUi() {
@@ -307,6 +412,59 @@
         if (badge) badge.dataset.active = active ? 'true' : 'false';
         if (badgeLabel) badgeLabel.textContent = active ? tt('keepBadgeActive') : tt('keepBadgeIdle');
         if (status) status.textContent = active ? tt('keepStatusActive') : tt('keepStatusIdle');
+    }
+
+    function renderAppPowerProfileStatus(status) {
+        const cfg = settings ? normalizeAppPowerProfiles() : { enabled: true };
+        const badge = document.getElementById('app-profile-state-badge');
+        const label = document.getElementById('app-profile-state-label');
+        const count = document.getElementById('app-profile-count');
+        if (!badge || !label || !count) return;
+
+        const active = !!(status && status.active && cfg.enabled);
+        badge.dataset.active = active ? 'true' : 'false';
+        label.textContent = !cfg.enabled ? tt('appProfileStatusDisabled') : (active ? tt('appProfileStatusActive') : tt('appProfileStatusIdle'));
+        count.textContent = status && typeof status.detectedCount === 'number' ? String(status.detectedCount) : '0';
+    }
+
+    function renderAppPowerProfiles() {
+        if (!settings) return;
+        const list = document.getElementById('app-profile-list');
+        if (!list) return;
+
+        const cfg = normalizeAppPowerProfiles();
+        setToggle(document.getElementById('toggle-app-profile-main'), cfg.enabled);
+
+        if (!cfg.rules.length) {
+            list.innerHTML = '<p class="text-label-md text-on-surface-variant opacity-70 py-3">' + esc(tt('appProfileEmpty')) + '</p>';
+            return;
+        }
+
+        const activeIds = new Set((appProfileStatus && Array.isArray(appProfileStatus.activeProfiles)
+            ? appProfileStatus.activeProfiles
+            : []).map(p => p.ruleId));
+
+        list.innerHTML = cfg.rules
+            .slice()
+            .sort((a, b) => Number(activeIds.has(b.id)) - Number(activeIds.has(a.id)) || planPriority(b.targetPlan) - planPriority(a.targetPlan) || a.name.localeCompare(b.name))
+            .map(rule => {
+                const missing = rule.fileExists === false;
+                const active = activeIds.has(rule.id);
+                return '<div class="app-profile-row" data-rule-id="' + esc(rule.id) + '">' +
+                    '<div class="min-w-0"><div class="flex items-center gap-xs">' +
+                    '<span class="material-symbols-outlined text-secondary-container text-[18px]">' + (active ? 'bolt' : 'app_shortcut') + '</span>' +
+                    '<span class="text-body-md text-on-surface truncate">' + esc(rule.name || appNameFromPath(rule.path)) + '</span>' +
+                    (missing ? '<span class="text-label-sm app-profile-missing">' + esc(tt('appProfileMissing')) + '</span>' : '') +
+                    '</div><span class="app-profile-path" title="' + esc(rule.path) + '">' + esc(rule.path) + '</span></div>' +
+                    '<select class="app-profile-plan bg-surface-container-low/50 text-secondary-container font-medium border border-white/10 rounded-lg py-2 px-3 text-body-md focus:outline-none focus:border-secondary-container" data-rule-id="' + esc(rule.id) + '">' +
+                    '<option value="performance"' + (rule.targetPlan === 'performance' ? ' selected' : '') + '>' + esc(tt('plan_performance')) + '</option>' +
+                    '<option value="balanced"' + (rule.targetPlan === 'balanced' ? ' selected' : '') + '>' + esc(tt('plan_balanced')) + '</option>' +
+                    '<option value="powerSaver"' + (rule.targetPlan === 'powerSaver' ? ' selected' : '') + '>' + esc(tt('plan_powerSaver')) + '</option></select>' +
+                    '<button class="app-profile-icon-btn app-profile-toggle-rule" data-rule-id="' + esc(rule.id) + '" type="button" title="' + esc(rule.enabled ? 'On' : 'Off') + '">' +
+                    '<span class="material-symbols-outlined text-[20px]">' + (rule.enabled ? 'toggle_on' : 'toggle_off') + '</span></button>' +
+                    '<button class="app-profile-icon-btn app-profile-remove-rule" data-rule-id="' + esc(rule.id) + '" type="button" title="' + esc(tt('appProfileRemove')) + '">' +
+                    '<span class="material-symbols-outlined text-[20px]">delete</span></button></div>';
+            }).join('');
     }
 
     function renderHeavyAppStatus(status) {
@@ -343,6 +501,87 @@
         update(cfg);
         syncHeavyAppUi();
         scheduleSave();
+    }
+
+    function updateAppPowerProfiles(update) {
+        const cfg = normalizeAppPowerProfiles();
+        update(cfg);
+        syncAppPowerProfileUi();
+        scheduleSave();
+    }
+
+    function wireAppPowerProfileUi() {
+        if (appProfileWired) return;
+
+        document.addEventListener('click', async (e) => {
+            const main = e.target.closest('#pref-app-profile-main');
+            if (main && settings) {
+                updateAppPowerProfiles(cfg => { cfg.enabled = !cfg.enabled; });
+                return;
+            }
+
+            const add = e.target.closest('#btn-app-profile-add');
+            if (add && settings) {
+                add.disabled = true;
+                try {
+                    const res = await Host.call('pickAppPowerProfileExecutable');
+                    if (!res || !res.path) return;
+                    const cfg = normalizeAppPowerProfiles();
+                    const path = String(res.path).trim();
+                    if (cfg.rules.some(r => r.path.toLowerCase() === path.toLowerCase())) return;
+                    const id = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now() + Math.random());
+                    cfg.rules.push({
+                        id,
+                        enabled: true,
+                        name: appNameFromPath(path),
+                        path,
+                        targetPlan: 'performance'
+                    });
+                    syncAppPowerProfileUi();
+                    scheduleSave();
+                } catch (err) {
+                    console.error('pickAppPowerProfileExecutable failed', err);
+                } finally {
+                    add.disabled = false;
+                }
+                return;
+            }
+
+            const toggle = e.target.closest('.app-profile-toggle-rule');
+            if (toggle && settings) {
+                const id = toggle.dataset.ruleId;
+                updateAppPowerProfiles(cfg => {
+                    const rule = cfg.rules.find(r => r.id === id);
+                    if (rule) rule.enabled = !rule.enabled;
+                });
+                return;
+            }
+
+            const remove = e.target.closest('.app-profile-remove-rule');
+            if (remove && settings) {
+                const id = remove.dataset.ruleId;
+                updateAppPowerProfiles(cfg => {
+                    cfg.rules = cfg.rules.filter(r => r.id !== id);
+                });
+            }
+        });
+
+        document.addEventListener('change', (e) => {
+            if (!settings || !e.target?.classList?.contains('app-profile-plan')) return;
+            const id = e.target.dataset.ruleId;
+            const value = planIds.includes(e.target.value) ? e.target.value : 'performance';
+            updateAppPowerProfiles(cfg => {
+                const rule = cfg.rules.find(r => r.id === id);
+                if (rule) rule.targetPlan = value;
+            });
+        });
+
+        Host.on('appPowerProfileActivityChanged', (status) => {
+            appProfileStatus = status;
+            renderAppPowerProfileStatus(status);
+            renderAppPowerProfiles();
+        });
+        appProfileWired = true;
     }
 
     function wireHeavyAppUi() {
@@ -420,12 +659,21 @@
         });
 
         document.getElementById('master-toggle').checked = settings.masterAutomationEnabled;
+        mountAppPowerProfileUi();
         mountHeavyAppUi();
         mountKeepAwakeUi();
+        syncAppPowerProfileUi();
         syncHeavyAppUi();
         syncKeepAwakeUi();
+        wireAppPowerProfileUi();
         wireHeavyAppUi();
         wireKeepAwakeUi();
+
+        Host.call('getAppPowerProfileStatus').then(status => {
+            appProfileStatus = status;
+            renderAppPowerProfileStatus(status);
+            renderAppPowerProfiles();
+        }).catch(err => console.error('getAppPowerProfileStatus failed', err));
 
         Host.call('getHeavyAppStatus').then(status => {
             heavyAppStatus = status;
@@ -440,7 +688,13 @@
         clearTimeout(saveTimer);
         saveTimer = setTimeout(() => {
             Host.call('saveSettings', settings)
-                .then(() => Host.call('getHeavyAppStatus'))
+                .then(() => Host.call('getAppPowerProfileStatus'))
+                .then(status => {
+                    appProfileStatus = status;
+                    renderAppPowerProfileStatus(status);
+                    renderAppPowerProfiles();
+                    return Host.call('getHeavyAppStatus');
+                })
                 .then(status => {
                     heavyAppStatus = status;
                     renderHeavyAppStatus(status);

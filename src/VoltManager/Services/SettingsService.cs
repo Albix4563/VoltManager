@@ -45,11 +45,14 @@ public class SettingsService
                         loaded.AutoUpdates = new AutoUpdateSettings();
                     if (loaded.HeavyAppDetection == null)
                         loaded.HeavyAppDetection = new HeavyAppDetectionSettings();
+                    if (loaded.AppPowerProfiles == null)
+                        loaded.AppPowerProfiles = new AppPowerProfileSettings();
                     if (loaded.KeepAwake == null)
                         loaded.KeepAwake = new KeepAwakeSettings();
                     NormalizeScheduledPowerAction(loaded.AutoShutdown);
                     NormalizeAutoUpdateSettings(loaded.AutoUpdates);
                     NormalizeHeavyAppDetectionSettings(loaded.HeavyAppDetection);
+                    NormalizeAppPowerProfileSettings(loaded.AppPowerProfiles);
                     NormalizeKeepAwakeSettings(loaded.KeepAwake);
                     // Migrate stale repo name from pre-release installs.
                     if (loaded.UpdateRepo == "Albix4563/VoltManager")
@@ -102,6 +105,35 @@ public class SettingsService
             settings.UseWindowsGpuPreferences = true;
     }
 
+    private static void NormalizeAppPowerProfileSettings(AppPowerProfileSettings settings)
+    {
+        settings.Rules ??= new List<AppPowerProfileRule>();
+
+        var seenPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var normalized = new List<AppPowerProfileRule>();
+        foreach (var rule in settings.Rules)
+        {
+            if (rule == null) continue;
+
+            rule.Path = Environment.ExpandEnvironmentVariables(rule.Path ?? "").Trim().Trim('"');
+            if (string.IsNullOrWhiteSpace(rule.Path)) continue;
+            if (!seenPaths.Add(rule.Path)) continue;
+
+            if (string.IsNullOrWhiteSpace(rule.Id))
+                rule.Id = Guid.NewGuid().ToString("N");
+
+            if (string.IsNullOrWhiteSpace(rule.Name))
+                rule.Name = Path.GetFileNameWithoutExtension(rule.Path);
+
+            if (!Enum.IsDefined(rule.TargetPlan))
+                rule.TargetPlan = PlanId.Performance;
+
+            normalized.Add(rule);
+        }
+
+        settings.Rules = normalized;
+    }
+
     private static void NormalizeKeepAwakeSettings(KeepAwakeSettings settings)
     {
         // Keep-awake intentionally has no timeout: it remains active until the user
@@ -115,10 +147,12 @@ public class SettingsService
             Current.AutoShutdown ??= new AutoShutdownSettings();
             Current.AutoUpdates ??= new AutoUpdateSettings();
             Current.HeavyAppDetection ??= new HeavyAppDetectionSettings();
+            Current.AppPowerProfiles ??= new AppPowerProfileSettings();
             Current.KeepAwake ??= new KeepAwakeSettings();
             NormalizeScheduledPowerAction(Current.AutoShutdown);
             NormalizeAutoUpdateSettings(Current.AutoUpdates);
             NormalizeHeavyAppDetectionSettings(Current.HeavyAppDetection);
+            NormalizeAppPowerProfileSettings(Current.AppPowerProfiles);
             NormalizeKeepAwakeSettings(Current.KeepAwake);
             var dir = Path.GetDirectoryName(_path)!;
             Directory.CreateDirectory(dir);

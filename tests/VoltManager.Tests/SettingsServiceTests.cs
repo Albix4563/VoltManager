@@ -28,6 +28,9 @@ public class SettingsServiceTests : IDisposable
         Assert.NotNull(svc.Current.KeepAwake);
         Assert.False(svc.Current.KeepAwake.Enabled);
         Assert.Null(svc.Current.KeepAwake.LastChangedUtc);
+        Assert.NotNull(svc.Current.AppPowerProfiles);
+        Assert.True(svc.Current.AppPowerProfiles.Enabled);
+        Assert.Empty(svc.Current.AppPowerProfiles.Rules);
     }
 
     [Fact]
@@ -47,6 +50,15 @@ public class SettingsServiceTests : IDisposable
         svc.Current.AutoUpdates.SkippedVersion = "1.2.3";
         svc.Current.KeepAwake.Enabled = true;
         svc.Current.KeepAwake.LastChangedUtc = new DateTime(2026, 06, 13, 17, 00, 00, DateTimeKind.Utc);
+        svc.Current.AppPowerProfiles.Enabled = true;
+        svc.Current.AppPowerProfiles.Rules.Add(new AppPowerProfileRule
+        {
+            Id = "nike",
+            Enabled = true,
+            Name = "Nike",
+            Path = @"C:\Apps\nike.exe",
+            TargetPlan = PlanId.Performance,
+        });
         svc.Save();
 
         var reloaded = new SettingsService(SettingsPath);
@@ -63,6 +75,10 @@ public class SettingsServiceTests : IDisposable
         Assert.Equal("1.2.3", reloaded.Current.AutoUpdates.SkippedVersion);
         Assert.True(reloaded.Current.KeepAwake.Enabled);
         Assert.Equal(new DateTime(2026, 06, 13, 17, 00, 00, DateTimeKind.Utc), reloaded.Current.KeepAwake.LastChangedUtc);
+        Assert.True(reloaded.Current.AppPowerProfiles.Enabled);
+        Assert.Single(reloaded.Current.AppPowerProfiles.Rules);
+        Assert.Equal(@"C:\Apps\nike.exe", reloaded.Current.AppPowerProfiles.Rules[0].Path);
+        Assert.Equal(PlanId.Performance, reloaded.Current.AppPowerProfiles.Rules[0].TargetPlan);
     }
 
     [Fact]
@@ -117,6 +133,44 @@ public class SettingsServiceTests : IDisposable
         Assert.NotNull(svc.Current.KeepAwake);
         Assert.False(svc.Current.KeepAwake.Enabled);
         Assert.Null(svc.Current.KeepAwake.LastChangedUtc);
+    }
+
+    [Fact]
+    public void NullAppPowerProfiles_RestoredToDefaults()
+    {
+        Directory.CreateDirectory(_dir);
+        File.WriteAllText(SettingsPath, "{\"appPowerProfiles\":null}");
+        var svc = new SettingsService(SettingsPath);
+        Assert.NotNull(svc.Current.AppPowerProfiles);
+        Assert.True(svc.Current.AppPowerProfiles.Enabled);
+        Assert.Empty(svc.Current.AppPowerProfiles.Rules);
+    }
+
+    [Fact]
+    public void AppPowerProfiles_NormalizesRules()
+    {
+        Directory.CreateDirectory(_dir);
+        File.WriteAllText(SettingsPath, """
+        {
+          "appPowerProfiles": {
+            "enabled": true,
+            "rules": [
+              { "id": "", "enabled": true, "name": "", "path": "\"C:\\Apps\\Nike.exe\"", "targetPlan": "Performance" },
+              { "id": "duplicate", "enabled": true, "name": "Duplicate", "path": "C:\\Apps\\Nike.exe", "targetPlan": "Balanced" },
+              { "id": "empty", "enabled": true, "name": "Empty", "path": "", "targetPlan": "Balanced" }
+            ]
+          }
+        }
+        """);
+
+        var svc = new SettingsService(SettingsPath);
+
+        Assert.Single(svc.Current.AppPowerProfiles.Rules);
+        var rule = svc.Current.AppPowerProfiles.Rules[0];
+        Assert.False(string.IsNullOrWhiteSpace(rule.Id));
+        Assert.Equal("Nike", rule.Name);
+        Assert.Equal(@"C:\Apps\Nike.exe", rule.Path);
+        Assert.Equal(PlanId.Performance, rule.TargetPlan);
     }
 
     [Fact]

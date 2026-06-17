@@ -29,6 +29,7 @@ public partial class App : Application
     public StartupService AutoStart { get; private set; } = null!;
     public AutomationEngine Automation { get; private set; } = null!;
     public HeavyAppDetectionService HeavyApps { get; private set; } = null!;
+    public AppPowerProfileService AppProfiles { get; private set; } = null!;
 
     private System.Threading.Timer? _automationTimer;
     private System.Threading.Timer? _scheduledPowerActionTimer;
@@ -37,9 +38,13 @@ public partial class App : Application
     private bool _heavyAppPlanSessionActive;
     private PlanId? _planBeforeHeavyAppSession;
     private DateTime _heavyAppLastActiveUtc;
+    private bool _appProfilePlanSessionActive;
+    private PlanId? _planBeforeAppProfileSession;
+    private DateTime _appProfileLastActiveUtc;
     // Grace before tearing down a heavy-app session: absorbs transient scan misses so an
     // alt-tabbed/minimized game does not immediately revert the power plan.
     private static readonly TimeSpan HeavyAppTeardownGrace = TimeSpan.FromSeconds(15);
+    private static readonly TimeSpan AppProfileTeardownGrace = TimeSpan.FromSeconds(15);
 
     public PowerPlan? ActivePlan { get; private set; }
     public event Action<PowerPlan?>? ActivePlanChanged;
@@ -85,10 +90,12 @@ public partial class App : Application
         AutoStart = new StartupService();
         Automation = new AutomationEngine();
         HeavyApps = new HeavyAppDetectionService(Settings);
+        AppProfiles = new AppPowerProfileService(Settings);
         ClearExpiredManualOverride(DateTime.UtcNow);
 
         Monitor.Start();
         HeavyApps.Start();
+        AppProfiles.Start();
         StartPlanPoll();
         StartAutomationLoop();
         StartScheduledPowerActionLoop();
@@ -211,6 +218,9 @@ public partial class App : Application
                 var now = DateTime.UtcNow;
                 ClearExpiredManualOverride(now);
 
+                if (HandleAppPowerProfiles(now))
+                    return;
+
                 if (HandleHeavyAppDetection(now))
                     return;
 
@@ -227,6 +237,58 @@ public partial class App : Application
                 // Automation must never crash the app.
             }
         }, null, 3000, 1000);
+    }
+
+    private bool HandleAppPowerProfiles(DateTime now)
+    {
+        var config = Settings.Current.AppPowerProfiles ?? new AppPowerProfileSettings();
+        bool userOverrideActive = Settings.Current.Override?.IsActive(now) == true;
+        bool canAutoSwitch = Settings.Current.MasterAutomationEnabled && config.Enabled && !userOverrideActive;
+        var state = AppProfiles.Current;
+
+        if (canAutoSwitch && state.Active && state.TargetPlan != null)
+        {
+            _appProfileLastActiveUtc = now;
+            if (!_appProfilePlanSessionActive)
+            {
+                _planBeforeAppProfileSession = ActivePlan?.PlanId;
+                _appProfilePlanSessionActive = true;
+                Automation.Reset();
+            }
+
+            var target = state.TargetPlan.Value;
+            if (ActivePlan?.PlanId == target)
+                return true;
+
+            if (Power.SetActivePlan(target))
+            {
+                var current = Power.GetActivePlan();
+                ActivePlan = current;
+                ActivePlanChanged?.Invoke(current);
+            }
+            return true;
+        }
+
+        if (_appProfilePlanSessionActive)
+        {
+            if (canAutoSwitch && now - _appProfileLastActiveUtc < AppProfileTeardownGrace)
+                return true;
+
+            _appProfilePlanSessionActive = false;
+            var previous = _planBeforeAppProfileSession;
+            _planBeforeAppProfileSession = null;
+            Automation.Reset();
+
+            if (!userOverrideActive && previous != null && ActivePlan?.PlanId != previous && Power.SetActivePlan(previous.Value))
+            {
+                var current = Power.GetActivePlan();
+                ActivePlan = current;
+                ActivePlanChanged?.Invoke(current);
+            }
+            return true;
+        }
+
+        return false;
     }
 
     private bool HandleHeavyAppDetection(DateTime now)
@@ -351,6 +413,8 @@ public partial class App : Application
 
     public bool SetManualOverride(PlanId plan, TimeSpan? duration)
     {
+        _appProfilePlanSessionActive = false;
+        _planBeforeAppProfileSession = null;
         _heavyAppPlanSessionActive = false;
         _planBeforeHeavyAppSession = null;
 
@@ -395,6 +459,10 @@ public partial class App : Application
 
     public HeavyAppDetectionState RefreshHeavyAppDetection() => HeavyApps.Refresh();
 
+    public AppPowerProfileState GetAppPowerProfileStatus() => AppProfiles.Current;
+
+    public AppPowerProfileState RefreshAppPowerProfiles() => AppProfiles.Refresh();
+
     private void ClearExpiredManualOverride(DateTime now)
     {
         if (Settings.Current.Override?.ExpiresAtUtc == null) return;
@@ -421,6 +489,7 @@ public partial class App : Application
         _planPollTimer?.Dispose();
         Monitor.Dispose();
         HeavyApps.Dispose();
+        AppProfiles.Dispose();
         Awake.Dispose();
         _remoteCommands?.Dispose();
         _showWait?.Unregister(null);

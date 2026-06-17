@@ -101,6 +101,21 @@ public class HeavyAppDetectionSettings
     [JsonPropertyName("minWorkingSetMb")] public int MinWorkingSetMb { get; set; } = 1536;
 }
 
+public class AppPowerProfileRule
+{
+    [JsonPropertyName("id")] public string Id { get; set; } = "";
+    [JsonPropertyName("enabled")] public bool Enabled { get; set; } = true;
+    [JsonPropertyName("name")] public string Name { get; set; } = "";
+    [JsonPropertyName("path")] public string Path { get; set; } = "";
+    [JsonPropertyName("targetPlan")] public PlanId TargetPlan { get; set; } = PlanId.Performance;
+}
+
+public class AppPowerProfileSettings
+{
+    [JsonPropertyName("enabled")] public bool Enabled { get; set; } = true;
+    [JsonPropertyName("rules")] public List<AppPowerProfileRule> Rules { get; set; } = new();
+}
+
 public class KeepAwakeSettings
 {
     [JsonPropertyName("enabled")] public bool Enabled { get; set; } = false;
@@ -126,6 +141,7 @@ public class AppSettings
     [JsonPropertyName("autoShutdown")] public AutoShutdownSettings AutoShutdown { get; set; } = new();
     [JsonPropertyName("autoUpdates")] public AutoUpdateSettings AutoUpdates { get; set; } = new();
     [JsonPropertyName("heavyAppDetection")] public HeavyAppDetectionSettings HeavyAppDetection { get; set; } = new();
+    [JsonPropertyName("appPowerProfiles")] public AppPowerProfileSettings AppPowerProfiles { get; set; } = new();
     [JsonPropertyName("keepAwake")] public KeepAwakeSettings KeepAwake { get; set; } = new();
     // duplicatescheme assigns new GUIDs; map canonical plan -> actual GUID on this machine.
     [JsonPropertyName("planGuidMap")] public Dictionary<string, string> PlanGuidMap { get; set; } = new();
