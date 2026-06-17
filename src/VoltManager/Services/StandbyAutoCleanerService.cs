@@ -46,9 +46,6 @@ public class StandbyAutoCleanerService : IDisposable
                 var config = _settings.Current.StandbyAutoCleaner;
                 config.LastPurgedUtc = DateTime.UtcNow;
                 _settings.Save();
-                
-                var freshMem = _memoryStatusReader();
-                AutoCleaned?.Invoke(freshMem);
             }
             return success;
         }

@@ -167,6 +167,7 @@ public class HostBridge
                 // Preserve machine-local/runtime-owned settings: UI never edits them.
                 settings.PlanGuidMap = _settings.Current.PlanGuidMap;
                 settings.Override = _settings.Current.Override;
+                settings.StandbyAutoCleaner = _settings.Current.StandbyAutoCleaner;
                 settings.AutoShutdown ??= new AutoShutdownSettings();
                 settings.AutoUpdates ??= new AutoUpdateSettings();
                 settings.HeavyAppDetection ??= new HeavyAppDetectionSettings();
@@ -375,7 +376,7 @@ public class HostBridge
                     ?? throw new ArgumentException("Impostazioni StandbyAutoCleaner non valide");
                 _settings.Current.StandbyAutoCleaner = autoSettings;
                 _settings.Save();
-                return new { success = true };
+                return new { success = true, settings = _settings.Current.StandbyAutoCleaner };
             }
 
             default:

@@ -646,7 +646,8 @@
             }
 
             try {
-                await Host.call('setStandbyAutoCleanSettings', ramAutoSettings);
+                const res = await Host.call('setStandbyAutoCleanSettings', ramAutoSettings);
+                if (res && res.settings) applyRamAutoCleanSettings(res.settings);
             } catch (err) {
                 console.error('setStandbyAutoCleanSettings failed', err);
                 toggle.dataset.on = (!enable) ? 'true' : 'false';
@@ -677,7 +678,8 @@
             clearTimeout(autoCleanSaveTimer);
             autoCleanSaveTimer = setTimeout(async () => {
                 try {
-                    await Host.call('setStandbyAutoCleanSettings', ramAutoSettings);
+                    const res = await Host.call('setStandbyAutoCleanSettings', ramAutoSettings);
+                    if (res && res.settings) applyRamAutoCleanSettings(res.settings);
                 } catch (err) {
                     console.error('setStandbyAutoCleanSettings failed', err);
                 }

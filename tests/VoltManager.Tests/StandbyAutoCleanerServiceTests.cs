@@ -153,4 +153,26 @@ public class StandbyAutoCleanerServiceTests : IDisposable
         // CheckAndClean should have exited immediately without calling the purger
         Assert.Equal(1, purgeCount);
     }
+
+    [Fact]
+    public void PurgeManual_UpdatesLastPurgedWithoutAutoCleanEvent()
+    {
+        var settings = new SettingsService(SettingsPath);
+        bool purgeCalled = false;
+        int eventCount = 0;
+
+        var service = new StandbyAutoCleanerService(
+            settings,
+            () => new MemoryStatus { StandbyGb = 0.25 },
+            () => { purgeCalled = true; return true; });
+        service.AutoCleaned += _ => eventCount++;
+
+        bool result = service.PurgeManual();
+
+        Assert.True(result);
+        Assert.True(purgeCalled);
+        Assert.NotNull(settings.Current.StandbyAutoCleaner.LastPurgedUtc);
+        Assert.True((DateTime.UtcNow - settings.Current.StandbyAutoCleaner.LastPurgedUtc.Value).TotalSeconds < 5);
+        Assert.Equal(0, eventCount);
+    }
 }
