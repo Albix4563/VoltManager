@@ -13,6 +13,7 @@ public class SettingsServiceTests : IDisposable
     public void FreshLoad_GivesDefaults()
     {
         var svc = new SettingsService(SettingsPath);
+        Assert.Equal("dark", svc.Current.Theme);
         Assert.True(svc.Current.MasterAutomationEnabled);
         Assert.Equal(3, svc.Current.Rules.Count);
         Assert.Equal("Albix4563/power_efficency", svc.Current.UpdateRepo);
@@ -38,6 +39,7 @@ public class SettingsServiceTests : IDisposable
     {
         var svc = new SettingsService(SettingsPath);
         svc.Current.MasterAutomationEnabled = false;
+        svc.Current.Theme = "light";
         svc.Current.Rules[0].ThresholdPct = 15;
         svc.Current.PlanGuidMap["Performance"] = "11111111-2222-3333-4444-555555555555";
         svc.Current.AutoShutdown.Enabled = true;
@@ -63,6 +65,7 @@ public class SettingsServiceTests : IDisposable
 
         var reloaded = new SettingsService(SettingsPath);
         Assert.False(reloaded.Current.MasterAutomationEnabled);
+        Assert.Equal("light", reloaded.Current.Theme);
         Assert.Equal(15, reloaded.Current.Rules[0].ThresholdPct);
         Assert.Equal("11111111-2222-3333-4444-555555555555", reloaded.Current.PlanGuidMap["Performance"]);
         Assert.True(reloaded.Current.AutoShutdown.Enabled);
@@ -202,6 +205,15 @@ public class SettingsServiceTests : IDisposable
         File.WriteAllText(SettingsPath, "{\"autoUpdates\":{\"intervalMinutes\":2000}}");
         var svc = new SettingsService(SettingsPath);
         Assert.Equal(1440, svc.Current.AutoUpdates.IntervalMinutes);
+    }
+
+    [Fact]
+    public void InvalidTheme_RestoredToDark()
+    {
+        Directory.CreateDirectory(_dir);
+        File.WriteAllText(SettingsPath, "{\"theme\":\"system\"}");
+        var svc = new SettingsService(SettingsPath);
+        Assert.Equal("dark", svc.Current.Theme);
     }
 
     public void Dispose()

@@ -4,42 +4,42 @@
     <StackPanel Margin="0,16,0,0">
 
         <TextBlock x:Name="TitleText" FontSize="26" FontWeight="Bold"
-                   Foreground="#e2e8f0" TextWrapping="Wrap" Margin="0,0,0,12"/>
+                   Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" Margin="0,0,0,12"/>
 
         <TextBlock x:Name="SubtitleText" FontSize="13" LineHeight="22"
-                   Foreground="#94a3b8" TextWrapping="Wrap" Margin="0,0,0,24"/>
+                   Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,0,0,24"/>
 
         <!-- Info card -->
-        <Border Background="#1E2A4A" CornerRadius="8" Padding="16,12">
+        <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="16,12">
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                <TextBlock Text="ℹ" FontSize="16" Foreground="#00f1fe"
+                <TextBlock Text="ℹ" FontSize="16" Foreground="{DynamicResource AccentBrush}"
                            VerticalAlignment="Center" Margin="0,0,12,0"/>
-                <TextBlock x:Name="InfoText" FontSize="12" Foreground="#94a3b8"
+                <TextBlock x:Name="InfoText" FontSize="12" Foreground="{DynamicResource MutedBrush}"
                            VerticalAlignment="Center" TextWrapping="Wrap"/>
             </StackPanel>
         </Border>
 
         <!-- Requirement pills -->
         <StackPanel Orientation="Horizontal" Margin="0,20,0,0" FlowDirection="LeftToRight">
-            <Border Background="#0d1c38" CornerRadius="6" Padding="10,5" Margin="0,0,8,0">
+            <Border Background="{DynamicResource PillBrush}" CornerRadius="6" Padding="10,5" Margin="0,0,8,0">
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="✓" Foreground="#00f1fe" FontSize="11" Margin="0,0,5,0"
+                    <TextBlock Text="✓" Foreground="{DynamicResource AccentBrush}" FontSize="11" Margin="0,0,5,0"
                                VerticalAlignment="Center"/>
-                    <TextBlock Text="Windows 10/11 x64" Foreground="#94a3b8" FontSize="11"/>
+                    <TextBlock Text="Windows 10/11 x64" Foreground="{DynamicResource MutedBrush}" FontSize="11"/>
                 </StackPanel>
             </Border>
-            <Border Background="#0d1c38" CornerRadius="6" Padding="10,5" Margin="0,0,8,0">
+            <Border Background="{DynamicResource PillBrush}" CornerRadius="6" Padding="10,5" Margin="0,0,8,0">
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="✓" Foreground="#00f1fe" FontSize="11" Margin="0,0,5,0"
+                    <TextBlock Text="✓" Foreground="{DynamicResource AccentBrush}" FontSize="11" Margin="0,0,5,0"
                                VerticalAlignment="Center"/>
-                    <TextBlock Text="WebView2 Runtime" Foreground="#94a3b8" FontSize="11"/>
+                    <TextBlock Text="WebView2 Runtime" Foreground="{DynamicResource MutedBrush}" FontSize="11"/>
                 </StackPanel>
             </Border>
-            <Border Background="#0d1c38" CornerRadius="6" Padding="10,5">
+            <Border Background="{DynamicResource PillBrush}" CornerRadius="6" Padding="10,5">
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="✓" Foreground="#00f1fe" FontSize="11" Margin="0,0,5,0"
+                    <TextBlock Text="✓" Foreground="{DynamicResource AccentBrush}" FontSize="11" Margin="0,0,5,0"
                                VerticalAlignment="Center"/>
-                    <TextBlock Text="Admin privileges" Foreground="#94a3b8" FontSize="11"/>
+                    <TextBlock Text="Admin privileges" Foreground="{DynamicResource MutedBrush}" FontSize="11"/>
                 </StackPanel>
             </Border>
         </StackPanel>

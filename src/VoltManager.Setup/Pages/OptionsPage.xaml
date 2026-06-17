@@ -4,10 +4,10 @@
     <StackPanel Margin="0,16,0,0">
 
         <TextBlock x:Name="TitleText" FontSize="20" FontWeight="Bold"
-                   Foreground="#e2e8f0" Margin="0,0,0,20"/>
+                   Foreground="{DynamicResource TextBrush}" Margin="0,0,0,20"/>
 
         <!-- Install folder -->
-        <TextBlock x:Name="LabelFolder" FontSize="12" Foreground="#94a3b8" Margin="0,0,0,6"/>
+        <TextBlock x:Name="LabelFolder" FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="0,0,0,6"/>
         <Grid Margin="0,0,0,20">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>

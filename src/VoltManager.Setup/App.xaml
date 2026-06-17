@@ -4,17 +4,39 @@
     <Application.Resources>
 
         <!-- ── Brushes ───────────────────────────────────────────── -->
-        <SolidColorBrush x:Key="BgBrush"      Color="#0A1128"/>
-        <SolidColorBrush x:Key="SurfaceBrush" Color="#1E2A4A"/>
-        <SolidColorBrush x:Key="AccentBrush"  Color="#00f1fe"/>
-        <SolidColorBrush x:Key="TextBrush"    Color="#e2e8f0"/>
-        <SolidColorBrush x:Key="MutedBrush"   Color="#94a3b8"/>
-        <SolidColorBrush x:Key="BorderBrush2" Color="#2d3d5a"/>
+        <Color x:Key="Theme.Dark.Bg">#0A1128</Color>
+        <Color x:Key="Theme.Dark.Sidebar">#060E22</Color>
+        <Color x:Key="Theme.Dark.Surface">#1E2A4A</Color>
+        <Color x:Key="Theme.Dark.Pill">#0D1C38</Color>
+        <Color x:Key="Theme.Dark.Text">#E2E8F0</Color>
+        <Color x:Key="Theme.Dark.Muted">#94A3B8</Color>
+        <Color x:Key="Theme.Dark.Border">#2D3D5A</Color>
+        <Color x:Key="Theme.Light.Bg">#F6F9FC</Color>
+        <Color x:Key="Theme.Light.Sidebar">#EAF2F7</Color>
+        <Color x:Key="Theme.Light.Surface">#FFFFFF</Color>
+        <Color x:Key="Theme.Light.Pill">#EEF5F8</Color>
+        <Color x:Key="Theme.Light.Text">#102033</Color>
+        <Color x:Key="Theme.Light.Muted">#52677D</Color>
+        <Color x:Key="Theme.Light.Border">#C2D2DE</Color>
+
+        <SolidColorBrush x:Key="BgBrush"         Color="#0A1128"/>
+        <SolidColorBrush x:Key="SidebarBrush"    Color="#060E22"/>
+        <SolidColorBrush x:Key="SurfaceBrush"    Color="#1E2A4A"/>
+        <SolidColorBrush x:Key="PillBrush"       Color="#0D1C38"/>
+        <SolidColorBrush x:Key="AccentBrush"     Color="#00f1fe"/>
+        <SolidColorBrush x:Key="AccentTextBrush" Color="#0A1128"/>
+        <SolidColorBrush x:Key="AccentHoverBrush" Color="#33feff"/>
+        <SolidColorBrush x:Key="AccentPressedBrush" Color="#00b8c4"/>
+        <SolidColorBrush x:Key="TextBrush"       Color="#e2e8f0"/>
+        <SolidColorBrush x:Key="MutedBrush"      Color="#94a3b8"/>
+        <SolidColorBrush x:Key="BorderBrush2"    Color="#2d3d5a"/>
+        <SolidColorBrush x:Key="DangerBrush"     Color="#e74c3c"/>
+        <SolidColorBrush x:Key="WarningBrush"    Color="#f39c12"/>
 
         <!-- ── Primary button (cyan) ─────────────────────────────── -->
         <Style x:Key="PrimaryBtn" TargetType="Button">
-            <Setter Property="Background"       Value="#00f1fe"/>
-            <Setter Property="Foreground"       Value="#0A1128"/>
+            <Setter Property="Background"       Value="{DynamicResource AccentBrush}"/>
+            <Setter Property="Foreground"       Value="{DynamicResource AccentTextBrush}"/>
             <Setter Property="FontWeight"       Value="Bold"/>
             <Setter Property="FontSize"         Value="13"/>
             <Setter Property="Padding"          Value="24,10"/>
@@ -29,10 +51,10 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="bd" Property="Background" Value="#33feff"/>
+                                <Setter TargetName="bd" Property="Background" Value="{DynamicResource AccentHoverBrush}"/>
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="bd" Property="Background" Value="#00b8c4"/>
+                                <Setter TargetName="bd" Property="Background" Value="{DynamicResource AccentPressedBrush}"/>
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter Property="Opacity" Value="0.45"/>
@@ -46,11 +68,11 @@
         <!-- ── Ghost button (outline) ───────────────────────────── -->
         <Style x:Key="GhostBtn" TargetType="Button">
             <Setter Property="Background"      Value="Transparent"/>
-            <Setter Property="Foreground"      Value="#94a3b8"/>
+            <Setter Property="Foreground"      Value="{DynamicResource MutedBrush}"/>
             <Setter Property="FontSize"        Value="13"/>
             <Setter Property="Padding"         Value="20,10"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="BorderBrush"     Value="#2d3d5a"/>
+            <Setter Property="BorderBrush"     Value="{DynamicResource BorderBrush2}"/>
             <Setter Property="Cursor"          Value="Hand"/>
             <Setter Property="Template">
                 <Setter.Value>
@@ -64,7 +86,7 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="bd" Property="Background" Value="#1E2A4A"/>
+                                <Setter TargetName="bd" Property="Background" Value="{DynamicResource SurfaceBrush}"/>
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter Property="Opacity" Value="0.45"/>
@@ -78,7 +100,7 @@
         <!-- ── Close (X) button ──────────────────────────────────── -->
         <Style x:Key="CloseBtn" TargetType="Button">
             <Setter Property="Background"      Value="Transparent"/>
-            <Setter Property="Foreground"      Value="#94a3b8"/>
+            <Setter Property="Foreground"      Value="{DynamicResource MutedBrush}"/>
             <Setter Property="Width"           Value="36"/>
             <Setter Property="Height"          Value="36"/>
             <Setter Property="BorderThickness" Value="0"/>
@@ -93,7 +115,7 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="bd" Property="Background" Value="#e74c3c"/>
+                                <Setter TargetName="bd" Property="Background" Value="{DynamicResource DangerBrush}"/>
                                 <Setter Property="Foreground" Value="White"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
@@ -104,10 +126,10 @@
 
         <!-- ── TextBox ───────────────────────────────────────────── -->
         <Style TargetType="TextBox">
-            <Setter Property="Background"     Value="#1E2A4A"/>
-            <Setter Property="Foreground"     Value="#e2e8f0"/>
-            <Setter Property="CaretBrush"     Value="#00f1fe"/>
-            <Setter Property="BorderBrush"    Value="#2d3d5a"/>
+            <Setter Property="Background"     Value="{DynamicResource SurfaceBrush}"/>
+            <Setter Property="Foreground"     Value="{DynamicResource TextBrush}"/>
+            <Setter Property="CaretBrush"     Value="{DynamicResource AccentBrush}"/>
+            <Setter Property="BorderBrush"    Value="{DynamicResource BorderBrush2}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="Padding"        Value="10,6"/>
             <Setter Property="FontSize"       Value="13"/>
@@ -115,7 +137,7 @@
 
         <!-- ── CheckBox ──────────────────────────────────────────── -->
         <Style TargetType="CheckBox">
-            <Setter Property="Foreground" Value="#e2e8f0"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
             <Setter Property="FontSize"   Value="13"/>
             <Setter Property="Cursor"     Value="Hand"/>
         </Style>
@@ -128,10 +150,10 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="ProgressBar">
                         <Grid>
-                            <Border Background="#1E2A4A" CornerRadius="3"/>
+                            <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="3"/>
                             <Border x:Name="PART_Track">
                                 <Border x:Name="PART_Indicator"
-                                        Background="#00f1fe"
+                                        Background="{DynamicResource AccentBrush}"
                                         HorizontalAlignment="Left"
                                         CornerRadius="3"/>
                             </Border>

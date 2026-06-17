@@ -4,20 +4,20 @@
     <StackPanel Margin="0,24,0,0">
 
         <TextBlock FontSize="40" HorizontalAlignment="Center" Margin="0,0,0,16"
-                   Text="🗑" Foreground="#e74c3c"/>
+                   Text="🗑" Foreground="{DynamicResource DangerBrush}"/>
 
         <TextBlock x:Name="TitleText" FontSize="20" FontWeight="Bold"
-                   Foreground="#e2e8f0" HorizontalAlignment="Center" Margin="0,0,0,8"/>
+                   Foreground="{DynamicResource TextBrush}" HorizontalAlignment="Center" Margin="0,0,0,8"/>
 
-        <TextBlock x:Name="SubText" FontSize="13" Foreground="#94a3b8"
+        <TextBlock x:Name="SubText" FontSize="13" Foreground="{DynamicResource MutedBrush}"
                    HorizontalAlignment="Center" TextWrapping="Wrap"
                    TextAlignment="Center" Margin="0,0,0,20"/>
 
-        <Border Background="#1E2A4A" CornerRadius="8" Padding="14,10">
+        <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="14,10">
             <StackPanel Orientation="Horizontal">
-                <TextBlock Text="⚠" Foreground="#f39c12" FontSize="14"
+                <TextBlock Text="⚠" Foreground="{DynamicResource WarningBrush}" FontSize="14"
                            VerticalAlignment="Center" Margin="0,0,10,0"/>
-                <TextBlock x:Name="WarnText" FontSize="12" Foreground="#94a3b8"
+                <TextBlock x:Name="WarnText" FontSize="12" Foreground="{DynamicResource MutedBrush}"
                            VerticalAlignment="Center" TextWrapping="Wrap"/>
             </StackPanel>
         </Border>

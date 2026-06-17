@@ -18,8 +18,7 @@ namespace VoltManager.Setup.Pages
             if (success)
             {
                 IconText.Text     = "✓";
-                IconText.Foreground = new System.Windows.Media.SolidColorBrush(
-                    System.Windows.Media.Color.FromRgb(0x00, 0xf1, 0xfe));
+                IconText.Foreground = (System.Windows.Media.Brush)Application.Current.FindResource("AccentBrush");
                 TitleText.Text    = uninstall ? I18n.T("uninst_done") : I18n.T("done_title");
                 SubText.Text      = uninstall ? "" : I18n.T("done_sub");
 
@@ -33,8 +32,7 @@ namespace VoltManager.Setup.Pages
             else
             {
                 IconText.Text = "✗";
-                IconText.Foreground = new System.Windows.Media.SolidColorBrush(
-                    System.Windows.Media.Color.FromRgb(0xe7, 0x4c, 0x3c));
+                IconText.Foreground = (System.Windows.Media.Brush)Application.Current.FindResource("DangerBrush");
                 TitleText.Text = I18n.T("done_title_err");
                 if (!string.IsNullOrEmpty(errMsg))
                 {

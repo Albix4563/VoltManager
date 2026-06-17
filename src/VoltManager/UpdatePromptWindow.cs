@@ -16,12 +16,14 @@ public enum UpdatePromptAction
 public sealed class UpdatePromptWindow : Window
 {
     private readonly ComboBox _snoozeCombo = new();
+    private readonly PromptPalette _palette;
 
     public UpdatePromptAction Action { get; private set; } = UpdatePromptAction.Dismiss;
     public int SnoozeMinutes { get; private set; } = 30;
 
-    public UpdatePromptWindow(UpdateInfo info)
+    public UpdatePromptWindow(UpdateInfo info, string? theme = null)
     {
+        _palette = PromptPalette.For(theme);
         Title = "Aggiornamento VoltManager";
         Width = 520;
         SizeToContent = SizeToContent.Height;
@@ -29,8 +31,8 @@ public sealed class UpdatePromptWindow : Window
         WindowStartupLocation = WindowStartupLocation.Manual;
         ShowInTaskbar = false;
         Topmost = true;
-        Background = new SolidColorBrush(Color.FromRgb(10, 17, 40));
-        Foreground = Brushes.White;
+        Background = _palette.Background;
+        Foreground = _palette.Text;
         Loaded += (_, _) => PositionBottomRight();
 
         Content = BuildContent(info);
@@ -41,8 +43,8 @@ public sealed class UpdatePromptWindow : Window
         var root = new Border
         {
             Padding = new Thickness(20),
-            Background = new SolidColorBrush(Color.FromRgb(15, 26, 54)),
-            BorderBrush = new SolidColorBrush(Color.FromRgb(0, 241, 254)),
+            Background = _palette.Surface,
+            BorderBrush = _palette.Accent,
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(12),
         };
@@ -61,7 +63,7 @@ public sealed class UpdatePromptWindow : Window
         stack.Children.Add(new TextBlock
         {
             Text = VersionMessage(info),
-            Foreground = new SolidColorBrush(Color.FromRgb(226, 232, 240)),
+            Foreground = _palette.Text,
             TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(0, 0, 0, 12),
         });
@@ -71,7 +73,7 @@ public sealed class UpdatePromptWindow : Window
             stack.Children.Add(new TextBlock
             {
                 Text = TrimReleaseNotes(info.ReleaseNotes),
-                Foreground = new SolidColorBrush(Color.FromRgb(148, 163, 184)),
+                Foreground = _palette.Muted,
                 TextWrapping = TextWrapping.Wrap,
                 MaxHeight = 120,
                 Margin = new Thickness(0, 0, 0, 16),
@@ -87,7 +89,7 @@ public sealed class UpdatePromptWindow : Window
         snoozeRow.Children.Add(new TextBlock
         {
             Text = "Rimanda di:",
-            Foreground = new SolidColorBrush(Color.FromRgb(203, 213, 225)),
+            Foreground = _palette.Text,
             VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(0, 0, 10, 0),
         });
@@ -111,9 +113,9 @@ public sealed class UpdatePromptWindow : Window
             ItemHeight = 36,
         };
 
-        buttons.Children.Add(MakeButton("Salta versione", () => CloseWith(UpdatePromptAction.Skip), subtle: true));
-        buttons.Children.Add(MakeButton("Rimanda", () => CloseWith(UpdatePromptAction.Snooze), subtle: true));
-        buttons.Children.Add(MakeButton("Installa aggiornamento", () => CloseWith(UpdatePromptAction.Install), subtle: false));
+        buttons.Children.Add(MakeButton("Salta versione", () => CloseWith(UpdatePromptAction.Skip), subtle: true, _palette));
+        buttons.Children.Add(MakeButton("Rimanda", () => CloseWith(UpdatePromptAction.Snooze), subtle: true, _palette));
+        buttons.Children.Add(MakeButton("Installa aggiornamento", () => CloseWith(UpdatePromptAction.Install), subtle: false, _palette));
         stack.Children.Add(buttons);
 
         return root;
@@ -130,7 +132,7 @@ public sealed class UpdatePromptWindow : Window
         }
     }
 
-    private static Button MakeButton(string text, System.Action click, bool subtle)
+    private static Button MakeButton(string text, System.Action click, bool subtle, PromptPalette palette)
     {
         var button = new Button
         {
@@ -145,15 +147,15 @@ public sealed class UpdatePromptWindow : Window
 
         if (subtle)
         {
-            button.Background = new SolidColorBrush(Color.FromRgb(30, 42, 74));
-            button.Foreground = new SolidColorBrush(Color.FromRgb(226, 232, 240));
-            button.BorderBrush = new SolidColorBrush(Color.FromRgb(71, 85, 105));
+            button.Background = palette.SubtleButton;
+            button.Foreground = palette.Text;
+            button.BorderBrush = palette.Border;
         }
         else
         {
-            button.Background = new SolidColorBrush(Color.FromRgb(0, 241, 254));
-            button.Foreground = new SolidColorBrush(Color.FromRgb(3, 7, 18));
-            button.BorderBrush = new SolidColorBrush(Color.FromRgb(0, 241, 254));
+            button.Background = palette.Accent;
+            button.Foreground = palette.OnAccent;
+            button.BorderBrush = palette.Accent;
             button.FontWeight = FontWeights.Bold;
         }
 

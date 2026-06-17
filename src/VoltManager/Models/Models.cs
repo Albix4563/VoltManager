@@ -132,6 +132,7 @@ public record KeepAwakeState
 
 public class AppSettings
 {
+    [JsonPropertyName("theme")] public string Theme { get; set; } = "dark";
     [JsonPropertyName("masterAutomationEnabled")] public bool MasterAutomationEnabled { get; set; } = true;
     [JsonPropertyName("closeToTray")] public bool CloseToTray { get; set; } = true;
     [JsonPropertyName("startWithWindows")] public bool StartWithWindows { get; set; } = false;

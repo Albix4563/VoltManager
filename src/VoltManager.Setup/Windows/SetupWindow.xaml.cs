@@ -70,7 +70,7 @@ namespace VoltManager.Setup.Windows
                 var dot = new Ellipse
                 {
                     Width = 8, Height = 8,
-                    Fill = new SolidColorBrush(Color.FromRgb(0x2d, 0x3d, 0x5a)),
+                    Fill = Brush("BorderBrush2"),
                     Margin = new Thickness(0, 0, 10, 0),
                     Name = "Dot" + i,
                 };
@@ -78,7 +78,7 @@ namespace VoltManager.Setup.Windows
                 {
                     Text = labels[i],
                     FontSize = 12,
-                    Foreground = new SolidColorBrush(Color.FromRgb(0x94, 0xa3, 0xb8)),
+                    Foreground = Brush("MutedBrush"),
                     VerticalAlignment = VerticalAlignment.Center,
                     Name = "StepLabel" + i,
                 };
@@ -103,11 +103,11 @@ namespace VoltManager.Setup.Windows
                 var lbl   = (TextBlock)row.Children[1];
                 bool active = i == stepIdx;
                 dot.Fill = active
-                    ? new SolidColorBrush(Color.FromRgb(0x00, 0xf1, 0xfe))
-                    : new SolidColorBrush(Color.FromRgb(0x2d, 0x3d, 0x5a));
+                    ? Brush("AccentBrush")
+                    : Brush("BorderBrush2");
                 lbl.Foreground = active
-                    ? new SolidColorBrush(Color.FromRgb(0x00, 0xf1, 0xfe))
-                    : new SolidColorBrush(Color.FromRgb(0x94, 0xa3, 0xb8));
+                    ? Brush("AccentBrush")
+                    : Brush("MutedBrush");
                 lbl.FontWeight = active ? FontWeights.SemiBold : FontWeights.Normal;
             }
         }
@@ -296,5 +296,8 @@ namespace VoltManager.Setup.Windows
             if (e.ButtonState == System.Windows.Input.MouseButtonState.Pressed)
                 DragMove();
         }
+
+        private static Brush Brush(string key)
+            => (Brush)Application.Current.FindResource(key);
     }
 }

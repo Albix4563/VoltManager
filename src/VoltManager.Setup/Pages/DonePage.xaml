@@ -8,13 +8,13 @@
                    Margin="0,0,0,16"/>
 
         <TextBlock x:Name="TitleText" FontSize="22" FontWeight="Bold"
-                   Foreground="#e2e8f0" HorizontalAlignment="Center" Margin="0,0,0,8"/>
+                   Foreground="{DynamicResource TextBrush}" HorizontalAlignment="Center" Margin="0,0,0,8"/>
 
-        <TextBlock x:Name="SubText" FontSize="13" Foreground="#94a3b8"
+        <TextBlock x:Name="SubText" FontSize="13" Foreground="{DynamicResource MutedBrush}"
                    HorizontalAlignment="Center" TextWrapping="Wrap"
                    TextAlignment="Center" Margin="0,0,0,24"/>
 
-        <TextBlock x:Name="ErrText" FontSize="11" Foreground="#e74c3c"
+        <TextBlock x:Name="ErrText" FontSize="11" Foreground="{DynamicResource DangerBrush}"
                    TextWrapping="Wrap" Margin="0,0,0,12" Visibility="Collapsed"/>
 
         <CheckBox x:Name="ChkLaunch" HorizontalAlignment="Center" Visibility="Collapsed"/>

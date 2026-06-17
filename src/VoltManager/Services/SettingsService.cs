@@ -54,6 +54,7 @@ public class SettingsService
                     NormalizeHeavyAppDetectionSettings(loaded.HeavyAppDetection);
                     NormalizeAppPowerProfileSettings(loaded.AppPowerProfiles);
                     NormalizeKeepAwakeSettings(loaded.KeepAwake);
+                    NormalizeTheme(loaded);
                     // Migrate stale repo name from pre-release installs.
                     if (loaded.UpdateRepo == "Albix4563/VoltManager")
                         loaded.UpdateRepo = "Albix4563/power_efficency";
@@ -66,6 +67,15 @@ public class SettingsService
             // Corrupt settings file: fall through to defaults.
         }
         return new AppSettings();
+    }
+
+    private static void NormalizeTheme(AppSettings settings)
+    {
+        settings.Theme = settings.Theme?.Trim().ToLowerInvariant() switch
+        {
+            "light" => "light",
+            _ => "dark",
+        };
     }
 
     private static void NormalizeScheduledPowerAction(AutoShutdownSettings settings)
@@ -154,6 +164,7 @@ public class SettingsService
             NormalizeHeavyAppDetectionSettings(Current.HeavyAppDetection);
             NormalizeAppPowerProfileSettings(Current.AppPowerProfiles);
             NormalizeKeepAwakeSettings(Current.KeepAwake);
+            NormalizeTheme(Current);
             var dir = Path.GetDirectoryName(_path)!;
             Directory.CreateDirectory(dir);
             var tmp = _path + ".tmp";

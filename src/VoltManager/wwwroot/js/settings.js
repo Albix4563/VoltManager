@@ -567,6 +567,23 @@
         return settings.autoShutdown;
     }
 
+    function normalizeTheme(settings) {
+        settings.theme = settings.theme === 'light' ? 'light' : 'dark';
+        return settings.theme;
+    }
+
+    function setThemeUi(theme) {
+        theme = theme === 'light' ? 'light' : 'dark';
+        if (window.VoltTheme && VoltTheme.apply) VoltTheme.apply(theme);
+        else {
+            document.documentElement.dataset.theme = theme;
+            document.documentElement.classList.toggle('dark', theme === 'dark');
+            document.documentElement.classList.toggle('light', theme === 'light');
+        }
+        const select = document.getElementById('theme-select');
+        if (select) select.value = theme;
+    }
+
     function mountAutoShutdownUi() {
         if (document.getElementById('auto-shutdown-panel')) return;
         const prefs = document.getElementById('pref-tray')?.parentElement;
@@ -649,6 +666,20 @@
             if (langSelect.dataset.wired !== 'true') {
                 langSelect.dataset.wired = 'true';
                 langSelect.addEventListener('change', (e) => I18n.setLang(e.target.value));
+            }
+        }
+
+        const themeSelect = document.getElementById('theme-select');
+        if (themeSelect) {
+            setThemeUi(normalizeTheme(settings));
+            if (themeSelect.dataset.wired !== 'true') {
+                themeSelect.dataset.wired = 'true';
+                themeSelect.addEventListener('change', (e) => {
+                    const next = e.target.value === 'light' ? 'light' : 'dark';
+                    settings.theme = next;
+                    setThemeUi(next);
+                    if (window.__voltSettings.save) window.__voltSettings.save();
+                });
             }
         }
     });

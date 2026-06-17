@@ -736,6 +736,7 @@
 
     Host.call('getSettings').then(res => {
         settings = res.settings;
+        if (window.VoltTheme && VoltTheme.apply) VoltTheme.apply(settings.theme);
         loadIntoUi();
         wireUi();
         window.__voltSettings = {
