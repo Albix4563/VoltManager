@@ -87,12 +87,56 @@ namespace VoltManager.Setup.Engine
             ["status_uninst_reg"]   = "Removing from Programs…",
         };
 
-        private static bool _isIt = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName
-            .StartsWith("it", System.StringComparison.OrdinalIgnoreCase);
+        private static readonly Dictionary<string, string> Zh = new Dictionary<string, string>
+        {
+            ["welcome_title"]       = "欢迎",
+            ["welcome_subtitle"]    = "VoltManager 会根据 CPU 使用率自动优化电脑的电源计划，在不牺牲性能的情况下降低能耗。",
+            ["welcome_info"]        = "点击下一步以配置安装。",
+            ["options_title"]       = "安装选项",
+            ["options_folder"]      = "安装文件夹",
+            ["options_browse"]      = "浏览…",
+            ["options_desktop"]     = "创建桌面快捷方式",
+            ["options_startup"]     = "随 Windows 启动",
+            ["options_launch"]      = "安装完成后启动 VoltManager",
+            ["progress_title"]      = "正在安装…",
+            ["progress_wait"]       = "请稍候，不要关闭此窗口。",
+            ["done_title"]          = "安装完成",
+            ["done_title_err"]      = "安装失败",
+            ["done_sub"]            = "VoltManager 已成功安装。",
+            ["done_launch"]         = "启动 VoltManager",
+            ["uninst_title"]        = "卸载",
+            ["uninst_confirm"]      = "要从电脑中移除 VoltManager 吗？",
+            ["uninst_sub"]          = "所有应用程序文件都将被删除。",
+            ["uninst_progress"]     = "正在移除…",
+            ["uninst_done"]         = "VoltManager 已卸载。",
+            ["btn_back"]            = "← 返回",
+            ["btn_next"]            = "下一步 →",
+            ["btn_install"]         = "安装",
+            ["btn_cancel"]          = "取消",
+            ["btn_close"]           = "关闭",
+            ["btn_finish"]          = "完成",
+            ["btn_uninstall"]       = "卸载",
+            ["status_kill"]         = "正在关闭运行中的 VoltManager…",
+            ["status_migrate"]      = "正在移除之前的安装…",
+            ["status_extract"]      = "正在解压文件…",
+            ["status_webview"]      = "正在安装 WebView2 Runtime…",
+            ["status_shortcuts"]    = "正在创建快捷方式…",
+            ["status_startup"]      = "正在配置 Windows 启动项…",
+            ["status_registry"]     = "正在注册到系统…",
+            ["status_uninst_kill"]  = "正在关闭 VoltManager…",
+            ["status_uninst_files"] = "正在删除文件…",
+            ["status_uninst_reg"]   = "正在从程序列表中移除…",
+        };
+
+        private static readonly string _language = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
 
         public static string T(string key)
         {
-            var dict = _isIt ? It : En;
+            var dict = _language.StartsWith("it", System.StringComparison.OrdinalIgnoreCase)
+                ? It
+                : _language.StartsWith("zh", System.StringComparison.OrdinalIgnoreCase)
+                    ? Zh
+                    : En;
             return dict.TryGetValue(key, out var v) ? v : key;
         }
     }

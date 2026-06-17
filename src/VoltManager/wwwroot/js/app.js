@@ -33,6 +33,19 @@
             on: 'ON', off: 'OFF', active: 'Active', inactive: 'Disabled', switchHint: 'Animated switch', source: 'Source', command: 'Path',
             added: 'Application added to startup.', removed: 'Application removed from startup.', toggled: 'Application state updated.',
             loadErr: 'Error loading startup apps: ', addErr: 'Error adding app: ', removeErr: 'Error removing app: ', toggleErr: 'Error changing app state: '
+        },
+        zh: {
+            nav: '系统', title: '系统', sub: '管理关机、重启、睡眠以及随 Windows 启动的应用。',
+            scheduleTitle: '电脑自动操作', scheduleSub: '选择电脑在指定时间应执行的操作（如果电脑处于开机状态）。',
+            enable: '启用计划', action: '操作', shutdown: '关机', restart: '重启', sleep: '睡眠', time: '时间',
+            note: '关机和重启不会强制保存打开的工作。睡眠使用 Windows 的挂起状态。',
+            startupTitle: '启动应用', startupSub: '查看 Windows 启动时启动或被禁用的应用。',
+            addTitle: '添加自定义应用', addSub: '选择 .exe、.lnk、.bat 或 .cmd 文件。它会注册为由 Miliano\'s App 管理的启动项。',
+            add: '添加', refresh: '刷新', enabled: '启动已启用', disabled: '启动已禁用', loading: '正在加载…', empty: '未找到应用。',
+            managed: 'Miliano\'s App', remove: '移除', enableStartup: '启用', disableStartup: '禁用', unknown: '未知应用',
+            on: '开', off: '关', active: '启用', inactive: '禁用', switchHint: '动画开关', source: '来源', command: '路径',
+            added: '应用已添加到启动项。', removed: '应用已从启动项移除。', toggled: '应用状态已更新。',
+            loadErr: '加载启动应用时出错：', addErr: '添加应用时出错：', removeErr: '移除应用时出错：', toggleErr: '修改应用状态时出错：'
         }
     };
 

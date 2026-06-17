@@ -26,7 +26,8 @@
     function fmtDate(iso) {
         try {
             const lang = window.I18n && I18n.getLang ? I18n.getLang() : 'it';
-            return new Date(iso).toLocaleDateString(lang === 'en' ? 'en-GB' : 'it-IT',
+            const locale = lang === 'zh' ? 'zh-CN' : (lang === 'en' ? 'en-GB' : 'it-IT');
+            return new Date(iso).toLocaleDateString(locale,
                 { day: 'numeric', month: 'short', year: 'numeric' });
         } catch { return ''; }
     }

@@ -69,6 +69,33 @@
             skipped: 'This version will be skipped.',
             min15: '15 minutes', min30: '30 minutes', hour1: '1 hour', hours2: '2 hours',
             updatedToast: 'VoltManager updated successfully'
+        },
+        zh: {
+            autoUpdates: '自动检查更新',
+            autoUpdatesSub: '每 30 分钟自动检查新版本',
+            channelStable: '稳定版',
+            channelPreview: '预览版（Beta）',
+            channelDev: '开发版（Alpha）',
+            channelBadgeStable: '通道：稳定版',
+            channelBadgePreview: '通道：预览版（Beta）',
+            channelBadgeDev: '通道：开发版（Alpha）',
+            snoozeFor: '推迟',
+            snooze: '推迟',
+            skip: '跳过版本',
+            later: '稍后',
+            install: '下载并安装',
+            noInfo: '没有可用信息。',
+            check: '正在检查更新…',
+            err: '错误：',
+            checkErr: '无法检查更新。',
+            dlInstall: '下载并安装 ',
+            dlProg: '正在下载… ',
+            dlFail: '下载失败：',
+            installing: '正在安装，应用将重启…',
+            snoozed: '更新已推迟。',
+            skipped: '将跳过此版本。',
+            min15: '15 分钟', min30: '30 分钟', hour1: '1 小时', hours2: '2 小时',
+            updatedToast: 'VoltManager 已成功更新'
         }
     };
 
