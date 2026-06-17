@@ -20,6 +20,11 @@
 </script>
 <style>
 @keyframes slideInRight{from{transform:translateX(110%);opacity:0}to{transform:translateX(0);opacity:1}}
+.welcome-step{animation:slideInRight .25s ease}
+.welcome-dot{width:8px;height:8px;border-radius:9999px;background:rgba(255,255,255,.18);cursor:pointer;transition:all .2s ease;display:inline-block}
+html[data-theme=light] .welcome-dot{background:rgba(15,34,52,.18)}
+.welcome-dot[data-active=true]{background:var(--md-sys-color-secondary-container,#00f1fe);width:24px}
+html[data-theme=light] .welcome-dot[data-active=true]{background:var(--vm-accent,#00aebb)}
 </style>
 </head>
 <body class="bg-primary-container text-on-surface h-screen flex overflow-hidden selection:bg-secondary-container selection:text-on-secondary">
@@ -533,6 +538,17 @@
                   <option value="en" class="bg-[#0A1128] text-white">English</option>
                 </select>
               </div>
+              <!-- Show welcome onboarding button -->
+              <div class="flex items-center justify-between group mt-md" id="pref-show-welcome">
+                <div>
+                  <p class="text-body-md text-on-surface group-hover:text-secondary-fixed transition-colors" data-i18n="set_show_welcome">Mostra benvenuto</p>
+                  <p class="text-label-sm text-on-surface-variant" data-i18n="set_show_welcome_sub">Ripeti la presentazione iniziale</p>
+                </div>
+                <button class="btn-ghost rounded-lg py-2 px-4 text-label-md flex items-center gap-xs" id="btn-show-welcome" type="button">
+                  <span class="material-symbols-outlined text-[18px]">play_presentation</span>
+                  <span data-i18n="set_show_welcome_btn">Apri</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -638,6 +654,120 @@
   </main>
 </div>
 
+<!-- ============ WELCOME / ONBOARDING OVERLAY ============ -->
+<div class="fixed inset-0 z-[120] bg-background hidden items-center justify-center" id="welcome-overlay">
+  <div class="ambient-glow"></div>
+  <main class="w-full max-w-lg px-lg z-10">
+    <div class="glass-modal rounded-3xl p-xl flex flex-col" id="welcome-modal">
+
+      <!-- Step 0: Intro -->
+      <section class="welcome-step flex flex-col items-center text-center" data-step="0">
+        <div class="w-20 h-20 rounded-full bg-surface-container-high flex items-center justify-center mb-lg border border-white/5 relative overflow-hidden">
+          <div class="absolute inset-0 rounded-full shadow-[0_0_20px_rgba(0,242,255,0.2)]"></div>
+          <img src="images/project_logo.png" alt="VoltManager" class="w-16 h-16 object-cover rounded-full relative z-10" />
+        </div>
+        <h1 class="text-headline-md text-on-surface mb-sm" data-i18n="welcome_title">Benvenuto in VoltManager</h1>
+        <p class="text-body-md text-on-surface-variant mb-xl max-w-[320px]" data-i18n="welcome_intro_sub">Ottimizza consumi e prestazioni del tuo PC in modo automatico.</p>
+      </section>
+
+      <!-- Step 1: Features -->
+      <section class="welcome-step hidden flex-col gap-md" data-step="1">
+        <h2 class="text-headline-sm text-on-surface mb-sm text-center" data-i18n="welcome_features_title">Cosa puoi fare</h2>
+        <div class="flex flex-col gap-md">
+          <div class="flex items-center gap-md glass-card rounded-xl p-md">
+            <span class="material-symbols-outlined text-secondary-container text-[28px]">monitoring</span>
+            <div>
+              <p class="text-body-md text-on-surface font-medium" data-i18n="welcome_feat_monitor_title">Monitoraggio hardware</p>
+              <p class="text-label-sm text-on-surface-variant" data-i18n="welcome_feat_monitor_sub">CPU, GPU, RAM e disco in tempo reale</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-md glass-card rounded-xl p-md">
+            <span class="material-symbols-outlined text-secondary-container text-[28px]">bolt</span>
+            <div>
+              <p class="text-body-md text-on-surface font-medium" data-i18n="welcome_feat_auto_title">Switch automatico piani</p>
+              <p class="text-label-sm text-on-surface-variant" data-i18n="welcome_feat_auto_sub">Piani energetici adattati al carico</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-md glass-card rounded-xl p-md">
+            <span class="material-symbols-outlined text-secondary-container text-[28px]">app_shortcut</span>
+            <div>
+              <p class="text-body-md text-on-surface font-medium" data-i18n="welcome_feat_apps_title">Profili per-app</p>
+              <p class="text-label-sm text-on-surface-variant" data-i18n="welcome_feat_apps_sub">Piano dedicato per ogni applicazione</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-md glass-card rounded-xl p-md">
+            <span class="material-symbols-outlined text-secondary-container text-[28px]">memory</span>
+            <div>
+              <p class="text-body-md text-on-surface font-medium" data-i18n="welcome_feat_ram_title">RAM Cleaner</p>
+              <p class="text-label-sm text-on-surface-variant" data-i18n="welcome_feat_ram_sub">Libera memoria standby al volo</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Step 2: Preferences -->
+      <section class="welcome-step hidden flex-col gap-lg" data-step="2">
+        <h2 class="text-headline-sm text-on-surface text-center" data-i18n="welcome_prefs_title">Imposta le preferenze</h2>
+
+        <!-- Theme -->
+        <div class="flex items-center justify-between gap-md">
+          <div>
+            <p class="text-body-md text-on-surface font-medium" data-i18n="set_pref_theme">Tema</p>
+            <p class="text-label-sm text-on-surface-variant" data-i18n="welcome_theme_sub">Applicato in tempo reale</p>
+          </div>
+          <select id="welcome-theme-select" class="bg-surface-container-low/50 text-secondary-container font-medium border border-white/10 rounded-lg py-2 px-4 pr-10 text-body-md focus:outline-none focus:border-secondary-container transition-all duration-300 cursor-pointer hover:bg-white/10 shadow-lg backdrop-blur-md" style="-webkit-appearance: none; -moz-appearance: none; appearance: none; background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2300f1fe%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E'); background-repeat: no-repeat; background-position: right 0.75rem center; background-size: 1.2em 1.2em;">
+            <option value="dark" data-i18n="set_theme_dark">Scuro</option>
+            <option value="light" data-i18n="set_theme_light">Chiaro</option>
+          </select>
+        </div>
+
+        <!-- Language -->
+        <div class="flex items-center justify-between gap-md">
+          <div>
+            <p class="text-body-md text-on-surface font-medium" data-i18n="set_pref_lang">Lingua</p>
+            <p class="text-label-sm text-on-surface-variant" data-i18n="set_pref_lang_sub">Lingua dell'interfaccia</p>
+          </div>
+          <select id="welcome-lang-select" class="bg-surface-container-low/50 text-secondary-container font-medium border border-white/10 rounded-lg py-2 px-4 pr-10 text-body-md focus:outline-none focus:border-secondary-container transition-all duration-300 cursor-pointer hover:bg-white/10 shadow-lg backdrop-blur-md" style="-webkit-appearance: none; -moz-appearance: none; appearance: none; background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2300f1fe%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E'); background-repeat: no-repeat; background-position: right 0.75rem center; background-size: 1.2em 1.2em;">
+            <option value="it">Italiano</option>
+            <option value="en">English</option>
+          </select>
+        </div>
+
+        <!-- Auto-switch -->
+        <div class="flex items-center justify-between gap-md">
+          <div class="flex-1">
+            <p class="text-body-md text-on-surface font-medium" data-i18n="power_master_title">Attiva Gestione Automatica in Background</p>
+            <p class="text-label-sm text-on-surface-variant" data-i18n="welcome_autoswitch_sub">Switch automatico dei piani energetici</p>
+          </div>
+          <div class="relative inline-block w-16 h-8 align-middle select-none transition duration-200 ease-in flex-shrink-0">
+            <input checked class="toggle-large" id="welcome-master-toggle" type="checkbox"/>
+            <label class="toggle-label-large cursor-pointer" for="welcome-master-toggle">
+              <span class="sr-only">Auto-switch</span>
+            </label>
+          </div>
+        </div>
+      </section>
+
+      <!-- Dot indicator -->
+      <div class="flex items-center justify-center gap-xs mt-lg" id="welcome-dots">
+        <span class="welcome-dot" data-go="0"></span>
+        <span class="welcome-dot" data-go="1"></span>
+        <span class="welcome-dot" data-go="2"></span>
+      </div>
+
+      <!-- Navigation -->
+      <div class="flex items-center justify-between gap-md mt-lg">
+        <button class="btn-ghost rounded-lg py-3 px-4 text-label-md" id="welcome-btn-skip" type="button" data-i18n="welcome_skip">Salta</button>
+        <div class="flex items-center gap-sm">
+          <button class="btn-ghost rounded-lg py-3 px-4 text-label-md" id="welcome-btn-back" type="button" data-i18n="welcome_back">Indietro</button>
+          <button class="btn-cyan rounded-lg py-3 px-4 text-label-md" id="welcome-btn-next" type="button" data-i18n="welcome_next">Avanti</button>
+          <button class="btn-cyan rounded-lg py-3 px-4 text-label-md hidden" id="welcome-btn-start" type="button" data-i18n="welcome_start">Inizia</button>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
 <!-- ============ SETUP MODAL OVERLAY ============ -->
 <div class="fixed inset-0 z-[100] bg-background hidden items-center justify-center" id="setup-overlay">
   <div class="ambient-glow"></div>
@@ -675,6 +805,7 @@
 <script src="js/dashboard.js?v=temps2"></script>
 <script src="js/power.js?v=reorg1"></script>
 <script src="js/settings.js?v=temps2"></script>
+<script src="js/welcome.js?v=welcome1"></script>
 <script src="js/changelog.js?v=temps1"></script>
 <script src="js/setup.js?v=temps1"></script>
 <script src="js/advanced.js?v=adv1"></script>

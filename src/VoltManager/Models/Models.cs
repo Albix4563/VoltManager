@@ -147,6 +147,7 @@ public class AppSettings
     // duplicatescheme assigns new GUIDs; map canonical plan -> actual GUID on this machine.
     [JsonPropertyName("planGuidMap")] public Dictionary<string, string> PlanGuidMap { get; set; } = new();
     [JsonPropertyName("override")] public ManualOverride? Override { get; set; }
+    [JsonPropertyName("welcomeCompleted")] public bool WelcomeCompleted { get; set; } = false;
 
     public static List<AutomationRule> DefaultRules() => new()
     {
