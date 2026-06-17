@@ -21,6 +21,10 @@
 <style>
 @keyframes slideInRight{from{transform:translateX(110%);opacity:0}to{transform:translateX(0);opacity:1}}
 .welcome-step{animation:slideInRight .25s ease}
+/* Spacing scale gap-lg (24px) was missing from app.css, leaving welcome
+   preference rows crammed together. Defined here to match the rest of the
+   lg spacing scale (p-lg/mb-lg/mt-lg/px-lg/py-lg = 24px). */
+.gap-lg{gap:24px}
 .welcome-dot{width:8px;height:8px;border-radius:9999px;background:rgba(255,255,255,.18);cursor:pointer;transition:all .2s ease;display:inline-block}
 html[data-theme=light] .welcome-dot{background:rgba(15,34,52,.18)}
 .welcome-dot[data-active=true]{background:var(--md-sys-color-secondary-container,#00f1fe);width:24px}
@@ -673,7 +677,7 @@ html[data-theme=light] .welcome-dot[data-active=true]{background:var(--vm-accent
       </section>
 
       <!-- Step 1: Features -->
-      <section class="welcome-step hidden flex-col gap-md" data-step="1">
+      <section class="welcome-step hidden flex-col gap-lg" data-step="1">
         <h2 class="text-headline-sm text-on-surface mb-sm text-center" data-i18n="welcome_features_title">Cosa puoi fare</h2>
         <div class="flex flex-col gap-md">
           <div class="flex items-center gap-md glass-card rounded-xl p-md">
