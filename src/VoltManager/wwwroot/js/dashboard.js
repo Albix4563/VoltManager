@@ -142,6 +142,8 @@
     const overrideChip = document.getElementById('manual-override-chip');
     const overrideLabel = document.getElementById('manual-override-label');
     const clearOverrideBtn = document.getElementById('btn-clear-manual-override');
+    const powerSourcePlanHome = document.getElementById('pref-power-source-plan-home');
+    const powerSourcePlanHomeToggle = document.getElementById('toggle-power-source-plan-home');
     const overrideOverlay = document.getElementById('manual-override-overlay');
     const overridePlanLabel = document.getElementById('manual-override-plan');
     const overrideWarning = document.getElementById('manual-override-warning');
@@ -218,6 +220,30 @@
 
         update();
         if (activeOverride.expiresAtUtc) overrideTimer = setInterval(update, 30000);
+    }
+
+    function setMiniToggle(el, on) {
+        if (!el) return;
+        el.dataset.on = on ? 'true' : 'false';
+        el.dataset.state = on ? 'on' : 'off';
+        el.setAttribute('aria-pressed', on ? 'true' : 'false');
+    }
+
+    function normalizePowerSourcePlan(settings) {
+        if (!settings.powerSourcePlan) {
+            settings.powerSourcePlan = { enabled: true, pluggedPlan: 'performance', unpluggedMode: 'previous' };
+        }
+        settings.powerSourcePlan.enabled = settings.powerSourcePlan.enabled !== false;
+        return settings.powerSourcePlan;
+    }
+
+    function renderPowerSourcePlanState(state) {
+        const enabled = state ? !!state.enabled : true;
+        setMiniToggle(powerSourcePlanHomeToggle, enabled);
+        if (window.__voltSettings) {
+            const settings = window.__voltSettings.get ? window.__voltSettings.get() : window.__voltSettings;
+            normalizePowerSourcePlan(settings).enabled = enabled;
+        }
     }
 
     function resetOverrideModal() {
@@ -303,6 +329,19 @@
         }
     });
 
+    powerSourcePlanHome?.addEventListener('click', async () => {
+        if (!Host.available) return;
+        const enable = powerSourcePlanHomeToggle?.dataset.on !== 'true';
+        setMiniToggle(powerSourcePlanHomeToggle, enable);
+        try {
+            const state = await Host.call('setPowerSourcePlanSwitch', { enabled: enable });
+            renderPowerSourcePlanState(state);
+        } catch (err) {
+            console.error('setPowerSourcePlanSwitch failed', err);
+            setMiniToggle(powerSourcePlanHomeToggle, !enable);
+        }
+    });
+
     Host.on('activePlanChanged', (data) => {
         reflectPlan(data.plan ? data.plan : null);
     });
@@ -315,6 +354,8 @@
         renderOverrideStatus(data.override);
     });
 
+    Host.on('powerSourcePlanChanged', renderPowerSourcePlanState);
+
     document.addEventListener('langchanged', () => {
         renderOverrideStatus(activeOverride);
     });
@@ -325,7 +366,11 @@
             if (p && p.planId) reflectPlan(p.planId);
         }).catch(() => {});
         Host.call('getSettings').then(res => {
-            if (res && res.settings) renderOverrideStatus(res.settings.override);
+            if (res && res.settings) {
+                renderOverrideStatus(res.settings.override);
+                renderPowerSourcePlanState(normalizePowerSourcePlan(res.settings));
+            }
         }).catch(() => {});
+        Host.call('getPowerSourcePlanState').then(renderPowerSourcePlanState).catch(() => {});
     }
 })();

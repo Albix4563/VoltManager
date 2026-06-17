@@ -134,6 +134,15 @@ html[data-theme=light] .welcome-dot[data-active=true]{background:var(--vm-accent
           <span class="text-body-md text-on-surface" id="manual-override-label">Piano bloccato</span>
           <button class="btn-ghost rounded-lg py-1 px-3 text-label-md" id="btn-clear-manual-override" type="button" data-i18n="override_cancel">Annulla</button>
         </div>
+        <div class="mt-4 w-full max-w-md flex items-center justify-between gap-md px-4 py-3 rounded-lg bg-surface-container-low/50 border border-white/10 cursor-pointer group" id="pref-power-source-plan-home">
+          <div class="min-w-0">
+            <p class="text-body-md text-on-surface group-hover:text-secondary-fixed transition-colors" data-i18n="dash_power_source_title">Auto boost corrente</p>
+            <p class="text-label-sm text-on-surface-variant" data-i18n="dash_power_source_sub">Prestazioni quando collegato, ripristino quando staccato</p>
+          </div>
+          <div class="mini-toggle flex-shrink-0" data-on="true" id="toggle-power-source-plan-home">
+            <div class="mini-toggle-knob"></div>
+          </div>
+        </div>
       </section>
 
       <section class="mt-8">
@@ -520,6 +529,15 @@ html[data-theme=light] .welcome-dot[data-active=true]{background:var(--vm-accent
                   <p class="text-label-sm text-on-surface-variant" data-i18n="set_pref_tray_sub">La X nasconde l'app, automazione attiva</p>
                 </div>
                 <div class="mini-toggle" data-on="true" id="toggle-tray">
+                  <div class="mini-toggle-knob"></div>
+                </div>
+              </div>
+              <div class="flex items-center justify-between group cursor-pointer mt-md" id="pref-power-source-plan">
+                <div>
+                  <p class="text-body-md text-on-surface group-hover:text-secondary-fixed transition-colors" data-i18n="set_pref_power_source_plan">Auto boost corrente</p>
+                  <p class="text-label-sm text-on-surface-variant" data-i18n="set_pref_power_source_plan_sub">Collegato alla corrente usa Prestazioni, a batteria ripristina il piano precedente</p>
+                </div>
+                <div class="mini-toggle" data-on="true" id="toggle-power-source-plan">
                   <div class="mini-toggle-knob"></div>
                 </div>
               </div>

@@ -491,6 +491,7 @@
 
     const toggleAutostart = document.getElementById('toggle-autostart');
     const toggleTray = document.getElementById('toggle-tray');
+    const togglePowerSourcePlan = document.getElementById('toggle-power-source-plan');
 
     function setToggle(el, on) {
         if (el) el.dataset.on = on ? 'true' : 'false';
@@ -592,6 +593,18 @@
         return settings.autoShutdown;
     }
 
+    function normalizePowerSourcePlan(settings) {
+        if (!settings.powerSourcePlan) {
+            settings.powerSourcePlan = { enabled: true, pluggedPlan: 'performance', unpluggedMode: 'previous' };
+        }
+        settings.powerSourcePlan.enabled = settings.powerSourcePlan.enabled !== false;
+        if (!['performance', 'balanced', 'powerSaver'].includes(settings.powerSourcePlan.pluggedPlan)) {
+            settings.powerSourcePlan.pluggedPlan = 'performance';
+        }
+        settings.powerSourcePlan.unpluggedMode = 'previous';
+        return settings.powerSourcePlan;
+    }
+
     function normalizeTheme(settings) {
         settings.theme = settings.theme === 'light' ? 'light' : 'dark';
         return settings.theme;
@@ -675,6 +688,7 @@
         const settings = s.get ? s.get() : s;
         setToggle(toggleAutostart, s.startWithWindows);
         setToggle(toggleTray, settings.closeToTray);
+        setToggle(togglePowerSourcePlan, normalizePowerSourcePlan(settings).enabled);
 
         mountAutoUpdateUi();
         setToggle(document.getElementById('toggle-auto-updates'), normalizeAutoUpdates(settings).enabled);
@@ -736,6 +750,32 @@
             }
         } catch {
             setToggle(toggleTray, !enable);
+        }
+    });
+
+    document.getElementById('pref-power-source-plan')?.addEventListener('click', async () => {
+        if (!window.__voltSettings) return;
+        const settings = window.__voltSettings.get ? window.__voltSettings.get() : window.__voltSettings;
+        const cfg = normalizePowerSourcePlan(settings);
+        const enable = togglePowerSourcePlan?.dataset.on !== 'true';
+        setToggle(togglePowerSourcePlan, enable);
+        cfg.enabled = enable;
+        try {
+            const state = await Host.call('setPowerSourcePlanSwitch', { enabled: enable });
+            cfg.enabled = !!state.enabled;
+            setToggle(togglePowerSourcePlan, cfg.enabled);
+        } catch {
+            cfg.enabled = !enable;
+            setToggle(togglePowerSourcePlan, !enable);
+        }
+    });
+
+    Host.on('powerSourcePlanChanged', (state) => {
+        if (!state) return;
+        setToggle(togglePowerSourcePlan, !!state.enabled);
+        if (window.__voltSettings) {
+            const settings = window.__voltSettings.get ? window.__voltSettings.get() : window.__voltSettings;
+            normalizePowerSourcePlan(settings).enabled = !!state.enabled;
         }
     });
 })();

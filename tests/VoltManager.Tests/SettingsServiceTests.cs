@@ -29,9 +29,18 @@ public class SettingsServiceTests : IDisposable
         Assert.NotNull(svc.Current.KeepAwake);
         Assert.False(svc.Current.KeepAwake.Enabled);
         Assert.Null(svc.Current.KeepAwake.LastChangedUtc);
+        Assert.NotNull(svc.Current.PowerSourcePlan);
+        Assert.True(svc.Current.PowerSourcePlan.Enabled);
+        Assert.Equal(PlanId.Performance, svc.Current.PowerSourcePlan.PluggedPlan);
+        Assert.Equal("previous", svc.Current.PowerSourcePlan.UnpluggedMode);
         Assert.NotNull(svc.Current.AppPowerProfiles);
         Assert.True(svc.Current.AppPowerProfiles.Enabled);
         Assert.Empty(svc.Current.AppPowerProfiles.Rules);
+        Assert.NotNull(svc.Current.StandbyAutoCleaner);
+        Assert.False(svc.Current.StandbyAutoCleaner.Enabled);
+        Assert.Equal(2.0, svc.Current.StandbyAutoCleaner.ThresholdGb);
+        Assert.Equal(60, svc.Current.StandbyAutoCleaner.IntervalMinutes);
+        Assert.Null(svc.Current.StandbyAutoCleaner.LastPurgedUtc);
     }
 
     [Fact]
@@ -52,6 +61,13 @@ public class SettingsServiceTests : IDisposable
         svc.Current.AutoUpdates.SkippedVersion = "1.2.3";
         svc.Current.KeepAwake.Enabled = true;
         svc.Current.KeepAwake.LastChangedUtc = new DateTime(2026, 06, 13, 17, 00, 00, DateTimeKind.Utc);
+        svc.Current.PowerSourcePlan.Enabled = false;
+        svc.Current.PowerSourcePlan.PluggedPlan = PlanId.Performance;
+        svc.Current.PowerSourcePlan.UnpluggedMode = "previous";
+        svc.Current.StandbyAutoCleaner.Enabled = true;
+        svc.Current.StandbyAutoCleaner.ThresholdGb = 4.5;
+        svc.Current.StandbyAutoCleaner.IntervalMinutes = 120;
+        svc.Current.StandbyAutoCleaner.LastPurgedUtc = new DateTime(2026, 06, 13, 18, 00, 00, DateTimeKind.Utc);
         svc.Current.AppPowerProfiles.Enabled = true;
         svc.Current.AppPowerProfiles.Rules.Add(new AppPowerProfileRule
         {
@@ -78,6 +94,13 @@ public class SettingsServiceTests : IDisposable
         Assert.Equal("1.2.3", reloaded.Current.AutoUpdates.SkippedVersion);
         Assert.True(reloaded.Current.KeepAwake.Enabled);
         Assert.Equal(new DateTime(2026, 06, 13, 17, 00, 00, DateTimeKind.Utc), reloaded.Current.KeepAwake.LastChangedUtc);
+        Assert.False(reloaded.Current.PowerSourcePlan.Enabled);
+        Assert.Equal(PlanId.Performance, reloaded.Current.PowerSourcePlan.PluggedPlan);
+        Assert.Equal("previous", reloaded.Current.PowerSourcePlan.UnpluggedMode);
+        Assert.True(reloaded.Current.StandbyAutoCleaner.Enabled);
+        Assert.Equal(4.5, reloaded.Current.StandbyAutoCleaner.ThresholdGb);
+        Assert.Equal(120, reloaded.Current.StandbyAutoCleaner.IntervalMinutes);
+        Assert.Equal(new DateTime(2026, 06, 13, 18, 00, 00, DateTimeKind.Utc), reloaded.Current.StandbyAutoCleaner.LastPurgedUtc);
         Assert.True(reloaded.Current.AppPowerProfiles.Enabled);
         Assert.Single(reloaded.Current.AppPowerProfiles.Rules);
         Assert.Equal(@"C:\Apps\nike.exe", reloaded.Current.AppPowerProfiles.Rules[0].Path);
@@ -136,6 +159,18 @@ public class SettingsServiceTests : IDisposable
         Assert.NotNull(svc.Current.KeepAwake);
         Assert.False(svc.Current.KeepAwake.Enabled);
         Assert.Null(svc.Current.KeepAwake.LastChangedUtc);
+    }
+
+    [Fact]
+    public void NullPowerSourcePlan_RestoredToDefaults()
+    {
+        Directory.CreateDirectory(_dir);
+        File.WriteAllText(SettingsPath, "{\"powerSourcePlan\":null}");
+        var svc = new SettingsService(SettingsPath);
+        Assert.NotNull(svc.Current.PowerSourcePlan);
+        Assert.True(svc.Current.PowerSourcePlan.Enabled);
+        Assert.Equal(PlanId.Performance, svc.Current.PowerSourcePlan.PluggedPlan);
+        Assert.Equal("previous", svc.Current.PowerSourcePlan.UnpluggedMode);
     }
 
     [Fact]
@@ -214,6 +249,38 @@ public class SettingsServiceTests : IDisposable
         File.WriteAllText(SettingsPath, "{\"theme\":\"system\"}");
         var svc = new SettingsService(SettingsPath);
         Assert.Equal("dark", svc.Current.Theme);
+    }
+
+    [Fact]
+    public void NullStandbyAutoCleaner_RestoredToDefaults()
+    {
+        Directory.CreateDirectory(_dir);
+        File.WriteAllText(SettingsPath, "{\"standbyAutoCleaner\":null}");
+        var svc = new SettingsService(SettingsPath);
+        Assert.NotNull(svc.Current.StandbyAutoCleaner);
+        Assert.False(svc.Current.StandbyAutoCleaner.Enabled);
+        Assert.Equal(2.0, svc.Current.StandbyAutoCleaner.ThresholdGb);
+        Assert.Equal(60, svc.Current.StandbyAutoCleaner.IntervalMinutes);
+        Assert.Null(svc.Current.StandbyAutoCleaner.LastPurgedUtc);
+    }
+
+    [Fact]
+    public void StandbyAutoCleaner_ClampsValues()
+    {
+        Directory.CreateDirectory(_dir);
+        File.WriteAllText(SettingsPath, "{\"standbyAutoCleaner\":{\"enabled\":true,\"thresholdGb\":0.1,\"intervalMinutes\":2}}");
+        var svc = new SettingsService(SettingsPath);
+        Assert.True(svc.Current.StandbyAutoCleaner.Enabled);
+        Assert.Equal(0.5, svc.Current.StandbyAutoCleaner.ThresholdGb);
+        Assert.Equal(5, svc.Current.StandbyAutoCleaner.IntervalMinutes);
+
+        svc.Current.StandbyAutoCleaner.ThresholdGb = 200.0;
+        svc.Current.StandbyAutoCleaner.IntervalMinutes = 2000;
+        svc.Save();
+
+        var reloaded = new SettingsService(SettingsPath);
+        Assert.Equal(128.0, reloaded.Current.StandbyAutoCleaner.ThresholdGb);
+        Assert.Equal(1440, reloaded.Current.StandbyAutoCleaner.IntervalMinutes);
     }
 
     public void Dispose()

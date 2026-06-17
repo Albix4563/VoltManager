@@ -59,6 +59,7 @@ public class HostBridge
         _updates.DownloadProgress += pct => PushEvent("updateDownloadProgress", new { pct });
         _app.HeavyApps.ActivityChanged += state => PushEvent("heavyAppActivityChanged", state);
         _app.AppProfiles.ActivityChanged += state => PushEvent("appPowerProfileActivityChanged", state);
+        _app.StandbyAutoCleaner.AutoCleaned += freshMem => PushEvent("standbyAutoCleaned", freshMem);
     }
 
     public void PushEvent(string name, object data)
@@ -360,9 +361,21 @@ public class HostBridge
 
             case "purgeStandbyList":
             {
-                bool purged = await Task.Run(() => _memoryOptimizer.PurgeStandbyList());
+                bool purged = await Task.Run(() => _app.StandbyAutoCleaner.PurgeManual());
                 var status = await Task.Run(() => _memoryOptimizer.GetMemoryStatus());
                 return new { success = purged, memory = status };
+            }
+
+            case "getStandbyAutoCleanSettings":
+                return _settings.Current.StandbyAutoCleaner;
+
+            case "setStandbyAutoCleanSettings":
+            {
+                var autoSettings = payload.Deserialize<StandbyAutoCleanerSettings>(JsonOpts)
+                    ?? throw new ArgumentException("Impostazioni StandbyAutoCleaner non valide");
+                _settings.Current.StandbyAutoCleaner = autoSettings;
+                _settings.Save();
+                return new { success = true };
             }
 
             default:

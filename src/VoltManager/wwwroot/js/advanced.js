@@ -446,6 +446,25 @@
     </div>
   </div>
 
+  <!-- Auto Cleaner Section -->
+  <div class="glass-panel p-md rounded-xl mb-lg flex flex-col sm:flex-row sm:items-center justify-between gap-md hover:border-white/20 transition-all duration-300">
+    <div class="flex items-center gap-md flex-1">
+      <div class="mini-toggle cursor-pointer" id="ram-toggle-auto" data-on="false">
+        <div class="mini-toggle-knob"></div>
+      </div>
+      <div class="flex-1 flex flex-wrap items-center gap-x-xs gap-y-2 text-body-md text-on-surface">
+        <span id="ram-auto-title-lbl" style="font-weight:600;margin-right:10px;">Auto Cleaner</span>
+        <span id="ram-auto-threshold-lbl">Threshold (GB):</span>
+        <input class="w-16 h-8 bg-surface-container-lowest border-b border-white/20 rounded text-center text-body-md text-secondary-container input-glow transition-all" id="ram-auto-threshold" min="0.5" max="128.0" step="0.5" type="number" value="2.0"/>
+        <span id="ram-auto-interval-lbl" style="margin-left:10px;">Interval (min):</span>
+        <input class="w-16 h-8 bg-surface-container-lowest border-b border-white/20 rounded text-center text-body-md text-secondary-container input-glow transition-all" id="ram-auto-interval" min="5" max="1440" type="number" value="60"/>
+      </div>
+    </div>
+    <div class="text-right">
+      <p class="text-label-sm text-on-surface-variant font-semibold" id="ram-auto-status">Auto: inactive</p>
+    </div>
+  </div>
+
   <!-- Total + action -->
   <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-md">
     <div>
@@ -481,6 +500,9 @@
             'ram-total-label':   'ram_total',
             'ram-last-clean-label': 'ram_last_clean',
             'ram-btn-label':     'ram_btn_clean',
+            'ram-auto-title-lbl': 'ram_auto_title',
+            'ram-auto-threshold-lbl': 'ram_auto_threshold',
+            'ram-auto-interval-lbl': 'ram_auto_interval',
         };
         Object.entries(map).forEach(([id, key]) => {
             const el = document.getElementById(id);
@@ -488,6 +510,9 @@
         });
         const lastClean = document.getElementById('ram-last-clean-val');
         if (lastClean) lastClean.textContent = ramLastClean ? fmtTime(ramLastClean) : t('ram_never');
+        if (ramAutoSettings) {
+            applyRamAutoCleanSettings(ramAutoSettings);
+        }
     }
 
     function fmtTime(date) {
@@ -522,6 +547,42 @@
         if (btn && !btn.disabled) {
             const bigStandby = status.standbyGb > 0.5;
             btn.className = 'ram-btn-clean ' + (bigStandby ? 'ram-btn-clean-active' : 'ram-btn-clean-idle');
+        }
+    }
+
+    let ramAutoSettings = null;
+
+    function applyRamAutoCleanSettings(settings) {
+        ramAutoSettings = settings;
+        if (!settings) return;
+
+        const toggle = document.getElementById('ram-toggle-auto');
+        if (toggle) toggle.dataset.on = settings.enabled ? 'true' : 'false';
+
+        const thresh = document.getElementById('ram-auto-threshold');
+        if (thresh) thresh.value = settings.thresholdGb;
+
+        const interval = document.getElementById('ram-auto-interval');
+        if (interval) interval.value = settings.intervalMinutes;
+
+        const statusEl = document.getElementById('ram-auto-status');
+        if (statusEl) {
+            statusEl.textContent = settings.enabled ? t('ram_auto_enabled') : t('ram_auto_disabled');
+            statusEl.style.color = settings.enabled ? '#00f1fe' : 'rgba(211,222,239,.62)';
+        }
+    }
+
+    async function loadRamAutoCleanSettings() {
+        try {
+            const settings = await Host.call('getStandbyAutoCleanSettings');
+            applyRamAutoCleanSettings(settings);
+            if (settings && settings.lastPurgedUtc) {
+                ramLastClean = new Date(settings.lastPurgedUtc);
+                const lastEl = document.getElementById('ram-last-clean-val');
+                if (lastEl) lastEl.textContent = fmtTime(ramLastClean);
+            }
+        } catch (err) {
+            console.error('getStandbyAutoCleanSettings failed', err);
         }
     }
 
@@ -570,6 +631,66 @@
             }
         });
 
+        // Auto Cleaner toggle
+        document.addEventListener('click', async e => {
+            const toggle = e.target.closest('#ram-toggle-auto');
+            if (!toggle || !ramAutoSettings) return;
+            const enable = toggle.dataset.on !== 'true';
+            toggle.dataset.on = enable ? 'true' : 'false';
+            ramAutoSettings.enabled = enable;
+
+            const statusEl = document.getElementById('ram-auto-status');
+            if (statusEl) {
+                statusEl.textContent = enable ? t('ram_auto_enabled') : t('ram_auto_disabled');
+                statusEl.style.color = enable ? '#00f1fe' : 'rgba(211,222,239,.62)';
+            }
+
+            try {
+                await Host.call('setStandbyAutoCleanSettings', ramAutoSettings);
+            } catch (err) {
+                console.error('setStandbyAutoCleanSettings failed', err);
+                toggle.dataset.on = (!enable) ? 'true' : 'false';
+                ramAutoSettings.enabled = !enable;
+                if (statusEl) {
+                    statusEl.textContent = (!enable) ? t('ram_auto_enabled') : t('ram_auto_disabled');
+                    statusEl.style.color = (!enable) ? '#00f1fe' : 'rgba(211,222,239,.62)';
+                }
+            }
+        });
+
+        // Auto Cleaner inputs (threshold and interval)
+        let autoCleanSaveTimer = null;
+        const handleInputChange = () => {
+            if (!ramAutoSettings) return;
+            const thresholdEl = document.getElementById('ram-auto-threshold');
+            const intervalEl = document.getElementById('ram-auto-interval');
+            if (!thresholdEl || !intervalEl) return;
+
+            const threshold = parseFloat(thresholdEl.value);
+            const interval = parseInt(intervalEl.value, 10);
+
+            if (isNaN(threshold) || isNaN(interval)) return;
+
+            ramAutoSettings.thresholdGb = threshold;
+            ramAutoSettings.intervalMinutes = interval;
+
+            clearTimeout(autoCleanSaveTimer);
+            autoCleanSaveTimer = setTimeout(async () => {
+                try {
+                    await Host.call('setStandbyAutoCleanSettings', ramAutoSettings);
+                } catch (err) {
+                    console.error('setStandbyAutoCleanSettings failed', err);
+                }
+            }, 500);
+        };
+
+        document.addEventListener('input', e => {
+            const el = e.target;
+            if (el && (el.id === 'ram-auto-threshold' || el.id === 'ram-auto-interval')) {
+                handleInputChange();
+            }
+        });
+
         ramWired = true;
     }
 
@@ -605,6 +726,7 @@
                     mountRamUi();
                     wireRamUi();
                     loadRamStatus();
+                    loadRamAutoCleanSettings();
                     // Auto-refresh every 5 s while panel is open
                     clearInterval(ramAutoRefresh);
                     ramAutoRefresh = setInterval(loadRamStatus, 5000);
@@ -632,6 +754,7 @@
             mountRamUi();
             wireRamUi();
             loadRamStatus();
+            loadRamAutoCleanSettings();
             clearInterval(ramAutoRefresh);
             ramAutoRefresh = setInterval(loadRamStatus, 5000);
         }
@@ -649,5 +772,13 @@
             advParams = null; // force reload
             loadAdvParams();
         }
+    });
+
+    Host.on('standbyAutoCleaned', (freshMemory) => {
+        applyRamStatus(freshMemory);
+        ramLastClean = new Date();
+        const lastEl = document.getElementById('ram-last-clean-val');
+        if (lastEl) lastEl.textContent = fmtTime(ramLastClean);
+        showRamStatus(t('ram_cleaned'), false);
     });
 })();

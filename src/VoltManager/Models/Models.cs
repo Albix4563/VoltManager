@@ -122,6 +122,13 @@ public class KeepAwakeSettings
     [JsonPropertyName("lastChangedUtc")] public DateTime? LastChangedUtc { get; set; }
 }
 
+public class PowerSourcePlanSettings
+{
+    [JsonPropertyName("enabled")] public bool Enabled { get; set; } = true;
+    [JsonPropertyName("pluggedPlan")] public PlanId PluggedPlan { get; set; } = PlanId.Performance;
+    [JsonPropertyName("unpluggedMode")] public string UnpluggedMode { get; set; } = "previous";
+}
+
 public record KeepAwakeState
 {
     [JsonPropertyName("enabled")] public bool Enabled { get; init; }
@@ -130,8 +137,30 @@ public record KeepAwakeState
     [JsonPropertyName("message")] public string Message { get; init; } = "";
 }
 
+public record PowerSourcePlanState
+{
+    [JsonPropertyName("enabled")] public bool Enabled { get; init; }
+    [JsonPropertyName("powerSourceKnown")] public bool PowerSourceKnown { get; init; }
+    [JsonPropertyName("pluggedIn")] public bool PluggedIn { get; init; }
+    [JsonPropertyName("active")] public bool Active { get; init; }
+    [JsonPropertyName("pluggedPlan")] public PlanId PluggedPlan { get; init; } = PlanId.Performance;
+    [JsonPropertyName("savedPlan")] public PlanId? SavedPlan { get; init; }
+    [JsonPropertyName("targetPlan")] public PlanId? TargetPlan { get; init; }
+    [JsonPropertyName("manualOverrideActive")] public bool ManualOverrideActive { get; init; }
+    [JsonPropertyName("message")] public string Message { get; init; } = "";
+}
+
+public class StandbyAutoCleanerSettings
+{
+    [JsonPropertyName("enabled")] public bool Enabled { get; set; } = false;
+    [JsonPropertyName("thresholdGb")] public double ThresholdGb { get; set; } = 2.0;
+    [JsonPropertyName("intervalMinutes")] public int IntervalMinutes { get; set; } = 60;
+    [JsonPropertyName("lastPurgedUtc")] public DateTime? LastPurgedUtc { get; set; }
+}
+
 public class AppSettings
 {
+    [JsonPropertyName("standbyAutoCleaner")] public StandbyAutoCleanerSettings StandbyAutoCleaner { get; set; } = new();
     [JsonPropertyName("theme")] public string Theme { get; set; } = "dark";
     [JsonPropertyName("masterAutomationEnabled")] public bool MasterAutomationEnabled { get; set; } = true;
     [JsonPropertyName("closeToTray")] public bool CloseToTray { get; set; } = true;
@@ -144,6 +173,7 @@ public class AppSettings
     [JsonPropertyName("heavyAppDetection")] public HeavyAppDetectionSettings HeavyAppDetection { get; set; } = new();
     [JsonPropertyName("appPowerProfiles")] public AppPowerProfileSettings AppPowerProfiles { get; set; } = new();
     [JsonPropertyName("keepAwake")] public KeepAwakeSettings KeepAwake { get; set; } = new();
+    [JsonPropertyName("powerSourcePlan")] public PowerSourcePlanSettings PowerSourcePlan { get; set; } = new();
     // duplicatescheme assigns new GUIDs; map canonical plan -> actual GUID on this machine.
     [JsonPropertyName("planGuidMap")] public Dictionary<string, string> PlanGuidMap { get; set; } = new();
     [JsonPropertyName("override")] public ManualOverride? Override { get; set; }

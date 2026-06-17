@@ -30,6 +30,8 @@ public partial class App : Application
     public AutomationEngine Automation { get; private set; } = null!;
     public HeavyAppDetectionService HeavyApps { get; private set; } = null!;
     public AppPowerProfileService AppProfiles { get; private set; } = null!;
+    public PowerSourcePlanService PowerSourcePlans { get; private set; } = null!;
+    public StandbyAutoCleanerService StandbyAutoCleaner { get; private set; } = null!;
 
     private System.Threading.Timer? _automationTimer;
     private System.Threading.Timer? _scheduledPowerActionTimer;
@@ -91,11 +93,14 @@ public partial class App : Application
         Automation = new AutomationEngine();
         HeavyApps = new HeavyAppDetectionService(Settings);
         AppProfiles = new AppPowerProfileService(Settings);
+        PowerSourcePlans = new PowerSourcePlanService(Settings);
+        StandbyAutoCleaner = new StandbyAutoCleanerService(Settings);
         ClearExpiredManualOverride(DateTime.UtcNow);
 
         Monitor.Start();
         HeavyApps.Start();
         AppProfiles.Start();
+        StandbyAutoCleaner.Start();
         StartPlanPoll();
         StartAutomationLoop();
         StartScheduledPowerActionLoop();
@@ -224,6 +229,9 @@ public partial class App : Application
                 if (HandleHeavyAppDetection(now))
                     return;
 
+                if (HandlePowerSourcePlans(now))
+                    return;
+
                 var target = Automation.Evaluate(avg, now, ActivePlan?.PlanId, Settings.Current);
                 if (target != null && Power.SetActivePlan(target.Value))
                 {
@@ -345,6 +353,24 @@ public partial class App : Application
         return false;
     }
 
+    private bool HandlePowerSourcePlans(DateTime now)
+    {
+        bool userOverrideActive = Settings.Current.Override?.IsActive(now) == true;
+        var decision = PowerSourcePlans.Evaluate(ActivePlan?.PlanId, userOverrideActive);
+
+        if (decision.TargetPlan != null && Power.SetActivePlan(decision.TargetPlan.Value))
+        {
+            var current = Power.GetActivePlan();
+            ActivePlan = current;
+            ActivePlanChanged?.Invoke(current);
+        }
+
+        if (decision.BlocksLowerPriority)
+            Automation.Reset();
+
+        return decision.BlocksLowerPriority;
+    }
+
     private void StartScheduledPowerActionLoop()
     {
         _scheduledPowerActionTimer = new System.Threading.Timer(_ =>
@@ -463,6 +489,17 @@ public partial class App : Application
 
     public AppPowerProfileState RefreshAppPowerProfiles() => AppProfiles.Refresh();
 
+    public PowerSourcePlanState GetPowerSourcePlanState()
+        => PowerSourcePlans.RefreshState(Settings.Current.Override?.IsActive(DateTime.UtcNow) == true);
+
+    public PowerSourcePlanState SetPowerSourcePlanSwitch(bool enabled)
+    {
+        PowerSourcePlans.SetEnabled(enabled, Settings.Current.Override?.IsActive(DateTime.UtcNow) == true);
+
+        HandlePowerSourcePlans(DateTime.UtcNow);
+        return PowerSourcePlans.Current;
+    }
+
     private void ClearExpiredManualOverride(DateTime now)
     {
         if (Settings.Current.Override?.ExpiresAtUtc == null) return;
@@ -491,6 +528,7 @@ public partial class App : Application
         HeavyApps.Dispose();
         AppProfiles.Dispose();
         Awake.Dispose();
+        StandbyAutoCleaner.Dispose();
         _remoteCommands?.Dispose();
         _showWait?.Unregister(null);
         _showEvent?.Dispose();

@@ -49,11 +49,17 @@ public class SettingsService
                         loaded.AppPowerProfiles = new AppPowerProfileSettings();
                     if (loaded.KeepAwake == null)
                         loaded.KeepAwake = new KeepAwakeSettings();
+                    if (loaded.PowerSourcePlan == null)
+                        loaded.PowerSourcePlan = new PowerSourcePlanSettings();
+                    if (loaded.StandbyAutoCleaner == null)
+                        loaded.StandbyAutoCleaner = new StandbyAutoCleanerSettings();
                     NormalizeScheduledPowerAction(loaded.AutoShutdown);
                     NormalizeAutoUpdateSettings(loaded.AutoUpdates);
                     NormalizeHeavyAppDetectionSettings(loaded.HeavyAppDetection);
                     NormalizeAppPowerProfileSettings(loaded.AppPowerProfiles);
                     NormalizeKeepAwakeSettings(loaded.KeepAwake);
+                    NormalizePowerSourcePlanSettings(loaded.PowerSourcePlan);
+                    NormalizeStandbyAutoCleanerSettings(loaded.StandbyAutoCleaner);
                     NormalizeTheme(loaded);
                     // Migrate stale repo name from pre-release installs.
                     if (loaded.UpdateRepo == "Albix4563/VoltManager")
@@ -150,6 +156,24 @@ public class SettingsService
         // disables it from the app or tray, then Windows resumes the normal plan rules.
     }
 
+    private static void NormalizePowerSourcePlanSettings(PowerSourcePlanSettings settings)
+    {
+        if (!Enum.IsDefined(settings.PluggedPlan))
+            settings.PluggedPlan = PlanId.Performance;
+
+        settings.UnpluggedMode = settings.UnpluggedMode switch
+        {
+            "previous" => "previous",
+            _ => "previous",
+        };
+    }
+
+    private static void NormalizeStandbyAutoCleanerSettings(StandbyAutoCleanerSettings settings)
+    {
+        settings.ThresholdGb = Math.Clamp(settings.ThresholdGb, 0.5, 128.0);
+        settings.IntervalMinutes = Math.Clamp(settings.IntervalMinutes, 5, 1440);
+    }
+
     public void Save()
     {
         lock (_lock)
@@ -159,11 +183,15 @@ public class SettingsService
             Current.HeavyAppDetection ??= new HeavyAppDetectionSettings();
             Current.AppPowerProfiles ??= new AppPowerProfileSettings();
             Current.KeepAwake ??= new KeepAwakeSettings();
+            Current.PowerSourcePlan ??= new PowerSourcePlanSettings();
+            Current.StandbyAutoCleaner ??= new StandbyAutoCleanerSettings();
             NormalizeScheduledPowerAction(Current.AutoShutdown);
             NormalizeAutoUpdateSettings(Current.AutoUpdates);
             NormalizeHeavyAppDetectionSettings(Current.HeavyAppDetection);
             NormalizeAppPowerProfileSettings(Current.AppPowerProfiles);
             NormalizeKeepAwakeSettings(Current.KeepAwake);
+            NormalizePowerSourcePlanSettings(Current.PowerSourcePlan);
+            NormalizeStandbyAutoCleanerSettings(Current.StandbyAutoCleaner);
             NormalizeTheme(Current);
             var dir = Path.GetDirectoryName(_path)!;
             Directory.CreateDirectory(dir);
