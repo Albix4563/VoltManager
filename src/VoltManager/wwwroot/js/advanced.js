@@ -119,6 +119,7 @@
         mount.innerHTML = buildAdvHtml();
         advMounted = true;
         refreshAdvLabels();
+        checkBatteryPresence();
     }
 
     function buildAdvHtml() {
@@ -135,7 +136,7 @@
   </div>
 
   <!-- DC toggle -->
-  <div class="flex items-center gap-sm mb-lg">
+  <div class="flex items-center gap-sm mb-lg" id="adv-toggle-dc-row">
     <div class="mini-toggle cursor-pointer" id="adv-toggle-dc" data-on="false">
       <div class="mini-toggle-knob"></div>
     </div>
@@ -257,6 +258,24 @@
         document.querySelectorAll('.adv-dc-section').forEach(el => {
             el.classList.toggle('hidden', !advShowDc);
         });
+    }
+
+    function checkBatteryPresence() {
+        const info = window.VoltSystemInfo;
+        if (info) {
+            applyBatteryPresence(info.hasBattery);
+        } else {
+            document.addEventListener('systeminfoloaded', (e) => {
+                applyBatteryPresence(e.detail.hasBattery);
+            });
+        }
+    }
+
+    function applyBatteryPresence(hasBattery) {
+        const toggleRow = document.getElementById('adv-toggle-dc-row');
+        if (toggleRow) {
+            toggleRow.classList.toggle('hidden', hasBattery === false);
+        }
     }
 
     /** Populate controls from the loaded PlanParameterSet */

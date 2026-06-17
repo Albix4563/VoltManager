@@ -254,6 +254,15 @@ public class HostBridge
             case "refreshAppPowerProfiles":
                 return await Task.Run(_app.RefreshAppPowerProfiles);
 
+            case "getPowerSourcePlanState":
+                return await Task.Run(() => _app.GetPowerSourcePlanState());
+
+            case "setPowerSourcePlanSwitch":
+            {
+                bool enable = payload.GetProperty("enabled").GetBoolean();
+                return await Task.Run(() => _app.SetPowerSourcePlanSwitch(enable));
+            }
+
             case "pickAppPowerProfileExecutable":
             {
                 string? path = await _webView.Dispatcher.InvokeAsync(PickAppPowerProfileExecutable);

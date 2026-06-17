@@ -86,6 +86,7 @@ public partial class MainWindow : Window
         _app.Settings.SettingsChanged += s => _bridge.PushEvent("automationStateChanged", new { masterEnabled = s.MasterAutomationEnabled, @override = s.Override });
         _app.ManualOverrideChanged += o => _bridge.PushEvent("manualOverrideChanged", new { @override = o });
         _app.Awake.StateChanged += s => _bridge.PushEvent("keepAwakeChanged", s);
+        _app.PowerSourcePlans.StateChanged += s => _bridge.PushEvent("powerSourcePlanChanged", s);
 
         bool startupCheckDone = false;
         core.NavigationCompleted += (_, args) =>

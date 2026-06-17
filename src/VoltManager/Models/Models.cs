@@ -42,6 +42,7 @@ public record SystemInfo
     [JsonPropertyName("ramTotalGb")] public double RamTotalGb { get; init; }
     [JsonPropertyName("osVersion")] public string OsVersion { get; init; } = "";
     [JsonPropertyName("appVersion")] public string AppVersion { get; init; } = "";
+    [JsonPropertyName("hasBattery")] public bool HasBattery { get; init; }
 }
 
 public class AutomationRule

@@ -448,6 +448,8 @@
         if (!Host.available) return;
         try {
             const info = await Host.call('getSystemInfo');
+            window.VoltSystemInfo = info;
+            document.dispatchEvent(new CustomEvent('systeminfoloaded', { detail: info }));
             document.getElementById('cpu-name').textContent = info.cpuName;
             document.getElementById('gpu-name').textContent = info.gpuName;
             document.getElementById('info-cpu').textContent = info.cpuName;

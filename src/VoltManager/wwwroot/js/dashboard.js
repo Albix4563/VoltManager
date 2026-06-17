@@ -360,8 +360,26 @@
         renderOverrideStatus(activeOverride);
     });
 
+    function checkBatteryPresence() {
+        const info = window.VoltSystemInfo;
+        if (info) {
+            applyBatteryPresence(info.hasBattery);
+        } else {
+            document.addEventListener('systeminfoloaded', (e) => {
+                applyBatteryPresence(e.detail.hasBattery);
+            });
+        }
+    }
+
+    function applyBatteryPresence(hasBattery) {
+        if (powerSourcePlanHome) {
+            powerSourcePlanHome.classList.toggle('hidden', hasBattery === false);
+        }
+    }
+
     // Initial active plan.
     if (Host.available) {
+        checkBatteryPresence();
         Host.call('getActivePlan').then(p => {
             if (p && p.planId) reflectPlan(p.planId);
         }).catch(() => {});

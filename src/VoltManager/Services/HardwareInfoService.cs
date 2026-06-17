@@ -1,5 +1,6 @@
 using System.Management;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using VoltManager.Models;
 
 namespace VoltManager.Services;
@@ -26,6 +27,16 @@ public class HardwareInfoService
         }
         catch { }
 
+        bool hasBattery = false;
+        try
+        {
+            if (GetSystemPowerStatus(out var status))
+            {
+                hasBattery = (status.BatteryFlag & 128) == 0 && status.BatteryLifePercent != 255;
+            }
+        }
+        catch { }
+
         _cached = new SystemInfo
         {
             CpuName = cpu.Trim(),
@@ -33,6 +44,7 @@ public class HardwareInfoService
             RamTotalGb = ramGb,
             OsVersion = Environment.OSVersion.VersionString,
             AppVersion = Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "1.0.0",
+            HasBattery = hasBattery,
         };
         return _cached;
     }
@@ -73,5 +85,19 @@ public class HardwareInfoService
         }
         catch { }
         return null;
+    }
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool GetSystemPowerStatus(out SystemPowerStatus status);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct SystemPowerStatus
+    {
+        public byte ACLineStatus;
+        public byte BatteryFlag;
+        public byte BatteryLifePercent;
+        public byte SystemStatusFlag;
+        public int BatteryLifeTime;
+        public int BatteryFullLifeTime;
     }
 }

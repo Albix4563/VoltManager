@@ -682,6 +682,24 @@
         });
     }
 
+    function checkBatteryPresence() {
+        const info = window.VoltSystemInfo;
+        if (info) {
+            applyBatteryPresence(info.hasBattery);
+        } else {
+            document.addEventListener('systeminfoloaded', (e) => {
+                applyBatteryPresence(e.detail.hasBattery);
+            });
+        }
+    }
+
+    function applyBatteryPresence(hasBattery) {
+        const prefPowerSourcePlan = document.getElementById('pref-power-source-plan');
+        if (prefPowerSourcePlan) {
+            prefPowerSourcePlan.classList.toggle('hidden', hasBattery === false);
+        }
+    }
+
     document.addEventListener('settingsloaded', () => {
         const s = window.__voltSettings;
         if (!s) return;
@@ -689,6 +707,8 @@
         setToggle(toggleAutostart, s.startWithWindows);
         setToggle(toggleTray, settings.closeToTray);
         setToggle(togglePowerSourcePlan, normalizePowerSourcePlan(settings).enabled);
+
+        checkBatteryPresence();
 
         mountAutoUpdateUi();
         setToggle(document.getElementById('toggle-auto-updates'), normalizeAutoUpdates(settings).enabled);
