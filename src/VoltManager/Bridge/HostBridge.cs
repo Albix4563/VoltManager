@@ -165,18 +165,7 @@ public class HostBridge
                 var settings = payload.Deserialize<AppSettings>(JsonOpts)
                     ?? throw new ArgumentException("Impostazioni non valide");
                 // Preserve machine-local/runtime-owned settings: UI never edits them.
-                settings.PlanGuidMap = _settings.Current.PlanGuidMap;
-                settings.Override = _settings.Current.Override;
-                settings.StandbyAutoCleaner = _settings.Current.StandbyAutoCleaner;
-                settings.AutoShutdown ??= new AutoShutdownSettings();
-                settings.AutoUpdates ??= new AutoUpdateSettings();
-                settings.HeavyAppDetection ??= new HeavyAppDetectionSettings();
-                settings.AppPowerProfiles ??= new AppPowerProfileSettings();
-                _settings.Current.AutoShutdown ??= new AutoShutdownSettings();
-                _settings.Current.AutoUpdates ??= new AutoUpdateSettings();
-                settings.AutoShutdown.LastTriggeredLocalDate = _settings.Current.AutoShutdown.LastTriggeredLocalDate;
-                settings.AutoUpdates.SnoozedUntilUtc = _settings.Current.AutoUpdates.SnoozedUntilUtc;
-                settings.AutoUpdates.SkippedVersion = _settings.Current.AutoUpdates.SkippedVersion;
+                PreserveRuntimeOwnedSettings(settings, _settings.Current);
                 _settings.Update(settings);
                 _app.RefreshAppPowerProfiles();
                 _app.RefreshHeavyAppDetection();
@@ -374,14 +363,38 @@ public class HostBridge
             {
                 var autoSettings = payload.Deserialize<StandbyAutoCleanerSettings>(JsonOpts)
                     ?? throw new ArgumentException("Impostazioni StandbyAutoCleaner non valide");
-                _settings.Current.StandbyAutoCleaner = autoSettings;
-                _settings.Save();
-                return new { success = true, settings = _settings.Current.StandbyAutoCleaner };
+                var savedSettings = SaveStandbyAutoCleanSettings(_settings, autoSettings);
+                return new { success = true, settings = savedSettings };
             }
 
             default:
                 throw new ArgumentException($"Metodo sconosciuto: {method}");
         }
+    }
+
+    internal static void PreserveRuntimeOwnedSettings(AppSettings settings, AppSettings current)
+    {
+        settings.PlanGuidMap = current.PlanGuidMap;
+        settings.Override = current.Override;
+        settings.StandbyAutoCleaner = current.StandbyAutoCleaner;
+        settings.AutoShutdown ??= new AutoShutdownSettings();
+        settings.AutoUpdates ??= new AutoUpdateSettings();
+        settings.HeavyAppDetection ??= new HeavyAppDetectionSettings();
+        settings.AppPowerProfiles ??= new AppPowerProfileSettings();
+        current.AutoShutdown ??= new AutoShutdownSettings();
+        current.AutoUpdates ??= new AutoUpdateSettings();
+        settings.AutoShutdown.LastTriggeredLocalDate = current.AutoShutdown.LastTriggeredLocalDate;
+        settings.AutoUpdates.SnoozedUntilUtc = current.AutoUpdates.SnoozedUntilUtc;
+        settings.AutoUpdates.SkippedVersion = current.AutoUpdates.SkippedVersion;
+    }
+
+    internal static StandbyAutoCleanerSettings SaveStandbyAutoCleanSettings(
+        SettingsService settingsService,
+        StandbyAutoCleanerSettings autoSettings)
+    {
+        settingsService.Current.StandbyAutoCleaner = autoSettings;
+        settingsService.Save();
+        return settingsService.Current.StandbyAutoCleaner;
     }
 
     private static string? PickAppPowerProfileExecutable()

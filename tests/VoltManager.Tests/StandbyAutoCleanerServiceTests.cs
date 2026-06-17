@@ -113,7 +113,7 @@ public class StandbyAutoCleanerServiceTests : IDisposable
     }
 
     [Fact]
-    public void CheckAndClean_DoesNotRunConcurrently()
+    public async System.Threading.Tasks.Task CheckAndClean_DoesNotRunConcurrently()
     {
         var settings = new SettingsService(SettingsPath);
         settings.Current.StandbyAutoCleaner.Enabled = true;
@@ -148,7 +148,7 @@ public class StandbyAutoCleanerServiceTests : IDisposable
 
         // Release the first purge
         purgeBlock.Set();
-        manualTask.Wait();
+        await manualTask;
 
         // CheckAndClean should have exited immediately without calling the purger
         Assert.Equal(1, purgeCount);
