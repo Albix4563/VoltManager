@@ -20,6 +20,8 @@ public record MetricsSnapshot
     [JsonPropertyName("disk")] public double Disk { get; init; }
     [JsonPropertyName("cpuTemp")] public double? CpuTemp { get; init; }
     [JsonPropertyName("gpuTemp")] public double? GpuTemp { get; init; }
+    [JsonPropertyName("cpuClock")] public double? CpuClock { get; init; }
+    [JsonPropertyName("ramClock")] public double? RamClock { get; init; }
     [JsonPropertyName("sensorsAvailable")] public bool SensorsAvailable { get; init; }
     [JsonPropertyName("sensors")] public List<SensorReading> Sensors { get; init; } = new();
 }

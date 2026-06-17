@@ -138,6 +138,7 @@
               </div>
             </div>
             <p class="text-label-sm text-on-surface-variant mt-4 text-center" id="cpu-name">Rilevamento CPU…</p>
+            <p class="text-label-sm font-mono text-secondary-fixed-dim mt-1 text-center hidden" id="cpu-clock">-- MHz</p>
           </div>
 
           <!-- GPU Card (Circular) -->
@@ -172,7 +173,8 @@
                 </div>
                 <span class="text-title-lg font-bold text-on-surface transition-colors duration-300 group-hover:text-secondary-container" id="ram-pct">--%</span>
               </div>
-              <p class="text-label-sm text-on-surface-variant mb-6" id="ram-detail">-- GB / -- GB In Use</p>
+              <p class="text-label-sm text-on-surface-variant mb-1" id="ram-detail">-- GB / -- GB In Use</p>
+              <p class="text-label-sm font-mono text-secondary-fixed-dim mb-4 hidden" id="ram-clock">-- MHz</p>
             </div>
             <div class="w-full h-3 bg-[#1E2A4A] rounded-full overflow-hidden">
               <div class="h-full bg-gradient-to-r from-[#006a70] to-secondary-container rounded-full progress-glow transition-all duration-1000 ease-out" id="ram-bar" style="width: 0%"></div>

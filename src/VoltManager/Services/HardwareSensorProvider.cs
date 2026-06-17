@@ -38,6 +38,7 @@ public class HardwareSensorProvider : IDisposable
                 IsMotherboardEnabled = true,
                 IsStorageEnabled = true,
                 IsControllerEnabled = true,
+                IsMemoryEnabled = true,
             };
             computer.Open();
             lock (_gate)
@@ -83,6 +84,8 @@ public class HardwareSensorProvider : IDisposable
                 {
                     CpuTemp = SensorAggregation.SelectCpuTemp(readings),
                     GpuTemp = SensorAggregation.SelectGpuTemp(readings),
+                    CpuClock = SensorAggregation.SelectCpuClock(readings),
+                    RamClock = SensorAggregation.SelectRamClock(readings),
                     Readings = readings,
                 };
             }
@@ -104,6 +107,7 @@ public class HardwareSensorProvider : IDisposable
             {
                 SensorType.Temperature => "temp",
                 SensorType.Fan => "fan",
+                SensorType.Clock => "clock",
                 _ => "",
             };
             if (type.Length == 0) continue;
@@ -114,7 +118,7 @@ public class HardwareSensorProvider : IDisposable
                 Category = category,
                 Name = sensor.Name,
                 Type = type,
-                Value = Math.Round(value, type == "temp" ? 1 : 0),
+                Value = Math.Round(value, type == "clock" ? 0 : (type == "temp" ? 1 : 0)),
             });
         }
     }
@@ -145,6 +149,8 @@ public record SensorReport
 
     public double? CpuTemp { get; init; }
     public double? GpuTemp { get; init; }
+    public double? CpuClock { get; init; }
+    public double? RamClock { get; init; }
     public List<SensorReading> Readings { get; init; } = new();
 }
 
@@ -156,6 +162,7 @@ public static class SensorAggregation
         HardwareType.Cpu => "cpu",
         HardwareType.GpuNvidia or HardwareType.GpuAmd or HardwareType.GpuIntel => "gpu",
         HardwareType.Storage => "storage",
+        HardwareType.Memory => "memory",
         _ => "motherboard", // Motherboard, SuperIO, EmbeddedController, coolers...
     };
 
@@ -185,5 +192,24 @@ public static class SensorAggregation
         if (gpuTemps.Count == 0) return null;
         var headline = gpuTemps.FirstOrDefault(r => r.Name == "GPU Core");
         return (headline ?? gpuTemps[0]).Value;
+    }
+
+    public static double? SelectCpuClock(IReadOnlyList<SensorReading> readings)
+    {
+        var cpuClocks = readings.Where(r => r.Category == "cpu" && r.Type == "clock").ToList();
+        if (cpuClocks.Count == 0) return null;
+        // Usually "Bus Speed" or "Core #1", we can average core clocks or just return max.
+        var coreClocks = cpuClocks.Where(r => r.Name.Contains("Core")).ToList();
+        if (coreClocks.Count > 0) return coreClocks.Max(r => r.Value);
+        return cpuClocks.Max(r => r.Value);
+    }
+
+    public static double? SelectRamClock(IReadOnlyList<SensorReading> readings)
+    {
+        // LHM might have RAM clocks under RAM (memory) but HardwareType memory is mapped to motherboard.
+        // Actually, LibreHardwareMonitor HardwareType.Memory exists. Wait, let's map it.
+        var memClocks = readings.Where(r => (r.Category == "memory" || r.Category == "motherboard") && r.Type == "clock" && r.Name.Contains("Memory")).ToList();
+        if (memClocks.Count > 0) return memClocks.Max(r => r.Value);
+        return null;
     }
 }

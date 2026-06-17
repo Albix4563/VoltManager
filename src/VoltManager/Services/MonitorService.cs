@@ -60,6 +60,8 @@ public class MonitorService : IDisposable
                 Disk = Math.Round(disk, 1),
                 CpuTemp = sensors.CpuTemp,
                 GpuTemp = sensors.GpuTemp,
+                CpuClock = sensors.CpuClock,
+                RamClock = sensors.RamClock,
                 SensorsAvailable = _sensors.Available,
                 Sensors = sensors.Readings,
             };

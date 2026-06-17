@@ -16,8 +16,10 @@
     const diskBar = document.getElementById('disk-bar');
     const cpuTemp = document.getElementById('cpu-temp');
     const cpuTempBadge = document.getElementById('cpu-temp-badge');
+    const cpuClock = document.getElementById('cpu-clock');
     const gpuTemp = document.getElementById('gpu-temp');
     const gpuTempBadge = document.getElementById('gpu-temp-badge');
+    const ramClock = document.getElementById('ram-clock');
     const tempSection = document.getElementById('temp-section');
     const sensorList = document.getElementById('sensor-list');
 
@@ -37,7 +39,13 @@
         if (value != null) label.textContent = Math.round(value) + '°C';
     }
 
+    function setClockText(element, value) {
+        element.classList.toggle('hidden', value == null);
+        if (value != null) element.textContent = Math.round(value) + ' MHz';
+    }
+
     function formatSensor(s) {
+        if (s.type === 'clock') return Math.round(s.value) + ' MHz';
         return s.type === 'fan' ? Math.round(s.value) + ' RPM' : Math.round(s.value) + '°C';
     }
 
@@ -107,6 +115,8 @@
     Host.on('metrics', (m) => {
         setTempBadge(cpuTempBadge, cpuTemp, m.cpuTemp);
         setTempBadge(gpuTempBadge, gpuTemp, m.gpuTemp);
+        setClockText(cpuClock, m.cpuClock);
+        setClockText(ramClock, m.ramClock);
         renderSensors(m);
         setRing(cpuRing, cpuPct, m.cpu);
         if (m.gpuAvailable) {
