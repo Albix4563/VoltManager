@@ -32,6 +32,20 @@
         if (s && s.save) s.save();
     }
 
+    function saveNow() {
+        const s = window.__voltSettings;
+        if (s && s.saveNow) return s.saveNow();
+        if (s && s.save) {
+            s.save();
+            return Promise.resolve();
+        }
+        return Promise.resolve();
+    }
+
+    function isOpen() {
+        return !overlay.classList.contains('hidden');
+    }
+
     function isLast(i) { return i === STEP_COUNT - 1; }
 
     function render() {
@@ -60,16 +74,20 @@
     function prev() { goto(step - 1); }
 
     function open() {
+        const wasOpen = isOpen();
         step = 0;
         syncControlsFromSettings();
         render();
         overlay.classList.remove('hidden');
         overlay.classList.add('flex');
+        if (!wasOpen) document.dispatchEvent(new CustomEvent('welcomeopened'));
     }
 
     function close() {
+        const wasOpen = isOpen();
         overlay.classList.add('hidden');
         overlay.classList.remove('flex');
+        if (wasOpen) document.dispatchEvent(new CustomEvent('welcomeclosed'));
     }
 
     // Mark welcome as completed and dismiss.
@@ -77,7 +95,7 @@
         const settings = getSettings();
         if (settings) {
             settings.welcomeCompleted = true;
-            save();
+            saveNow().catch(err => console.error('saveSettings failed', err));
         }
         close();
     }
@@ -171,5 +189,5 @@
         if (window.I18n && I18n.apply) I18n.apply();
     });
 
-    window.__welcome = { open };
+    window.__welcome = { open, close, isOpen };
 })();

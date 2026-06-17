@@ -684,22 +684,26 @@
         renderKeepAwakeState(keepAwakeState);
     }
 
+    function saveSettingsNow() {
+        clearTimeout(saveTimer);
+        return Host.call('saveSettings', settings)
+            .then(() => Host.call('getAppPowerProfileStatus'))
+            .then(status => {
+                appProfileStatus = status;
+                renderAppPowerProfileStatus(status);
+                renderAppPowerProfiles();
+                return Host.call('getHeavyAppStatus');
+            })
+            .then(status => {
+                heavyAppStatus = status;
+                renderHeavyAppStatus(status);
+            });
+    }
+
     function scheduleSave() {
         clearTimeout(saveTimer);
         saveTimer = setTimeout(() => {
-            Host.call('saveSettings', settings)
-                .then(() => Host.call('getAppPowerProfileStatus'))
-                .then(status => {
-                    appProfileStatus = status;
-                    renderAppPowerProfileStatus(status);
-                    renderAppPowerProfiles();
-                    return Host.call('getHeavyAppStatus');
-                })
-                .then(status => {
-                    heavyAppStatus = status;
-                    renderHeavyAppStatus(status);
-                })
-                .catch(err => console.error('saveSettings failed', err));
+            saveSettingsNow().catch(err => console.error('saveSettings failed', err));
         }, 400);
     }
 
@@ -742,6 +746,10 @@
         window.__voltSettings = {
             get: () => settings,
             save: scheduleSave,
+            saveNow: () => saveSettingsNow().catch(err => {
+                console.error('saveSettings failed', err);
+                throw err;
+            }),
             startWithWindows: res.startWithWindows,
         };
         document.dispatchEvent(new CustomEvent('settingsloaded'));

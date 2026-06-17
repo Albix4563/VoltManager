@@ -13,6 +13,7 @@
     let _updateInfo = null;
     let modalActionsMounted = false;
     let autoUpdatesWired = false;
+    let pendingWelcomeUpdateInfo = null;
 
     const localText = {
         it: {
@@ -313,6 +314,28 @@
         overlay.classList.add('flex');
     }
 
+    function isWelcomeOpen() {
+        if (window.__welcome && typeof window.__welcome.isOpen === 'function')
+            return window.__welcome.isOpen();
+        const overlay = document.getElementById('welcome-overlay');
+        return !!overlay && !overlay.classList.contains('hidden');
+    }
+
+    function openUpdateModalAfterWelcome(info) {
+        if (isWelcomeOpen()) {
+            pendingWelcomeUpdateInfo = normalizeUpdateInfo(info);
+            return;
+        }
+        openUpdateModal(info);
+    }
+
+    function flushQueuedWelcomeUpdate() {
+        if (!pendingWelcomeUpdateInfo || isWelcomeOpen()) return;
+        const info = pendingWelcomeUpdateInfo;
+        pendingWelcomeUpdateInfo = null;
+        openUpdateModal(info);
+    }
+
     function closeUpdateModal() {
         const overlay = document.getElementById('update-modal-overlay');
         if (!overlay) return;
@@ -433,7 +456,7 @@
         if (!info || !info.downloadUrl) return;
         _updateInfo = info;
         downloadUrl = info.downloadUrl;
-        openUpdateModal(info);
+        openUpdateModalAfterWelcome(info);
     });
 
     Host.on('appUpdated', (data) => {
@@ -461,8 +484,10 @@
 
     btnDownload?.addEventListener('click', () => {
         if (!downloadUrl) return;
-        openUpdateModal(_updateInfo || { downloadUrl });
+        openUpdateModalAfterWelcome(_updateInfo || { downloadUrl });
     });
+
+    document.addEventListener('welcomeclosed', flushQueuedWelcomeUpdate);
 
     const toggleAutostart = document.getElementById('toggle-autostart');
     const toggleTray = document.getElementById('toggle-tray');

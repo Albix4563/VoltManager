@@ -25,6 +25,8 @@
 html[data-theme=light] .welcome-dot{background:rgba(15,34,52,.18)}
 .welcome-dot[data-active=true]{background:var(--md-sys-color-secondary-container,#00f1fe);width:24px}
 html[data-theme=light] .welcome-dot[data-active=true]{background:var(--vm-accent,#00aebb)}
+#welcome-overlay{z-index:120}
+.material-symbols-outlined{width:1em;min-width:1em;max-width:1em;overflow:hidden;text-align:center;flex:0 0 auto}
 </style>
 </head>
 <body class="bg-primary-container text-on-surface h-screen flex overflow-hidden selection:bg-secondary-container selection:text-on-secondary">
@@ -545,7 +547,7 @@ html[data-theme=light] .welcome-dot[data-active=true]{background:var(--vm-accent
                   <p class="text-label-sm text-on-surface-variant" data-i18n="set_show_welcome_sub">Ripeti la presentazione iniziale</p>
                 </div>
                 <button class="btn-ghost rounded-lg py-2 px-4 text-label-md flex items-center gap-xs" id="btn-show-welcome" type="button">
-                  <span class="material-symbols-outlined text-[18px]">play_presentation</span>
+                  <span class="material-symbols-outlined text-[18px]">play_arrow</span>
                   <span data-i18n="set_show_welcome_btn">Apri</span>
                 </button>
               </div>
