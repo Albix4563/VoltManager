@@ -49,6 +49,8 @@ public class MonitorService : IDisposable
             var (usedGb, pct) = ReadRam();
             var sensors = _sensors.Read();
 
+            double? finalCpuClock = sensors.CpuClock ?? ReadCpuClockWmi();
+
             Latest = new MetricsSnapshot
             {
                 Cpu = Math.Round(cpu, 1),
@@ -60,7 +62,7 @@ public class MonitorService : IDisposable
                 Disk = Math.Round(disk, 1),
                 CpuTemp = sensors.CpuTemp,
                 GpuTemp = sensors.GpuTemp,
-                CpuClock = sensors.CpuClock,
+                CpuClock = finalCpuClock,
                 RamClock = sensors.RamClock,
                 SensorsAvailable = _sensors.Available,
                 Sensors = sensors.Readings,
@@ -95,6 +97,23 @@ public class MonitorService : IDisposable
         }
         catch { }
         return (0, 0);
+    }
+
+    private double? ReadCpuClockWmi()
+    {
+        try
+        {
+            using var searcher = new ManagementObjectSearcher("SELECT CurrentClockSpeed FROM Win32_Processor");
+            foreach (var mo in searcher.Get())
+            {
+                if (mo["CurrentClockSpeed"] != null)
+                {
+                    return Convert.ToDouble(mo["CurrentClockSpeed"]);
+                }
+            }
+        }
+        catch { }
+        return null;
     }
 
     public void Dispose()

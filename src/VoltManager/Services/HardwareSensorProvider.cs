@@ -196,10 +196,9 @@ public static class SensorAggregation
 
     public static double? SelectCpuClock(IReadOnlyList<SensorReading> readings)
     {
-        var cpuClocks = readings.Where(r => r.Category == "cpu" && r.Type == "clock").ToList();
+        var cpuClocks = readings.Where(r => r.Category == "cpu" && r.Type == "clock" && !r.Name.Contains("Bus")).ToList();
         if (cpuClocks.Count == 0) return null;
-        // Usually "Bus Speed" or "Core #1", we can average core clocks or just return max.
-        var coreClocks = cpuClocks.Where(r => r.Name.Contains("Core")).ToList();
+        var coreClocks = cpuClocks.Where(r => r.Name.Contains("Core") || r.Name.Contains("CPU")).ToList();
         if (coreClocks.Count > 0) return coreClocks.Max(r => r.Value);
         return cpuClocks.Max(r => r.Value);
     }
