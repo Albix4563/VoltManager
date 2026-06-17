@@ -86,6 +86,12 @@ public class SettingsService
 
         if (!string.IsNullOrWhiteSpace(settings.SkippedVersion))
             settings.SkippedVersion = settings.SkippedVersion.Trim().TrimStart('v', 'V');
+
+        settings.UpdateChannel = settings.UpdateChannel switch
+        {
+            "stable" or "preview" or "dev" => settings.UpdateChannel,
+            _ => "stable",
+        };
     }
 
     private static void NormalizeHeavyAppDetectionSettings(HeavyAppDetectionSettings settings)

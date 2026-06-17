@@ -2,7 +2,7 @@ name: Release
 
 on:
   push:
-    branches: [main, Preview]
+    branches: [main, Preview, Dev]
 
 permissions:
   contents: write
@@ -22,8 +22,14 @@ jobs:
         shell: pwsh
         run: |
           $version = "1.0.${{ github.run_number }}"
+          $isDev = ('${{ github.ref_name }}' -eq 'Dev')
           $isPreview = ('${{ github.ref_name }}' -eq 'Preview')
-          if ($isPreview) {
+          $isPrerelease = $isDev -or $isPreview
+          
+          if ($isDev) {
+            $tag = "v$version-alpha"
+            $name = "VoltManager v$version-alpha (Dev)"
+          } elseif ($isPreview) {
             $tag = "v$version-beta"
             $name = "VoltManager v$version-beta (Preview)"
           } else {
@@ -33,8 +39,8 @@ jobs:
           "version=$version"            | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           "tag=$tag"                    | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           "name=$name"                  | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-          "is_preview=$($isPreview.ToString().ToLower())" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-          Write-Host "Release: $name (tag $tag, prerelease=$isPreview)"
+          "is_preview=$($isPrerelease.ToString().ToLower())" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          Write-Host "Release: $name (tag $tag, prerelease=$isPrerelease)"
 
       - uses: actions/setup-dotnet@v4
         with:

@@ -20,8 +20,10 @@
             autoUpdatesSub: 'Controlla automaticamente nuove versioni ogni 30 minuti',
             channelStable: 'Stabile',
             channelPreview: 'Preview (Beta)',
+            channelDev: 'Dev (Alpha)',
             channelBadgeStable: 'Canale: Stabile',
             channelBadgePreview: 'Canale: Preview (Beta)',
+            channelBadgeDev: 'Canale: Dev (Alpha)',
             snoozeFor: 'Rimanda di',
             snooze: 'Rimanda',
             skip: 'Salta versione',
@@ -45,8 +47,10 @@
             autoUpdatesSub: 'Automatically checks for new versions every 30 minutes',
             channelStable: 'Stable',
             channelPreview: 'Preview (Beta)',
+            channelDev: 'Dev (Alpha)',
             channelBadgeStable: 'Channel: Stable',
             channelBadgePreview: 'Channel: Preview (Beta)',
+            channelBadgeDev: 'Channel: Dev (Alpha)',
             snoozeFor: 'Snooze for',
             snooze: 'Snooze',
             skip: 'Skip version',
@@ -263,17 +267,18 @@
         if (newBadge) {
             newBadge.textContent = formatVersion(info.latestVersion);
             const isBeta = /-?beta/i.test(String(info.latestVersion || ''));
+            const isAlpha = /-?alpha/i.test(String(info.latestVersion || ''));
             let betaTag = document.getElementById('upd-modal-beta-tag');
-            if (isBeta) {
+            if (isBeta || isAlpha) {
                 if (!betaTag) {
                     betaTag = document.createElement('span');
                     betaTag.id = 'upd-modal-beta-tag';
-                    betaTag.textContent = 'BETA';
-                    betaTag.style.cssText =
-                        'margin-top:4px;padding:2px 8px;border-radius:9999px;font-size:11px;font-weight:700;' +
-                        'background:rgba(251,191,36,0.18);color:#fcd34d;border:1px solid rgba(251,191,36,0.45);';
                     newBadge.parentElement?.appendChild(betaTag);
                 }
+                betaTag.textContent = isAlpha ? 'ALPHA' : 'BETA';
+                betaTag.style.cssText = isAlpha 
+                    ? 'margin-top:4px;padding:2px 8px;border-radius:9999px;font-size:11px;font-weight:700;background:rgba(239,68,68,0.18);color:#f87171;border:1px solid rgba(239,68,68,0.45);'
+                    : 'margin-top:4px;padding:2px 8px;border-radius:9999px;font-size:11px;font-weight:700;background:rgba(251,191,36,0.18);color:#fcd34d;border:1px solid rgba(251,191,36,0.45);';
             } else if (betaTag) {
                 betaTag.remove();
             }
@@ -468,10 +473,13 @@
 
     function normalizeAutoUpdates(settings) {
         if (!settings.autoUpdates) {
-            settings.autoUpdates = { enabled: true, previewChannel: false, intervalMinutes: 30, snoozedUntilUtc: null, skippedVersion: null };
+            settings.autoUpdates = { enabled: true, updateChannel: 'stable', intervalMinutes: 30, snoozedUntilUtc: null, skippedVersion: null };
         }
         if (!Number.isFinite(settings.autoUpdates.intervalMinutes) || settings.autoUpdates.intervalMinutes < 5) {
             settings.autoUpdates.intervalMinutes = 30;
+        }
+        if (!['stable', 'preview', 'dev'].includes(settings.autoUpdates.updateChannel)) {
+            settings.autoUpdates.updateChannel = settings.autoUpdates.previewChannel ? 'preview' : 'stable';
         }
         return settings.autoUpdates;
     }
@@ -498,11 +506,15 @@
     }
 
     // Reflects the selected channel in the dropdown + the card badge.
-    function setChannelUi(preview) {
+    function setChannelUi(channel) {
         const select = document.getElementById('update-channel-select');
-        if (select) select.value = preview ? 'preview' : 'stable';
+        if (select) select.value = channel;
         const badgeText = document.getElementById('update-channel-badge-text');
-        if (badgeText) badgeText.textContent = preview ? lt('channelBadgePreview') : lt('channelBadgeStable');
+        if (badgeText) {
+            if (channel === 'dev') badgeText.textContent = lt('channelBadgeDev');
+            else if (channel === 'preview') badgeText.textContent = lt('channelBadgePreview');
+            else badgeText.textContent = lt('channelBadgeStable');
+        }
     }
 
     function wireAutoUpdateUi() {
@@ -530,15 +542,15 @@
             channelSelect.addEventListener('change', async () => {
                 if (!window.__voltSettings) return;
                 const settings = window.__voltSettings.get ? window.__voltSettings.get() : window.__voltSettings;
-                const preview = channelSelect.value === 'preview';
-                const prev = normalizeAutoUpdates(settings).previewChannel;
-                setChannelUi(preview);
-                normalizeAutoUpdates(settings).previewChannel = preview;
+                const channel = channelSelect.value;
+                const prev = normalizeAutoUpdates(settings).updateChannel;
+                setChannelUi(channel);
+                normalizeAutoUpdates(settings).updateChannel = channel;
                 try {
-                    await Host.call('setPreviewUpdates', { enabled: preview });
+                    await Host.call('setUpdateChannel', { channel });
                 } catch {
                     setChannelUi(prev);
-                    normalizeAutoUpdates(settings).previewChannel = prev;
+                    normalizeAutoUpdates(settings).updateChannel = prev;
                 }
             });
         }
@@ -624,7 +636,7 @@
 
         mountAutoUpdateUi();
         setToggle(document.getElementById('toggle-auto-updates'), normalizeAutoUpdates(settings).enabled);
-        setChannelUi(normalizeAutoUpdates(settings).previewChannel);
+        setChannelUi(normalizeAutoUpdates(settings).updateChannel);
         wireAutoUpdateUi();
 
         mountAutoShutdownUi();

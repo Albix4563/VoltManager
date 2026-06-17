@@ -27,7 +27,10 @@ public class UpdateService
     public async Task<UpdateInfo> CheckForUpdatesAsync()
     {
         string repo = _settings.Current.UpdateRepo;
-        bool preview = _settings.Current.AutoUpdates?.PreviewChannel == true;
+        string channel = _settings.Current.AutoUpdates?.UpdateChannel ?? "stable";
+        bool isDev = channel == "dev";
+        bool isPreview = channel == "preview";
+        bool isPrerelease = isDev || isPreview;
         try
         {
             string? latestVersion = null, notes = null, downloadUrl = null;
@@ -37,7 +40,7 @@ public class UpdateService
             JsonElement root = default;
             bool found = false;
 
-            if (preview)
+            if (isPrerelease)
             {
                 relResp = await _http.GetAsync($"https://api.github.com/repos/{repo}/releases?per_page=10");
                 if (relResp.IsSuccessStatusCode)
@@ -47,9 +50,19 @@ public class UpdateService
                     {
                         if (rel.TryGetProperty("prerelease", out var p) && p.GetBoolean())
                         {
-                            root = rel.Clone();
-                            found = true;
-                            break;
+                            var t = rel.TryGetProperty("tag_name", out var tag) ? tag.GetString() ?? "" : "";
+                            if (isDev && t.Contains("-alpha", StringComparison.OrdinalIgnoreCase))
+                            {
+                                root = rel.Clone();
+                                found = true;
+                                break;
+                            }
+                            else if (isPreview && !t.Contains("-alpha", StringComparison.OrdinalIgnoreCase))
+                            {
+                                root = rel.Clone();
+                                found = true;
+                                break;
+                            }
                         }
                     }
                 }
@@ -72,8 +85,13 @@ public class UpdateService
             if (found)
             {
                 latestVersion = root.GetProperty("tag_name").GetString()?.TrimStart('v', 'V');
-                if (preview && latestVersion != null && !latestVersion.Contains("BETA", StringComparison.OrdinalIgnoreCase))
-                    latestVersion += "-BETA";
+                if (isPrerelease && latestVersion != null)
+                {
+                    if (isDev && !latestVersion.Contains("ALPHA", StringComparison.OrdinalIgnoreCase))
+                        latestVersion += "-ALPHA";
+                    else if (isPreview && !latestVersion.Contains("BETA", StringComparison.OrdinalIgnoreCase) && !latestVersion.Contains("ALPHA", StringComparison.OrdinalIgnoreCase))
+                        latestVersion += "-BETA";
+                }
 
                 notes = root.TryGetProperty("body", out var b) ? b.GetString() : null;
                 if (root.TryGetProperty("assets", out var assets))
@@ -96,7 +114,8 @@ public class UpdateService
             }
 
             // Changelog from branch commits.
-            var (commits, commitsOk) = await FetchCommitsAsync(repo, preview ? "Preview" : "main");
+            var targetBranch = isDev ? "Dev" : (isPreview ? "Preview" : "main");
+            var (commits, commitsOk) = await FetchCommitsAsync(repo, targetBranch);
             if (!commitsOk && !hasRelease)
             {
                 return new UpdateInfo { Status = "norelease", CurrentVersion = CurrentVersion, Message = "Repository non trovato o nessuna release pubblicata." };
@@ -115,8 +134,8 @@ public class UpdateService
                 DownloadUrl = downloadUrl,
                 Commits = commits,
                 Message = updateAvailable
-                    ? $"Nuova versione {(preview ? "BETA " : "")}{latestVersion} disponibile."
-                    : hasRelease ? "VoltManager è aggiornato." : $"Nessuna release pubblicata. Mostro gli ultimi commit del branch {(preview ? "Preview" : "main")}.",
+                    ? $"Nuova versione {(isDev ? "ALPHA " : (isPreview ? "BETA " : ""))}{latestVersion} disponibile."
+                    : hasRelease ? "VoltManager è aggiornato." : $"Nessuna release pubblicata. Mostro gli ultimi commit del branch {targetBranch}.",
             };
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
@@ -156,7 +175,10 @@ public class UpdateService
     public async Task<ReleaseHistory> GetReleaseHistoryAsync()
     {
         string repo = _settings.Current.UpdateRepo;
-        bool preview = _settings.Current.AutoUpdates?.PreviewChannel == true;
+        string channel = _settings.Current.AutoUpdates?.UpdateChannel ?? "stable";
+        bool isDev = channel == "dev";
+        bool isPreview = channel == "preview";
+        bool isPrerelease = isDev || isPreview;
         try
         {
             var resp = await _http.GetAsync($"https://api.github.com/repos/{repo}/releases?per_page=100");
@@ -171,10 +193,19 @@ public class UpdateService
                 {
                     var version = (r.TryGetProperty("tag_name", out var t) ? t.GetString() : null)?.TrimStart('v', 'V') ?? "";
                     var p = r.TryGetProperty("prerelease", out var prereleaseProp) ? prereleaseProp.GetBoolean() : false;
-                    // Filtro per canale: Beta vede solo prerelease, Stabile solo le normali.
-                    if (p != preview) continue;
-                    if (preview && version.Length > 0 && p && !version.Contains("BETA", StringComparison.OrdinalIgnoreCase))
-                        version += "-BETA";
+                    // Filtro per canale: Prerelease vede solo prerelease, Stabile solo le normali.
+                    if (p != isPrerelease) continue;
+                    if (isPrerelease)
+                    {
+                        bool isAlpha = version.Contains("-alpha", StringComparison.OrdinalIgnoreCase);
+                        if (isDev && !isAlpha) continue;
+                        if (isPreview && isAlpha) continue;
+
+                        if (isDev && version.Length > 0 && !version.Contains("ALPHA", StringComparison.OrdinalIgnoreCase))
+                            version += "-ALPHA";
+                        else if (isPreview && version.Length > 0 && !version.Contains("BETA", StringComparison.OrdinalIgnoreCase) && !version.Contains("ALPHA", StringComparison.OrdinalIgnoreCase))
+                            version += "-BETA";
+                    }
 
                     releases.Add(new ReleaseEntry
                     {
@@ -199,14 +230,15 @@ public class UpdateService
             }
 
             // No published release: fall back to recent branch commits.
-            var (commits, commitsOk) = await FetchCommitsAsync(repo, preview ? "Preview" : "main");
+            var targetBranch = isDev ? "Dev" : (isPreview ? "Preview" : "main");
+            var (commits, commitsOk) = await FetchCommitsAsync(repo, targetBranch);
             return new ReleaseHistory
             {
                 Status = "norelease",
                 CurrentVersion = CurrentVersion,
                 Commits = commits,
                 Message = commitsOk
-                    ? $"Nessuna release pubblicata. Mostro gli ultimi commit del branch {(preview ? "Preview" : "main")}."
+                    ? $"Nessuna release pubblicata. Mostro gli ultimi commit del branch {targetBranch}."
                     : "Repository non trovato o nessuna release pubblicata.",
             };
         }
