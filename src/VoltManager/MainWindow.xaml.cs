@@ -83,6 +83,8 @@ public partial class MainWindow : Window
         _bridge.Attach();
         _bridge.ExitRequested += () => Dispatcher.Invoke(() => { _exiting = true; _app.ExitApp(); });
         _bridge.MinimizeToTrayRequested += () => Dispatcher.Invoke(HideToTray);
+        _bridge.GamingModeRequested += SetGamingModeFromBridgeAsync;
+        _bridge.GamingModeStateRequested += GetGamingModeState;
 
         _app.Monitor.MetricsUpdated += OnMetricsUpdated;
         _app.ActivePlanChanged += p => _bridge.PushEvent("activePlanChanged", new { plan = p?.PlanId, guid = p?.Guid, name = p?.Name });
@@ -92,6 +94,7 @@ public partial class MainWindow : Window
             _bridge.PushEvent("manualOverrideChanged", new { @override = o });
             if (!IsPerformanceOverride(o, DateTime.UtcNow))
                 _gamingReminder.Stop();
+            PushGamingModeState();
         };
         _app.Awake.StateChanged += s => _bridge.PushEvent("keepAwakeChanged", s);
         _app.PowerSourcePlans.StateChanged += s => _bridge.PushEvent("powerSourcePlanChanged", s);
@@ -162,6 +165,66 @@ public partial class MainWindow : Window
     private static bool IsPerformanceOverride(ManualOverride? manualOverride, DateTime nowUtc)
         => manualOverride?.IsActive(nowUtc) == true &&
            string.Equals(manualOverride.Plan, "performance", StringComparison.OrdinalIgnoreCase);
+
+    private bool IsGamingModeActive()
+        => _gamingReminder.Active && IsPerformanceOverride(_app.Settings.Current.Override, DateTime.UtcNow);
+
+    private object GetGamingModeState()
+    {
+        bool active = IsGamingModeActive();
+        return new { active, plan = active ? "performance" : null, @override = _app.Settings.Current.Override };
+    }
+
+    private void PushGamingModeState()
+        => _bridge?.PushEvent("gamingModeChanged", GetGamingModeState());
+
+    private async Task<object?> SetGamingModeFromBridgeAsync(bool enabled)
+    {
+        bool success = enabled
+            ? await EnableGamingModeAsync()
+            : await DisableGamingModeAsync();
+
+        return new { success, state = GetGamingModeState() };
+    }
+
+    private async Task<bool> EnableGamingModeAsync()
+    {
+        _gamingReminder.Start(DateTime.UtcNow);
+
+        try
+        {
+            bool applied = await Task.Run(() => _app.SetManualOverride(PlanId.Performance, null));
+            if (applied)
+            {
+                PushGamingModeState();
+                return true;
+            }
+        }
+        catch
+        {
+            // Fall through to the same recovery path used when powercfg returns failure.
+        }
+
+        _gamingReminder.Stop();
+        PushGamingModeState();
+        return false;
+    }
+
+    private async Task<bool> DisableGamingModeAsync()
+    {
+        _gamingReminder.Stop();
+        try
+        {
+            await Task.Run(_app.SetAutomaticMode);
+            PushGamingModeState();
+            return true;
+        }
+        catch
+        {
+            PushGamingModeState();
+            return false;
+        }
+    }
 
     private void ApplyHostTheme(string? theme)
     {
@@ -372,7 +435,7 @@ public partial class MainWindow : Window
     private void TrayMenu_Opened(object sender, RoutedEventArgs e)
     {
         TrayActivePlanItem.Header = "Piano attivo: " + PlanDisplayName(_app.ActivePlan);
-        TrayGamingPlanItem.IsChecked = _gamingReminder.Active;
+        TrayGamingPlanItem.IsChecked = IsGamingModeActive();
         TrayKeepAwakeItem.IsChecked = _app.Awake.GetState().Enabled;
         TrayAutomationItem.IsChecked = _app.Settings.Current.MasterAutomationEnabled;
         TrayClearOverrideItem.Visibility = _app.Settings.Current.Override != null
@@ -382,21 +445,14 @@ public partial class MainWindow : Window
 
     private async void TrayGamingPlan_Click(object sender, RoutedEventArgs e)
     {
-        TrayGamingPlanItem.IsChecked = true;
-        _gamingReminder.Start(DateTime.UtcNow);
+        bool enable = TrayGamingPlanItem.IsChecked;
+        bool applied = enable
+            ? await EnableGamingModeAsync()
+            : await DisableGamingModeAsync();
 
-        try
-        {
-            bool applied = await Task.Run(() => _app.SetManualOverride(PlanId.Performance, null));
-            if (applied) return;
-        }
-        catch
-        {
-            // Fall through to the same recovery path used when powercfg returns failure.
-        }
+        TrayGamingPlanItem.IsChecked = IsGamingModeActive();
+        if (applied || !enable) return;
 
-        _gamingReminder.Stop();
-        TrayGamingPlanItem.IsChecked = false;
         MessageBox.Show(
             "Non sono riuscito ad attivare il piano gaming. Verifica che il piano Prestazioni sia disponibile e riprova.",
             "Piano gaming",

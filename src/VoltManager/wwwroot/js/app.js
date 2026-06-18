@@ -51,6 +51,33 @@
 
     let systemWired = false;
     let startupLoaded = false;
+    let gamingModeActive = false;
+
+    function coerceGamingModeState(data) {
+        if (data && data.state) return data.state;
+        return data || { active: false };
+    }
+
+    function applyGamingModeState(data) {
+        const state = coerceGamingModeState(data);
+        gamingModeActive = !!state.active;
+        document.dispatchEvent(new CustomEvent('gamingmodechanged', { detail: state }));
+        renderMonitoringState();
+    }
+
+    async function setGamingMode(enabled) {
+        if (!Host.available) return { success: false, state: { active: gamingModeActive } };
+        const res = await Host.call('setGamingMode', { enabled: !!enabled });
+        if (res && res.success === false) throw new Error('Modalità gaming non aggiornata');
+        applyGamingModeState(res);
+        return res;
+    }
+
+    window.__voltGamingMode = {
+        isActive: () => gamingModeActive,
+        apply: applyGamingModeState,
+        setEnabled: setGamingMode,
+    };
 
     function t(key) {
         const lang = window.I18n && I18n.getLang ? I18n.getLang() : 'it';
@@ -485,6 +512,13 @@
     function renderMonitoringState() {
         if (!window.__voltSettings || !btnMonitoring) return;
         const settings = window.__voltSettings.get();
+        if (gamingModeActive) {
+            monitoringDot.className = 'w-2 h-2 rounded-full bg-secondary-container animate-pulse shadow-[0_0_8px_#00f1fe]';
+            monitoringLabel.dataset.i18n = 'nav_gaming_mode';
+            monitoringLabel.textContent = I18n.t('nav_gaming_mode');
+            return;
+        }
+
         // It's active only if master automation is on AND no manual override is active
         const isPaused = !settings.masterAutomationEnabled || !!settings.override;
         
@@ -502,6 +536,15 @@
     if (btnMonitoring) {
         btnMonitoring.addEventListener('click', async () => {
             if (!window.__voltSettings || !Host.available) return;
+            if (gamingModeActive) {
+                try {
+                    await setGamingMode(false);
+                } catch (e) {
+                    console.error('Failed to disable gaming mode', e);
+                }
+                return;
+            }
+
             const settings = window.__voltSettings.get();
             const isPaused = !settings.masterAutomationEnabled || !!settings.override;
             
@@ -533,6 +576,9 @@
     boot();
 
     if (Host.available) {
+        Host.on('gamingModeChanged', applyGamingModeState);
+        Host.call('getGamingMode').then(applyGamingModeState).catch(() => {});
+
         Host.on('automationStateChanged', () => {
             // Re-fetch settings since they changed
             Host.call('getSettings').then(res => {

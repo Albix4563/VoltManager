@@ -144,6 +144,8 @@
     const clearOverrideBtn = document.getElementById('btn-clear-manual-override');
     const powerSourcePlanHome = document.getElementById('pref-power-source-plan-home');
     const powerSourcePlanHomeToggle = document.getElementById('toggle-power-source-plan-home');
+    const gamingModeHome = document.getElementById('pref-gaming-mode-home');
+    const gamingModeHomeToggle = document.getElementById('toggle-gaming-mode-home');
     const overrideOverlay = document.getElementById('manual-override-overlay');
     const overridePlanLabel = document.getElementById('manual-override-plan');
     const overrideWarning = document.getElementById('manual-override-warning');
@@ -246,6 +248,30 @@
         }
     }
 
+    function coerceGamingModeState(data) {
+        if (data && data.state) return data.state;
+        return data || { active: false };
+    }
+
+    function renderGamingModeState(data) {
+        const state = coerceGamingModeState(data);
+        setMiniToggle(gamingModeHomeToggle, !!state.active);
+    }
+
+    async function setGamingModeFromHome(enabled) {
+        if (!Host.available) return;
+        renderGamingModeState({ active: enabled });
+        try {
+            const res = window.__voltGamingMode && window.__voltGamingMode.setEnabled
+                ? await window.__voltGamingMode.setEnabled(enabled)
+                : await Host.call('setGamingMode', { enabled });
+            renderGamingModeState(res);
+        } catch (err) {
+            console.error('setGamingMode failed', err);
+            renderGamingModeState({ active: !enabled });
+        }
+    }
+
     function resetOverrideModal() {
         pendingForever = false;
         pendingHours = null;
@@ -342,6 +368,18 @@
         }
     });
 
+    gamingModeHome?.addEventListener('click', () => {
+        const enable = gamingModeHomeToggle?.dataset.on !== 'true';
+        setGamingModeFromHome(enable);
+    });
+
+    gamingModeHome?.addEventListener('keydown', (event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+        event.preventDefault();
+        const enable = gamingModeHomeToggle?.dataset.on !== 'true';
+        setGamingModeFromHome(enable);
+    });
+
     Host.on('activePlanChanged', (data) => {
         reflectPlan(data.plan ? data.plan : null);
     });
@@ -355,6 +393,8 @@
     });
 
     Host.on('powerSourcePlanChanged', renderPowerSourcePlanState);
+    Host.on('gamingModeChanged', renderGamingModeState);
+    document.addEventListener('gamingmodechanged', (event) => renderGamingModeState(event.detail));
 
     document.addEventListener('langchanged', () => {
         renderOverrideStatus(activeOverride);
@@ -390,5 +430,6 @@
             }
         }).catch(() => {});
         Host.call('getPowerSourcePlanState').then(renderPowerSourcePlanState).catch(() => {});
+        Host.call('getGamingMode').then(renderGamingModeState).catch(() => {});
     }
 })();

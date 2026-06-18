@@ -34,6 +34,8 @@ public class HostBridge
 
     public event Action? ExitRequested;
     public event Action? MinimizeToTrayRequested;
+    public event Func<bool, Task<object?>>? GamingModeRequested;
+    public event Func<object?>? GamingModeStateRequested;
 
     public HostBridge(WebView2 webView, HardwareInfoService hardware, PowerPlanService power,
         SettingsService settings, UpdateService updates, StartupService startup, App app)
@@ -152,6 +154,17 @@ public class HostBridge
             case "clearManualOverride":
                 await Task.Run(_app.ClearManualOverride);
                 return new { success = true, @override = _settings.Current.Override };
+
+            case "getGamingMode":
+                return GamingModeStateRequested?.Invoke() ?? new { active = false };
+
+            case "setGamingMode":
+            {
+                bool enabled = payload.GetProperty("enabled").GetBoolean();
+                if (GamingModeRequested == null)
+                    throw new InvalidOperationException("Controllo modalità gaming non disponibile");
+                return await GamingModeRequested(enabled);
+            }
 
             case "getSettings":
                 return new
