@@ -223,13 +223,13 @@ public partial class App : Application
                 var now = DateTime.UtcNow;
                 ClearExpiredManualOverride(now);
 
+                if (HandlePowerSourcePlans(now))
+                    return;
+
                 if (HandleAppPowerProfiles(now))
                     return;
 
                 if (HandleHeavyAppDetection(now))
-                    return;
-
-                if (HandlePowerSourcePlans(now))
                     return;
 
                 var target = Automation.Evaluate(avg, now, ActivePlan?.PlanId, Settings.Current);

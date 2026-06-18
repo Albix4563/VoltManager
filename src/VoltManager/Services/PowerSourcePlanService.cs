@@ -3,6 +3,8 @@ using VoltManager.Models;
 
 namespace VoltManager.Services;
 
+public record PowerSourceSnapshot(bool? PluggedIn, int? BatteryPercent);
+
 public record PowerSourcePlanDecision
 {
     public PlanId? TargetPlan { get; init; }
@@ -12,21 +14,25 @@ public record PowerSourcePlanDecision
 
 public sealed class PowerSourcePlanService
 {
+    private const int LowBatteryThresholdPercent = 20;
+
     private readonly SettingsService _settings;
-    private readonly Func<bool?> _powerSourceReader;
+    private readonly Func<PowerSourceSnapshot?> _powerSourceReader;
     private readonly object _lock = new();
 
     private bool _acSessionActive;
     private PlanId? _planBeforeAcSession;
+    private bool _lowBatterySessionActive;
+    private PlanId? _planBeforeLowBatterySession;
     private PowerSourcePlanState _current = new();
 
     public event Action<PowerSourcePlanState>? StateChanged;
 
-    public PowerSourcePlanService(SettingsService settings, Func<bool?>? powerSourceReader = null)
+    public PowerSourcePlanService(SettingsService settings, Func<PowerSourceSnapshot?>? powerSourceReader = null)
     {
         _settings = settings;
-        _powerSourceReader = powerSourceReader ?? GetSystemPluggedInState;
-        _current = BuildState(null, null, false, "");
+        _powerSourceReader = powerSourceReader ?? GetSystemPowerSourceSnapshot;
+        _current = BuildState(new PowerSourceSnapshot(null, null), null, false, "");
     }
 
     public PowerSourcePlanState Current
@@ -39,46 +45,56 @@ public sealed class PowerSourcePlanService
         lock (_lock)
         {
             var cfg = EnsureSettings();
-            bool? pluggedIn = _powerSourceReader();
+            var source = NormalizeSnapshot(_powerSourceReader());
+
+            if (IsLowBatteryOnDc(source))
+                return KeepLowBatterySaver(activePlan, source, manualOverrideActive);
+
+            var planBeforeLowBattery = EndLowBatterySessionIfNeeded(source);
+            if (_lowBatterySessionActive)
+                return KeepLowBatterySaver(activePlan, source, manualOverrideActive);
 
             if (manualOverrideActive)
-                return Decision(null, false, pluggedIn, true, "manual_override");
+                return Decision(null, false, source, manualOverrideActive, "manual_override");
 
             if (!cfg.Enabled)
             {
-                if (_acSessionActive)
+                if (_acSessionActive || planBeforeLowBattery != null)
                 {
-                    var target = _planBeforeAcSession ?? PlanId.Balanced;
-                    ClearSession();
-                    return Decision(target, true, pluggedIn, manualOverrideActive, "disabled_restore");
+                    var target = _planBeforeAcSession ?? planBeforeLowBattery ?? PlanId.Balanced;
+                    ClearAcSession();
+                    return Decision(activePlan == target ? null : target, true, source, manualOverrideActive, "disabled_restore");
                 }
 
-                return Decision(null, false, pluggedIn, manualOverrideActive, "disabled");
+                return Decision(null, false, source, manualOverrideActive, "disabled");
             }
 
-            if (pluggedIn == null)
-                return Decision(null, false, null, false, "unknown_power_source");
+            if (source.PluggedIn == null)
+                return Decision(null, false, source, false, "unknown_power_source");
 
-            if (pluggedIn.Value)
+            if (source.PluggedIn.Value)
             {
                 if (!_acSessionActive)
                 {
-                    _planBeforeAcSession = activePlan == cfg.PluggedPlan ? PlanId.Balanced : activePlan;
+                    _planBeforeAcSession = planBeforeLowBattery ?? (activePlan == cfg.PluggedPlan ? PlanId.Balanced : activePlan);
                     _acSessionActive = true;
                 }
 
                 var target = activePlan == cfg.PluggedPlan ? (PlanId?)null : cfg.PluggedPlan;
-                return Decision(target, true, pluggedIn, false, target == null ? "plugged_active" : "plugged_switch");
+                return Decision(target, true, source, false, target == null ? "plugged_active" : "plugged_switch");
             }
 
             if (_acSessionActive)
             {
                 var target = _planBeforeAcSession ?? PlanId.Balanced;
-                ClearSession();
-                return Decision(activePlan == target ? null : target, true, pluggedIn, false, "unplugged_restore");
+                ClearAcSession();
+                return Decision(activePlan == target ? null : target, true, source, false, "unplugged_restore");
             }
 
-            return Decision(null, false, pluggedIn, false, "unplugged_idle");
+            if (planBeforeLowBattery != null)
+                return Decision(activePlan == planBeforeLowBattery ? null : planBeforeLowBattery, true, source, false, "low_battery_restore");
+
+            return Decision(null, false, source, false, "unplugged_idle");
         }
     }
 
@@ -86,7 +102,7 @@ public sealed class PowerSourcePlanService
     {
         lock (_lock)
         {
-            var state = BuildState(_powerSourceReader(), null, manualOverrideActive, "refresh");
+            var state = BuildState(NormalizeSnapshot(_powerSourceReader()), null, manualOverrideActive, "refresh");
             Publish(state);
             return state;
         }
@@ -102,8 +118,8 @@ public sealed class PowerSourcePlanService
 
     public void ClearSession()
     {
-        _acSessionActive = false;
-        _planBeforeAcSession = null;
+        ClearAcSession();
+        ClearLowBatterySession();
     }
 
     private PowerSourcePlanSettings EnsureSettings()
@@ -112,10 +128,50 @@ public sealed class PowerSourcePlanService
         return _settings.Current.PowerSourcePlan;
     }
 
-    private PowerSourcePlanDecision Decision(PlanId? targetPlan, bool blocksLowerPriority, bool? pluggedIn,
+    private PowerSourcePlanDecision KeepLowBatterySaver(PlanId? activePlan, PowerSourceSnapshot source, bool manualOverrideActive)
+    {
+        if (!_lowBatterySessionActive)
+        {
+            _planBeforeLowBatterySession = activePlan == PlanId.PowerSaver ? PlanId.Balanced : activePlan;
+            _lowBatterySessionActive = true;
+            ClearAcSession();
+        }
+
+        var target = activePlan == PlanId.PowerSaver ? (PlanId?)null : PlanId.PowerSaver;
+        return Decision(target, true, source, manualOverrideActive, target == null ? "low_battery_active" : "low_battery_switch");
+    }
+
+    private PlanId? EndLowBatterySessionIfNeeded(PowerSourceSnapshot source)
+    {
+        if (!_lowBatterySessionActive)
+            return null;
+
+        bool shouldEnd = source.PluggedIn == true
+            || (source.PluggedIn == false && source.BatteryPercent is >= LowBatteryThresholdPercent);
+        if (!shouldEnd)
+            return null;
+
+        var previous = _planBeforeLowBatterySession;
+        ClearLowBatterySession();
+        return previous;
+    }
+
+    private void ClearAcSession()
+    {
+        _acSessionActive = false;
+        _planBeforeAcSession = null;
+    }
+
+    private void ClearLowBatterySession()
+    {
+        _lowBatterySessionActive = false;
+        _planBeforeLowBatterySession = null;
+    }
+
+    private PowerSourcePlanDecision Decision(PlanId? targetPlan, bool blocksLowerPriority, PowerSourceSnapshot source,
         bool manualOverrideActive, string message)
     {
-        var state = BuildState(pluggedIn, targetPlan, manualOverrideActive, message);
+        var state = BuildState(source, targetPlan, manualOverrideActive, message);
         Publish(state);
         return new PowerSourcePlanDecision
         {
@@ -125,17 +181,19 @@ public sealed class PowerSourcePlanService
         };
     }
 
-    private PowerSourcePlanState BuildState(bool? pluggedIn, PlanId? targetPlan, bool manualOverrideActive, string message)
+    private PowerSourcePlanState BuildState(PowerSourceSnapshot source, PlanId? targetPlan, bool manualOverrideActive, string message)
     {
         var cfg = EnsureSettings();
         return new PowerSourcePlanState
         {
             Enabled = cfg.Enabled,
-            PowerSourceKnown = pluggedIn != null,
-            PluggedIn = pluggedIn == true,
-            Active = _acSessionActive,
+            PowerSourceKnown = source.PluggedIn != null,
+            PluggedIn = source.PluggedIn == true,
+            BatteryPercent = source.BatteryPercent,
+            LowBatteryActive = _lowBatterySessionActive,
+            Active = _acSessionActive || _lowBatterySessionActive,
             PluggedPlan = cfg.PluggedPlan,
-            SavedPlan = _planBeforeAcSession,
+            SavedPlan = _planBeforeAcSession ?? _planBeforeLowBatterySession,
             TargetPlan = targetPlan,
             ManualOverrideActive = manualOverrideActive,
             Message = message,
@@ -154,6 +212,8 @@ public sealed class PowerSourcePlanService
         => a.Enabled == b.Enabled
            && a.PowerSourceKnown == b.PowerSourceKnown
            && a.PluggedIn == b.PluggedIn
+           && a.BatteryPercent == b.BatteryPercent
+           && a.LowBatteryActive == b.LowBatteryActive
            && a.Active == b.Active
            && a.PluggedPlan == b.PluggedPlan
            && a.SavedPlan == b.SavedPlan
@@ -161,17 +221,29 @@ public sealed class PowerSourcePlanService
            && a.ManualOverrideActive == b.ManualOverrideActive
            && a.Message == b.Message;
 
-    private static bool? GetSystemPluggedInState()
+    private static bool IsLowBatteryOnDc(PowerSourceSnapshot source)
+        => source.PluggedIn == false && source.BatteryPercent is < LowBatteryThresholdPercent;
+
+    private static PowerSourceSnapshot NormalizeSnapshot(PowerSourceSnapshot? source)
+        => new(source?.PluggedIn, NormalizeBatteryPercent(source?.BatteryPercent));
+
+    private static int? NormalizeBatteryPercent(int? value)
+        => value is >= 0 and <= 100 ? value.Value : null;
+
+    private static PowerSourceSnapshot? GetSystemPowerSourceSnapshot()
     {
         if (!GetSystemPowerStatus(out var status))
             return null;
 
-        return status.ACLineStatus switch
+        bool? pluggedIn = status.ACLineStatus switch
         {
             0 => false,
             1 => true,
             _ => null,
         };
+
+        int? batteryPercent = status.BatteryLifePercent == 255 ? null : status.BatteryLifePercent;
+        return new PowerSourceSnapshot(pluggedIn, batteryPercent);
     }
 
     [DllImport("kernel32.dll", SetLastError = true)]

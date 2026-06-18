@@ -143,6 +143,8 @@ public record PowerSourcePlanState
     [JsonPropertyName("enabled")] public bool Enabled { get; init; }
     [JsonPropertyName("powerSourceKnown")] public bool PowerSourceKnown { get; init; }
     [JsonPropertyName("pluggedIn")] public bool PluggedIn { get; init; }
+    [JsonPropertyName("batteryPercent")] public int? BatteryPercent { get; init; }
+    [JsonPropertyName("lowBatteryActive")] public bool LowBatteryActive { get; init; }
     [JsonPropertyName("active")] public bool Active { get; init; }
     [JsonPropertyName("pluggedPlan")] public PlanId PluggedPlan { get; init; } = PlanId.Performance;
     [JsonPropertyName("savedPlan")] public PlanId? SavedPlan { get; init; }
