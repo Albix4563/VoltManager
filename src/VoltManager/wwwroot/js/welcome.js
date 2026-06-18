@@ -7,7 +7,7 @@
 (function () {
     if (!window.Host || !Host.available) return;
 
-    const STEP_COUNT = 3; // 0 intro, 1 features, 2 preferences
+    const STEP_COUNT = 4; // 0 intro, 1 theme, 2 features, 3 preferences
     let step = 0;
     let wired = false;
 
@@ -102,6 +102,15 @@
 
     // ---- Control wiring (reuses existing mechanisms) ----
 
+    function updateThemeCards(theme) {
+        theme = theme === 'light' ? 'light' : 'dark';
+        overlay.querySelectorAll('.welcome-theme-card').forEach(card => {
+            const selected = card.dataset.welcomeTheme === theme;
+            card.dataset.selected = selected ? 'true' : 'false';
+            card.setAttribute('aria-pressed', selected ? 'true' : 'false');
+        });
+    }
+
     function applyTheme(val) {
         const theme = val === 'light' ? 'light' : 'dark';
         if (window.VoltTheme && VoltTheme.apply) VoltTheme.apply(theme);
@@ -110,17 +119,27 @@
             document.documentElement.classList.toggle('dark', theme === 'dark');
             document.documentElement.classList.toggle('light', theme === 'light');
         }
+        updateThemeCards(theme);
         // Keep the Settings theme dropdown in sync if mounted.
         const settingsSelect = document.getElementById('theme-select');
         if (settingsSelect) settingsSelect.value = theme;
+    }
+
+    function setTheme(val) {
+        const theme = val === 'light' ? 'light' : 'dark';
+        applyTheme(theme);
+        const settings = getSettings();
+        if (settings) {
+            settings.theme = theme;
+            save();
+        }
     }
 
     function syncControlsFromSettings() {
         const settings = getSettings();
 
         // Theme
-        const themeSelect = document.getElementById('welcome-theme-select');
-        if (themeSelect) themeSelect.value = (settings && settings.theme === 'light') ? 'light' : 'dark';
+        updateThemeCards((settings && settings.theme === 'light') ? 'light' : 'dark');
 
         // Language
         const langSelect = document.getElementById('welcome-lang-select');
@@ -145,12 +164,8 @@
         });
 
         // Theme
-        const themeSelect = document.getElementById('welcome-theme-select');
-        themeSelect?.addEventListener('change', (e) => {
-            const val = e.target.value === 'light' ? 'light' : 'dark';
-            applyTheme(val);
-            const settings = getSettings();
-            if (settings) { settings.theme = val; save(); }
+        overlay.querySelectorAll('.welcome-theme-card').forEach(card => {
+            card.addEventListener('click', () => setTheme(card.dataset.welcomeTheme));
         });
 
         // Language

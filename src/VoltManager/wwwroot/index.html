@@ -30,6 +30,24 @@ html[data-theme=light] .welcome-dot{background:rgba(15,34,52,.18)}
 .welcome-dot[data-active=true]{background:var(--md-sys-color-secondary-container,#00f1fe);width:24px}
 html[data-theme=light] .welcome-dot[data-active=true]{background:var(--vm-accent,#00aebb)}
 #welcome-overlay{z-index:120}
+.welcome-theme-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.welcome-theme-card{position:relative;display:flex;flex-direction:column;gap:14px;min-height:190px;padding:18px;border-radius:24px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.045);box-shadow:0 18px 44px rgba(0,0,0,.18);text-align:left;cursor:pointer;transition:transform .2s ease,border-color .2s ease,background .2s ease,box-shadow .2s ease}
+.welcome-theme-card:hover{transform:translateY(-2px);border-color:rgba(0,241,254,.38);background:rgba(255,255,255,.07)}
+.welcome-theme-card[data-selected=true]{border-color:var(--vm-accent,#00aebb);box-shadow:0 18px 44px rgba(0,0,0,.2),0 0 0 1px rgba(0,241,254,.28),0 0 28px rgba(0,241,254,.14)}
+.welcome-theme-card .welcome-theme-check{position:absolute;top:14px;right:14px;width:28px;min-width:28px;max-width:28px;height:28px;border-radius:9999px;display:flex;align-items:center;justify-content:center;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.06);color:transparent;transition:all .2s ease}
+.welcome-theme-card[data-selected=true] .welcome-theme-check{background:var(--vm-accent,#00aebb);border-color:var(--vm-accent,#00aebb);color:var(--vm-on-accent,#001f24)}
+.welcome-theme-preview{display:block;height:82px;border-radius:18px;padding:12px;border:1px solid rgba(255,255,255,.12);overflow:hidden}
+.welcome-theme-preview.dark-preview{background:linear-gradient(135deg,#07111f,#101a33)}
+.welcome-theme-preview.light-preview{background:linear-gradient(135deg,#f8fbff,#dfeef3);border-color:rgba(15,34,52,.12)}
+.welcome-theme-preview-bar{display:block;height:10px;width:42%;border-radius:9999px;margin-bottom:10px;background:rgba(0,241,254,.7)}
+.welcome-theme-preview-line{height:8px;border-radius:9999px;margin-bottom:8px;background:rgba(255,255,255,.24)}
+.welcome-theme-preview.light-preview .welcome-theme-preview-bar{background:var(--vm-accent,#00aebb)}
+.welcome-theme-preview.light-preview .welcome-theme-preview-line{background:rgba(15,34,52,.16)}
+html[data-theme=light] .welcome-theme-card{border-color:rgba(15,34,52,.12);background:rgba(255,255,255,.72);box-shadow:0 18px 44px rgba(15,34,52,.12)}
+html[data-theme=light] .welcome-theme-card:hover{border-color:rgba(0,174,187,.34);background:rgba(255,255,255,.92)}
+html[data-theme=light] .welcome-theme-card[data-selected=true]{border-color:var(--vm-accent,#00aebb);box-shadow:0 18px 44px rgba(15,34,52,.14),0 0 0 1px rgba(0,174,187,.24)}
+html[data-theme=light] .welcome-theme-card .welcome-theme-check{border-color:rgba(15,34,52,.14);background:rgba(15,34,52,.04)}
+@media (max-width:520px){.welcome-theme-grid{grid-template-columns:1fr}.welcome-theme-card{min-height:160px}}
 .material-symbols-outlined{width:1em;min-width:1em;max-width:1em;overflow:hidden;text-align:center;flex:0 0 auto}
 </style>
 </head>
@@ -695,8 +713,44 @@ html[data-theme=light] .welcome-dot[data-active=true]{background:var(--vm-accent
         <p class="text-body-md text-on-surface-variant mb-xl max-w-[320px]" data-i18n="welcome_intro_sub">Ottimizza consumi e prestazioni del tuo PC in modo automatico.</p>
       </section>
 
-      <!-- Step 1: Features -->
+      <!-- Step 1: Theme choice -->
       <section class="welcome-step hidden flex-col gap-lg" data-step="1">
+        <div class="text-center">
+          <h2 class="text-headline-sm text-on-surface mb-sm" data-i18n="welcome_theme_title">Scegli il tema iniziale</h2>
+          <p class="text-body-md text-on-surface-variant max-w-[360px] mx-auto" data-i18n="welcome_theme_intro">Puoi cambiarlo in qualsiasi momento dalle impostazioni.</p>
+        </div>
+        <div class="welcome-theme-grid">
+          <button class="welcome-theme-card" data-welcome-theme="dark" type="button" aria-pressed="false">
+            <span class="welcome-theme-check material-symbols-outlined">check</span>
+            <span class="welcome-theme-preview dark-preview" aria-hidden="true">
+              <span class="welcome-theme-preview-bar"></span>
+              <span class="welcome-theme-preview-line" style="width:76%;display:block"></span>
+              <span class="welcome-theme-preview-line" style="width:54%;display:block"></span>
+              <span class="welcome-theme-preview-line" style="width:88%;display:block"></span>
+            </span>
+            <span>
+              <span class="text-body-md text-on-surface font-medium block" data-i18n="welcome_theme_dark_title">Tema scuro</span>
+              <span class="text-label-sm text-on-surface-variant block mt-xs" data-i18n="welcome_theme_dark_sub">Interfaccia più comoda di sera.</span>
+            </span>
+          </button>
+          <button class="welcome-theme-card" data-welcome-theme="light" type="button" aria-pressed="false">
+            <span class="welcome-theme-check material-symbols-outlined">check</span>
+            <span class="welcome-theme-preview light-preview" aria-hidden="true">
+              <span class="welcome-theme-preview-bar"></span>
+              <span class="welcome-theme-preview-line" style="width:76%;display:block"></span>
+              <span class="welcome-theme-preview-line" style="width:54%;display:block"></span>
+              <span class="welcome-theme-preview-line" style="width:88%;display:block"></span>
+            </span>
+            <span>
+              <span class="text-body-md text-on-surface font-medium block" data-i18n="welcome_theme_light_title">Tema chiaro</span>
+              <span class="text-label-sm text-on-surface-variant block mt-xs" data-i18n="welcome_theme_light_sub">Interfaccia luminosa e leggibile.</span>
+            </span>
+          </button>
+        </div>
+      </section>
+
+      <!-- Step 2: Features -->
+      <section class="welcome-step hidden flex-col gap-lg" data-step="2">
         <h2 class="text-headline-sm text-on-surface mb-sm text-center" data-i18n="welcome_features_title">Cosa puoi fare</h2>
         <div class="flex flex-col gap-md">
           <div class="flex items-center gap-md glass-card rounded-xl p-md">
@@ -730,21 +784,9 @@ html[data-theme=light] .welcome-dot[data-active=true]{background:var(--vm-accent
         </div>
       </section>
 
-      <!-- Step 2: Preferences -->
-      <section class="welcome-step hidden flex-col gap-lg" data-step="2">
+      <!-- Step 3: Preferences -->
+      <section class="welcome-step hidden flex-col gap-lg" data-step="3">
         <h2 class="text-headline-sm text-on-surface text-center" data-i18n="welcome_prefs_title">Imposta le preferenze</h2>
-
-        <!-- Theme -->
-        <div class="flex items-center justify-between gap-md">
-          <div>
-            <p class="text-body-md text-on-surface font-medium" data-i18n="set_pref_theme">Tema</p>
-            <p class="text-label-sm text-on-surface-variant" data-i18n="welcome_theme_sub">Applicato in tempo reale</p>
-          </div>
-          <select id="welcome-theme-select" class="bg-surface-container-low/50 text-secondary-container font-medium border border-white/10 rounded-lg py-2 px-4 pr-10 text-body-md focus:outline-none focus:border-secondary-container transition-all duration-300 cursor-pointer hover:bg-white/10 shadow-lg backdrop-blur-md" style="-webkit-appearance: none; -moz-appearance: none; appearance: none; background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2300f1fe%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E'); background-repeat: no-repeat; background-position: right 0.75rem center; background-size: 1.2em 1.2em;">
-            <option value="dark" data-i18n="set_theme_dark">Scuro</option>
-            <option value="light" data-i18n="set_theme_light">Chiaro</option>
-          </select>
-        </div>
 
         <!-- Language -->
         <div class="flex items-center justify-between gap-md">
@@ -779,6 +821,7 @@ html[data-theme=light] .welcome-dot[data-active=true]{background:var(--vm-accent
         <span class="welcome-dot" data-go="0"></span>
         <span class="welcome-dot" data-go="1"></span>
         <span class="welcome-dot" data-go="2"></span>
+        <span class="welcome-dot" data-go="3"></span>
       </div>
 
       <!-- Navigation -->
