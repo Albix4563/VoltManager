@@ -7,6 +7,7 @@ using Drawing = System.Drawing;
 using Microsoft.Web.WebView2.Core;
 using VoltManager.Bridge;
 using VoltManager.Models;
+using VoltManager.Services;
 using Media = System.Windows.Media;
 
 namespace VoltManager;
@@ -21,6 +22,8 @@ public partial class MainWindow : Window
     private System.Threading.Timer? _autoUpdateTimer;
     private int _autoUpdateCheckRunning;
     private bool _updatePromptOpen;
+    private readonly GamingModeReminderService _gamingReminder = new();
+    private int _gamingReminderPromptRunning;
 
     public MainWindow(App app, bool startMinimized, bool justUpdated = false)
     {
@@ -81,10 +84,15 @@ public partial class MainWindow : Window
         _bridge.ExitRequested += () => Dispatcher.Invoke(() => { _exiting = true; _app.ExitApp(); });
         _bridge.MinimizeToTrayRequested += () => Dispatcher.Invoke(HideToTray);
 
-        _app.Monitor.MetricsUpdated += m => _bridge.PushEvent("metrics", m);
+        _app.Monitor.MetricsUpdated += OnMetricsUpdated;
         _app.ActivePlanChanged += p => _bridge.PushEvent("activePlanChanged", new { plan = p?.PlanId, guid = p?.Guid, name = p?.Name });
         _app.Settings.SettingsChanged += s => _bridge.PushEvent("automationStateChanged", new { masterEnabled = s.MasterAutomationEnabled, @override = s.Override });
-        _app.ManualOverrideChanged += o => _bridge.PushEvent("manualOverrideChanged", new { @override = o });
+        _app.ManualOverrideChanged += o =>
+        {
+            _bridge.PushEvent("manualOverrideChanged", new { @override = o });
+            if (!IsPerformanceOverride(o, DateTime.UtcNow))
+                _gamingReminder.Stop();
+        };
         _app.Awake.StateChanged += s => _bridge.PushEvent("keepAwakeChanged", s);
         _app.PowerSourcePlans.StateChanged += s => _bridge.PushEvent("powerSourcePlanChanged", s);
 
@@ -102,6 +110,58 @@ public partial class MainWindow : Window
         StartAutoUpdateLoop();
         core.Navigate("https://app.local/index.html?v=" + DateTimeOffset.UtcNow.ToUnixTimeSeconds());
     }
+
+    private void OnMetricsUpdated(MetricsSnapshot metrics)
+    {
+        _bridge?.PushEvent("metrics", metrics);
+
+        if (_gamingReminder.ObserveCpu(metrics.Cpu, DateTime.UtcNow) != GamingModeReminderDecision.Prompt)
+            return;
+
+        if (Interlocked.Exchange(ref _gamingReminderPromptRunning, 1) == 1)
+            return;
+
+        _ = Dispatcher.InvokeAsync(() =>
+        {
+            try
+            {
+                ShowGamingModeReminder(metrics.Cpu);
+            }
+            finally
+            {
+                Interlocked.Exchange(ref _gamingReminderPromptRunning, 0);
+            }
+        });
+    }
+
+    private void ShowGamingModeReminder(double currentCpu)
+    {
+        if (!_gamingReminder.Active)
+            return;
+
+        var currentOverride = _app.Settings.Current.Override;
+        if (!IsPerformanceOverride(currentOverride, DateTime.UtcNow))
+        {
+            _gamingReminder.Stop();
+            return;
+        }
+
+        var result = MessageBox.Show(
+            $"Hai il piano gaming attivo, ma la CPU risulta a riposo ({currentCpu:0.0}%) da diversi minuti.\n\nVuoi disattivare il piano gaming e riprendere il piano energetico automatico?",
+            "Piano gaming attivo",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Question);
+
+        if (result != MessageBoxResult.Yes)
+            return;
+
+        _gamingReminder.Stop();
+        _ = Task.Run(_app.SetAutomaticMode);
+    }
+
+    private static bool IsPerformanceOverride(ManualOverride? manualOverride, DateTime nowUtc)
+        => manualOverride?.IsActive(nowUtc) == true &&
+           string.Equals(manualOverride.Plan, "performance", StringComparison.OrdinalIgnoreCase);
 
     private void ApplyHostTheme(string? theme)
     {
@@ -312,6 +372,7 @@ public partial class MainWindow : Window
     private void TrayMenu_Opened(object sender, RoutedEventArgs e)
     {
         TrayActivePlanItem.Header = "Piano attivo: " + PlanDisplayName(_app.ActivePlan);
+        TrayGamingPlanItem.IsChecked = _gamingReminder.Active;
         TrayKeepAwakeItem.IsChecked = _app.Awake.GetState().Enabled;
         TrayAutomationItem.IsChecked = _app.Settings.Current.MasterAutomationEnabled;
         TrayClearOverrideItem.Visibility = _app.Settings.Current.Override != null
@@ -319,8 +380,33 @@ public partial class MainWindow : Window
             : Visibility.Collapsed;
     }
 
+    private async void TrayGamingPlan_Click(object sender, RoutedEventArgs e)
+    {
+        TrayGamingPlanItem.IsChecked = true;
+        _gamingReminder.Start(DateTime.UtcNow);
+
+        try
+        {
+            bool applied = await Task.Run(() => _app.SetManualOverride(PlanId.Performance, null));
+            if (applied) return;
+        }
+        catch
+        {
+            // Fall through to the same recovery path used when powercfg returns failure.
+        }
+
+        _gamingReminder.Stop();
+        TrayGamingPlanItem.IsChecked = false;
+        MessageBox.Show(
+            "Non sono riuscito ad attivare il piano gaming. Verifica che il piano Prestazioni sia disponibile e riprova.",
+            "Piano gaming",
+            MessageBoxButton.OK,
+            MessageBoxImage.Warning);
+    }
+
     private void TrayPlanDuration_Click(object sender, RoutedEventArgs e)
     {
+        _gamingReminder.Stop();
         if (sender is not System.Windows.Controls.MenuItem { Tag: string tag }) return;
         var parts = tag.Split('|');
         if (parts.Length != 2 || !int.TryParse(parts[1], out int hours)) return;
@@ -343,7 +429,10 @@ public partial class MainWindow : Window
     }
 
     private void TrayClearOverride_Click(object sender, RoutedEventArgs e)
-        => _ = Task.Run(_app.ClearManualOverride);
+    {
+        _gamingReminder.Stop();
+        _ = Task.Run(_app.ClearManualOverride);
+    }
 
     private void TrayAutomation_Click(object sender, RoutedEventArgs e)
     {

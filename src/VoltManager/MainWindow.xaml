@@ -20,6 +20,7 @@
                     <MenuItem Header="Apri VoltManager" Click="TrayOpen_Click" FontWeight="Bold" />
                     <Separator />
                     <MenuItem x:Name="TrayActivePlanItem" Header="Piano attivo: —" IsEnabled="False" />
+                    <MenuItem x:Name="TrayGamingPlanItem" Header="Piano gaming" IsCheckable="True" Click="TrayGamingPlan_Click" />
                     <MenuItem Header="Cambia piano">
                         <MenuItem Header="Risparmio energia">
                             <MenuItem Header="1 ora" Tag="powerSaver|1" Click="TrayPlanDuration_Click" />
