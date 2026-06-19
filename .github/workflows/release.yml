@@ -81,10 +81,10 @@ jobs:
             -Uri 'https://go.microsoft.com/fwlink/p/?LinkId=2124703' `
             -OutFile 'src/VoltManager.Setup/Payload/MicrosoftEdgeWebview2Setup.exe'
 
-      - name: Copy icon to Setup project
+      - name: Refresh Setup project icon
         shell: pwsh
         run: |
-          Copy-Item src/VoltManager/Assets/voltmanager.ico src/VoltManager.Setup/voltmanager.ico -Force
+          Copy-Item src/VoltManager/Assets/voltmanager.ico src/VoltManager.Setup/Assets/voltmanager.ico -Force
 
       - name: Zip publish folder into payload
         shell: pwsh

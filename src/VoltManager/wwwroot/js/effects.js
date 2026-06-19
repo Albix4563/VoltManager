@@ -51,6 +51,13 @@
     animateRing(circle, label, pct) {
       if (!circle) return;
       const clamped = Math.max(0, Math.min(100, pct));
+      // rAF is the sole driver — strip the CSS transition so it can't re-ease
+      // every per-frame write (that layering is what made the fill stutter).
+      if (circle.dataset.fxRing !== '1') {
+        circle.style.transition = 'stroke .4s ease, filter .4s ease';
+        circle.style.willChange = 'stroke-dashoffset';
+        circle.dataset.fxRing = '1';
+      }
       const fromOff = lastNum.has(circle) ? lastNum.get(circle) : (CIRC * (1 - clamped / 100));
       const toOff = CIRC * (1 - clamped / 100);
       lastNum.set(circle, toOff);
@@ -71,6 +78,8 @@
       if (bar.dataset.fxBar !== '1') {
         bar.style.width = '100%';
         bar.style.transformOrigin = 'left center';
+        bar.style.transition = 'none';
+        bar.style.willChange = 'transform';
         bar.dataset.fxBar = '1';
       }
       const from = lastNum.has(bar) ? lastNum.get(bar) : clamped;

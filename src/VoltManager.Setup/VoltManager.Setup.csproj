@@ -14,6 +14,7 @@
     <PlatformTarget>x64</PlatformTarget>
     <RootNamespace>VoltManager.Setup</RootNamespace>
     <AssemblyName>VoltManagerSetup</AssemblyName>
+    <ApplicationIcon>Assets\voltmanager.ico</ApplicationIcon>
   </PropertyGroup>
 
   <!-- Payload files embedded during build (absent at dev time — project still compiles) -->
@@ -28,12 +29,9 @@
     <Reference Include="System.Windows.Forms" />
   </ItemGroup>
 
-  <ItemGroup Condition="Exists('voltmanager.ico')">
-    <ApplicationDefinition Remove="App.xaml" />
-    <ApplicationDefinition Include="App.xaml">
-      <SubType>Designer</SubType>
-    </ApplicationDefinition>
-    <Resource Include="voltmanager.ico" />
+  <!-- App logo — always bundled so the sidebar logo shows in dev and release builds -->
+  <ItemGroup>
+    <Resource Include="Assets\voltmanager.ico" />
   </ItemGroup>
 
 </Project>

@@ -10,7 +10,7 @@ namespace VoltManager.Setup.Pages
             InitializeComponent();
             TitleText.Text = I18n.T("uninst_confirm");
             SubText.Text   = I18n.T("uninst_sub");
-            WarnText.Text  = I18n.T("uninst_sub");
+            WarnText.Text  = I18n.T("uninst_warn");
         }
     }
 }

@@ -68,9 +68,9 @@ if (-not (Test-Path $wv2)) {
 }
 Write-Host ("Bootstrapper: " + $wv2) -ForegroundColor Green
 
-# Copy icon to setup project
+# Refresh setup project icon from source of truth (Assets is committed; this keeps it in sync)
 $iconSrc = Join-Path $root 'src\VoltManager\Assets\voltmanager.ico'
-$iconDst = Join-Path $setupDir 'voltmanager.ico'
+$iconDst = Join-Path $setupDir 'Assets\voltmanager.ico'
 if (Test-Path $iconSrc) { Copy-Item $iconSrc $iconDst -Force }
 
 # 3b. Zip publish folder into payload.zip

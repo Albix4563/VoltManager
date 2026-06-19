@@ -1,6 +1,4 @@
 using System;
-using System.Linq;
-using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -38,21 +36,18 @@ namespace VoltManager.Setup.Windows
             NavigateTo(Step.Welcome);
         }
 
-        // ── Logo from embedded resource / icon ───────────────────────
+        // ── Logo from WPF resource (packed into VoltManagerSetup.g.resources) ──
         private void LoadLogo()
         {
             try
             {
-                var asm = Assembly.GetExecutingAssembly();
-                var res = asm.GetManifestResourceNames()
-                    .FirstOrDefault(n => n.EndsWith("voltmanager.ico",
-                        StringComparison.OrdinalIgnoreCase));
-                if (res != null)
-                {
-                    using var s = asm.GetManifestResourceStream(res)!;
-                    var decoder = new IconBitmapDecoder(s, BitmapCreateOptions.None, BitmapCacheOption.OnLoad);
-                    LogoBrush.ImageSource = decoder.Frames[0];
-                }
+                // WPF <Resource> items are NOT manifest resources — load via pack URI.
+                var img = new BitmapImage();
+                img.BeginInit();
+                img.UriSource = new Uri("pack://application:,,,/Assets/voltmanager.ico");
+                img.CacheOption = BitmapCacheOption.OnLoad;
+                img.EndInit();
+                LogoBrush.ImageSource = img;
             }
             catch { /* logo not critical */ }
         }
