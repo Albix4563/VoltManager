@@ -122,6 +122,9 @@ public class HostBridge
             case "getBatteryPower":
                 return await Task.Run(() => _powerFlow.GetState());
 
+            case "getBatteryHistory":
+                return await Task.Run(() => new { samples = _app.BatteryHistory.GetHistory() });
+
             case "checkDefaultPlans":
             {
                 var (allPresent, missing) = await Task.Run(() => _power.CheckDefaultPlans());

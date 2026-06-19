@@ -33,10 +33,13 @@ public partial class App : Application
     public AppPowerProfileService AppProfiles { get; private set; } = null!;
     public PowerSourcePlanService PowerSourcePlans { get; private set; } = null!;
     public StandbyAutoCleanerService StandbyAutoCleaner { get; private set; } = null!;
+    public BatteryHistoryService BatteryHistory { get; private set; } = null!;
 
+    private PowerFlowService _powerFlow = null!;
     private System.Threading.Timer? _automationTimer;
     private System.Threading.Timer? _scheduledPowerActionTimer;
     private System.Threading.Timer? _planPollTimer;
+    private System.Threading.Timer? _batteryHistoryTimer;
     private MainWindow? _mainWindow;
     private bool _heavyAppPlanSessionActive;
     private PlanId? _planBeforeHeavyAppSession;
@@ -99,6 +102,8 @@ public partial class App : Application
         AppProfiles = new AppPowerProfileService(Settings);
         PowerSourcePlans = new PowerSourcePlanService(Settings);
         StandbyAutoCleaner = new StandbyAutoCleanerService(Settings);
+        _powerFlow = new PowerFlowService();
+        BatteryHistory = new BatteryHistoryService();
         ClearExpiredManualOverride(DateTime.UtcNow);
 
         Monitor.Start();
@@ -108,6 +113,7 @@ public partial class App : Application
         StartPlanPoll();
         StartAutomationLoop();
         StartScheduledPowerActionLoop();
+        StartBatteryHistoryLoop();
 
         _remoteCommands = new RemoteCommandService();
         _remoteCommands.CommandReceived += ApplyRemoteCommand;
@@ -418,6 +424,27 @@ public partial class App : Application
         return decision.BlocksLowerPriority;
     }
 
+    private void StartBatteryHistoryLoop()
+    {
+        // Campiona la batteria ~1/min anche con la finestra in tray, così la cronologia
+        // riflette l'uso reale e non solo i momenti col dashboard aperto. Il servizio
+        // applica il proprio throttle; su desktop senza batteria Record() è un no-op.
+        _batteryHistoryTimer = new System.Threading.Timer(_ =>
+        {
+            try
+            {
+                var state = _powerFlow.GetState();
+                double? temp = Monitor.Latest.CpuTemp ?? Monitor.Latest.GpuTemp;
+                BatteryHistory.Record(state, temp, DateTime.UtcNow);
+            }
+            catch (Exception ex)
+            {
+                // Il campionamento storico non deve mai far crashare l'app.
+                Logger.Error("Battery history sample failed", ex);
+            }
+        }, null, TimeSpan.FromSeconds(20), TimeSpan.FromSeconds(60));
+    }
+
     private void StartScheduledPowerActionLoop()
     {
         _scheduledPowerActionTimer = new System.Threading.Timer(_ =>
@@ -572,6 +599,7 @@ public partial class App : Application
         _automationTimer?.Dispose();
         _scheduledPowerActionTimer?.Dispose();
         _planPollTimer?.Dispose();
+        _batteryHistoryTimer?.Dispose();
         Monitor.Dispose();
         HeavyApps.Dispose();
         AppProfiles.Dispose();

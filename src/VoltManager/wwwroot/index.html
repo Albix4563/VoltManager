@@ -330,6 +330,34 @@ html[data-theme=light] .welcome-theme-card .welcome-theme-check{border-color:rgb
         </div>
       </section>
 
+      <!-- Battery History (charge % sparkline over time; hidden until ≥2 samples exist) -->
+      <section class="mt-8 hidden" id="battery-history-section">
+        <h3 class="text-title-lg text-on-surface mb-4 flex items-center gap-2">
+          <span class="material-symbols-outlined text-secondary-container">show_chart</span>
+          <span data-i18n="battery_history_title">Battery History</span>
+        </h3>
+        <div class="glass-card rounded-xl p-6">
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-2">
+              <span class="material-symbols-outlined text-secondary-container text-sm">schedule</span>
+              <span class="text-label-md text-on-surface uppercase" id="battery-history-range">--</span>
+            </div>
+            <span class="text-title-lg font-bold text-on-surface" id="battery-history-current">--%</span>
+          </div>
+          <svg id="battery-history-chart" class="w-full" viewBox="0 0 100 32" preserveAspectRatio="none" style="height: 8rem;">
+            <defs>
+              <linearGradient id="battery-history-fill" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#00E5FF" stop-opacity="0.35"></stop>
+                <stop offset="100%" stop-color="#00E5FF" stop-opacity="0"></stop>
+              </linearGradient>
+            </defs>
+            <path id="battery-history-area" fill="url(#battery-history-fill)" stroke="none" d=""></path>
+            <path id="battery-history-line" fill="none" stroke="#00E5FF" stroke-width="1.2" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke" d=""></path>
+          </svg>
+          <p class="text-label-sm text-on-surface-variant mt-4" id="battery-history-stats">--</p>
+        </div>
+      </section>
+
     </section>
 
     <!-- ============ VIEW: POWER MANAGEMENT ============ -->
@@ -960,10 +988,10 @@ html[data-theme=light] .welcome-theme-card .welcome-theme-check{border-color:rgb
 </div>
 
 <script src="js/bridge.js?v=errlog1"></script>
-<script src="js/i18n.js?v=powerflow1"></script>
+<script src="js/i18n.js?v=batthist1"></script>
 <script src="js/app.js?v=redesign1"></script>
 <script src="js/effects.js?v=effects1"></script>
-<script src="js/dashboard.js?v=powerflow1"></script>
+<script src="js/dashboard.js?v=batthist1"></script>
 <script src="js/power.js?v=reorg2"></script>
 <script src="js/settings.js?v=temps2"></script>
 <script src="js/welcome.js?v=welcome1"></script>

@@ -245,6 +245,80 @@
         if (lastPowerFlow) renderPowerFlow(lastPowerFlow);
     });
 
+    // ----- Battery history (charge % sparkline over time) -----
+    const batteryHistorySection = document.getElementById('battery-history-section');
+    const batteryHistoryRange = document.getElementById('battery-history-range');
+    const batteryHistoryCurrent = document.getElementById('battery-history-current');
+    const batteryHistoryStats = document.getElementById('battery-history-stats');
+    const batteryHistoryLine = document.getElementById('battery-history-line');
+    const batteryHistoryArea = document.getElementById('battery-history-area');
+    let lastBatteryHistory = null;
+    let batteryHistoryTimer = null;
+
+    function formatHistorySpan(seconds) {
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        if (h > 0) return h + 'h' + (m > 0 ? ' ' + m + 'm' : '');
+        return Math.max(1, m) + 'm';
+    }
+
+    function renderBatteryHistory(payload) {
+        lastBatteryHistory = payload;
+        const samples = (payload && payload.samples) || [];
+        const pts = samples.filter(s => s.pct != null);
+        // Need at least two points to draw a trend; otherwise hide the whole card.
+        batteryHistorySection.classList.toggle('hidden', pts.length < 2);
+        if (pts.length < 2) return;
+
+        const W = 100, H = 32, padY = 2;
+        const t0 = pts[0].t;
+        const t1 = pts[pts.length - 1].t;
+        const span = Math.max(1, t1 - t0);
+        const x = (t) => (t - t0) / span * W;
+        const y = (pct) => H - padY - (pct / 100) * (H - padY * 2);
+
+        let d = '';
+        pts.forEach((s, i) => {
+            d += (i === 0 ? 'M' : 'L') + x(s.t).toFixed(2) + ' ' + y(s.pct).toFixed(2) + ' ';
+        });
+        d = d.trim();
+        batteryHistoryLine.setAttribute('d', d);
+        batteryHistoryArea.setAttribute('d',
+            d + ' L' + W.toFixed(2) + ' ' + H + ' L0 ' + H + ' Z');
+
+        const cur = pts[pts.length - 1].pct;
+        batteryHistoryCurrent.textContent = cur + '%';
+        batteryHistoryRange.textContent =
+            I18n.t('battery_history_window').replace('{span}', formatHistorySpan(t1 - t0));
+
+        let min = pts[0].pct, max = pts[0].pct;
+        for (const s of pts) { if (s.pct < min) min = s.pct; if (s.pct > max) max = s.pct; }
+        batteryHistoryStats.textContent =
+            I18n.t('battery_history_min') + ' ' + min + '% · ' +
+            I18n.t('battery_history_max') + ' ' + max + '% · ' +
+            pts.length + ' ' + I18n.t('battery_history_samples');
+    }
+
+    async function pollBatteryHistory() {
+        if (!Host.available) return;
+        try {
+            const payload = await Host.call('getBatteryHistory');
+            renderBatteryHistory(payload);
+        } catch (err) {
+            console.error('getBatteryHistory failed', err);
+        }
+    }
+
+    function startBatteryHistoryPolling() {
+        if (batteryHistoryTimer) return;
+        pollBatteryHistory();
+        batteryHistoryTimer = setInterval(pollBatteryHistory, 60000);
+    }
+
+    document.addEventListener('langchanged', () => {
+        if (lastBatteryHistory) renderBatteryHistory(lastBatteryHistory);
+    });
+
     Host.on('metrics', (m) => {
         setTempBadge(cpuTempBadge, cpuTemp, m.cpuTemp);
         setTempBadge(gpuTempBadge, gpuTemp, m.gpuTemp);
@@ -556,8 +630,13 @@
             powerSourcePlanHome.classList.toggle('hidden', hasBattery === false);
         }
         // No battery -> never poll the firmware power flow (section stays hidden).
-        if (hasBattery !== false) startPowerFlowPolling();
-        else powerFlowSection.classList.add('hidden');
+        if (hasBattery !== false) {
+            startPowerFlowPolling();
+            startBatteryHistoryPolling();
+        } else {
+            powerFlowSection.classList.add('hidden');
+            batteryHistorySection.classList.add('hidden');
+        }
     }
 
     // Initial active plan.

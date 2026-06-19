@@ -332,6 +332,20 @@ public record BatteryPowerState
 }
 
 /// <summary>
+/// Campione storico della batteria: istante (epoch secondi UTC), percentuale di carica,
+/// potenza con segno (W, + in carica / - in scarica), stato AC e temperatura (°C, opzionale).
+/// Chiavi JSON brevi per contenere la dimensione del file di cronologia.
+/// </summary>
+public record BatteryHistorySample
+{
+    [JsonPropertyName("t")] public long T { get; init; }
+    [JsonPropertyName("pct")] public int? Pct { get; init; }
+    [JsonPropertyName("w")] public double? W { get; init; }
+    [JsonPropertyName("ac")] public bool Ac { get; init; }
+    [JsonPropertyName("temp")] public double? Temp { get; init; }
+}
+
+/// <summary>
 /// Snapshot dettagliato della memoria RAM (in GB e percentuale).
 /// </summary>
 public record MemoryStatus
