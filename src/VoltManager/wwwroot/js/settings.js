@@ -761,7 +761,8 @@
             if (themeSelect.dataset.wired !== 'true') {
                 themeSelect.dataset.wired = 'true';
                 themeSelect.addEventListener('change', (e) => {
-                    const next = e.target.value === 'light' ? 'light' : 'dark';
+                    const v = e.target.value;
+                    const next = v === 'light' ? 'light' : (v === 'black' ? 'black' : 'dark');
                     settings.theme = next;
                     setThemeUi(next);
                     if (window.__voltSettings.save) window.__voltSettings.save();
