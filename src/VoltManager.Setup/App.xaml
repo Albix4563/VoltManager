@@ -3,7 +3,9 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <Application.Resources>
 
-        <!-- ── Brushes ───────────────────────────────────────────── -->
+        <!-- ══════════════════════════════════════════════════════════
+             PALETTE  (dark — high contrast, brand cyan)
+             ══════════════════════════════════════════════════════════ -->
         <Color x:Key="Theme.Dark.Bg">#0A1128</Color>
         <Color x:Key="Theme.Dark.Sidebar">#060E22</Color>
         <Color x:Key="Theme.Dark.Surface">#1E2A4A</Color>
@@ -11,54 +13,75 @@
         <Color x:Key="Theme.Dark.Text">#E2E8F0</Color>
         <Color x:Key="Theme.Dark.Muted">#94A3B8</Color>
         <Color x:Key="Theme.Dark.Border">#2D3D5A</Color>
-        <Color x:Key="Theme.Light.Bg">#F6F9FC</Color>
-        <Color x:Key="Theme.Light.Sidebar">#EAF2F7</Color>
-        <Color x:Key="Theme.Light.Surface">#FFFFFF</Color>
-        <Color x:Key="Theme.Light.Pill">#EEF5F8</Color>
-        <Color x:Key="Theme.Light.Text">#102033</Color>
-        <Color x:Key="Theme.Light.Muted">#52677D</Color>
-        <Color x:Key="Theme.Light.Border">#C2D2DE</Color>
 
-        <SolidColorBrush x:Key="BgBrush"         Color="#0A1128"/>
-        <SolidColorBrush x:Key="SidebarBrush"    Color="#060E22"/>
-        <SolidColorBrush x:Key="SurfaceBrush"    Color="#1E2A4A"/>
-        <SolidColorBrush x:Key="PillBrush"       Color="#0D1C38"/>
-        <SolidColorBrush x:Key="AccentBrush"     Color="#00f1fe"/>
-        <SolidColorBrush x:Key="AccentTextBrush" Color="#0A1128"/>
-        <SolidColorBrush x:Key="AccentHoverBrush" Color="#33feff"/>
-        <SolidColorBrush x:Key="AccentPressedBrush" Color="#00b8c4"/>
-        <SolidColorBrush x:Key="TextBrush"       Color="#e2e8f0"/>
-        <SolidColorBrush x:Key="MutedBrush"      Color="#94a3b8"/>
-        <SolidColorBrush x:Key="BorderBrush2"    Color="#2d3d5a"/>
-        <SolidColorBrush x:Key="DangerBrush"     Color="#e74c3c"/>
-        <SolidColorBrush x:Key="WarningBrush"    Color="#f39c12"/>
+        <SolidColorBrush x:Key="BgBrush"          Color="#0A1128"/>
+        <SolidColorBrush x:Key="SidebarBrush"     Color="#060E22"/>
+        <SolidColorBrush x:Key="SurfaceBrush"     Color="#1E2A4A"/>
+        <SolidColorBrush x:Key="PillBrush"        Color="#0D1C38"/>
+        <SolidColorBrush x:Key="AccentBrush"      Color="#00F1FE"/>
+        <SolidColorBrush x:Key="AccentTextBrush"  Color="#03101F"/>
+        <SolidColorBrush x:Key="AccentHoverBrush" Color="#33FEFF"/>
+        <SolidColorBrush x:Key="AccentPressedBrush" Color="#00B8C4"/>
+        <SolidColorBrush x:Key="AccentSoftBrush"  Color="#1F00F1FE"/>
+        <!-- text tiers (stronger top contrast, brighter muted) -->
+        <SolidColorBrush x:Key="TextStrongBrush"  Color="#F4F8FF"/>
+        <SolidColorBrush x:Key="TextBrush"        Color="#DCE6F4"/>
+        <SolidColorBrush x:Key="MutedBrush"       Color="#9FB1CC"/>
+        <SolidColorBrush x:Key="FaintBrush"       Color="#6B7C99"/>
+        <SolidColorBrush x:Key="BorderBrush2"     Color="#2D3D5A"/>
+        <SolidColorBrush x:Key="CardBgBrush"      Color="#16233F"/>
+        <SolidColorBrush x:Key="CardBorderBrush"  Color="#2A3B5E"/>
+        <SolidColorBrush x:Key="DangerBrush"      Color="#FF5B4A"/>
+        <SolidColorBrush x:Key="WarningBrush"     Color="#F5B042"/>
+        <SolidColorBrush x:Key="SuccessBrush"     Color="#34E0A1"/>
 
-        <!-- ── Gradients (accent + ambient) ──────────────────────── -->
+        <!-- ══════════════════════════════════════════════════════════
+             GRADIENTS
+             ══════════════════════════════════════════════════════════ -->
         <LinearGradientBrush x:Key="AccentGradient" StartPoint="0,0" EndPoint="1,1">
-            <GradientStop Color="#3BFBFF" Offset="0"/>
+            <GradientStop Color="#5CFCFF" Offset="0"/>
             <GradientStop Color="#00F1FE" Offset="0.5"/>
-            <GradientStop Color="#23C9D6" Offset="1"/>
+            <GradientStop Color="#1FBFD8" Offset="1"/>
         </LinearGradientBrush>
 
-        <LinearGradientBrush x:Key="WindowBgGradient" StartPoint="0,0" EndPoint="0.6,1">
-            <GradientStop Color="#0B1430" Offset="0"/>
+        <LinearGradientBrush x:Key="WindowBgGradient" StartPoint="0,0" EndPoint="0.7,1">
+            <GradientStop Color="#0C1733" Offset="0"/>
             <GradientStop Color="#0A1128" Offset="0.55"/>
-            <GradientStop Color="#070D20" Offset="1"/>
+            <GradientStop Color="#06091C" Offset="1"/>
         </LinearGradientBrush>
 
-        <LinearGradientBrush x:Key="SidebarGradient" StartPoint="0,0" EndPoint="0,1">
-            <GradientStop Color="#08122B" Offset="0"/>
-            <GradientStop Color="#060E22" Offset="0.5"/>
-            <GradientStop Color="#04091A" Offset="1"/>
+        <LinearGradientBrush x:Key="SidebarGradient" StartPoint="0,0" EndPoint="0.2,1">
+            <GradientStop Color="#0A1430" Offset="0"/>
+            <GradientStop Color="#070F24" Offset="0.5"/>
+            <GradientStop Color="#04081A" Offset="1"/>
+        </LinearGradientBrush>
+
+        <!-- card surface: subtle vertical sheen for depth -->
+        <LinearGradientBrush x:Key="CardGradient" StartPoint="0,0" EndPoint="0,1">
+            <GradientStop Color="#1B2A49" Offset="0"/>
+            <GradientStop Color="#14213C" Offset="1"/>
+        </LinearGradientBrush>
+
+        <LinearGradientBrush x:Key="CardStrokeGradient" StartPoint="0,0" EndPoint="0,1">
+            <GradientStop Color="#3B4E73" Offset="0"/>
+            <GradientStop Color="#243355" Offset="1"/>
         </LinearGradientBrush>
 
         <RadialGradientBrush x:Key="GlowBlobBrush" GradientOrigin="0.5,0.5" Center="0.5,0.5"
                              RadiusX="0.5" RadiusY="0.5">
-            <GradientStop Color="#3300F1FE" Offset="0"/>
+            <GradientStop Color="#3A00F1FE" Offset="0"/>
             <GradientStop Color="#0000F1FE" Offset="1"/>
         </RadialGradientBrush>
 
-        <!-- ── Page entrance (fade + slide-up) ───────────────────── -->
+        <RadialGradientBrush x:Key="DangerGlobBrush" GradientOrigin="0.5,0.5" Center="0.5,0.5"
+                             RadiusX="0.5" RadiusY="0.5">
+            <GradientStop Color="#33FF5B4A" Offset="0"/>
+            <GradientStop Color="#00FF5B4A" Offset="1"/>
+        </RadialGradientBrush>
+
+        <!-- ══════════════════════════════════════════════════════════
+             ANIMATIONS
+             ══════════════════════════════════════════════════════════ -->
         <Style x:Key="PageEntrance" TargetType="Panel">
             <Setter Property="Opacity" Value="0"/>
             <Setter Property="RenderTransformOrigin" Value="0.5,0"/>
@@ -68,15 +91,11 @@
                         <Storyboard>
                             <DoubleAnimation Storyboard.TargetProperty="Opacity"
                                              From="0" To="1" Duration="0:0:0.42">
-                                <DoubleAnimation.EasingFunction>
-                                    <CubicEase EasingMode="EaseOut"/>
-                                </DoubleAnimation.EasingFunction>
+                                <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
                             </DoubleAnimation>
                             <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.Y)"
-                                             From="22" To="0" Duration="0:0:0.5">
-                                <DoubleAnimation.EasingFunction>
-                                    <CubicEase EasingMode="EaseOut"/>
-                                </DoubleAnimation.EasingFunction>
+                                             From="24" To="0" Duration="0:0:0.52">
+                                <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
                             </DoubleAnimation>
                         </Storyboard>
                     </BeginStoryboard>
@@ -84,12 +103,31 @@
             </Style.Triggers>
         </Style>
 
-        <!-- ── Primary button (cyan, gradient + glow) ────────────── -->
+        <!-- ══════════════════════════════════════════════════════════
+             TYPOGRAPHY HELPERS
+             ══════════════════════════════════════════════════════════ -->
+        <Style x:Key="H1" TargetType="TextBlock">
+            <Setter Property="FontSize"   Value="28"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextStrongBrush}"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="LineHeight" Value="34"/>
+        </Style>
+        <Style x:Key="Body" TargetType="TextBlock">
+            <Setter Property="FontSize"   Value="13.5"/>
+            <Setter Property="LineHeight" Value="23"/>
+            <Setter Property="Foreground" Value="{DynamicResource MutedBrush}"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+
+        <!-- ══════════════════════════════════════════════════════════
+             PRIMARY BUTTON  (cyan, gradient + glow + press)
+             ══════════════════════════════════════════════════════════ -->
         <Style x:Key="PrimaryBtn" TargetType="Button">
             <Setter Property="Foreground"       Value="{DynamicResource AccentTextBrush}"/>
             <Setter Property="FontWeight"       Value="Bold"/>
             <Setter Property="FontSize"         Value="13"/>
-            <Setter Property="Padding"          Value="26,10"/>
+            <Setter Property="Padding"          Value="30,11"/>
             <Setter Property="BorderThickness"  Value="0"/>
             <Setter Property="Cursor"           Value="Hand"/>
             <Setter Property="RenderTransformOrigin" Value="0.5,0.5"/>
@@ -97,14 +135,14 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
                         <Border x:Name="bd" Background="{DynamicResource AccentGradient}"
-                                CornerRadius="9" Padding="{TemplateBinding Padding}"
+                                CornerRadius="10" Padding="{TemplateBinding Padding}"
                                 RenderTransformOrigin="0.5,0.5">
                             <Border.RenderTransform>
                                 <ScaleTransform x:Name="sc" ScaleX="1" ScaleY="1"/>
                             </Border.RenderTransform>
                             <Border.Effect>
                                 <DropShadowEffect x:Name="glow" Color="#00F1FE" BlurRadius="0"
-                                                  ShadowDepth="0" Opacity="0.9"/>
+                                                  ShadowDepth="0" Opacity="0.95"/>
                             </Border.Effect>
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
@@ -113,30 +151,18 @@
                                 <Trigger.EnterActions>
                                     <BeginStoryboard>
                                         <Storyboard>
-                                            <DoubleAnimation Storyboard.TargetName="glow"
-                                                             Storyboard.TargetProperty="BlurRadius"
-                                                             To="22" Duration="0:0:0.25"/>
-                                            <DoubleAnimation Storyboard.TargetName="sc"
-                                                             Storyboard.TargetProperty="ScaleX"
-                                                             To="1.03" Duration="0:0:0.18"/>
-                                            <DoubleAnimation Storyboard.TargetName="sc"
-                                                             Storyboard.TargetProperty="ScaleY"
-                                                             To="1.03" Duration="0:0:0.18"/>
+                                            <DoubleAnimation Storyboard.TargetName="glow" Storyboard.TargetProperty="BlurRadius" To="26" Duration="0:0:0.25"/>
+                                            <DoubleAnimation Storyboard.TargetName="sc" Storyboard.TargetProperty="ScaleX" To="1.035" Duration="0:0:0.18"/>
+                                            <DoubleAnimation Storyboard.TargetName="sc" Storyboard.TargetProperty="ScaleY" To="1.035" Duration="0:0:0.18"/>
                                         </Storyboard>
                                     </BeginStoryboard>
                                 </Trigger.EnterActions>
                                 <Trigger.ExitActions>
                                     <BeginStoryboard>
                                         <Storyboard>
-                                            <DoubleAnimation Storyboard.TargetName="glow"
-                                                             Storyboard.TargetProperty="BlurRadius"
-                                                             To="0" Duration="0:0:0.3"/>
-                                            <DoubleAnimation Storyboard.TargetName="sc"
-                                                             Storyboard.TargetProperty="ScaleX"
-                                                             To="1" Duration="0:0:0.2"/>
-                                            <DoubleAnimation Storyboard.TargetName="sc"
-                                                             Storyboard.TargetProperty="ScaleY"
-                                                             To="1" Duration="0:0:0.2"/>
+                                            <DoubleAnimation Storyboard.TargetName="glow" Storyboard.TargetProperty="BlurRadius" To="0" Duration="0:0:0.3"/>
+                                            <DoubleAnimation Storyboard.TargetName="sc" Storyboard.TargetProperty="ScaleX" To="1" Duration="0:0:0.2"/>
+                                            <DoubleAnimation Storyboard.TargetName="sc" Storyboard.TargetProperty="ScaleY" To="1" Duration="0:0:0.2"/>
                                         </Storyboard>
                                     </BeginStoryboard>
                                 </Trigger.ExitActions>
@@ -146,24 +172,16 @@
                                 <Trigger.EnterActions>
                                     <BeginStoryboard>
                                         <Storyboard>
-                                            <DoubleAnimation Storyboard.TargetName="sc"
-                                                             Storyboard.TargetProperty="ScaleX"
-                                                             To="0.96" Duration="0:0:0.08"/>
-                                            <DoubleAnimation Storyboard.TargetName="sc"
-                                                             Storyboard.TargetProperty="ScaleY"
-                                                             To="0.96" Duration="0:0:0.08"/>
+                                            <DoubleAnimation Storyboard.TargetName="sc" Storyboard.TargetProperty="ScaleX" To="0.96" Duration="0:0:0.08"/>
+                                            <DoubleAnimation Storyboard.TargetName="sc" Storyboard.TargetProperty="ScaleY" To="0.96" Duration="0:0:0.08"/>
                                         </Storyboard>
                                     </BeginStoryboard>
                                 </Trigger.EnterActions>
                                 <Trigger.ExitActions>
                                     <BeginStoryboard>
                                         <Storyboard>
-                                            <DoubleAnimation Storyboard.TargetName="sc"
-                                                             Storyboard.TargetProperty="ScaleX"
-                                                             To="1" Duration="0:0:0.12"/>
-                                            <DoubleAnimation Storyboard.TargetName="sc"
-                                                             Storyboard.TargetProperty="ScaleY"
-                                                             To="1" Duration="0:0:0.12"/>
+                                            <DoubleAnimation Storyboard.TargetName="sc" Storyboard.TargetProperty="ScaleX" To="1" Duration="0:0:0.12"/>
+                                            <DoubleAnimation Storyboard.TargetName="sc" Storyboard.TargetProperty="ScaleY" To="1" Duration="0:0:0.12"/>
                                         </Storyboard>
                                     </BeginStoryboard>
                                 </Trigger.ExitActions>
@@ -177,43 +195,86 @@
             </Setter>
         </Style>
 
-        <!-- ── Ghost button (outline, animated border) ───────────── -->
-        <Style x:Key="GhostBtn" TargetType="Button">
-            <Setter Property="Background"      Value="Transparent"/>
-            <Setter Property="Foreground"      Value="{DynamicResource MutedBrush}"/>
-            <Setter Property="FontSize"        Value="13"/>
-            <Setter Property="Padding"         Value="20,10"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Cursor"          Value="Hand"/>
+        <!-- Danger primary (uninstall confirm) -->
+        <Style x:Key="DangerBtn" TargetType="Button" BasedOn="{StaticResource PrimaryBtn}">
+            <Setter Property="Foreground" Value="White"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border x:Name="bd"
-                                Background="{TemplateBinding Background}"
-                                BorderBrush="#2d3d5a"
-                                BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="9" Padding="{TemplateBinding Padding}">
-                            <ContentPresenter x:Name="cp" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        <Border x:Name="bd" CornerRadius="10" Padding="{TemplateBinding Padding}"
+                                RenderTransformOrigin="0.5,0.5">
+                            <Border.Background>
+                                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                    <GradientStop Color="#FF6F5C" Offset="0"/>
+                                    <GradientStop Color="#E7432F" Offset="1"/>
+                                </LinearGradientBrush>
+                            </Border.Background>
+                            <Border.RenderTransform><ScaleTransform x:Name="sc" ScaleX="1" ScaleY="1"/></Border.RenderTransform>
+                            <Border.Effect><DropShadowEffect x:Name="glow" Color="#FF5B4A" BlurRadius="0" ShadowDepth="0" Opacity="0.9"/></Border.Effect>
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="bd" Property="Background" Value="#1A2540"/>
-                                <Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
-                                <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
+                                <Trigger.EnterActions>
+                                    <BeginStoryboard><Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="glow" Storyboard.TargetProperty="BlurRadius" To="24" Duration="0:0:0.25"/>
+                                        <DoubleAnimation Storyboard.TargetName="sc" Storyboard.TargetProperty="ScaleX" To="1.035" Duration="0:0:0.18"/>
+                                        <DoubleAnimation Storyboard.TargetName="sc" Storyboard.TargetProperty="ScaleY" To="1.035" Duration="0:0:0.18"/>
+                                    </Storyboard></BeginStoryboard>
+                                </Trigger.EnterActions>
+                                <Trigger.ExitActions>
+                                    <BeginStoryboard><Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="glow" Storyboard.TargetProperty="BlurRadius" To="0" Duration="0:0:0.3"/>
+                                        <DoubleAnimation Storyboard.TargetName="sc" Storyboard.TargetProperty="ScaleX" To="1" Duration="0:0:0.2"/>
+                                        <DoubleAnimation Storyboard.TargetName="sc" Storyboard.TargetProperty="ScaleY" To="1" Duration="0:0:0.2"/>
+                                    </Storyboard></BeginStoryboard>
+                                </Trigger.ExitActions>
                             </Trigger>
-                            <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="bd" Property="Background" Value="#23304F"/>
-                            </Trigger>
-                            <Trigger Property="IsEnabled" Value="False">
-                                <Setter Property="Opacity" Value="0.45"/>
-                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.4"/></Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
         </Style>
 
-        <!-- ── Close (X) button ──────────────────────────────────── -->
+        <!-- ══════════════════════════════════════════════════════════
+             GHOST BUTTON
+             ══════════════════════════════════════════════════════════ -->
+        <Style x:Key="GhostBtn" TargetType="Button">
+            <Setter Property="Background"      Value="Transparent"/>
+            <Setter Property="Foreground"      Value="{DynamicResource MutedBrush}"/>
+            <Setter Property="FontSize"        Value="13"/>
+            <Setter Property="FontWeight"      Value="SemiBold"/>
+            <Setter Property="Padding"         Value="22,11"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Cursor"          Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bd" Background="{TemplateBinding Background}"
+                                BorderBrush="#33476E" BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="10" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#1B2742"/>
+                                <Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                                <Setter Property="Foreground" Value="{DynamicResource TextStrongBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#23304F"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.45"/></Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- ══════════════════════════════════════════════════════════
+             WINDOW CHROME BUTTONS  (close / minimize)
+             ══════════════════════════════════════════════════════════ -->
         <Style x:Key="CloseBtn" TargetType="Button">
             <Setter Property="Background"      Value="Transparent"/>
             <Setter Property="Foreground"      Value="{DynamicResource MutedBrush}"/>
@@ -225,8 +286,7 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border x:Name="bd" Background="{TemplateBinding Background}"
-                                CornerRadius="8">
+                        <Border x:Name="bd" Background="{TemplateBinding Background}" CornerRadius="8">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                         <ControlTemplate.Triggers>
@@ -240,22 +300,43 @@
             </Setter>
         </Style>
 
-        <!-- ── TextBox ───────────────────────────────────────────── -->
+        <Style x:Key="MinBtn" TargetType="Button" BasedOn="{StaticResource CloseBtn}">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bd" Background="{TemplateBinding Background}" CornerRadius="8">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#1E2A4A"/>
+                                <Setter Property="Foreground" Value="{DynamicResource TextStrongBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- ══════════════════════════════════════════════════════════
+             TEXTBOX
+             ══════════════════════════════════════════════════════════ -->
         <Style TargetType="TextBox">
-            <Setter Property="Background"     Value="{DynamicResource SurfaceBrush}"/>
-            <Setter Property="Foreground"     Value="{DynamicResource TextBrush}"/>
-            <Setter Property="CaretBrush"     Value="{DynamicResource AccentBrush}"/>
-            <Setter Property="BorderBrush"    Value="{DynamicResource BorderBrush2}"/>
+            <Setter Property="Background"      Value="#101D38"/>
+            <Setter Property="Foreground"      Value="{DynamicResource TextStrongBrush}"/>
+            <Setter Property="CaretBrush"      Value="{DynamicResource AccentBrush}"/>
+            <Setter Property="BorderBrush"     Value="{DynamicResource BorderBrush2}"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Padding"        Value="10,6"/>
-            <Setter Property="FontSize"       Value="13"/>
+            <Setter Property="Padding"         Value="12,9"/>
+            <Setter Property="FontSize"        Value="13"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="TextBox">
                         <Border x:Name="bd" Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="8">
+                                CornerRadius="10">
                             <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}"/>
                         </Border>
                         <ControlTemplate.Triggers>
@@ -271,32 +352,37 @@
             </Setter>
         </Style>
 
-        <!-- ── CheckBox ──────────────────────────────────────────── -->
+        <!-- ══════════════════════════════════════════════════════════
+             CHECKBOX  (rounded, animated tick)
+             ══════════════════════════════════════════════════════════ -->
         <Style TargetType="CheckBox">
             <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
-            <Setter Property="FontSize"   Value="13"/>
+            <Setter Property="FontSize"   Value="13.5"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="Cursor"     Value="Hand"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="CheckBox">
                         <StackPanel Orientation="Horizontal" Background="Transparent">
-                            <Border x:Name="box" Width="20" Height="20" CornerRadius="6"
-                                    Background="{DynamicResource SurfaceBrush}"
-                                    BorderBrush="{DynamicResource BorderBrush2}" BorderThickness="1"
+                            <Border x:Name="box" Width="22" Height="22" CornerRadius="7"
+                                    Background="#101D38"
+                                    BorderBrush="{DynamicResource BorderBrush2}" BorderThickness="1.4"
                                     VerticalAlignment="Center">
-                                <Path x:Name="check" Stretch="Uniform" Width="11" Height="11"
-                                      Stroke="{DynamicResource AccentTextBrush}" StrokeThickness="2"
+                                <Path x:Name="check" Stretch="Uniform" Width="12" Height="12"
+                                      Stroke="{DynamicResource AccentTextBrush}" StrokeThickness="2.4"
                                       StrokeStartLineCap="Round" StrokeEndLineCap="Round"
                                       StrokeLineJoin="Round" Opacity="0"
                                       Data="M2,6 L5,9 L10,2"/>
                             </Border>
-                            <ContentPresenter VerticalAlignment="Center" Margin="10,0,0,0"/>
+                            <ContentPresenter VerticalAlignment="Center" Margin="12,0,0,0"/>
                         </StackPanel>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsChecked" Value="True">
                                 <Setter TargetName="box"   Property="Background" Value="{DynamicResource AccentGradient}"/>
                                 <Setter TargetName="box"   Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
                                 <Setter TargetName="check" Property="Opacity" Value="1"/>
+                                <Setter Property="Foreground" Value="{DynamicResource TextStrongBrush}"/>
                             </Trigger>
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter TargetName="box" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
@@ -307,35 +393,33 @@
             </Setter>
         </Style>
 
-        <!-- ── ProgressBar (gradient + moving shimmer) ───────────── -->
+        <!-- ══════════════════════════════════════════════════════════
+             PROGRESSBAR  (gradient + shimmer)
+             ══════════════════════════════════════════════════════════ -->
         <Style TargetType="ProgressBar">
-            <Setter Property="Height"          Value="8"/>
+            <Setter Property="Height"          Value="10"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ProgressBar">
                         <Grid>
-                            <Border Background="#101D38" CornerRadius="4"/>
+                            <Border Background="#0C172E" CornerRadius="5" BorderBrush="#1E2C4C" BorderThickness="1"/>
                             <Border x:Name="PART_Track"/>
-                            <Border x:Name="PART_Indicator"
-                                    HorizontalAlignment="Left"
+                            <Border x:Name="PART_Indicator" HorizontalAlignment="Left"
                                     Background="{DynamicResource AccentGradient}"
-                                    CornerRadius="4" ClipToBounds="True">
+                                    CornerRadius="5" ClipToBounds="True">
                                 <Border.Effect>
-                                    <DropShadowEffect Color="#00F1FE" BlurRadius="14" ShadowDepth="0" Opacity="0.8"/>
+                                    <DropShadowEffect Color="#00F1FE" BlurRadius="16" ShadowDepth="0" Opacity="0.85"/>
                                 </Border.Effect>
-                                <Rectangle x:Name="shine" Width="80" HorizontalAlignment="Left"
-                                           RenderTransformOrigin="0,0">
+                                <Rectangle x:Name="shine" Width="90" HorizontalAlignment="Left" RenderTransformOrigin="0,0">
                                     <Rectangle.Fill>
                                         <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
                                             <GradientStop Color="#00FFFFFF" Offset="0"/>
-                                            <GradientStop Color="#80FFFFFF" Offset="0.5"/>
+                                            <GradientStop Color="#99FFFFFF" Offset="0.5"/>
                                             <GradientStop Color="#00FFFFFF" Offset="1"/>
                                         </LinearGradientBrush>
                                     </Rectangle.Fill>
-                                    <Rectangle.RenderTransform>
-                                        <TranslateTransform x:Name="shineT" X="-80"/>
-                                    </Rectangle.RenderTransform>
+                                    <Rectangle.RenderTransform><TranslateTransform x:Name="shineT" X="-90"/></Rectangle.RenderTransform>
                                 </Rectangle>
                             </Border>
                         </Grid>
@@ -343,9 +427,8 @@
                             <EventTrigger RoutedEvent="FrameworkElement.Loaded">
                                 <BeginStoryboard>
                                     <Storyboard RepeatBehavior="Forever">
-                                        <DoubleAnimation Storyboard.TargetName="shineT"
-                                                         Storyboard.TargetProperty="X"
-                                                         From="-80" To="420" Duration="0:0:1.6"/>
+                                        <DoubleAnimation Storyboard.TargetName="shineT" Storyboard.TargetProperty="X"
+                                                         From="-90" To="520" Duration="0:0:1.6"/>
                                     </Storyboard>
                                 </BeginStoryboard>
                             </EventTrigger>
@@ -355,15 +438,24 @@
             </Setter>
         </Style>
 
-        <!-- ── Info / requirement card ───────────────────────────── -->
+        <!-- ══════════════════════════════════════════════════════════
+             CARD  (gradient surface, gradient stroke, soft shadow)
+             ══════════════════════════════════════════════════════════ -->
         <Style x:Key="Card" TargetType="Border">
-            <Setter Property="Background" Value="#16223F"/>
-            <Setter Property="CornerRadius" Value="10"/>
-            <Setter Property="BorderBrush" Value="#243355"/>
+            <Setter Property="Background"      Value="{DynamicResource CardGradient}"/>
+            <Setter Property="CornerRadius"    Value="14"/>
+            <Setter Property="BorderBrush"     Value="{DynamicResource CardStrokeGradient}"/>
             <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Effect">
+                <Setter.Value>
+                    <DropShadowEffect BlurRadius="22" ShadowDepth="5" Color="#000713" Opacity="0.35"/>
+                </Setter.Value>
+            </Setter>
         </Style>
 
-        <!-- ── Vector icons (Lucide-style, 24-unit grid, stroked) ──── -->
+        <!-- ══════════════════════════════════════════════════════════
+             VECTOR ICONS  (Lucide-style, 24-unit grid, stroked)
+             ══════════════════════════════════════════════════════════ -->
         <Geometry x:Key="Icon.Info">M2 12 A10 10 0 0 1 22 12 A10 10 0 0 1 2 12 Z M12 8 h0.01 M12 11 v5</Geometry>
         <Geometry x:Key="Icon.Warning">M12 3 L22 20 L2 20 Z M12 10 v4 M12 17 h0.01</Geometry>
         <Geometry x:Key="Icon.Trash">M3 6 H21 M8 6 V4 a1 1 0 0 1 1-1 H15 a1 1 0 0 1 1 1 V6 M19 6 V20 a1 1 0 0 1-1 1 H6 a1 1 0 0 1-1-1 V6 M10 11 V17 M14 11 V17</Geometry>
@@ -373,6 +465,11 @@
         <Geometry x:Key="Icon.Monitor">M3 4 H21 V16 H3 Z M8 20 H16 M12 16 V20</Geometry>
         <Geometry x:Key="Icon.Power">M12 3 V12 M18.36 6.64 A9 9 0 1 1 5.64 6.64</Geometry>
         <Geometry x:Key="Icon.Play">M6 4 L20 12 L6 20 Z</Geometry>
+        <Geometry x:Key="Icon.Gauge">M12 14 L16 10 M3 18 A10 10 0 0 1 21 18</Geometry>
+        <Geometry x:Key="Icon.Leaf">M11 20 A7 7 0 0 1 4 13 C4 7 9 4 20 4 C20 14 16 20 11 20 Z M4 20 C8 14 12 12 18 11</Geometry>
+        <Geometry x:Key="Icon.Bolt">M13 2 L4 14 H11 L10 22 L20 9 H13 Z</Geometry>
+        <Geometry x:Key="Icon.Shield">M12 3 L20 6 V12 C20 17 16 20 12 21 C8 20 4 17 4 12 V6 Z M9 12 l2 2 l4-4</Geometry>
+        <Geometry x:Key="Icon.Folder">M3 7 a2 2 0 0 1 2-2 H9 l2 2 H19 a2 2 0 0 1 2 2 V18 a2 2 0 0 1-2 2 H5 a2 2 0 0 1-2-2 Z</Geometry>
 
         <!-- Base icon path: uniform-stretched stroke, rounded caps/joins -->
         <Style x:Key="Icon" TargetType="Path">

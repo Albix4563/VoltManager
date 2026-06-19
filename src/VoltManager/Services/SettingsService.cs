@@ -81,6 +81,7 @@ public class SettingsService
         settings.Theme = settings.Theme?.Trim().ToLowerInvariant() switch
         {
             "light" => "light",
+            "black" => "black",
             _ => "dark",
         };
     }

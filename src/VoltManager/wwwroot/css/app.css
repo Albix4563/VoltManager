@@ -181,3 +181,51 @@ html[data-theme=light] #update-status.err,
 html[data-theme=light] .app-profile-missing{color:#b42318!important;}
 html[data-theme=light] #updated-toast{background:#fff!important;border-color:rgba(0,174,187,.32)!important;box-shadow:0 14px 34px rgba(15,34,52,.18)!important;color:var(--vm-text)!important;}
 html[data-theme=light] #updated-toast button{color:var(--vm-muted)!important;}
+
+/* ---------- Black theme (OLED) — dark variant with pure-black surfaces ---------- */
+html[data-theme=black]{
+--vm-bg:#000000;
+--vm-bg-deep:#000000;
+--vm-surface:#141414;
+--vm-surface-low:#0d0d0d;
+--vm-surface-high:#1c1c1c;
+--vm-panel:rgba(18,18,18,.72);
+--vm-card:#161616;
+--vm-border:rgba(255,255,255,.08);
+--vm-border-strong:rgba(255,255,255,.18);
+--vm-text:#eaeaea;
+--vm-muted:#a8a8a8;
+--vm-muted-soft:rgba(220,220,220,.6);
+--vm-accent:#00f1fe;
+--vm-accent-dim:#00dbe7;
+--vm-accent-text:#003a3e;
+--md-sys-color-surface-container-high:#1c1c1c;
+color-scheme:dark;
+}
+html[data-theme=black] body{background:#000;color:var(--vm-text);}
+html[data-theme=black] .changelog-scroll::-webkit-scrollbar-thumb{background-color:#2a2a2a;}
+html[data-theme=black] .bg-primary-container,
+html[data-theme=black] .bg-\[\#0A1128\],
+html[data-theme=black] .bg-background{background-color:#000!important;}
+html[data-theme=black] main.bg-\[\#0A1128\]{background-color:#000!important;}
+html[data-theme=black] .bg-surface-container,
+html[data-theme=black] .bg-\[\#1E2A4A\]{background-color:var(--vm-card)!important;}
+html[data-theme=black] .bg-surface-container-lowest{background-color:#080808!important;}
+html[data-theme=black] .bg-surface-container-high{background-color:var(--vm-surface-high)!important;}
+html[data-theme=black] .bg-surface-container-high\/50{background-color:rgba(28,28,28,.5)!important;}
+html[data-theme=black] .bg-surface-container-low\/40{background-color:rgba(13,13,13,.4)!important;}
+html[data-theme=black] .bg-surface-container-low\/50{background-color:rgba(13,13,13,.5)!important;}
+html[data-theme=black] .bg-surface-container\/70{background-color:rgba(18,18,18,.7)!important;}
+html[data-theme=black] .bg-surface-variant{background-color:#1f1f1f!important;}
+html[data-theme=black] .from-surface-container-high{--tw-gradient-from:var(--vm-surface-high) var(--tw-gradient-from-position);--tw-gradient-to:rgba(28,28,28,0) var(--tw-gradient-to-position);}
+html[data-theme=black] .to-surface{--tw-gradient-to:#000 var(--tw-gradient-to-position);}
+html[data-theme=black] nav{background:rgba(8,8,8,.86)!important;border-right-color:var(--vm-border)!important;box-shadow:8px 0 30px rgba(0,0,0,.5)!important;}
+html[data-theme=black] .glass-panel,
+html[data-theme=black] .glass-modal{background:var(--vm-panel)!important;border-color:var(--vm-border);}
+html[data-theme=black] .glass-card{background:var(--vm-card)!important;border-color:var(--vm-border);}
+html[data-theme=black] .segmented-control-bg{background:rgba(18,18,18,.5);border-color:var(--vm-border);}
+html[data-theme=black] .segmented-pill{background:#1c1c1c;}
+html[data-theme=black] svg circle[stroke="#1E2A4A"]{stroke:#1f1f1f;}
+html[data-theme=black] .toggle-label,
+html[data-theme=black] .toggle-label-large,
+html[data-theme=black] .mini-toggle{background:#262626;border-color:var(--vm-border);}

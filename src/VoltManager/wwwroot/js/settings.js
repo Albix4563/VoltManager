@@ -633,16 +633,16 @@
     }
 
     function normalizeTheme(settings) {
-        settings.theme = settings.theme === 'light' ? 'light' : 'dark';
+        settings.theme = settings.theme === 'light' ? 'light' : (settings.theme === 'black' ? 'black' : 'dark');
         return settings.theme;
     }
 
     function setThemeUi(theme) {
-        theme = theme === 'light' ? 'light' : 'dark';
+        theme = theme === 'light' ? 'light' : (theme === 'black' ? 'black' : 'dark');
         if (window.VoltTheme && VoltTheme.apply) VoltTheme.apply(theme);
         else {
             document.documentElement.dataset.theme = theme;
-            document.documentElement.classList.toggle('dark', theme === 'dark');
+            document.documentElement.classList.toggle('dark', theme !== 'light');
             document.documentElement.classList.toggle('light', theme === 'light');
         }
         const select = document.getElementById('theme-select');

@@ -102,8 +102,12 @@
 
     // ---- Control wiring (reuses existing mechanisms) ----
 
+    function normTheme(val) {
+        return val === 'light' ? 'light' : (val === 'black' ? 'black' : 'dark');
+    }
+
     function updateThemeCards(theme) {
-        theme = theme === 'light' ? 'light' : 'dark';
+        theme = normTheme(theme);
         overlay.querySelectorAll('.welcome-theme-card').forEach(card => {
             const selected = card.dataset.welcomeTheme === theme;
             card.dataset.selected = selected ? 'true' : 'false';
@@ -112,11 +116,11 @@
     }
 
     function applyTheme(val) {
-        const theme = val === 'light' ? 'light' : 'dark';
+        const theme = normTheme(val);
         if (window.VoltTheme && VoltTheme.apply) VoltTheme.apply(theme);
         else {
             document.documentElement.dataset.theme = theme;
-            document.documentElement.classList.toggle('dark', theme === 'dark');
+            document.documentElement.classList.toggle('dark', theme !== 'light');
             document.documentElement.classList.toggle('light', theme === 'light');
         }
         updateThemeCards(theme);
@@ -126,7 +130,7 @@
     }
 
     function setTheme(val) {
-        const theme = val === 'light' ? 'light' : 'dark';
+        const theme = normTheme(val);
         applyTheme(theme);
         const settings = getSettings();
         if (settings) {
@@ -139,7 +143,7 @@
         const settings = getSettings();
 
         // Theme
-        updateThemeCards((settings && settings.theme === 'light') ? 'light' : 'dark');
+        updateThemeCards(settings ? normTheme(settings.theme) : 'dark');
 
         // Language
         const langSelect = document.getElementById('welcome-lang-select');

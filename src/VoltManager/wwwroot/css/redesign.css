@@ -119,3 +119,5 @@ html[data-theme=light] .pm-seg.active{
   color: #007f8b;
   box-shadow: 0 0 16px rgba(0, 174, 187, .1), inset 0 1px 0 rgba(255, 255, 255, .6);
 }
+
+html[data-theme=black] .pm-subnav{ background: rgba(18, 18, 18, .6); border-color: rgba(255, 255, 255, .06); }
