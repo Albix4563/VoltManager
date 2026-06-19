@@ -812,4 +812,31 @@
         const item = header.closest('.vm-acc-item');
         if (item) item.dataset.open = item.dataset.open === 'true' ? 'false' : 'true';
     });
+
+    // Sub-nav (pm-seg) switching — defensively (re)mount the JS-driven panels.
+    // They normally mount during loadIntoUi, but if getSettings fails or the
+    // segment is selected before init completes, mount on demand here.
+    document.addEventListener('click', (e) => {
+        const seg = e.target.closest('#view-power .pm-seg');
+        if (!seg) return;
+        setTimeout(() => {
+            switch (seg.dataset.pm) {
+                case 'apps':
+                    mountAppPowerProfileUi();
+                    wireAppPowerProfileUi();
+                    if (settings) syncAppPowerProfileUi();
+                    break;
+                case 'games':
+                    mountHeavyAppUi();
+                    wireHeavyAppUi();
+                    if (settings) syncHeavyAppUi();
+                    break;
+                case 'awake':
+                    mountKeepAwakeUi();
+                    wireKeepAwakeUi();
+                    if (settings) syncKeepAwakeUi();
+                    break;
+            }
+        }, 20);
+    });
 })();

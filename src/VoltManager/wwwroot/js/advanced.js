@@ -724,6 +724,44 @@
         return mount && mount.closest('.vm-acc-item[data-open="true"]') !== null;
     }
 
+    function activateAdvPanel() {
+        mountAdvancedUi();
+        wireAdvancedUi();
+        loadAdvParams();
+    }
+
+    function activateRamPanel() {
+        mountRamUi();
+        wireRamUi();
+        loadRamStatus();
+        loadRamAutoCleanSettings();
+        // Auto-refresh every 5 s while panel is open
+        clearInterval(ramAutoRefresh);
+        ramAutoRefresh = setInterval(loadRamStatus, 5000);
+    }
+
+    function stopRamRefresh() {
+        clearInterval(ramAutoRefresh);
+        ramAutoRefresh = null;
+    }
+
+    // Sub-nav (pm-seg) switching — the active panel is driven by .pm-active,
+    // not by accordion clicks, so mount on segment selection.
+    document.addEventListener('click', e => {
+        const seg = e.target.closest('#view-power .pm-seg');
+        if (!seg) return;
+        const key = seg.dataset.pm;
+        // Wait one tick for app.js activatePowerPanel to flip .pm-active.
+        setTimeout(() => {
+            if (key === 'ram') {
+                activateRamPanel();
+                return;
+            }
+            stopRamRefresh();           // leaving ram → stop its polling
+            if (key === 'advanced') activateAdvPanel();
+        }, 20);
+    });
+
     // Listen to accordion toggle clicks
     document.addEventListener('click', e => {
         const header = e.target.closest('#view-power .vm-acc-header');
@@ -738,22 +776,13 @@
             const hasRamMount   = !!item.querySelector('#ram-cleaner-mount');
 
             if (hasAdvMount && isOpen) {
-                mountAdvancedUi();
-                wireAdvancedUi();
-                loadAdvParams();
+                activateAdvPanel();
             }
             if (hasRamMount) {
                 if (isOpen) {
-                    mountRamUi();
-                    wireRamUi();
-                    loadRamStatus();
-                    loadRamAutoCleanSettings();
-                    // Auto-refresh every 5 s while panel is open
-                    clearInterval(ramAutoRefresh);
-                    ramAutoRefresh = setInterval(loadRamStatus, 5000);
+                    activateRamPanel();
                 } else {
-                    clearInterval(ramAutoRefresh);
-                    ramAutoRefresh = null;
+                    stopRamRefresh();
                 }
             }
         }, 20);
