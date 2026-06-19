@@ -30,6 +30,7 @@ public class HostBridge
     private readonly StartupAppsService _startupApps = new();
     private readonly PowerPlanParameterService _planParams;
     private readonly MemoryOptimizerService _memoryOptimizer;
+    private readonly BatteryHealthService _batteryHealth = new();
     private readonly App _app;
 
     public event Action? ExitRequested;
@@ -113,6 +114,9 @@ public class HostBridge
         {
             case "getSystemInfo":
                 return _hardware.GetSystemInfo();
+
+            case "getBatteryHealth":
+                return await Task.Run(() => _batteryHealth.GetHealth());
 
             case "checkDefaultPlans":
             {

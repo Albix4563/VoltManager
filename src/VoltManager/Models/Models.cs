@@ -267,6 +267,31 @@ public record PlanParameterSet
 }
 
 /// <summary>
+/// Capacità batteria lette dal firmware (mWh). Null = nessuna batteria/non leggibile.
+/// </summary>
+public record BatteryCapacitySnapshot
+{
+    [JsonPropertyName("designedCapacityMwh")] public int? DesignedCapacityMwh { get; init; }
+    [JsonPropertyName("fullChargedCapacityMwh")] public int? FullChargedCapacityMwh { get; init; }
+}
+
+/// <summary>
+/// Stato di salute (usura) della batteria calcolato da capacità progettata vs attuale.
+/// </summary>
+public record BatteryHealthState
+{
+    // available=false quando non c'è batteria o i dati firmware sono assenti/invalidi.
+    [JsonPropertyName("available")] public bool Available { get; init; }
+    [JsonPropertyName("designedCapacityMwh")] public int? DesignedCapacityMwh { get; init; }
+    [JsonPropertyName("fullChargedCapacityMwh")] public int? FullChargedCapacityMwh { get; init; }
+    [JsonPropertyName("healthPercent")] public double? HealthPercent { get; init; }
+    [JsonPropertyName("wearPercent")] public double? WearPercent { get; init; }
+    // excellent|good|fair|poor|unknown
+    [JsonPropertyName("rating")] public string Rating { get; init; } = "unknown";
+    [JsonPropertyName("message")] public string Message { get; init; } = "";
+}
+
+/// <summary>
 /// Snapshot dettagliato della memoria RAM (in GB e percentuale).
 /// </summary>
 public record MemoryStatus
