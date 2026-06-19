@@ -98,6 +98,10 @@
             saveNow().catch(err => console.error('saveSettings failed', err));
         }
         close();
+        // Hand off to the guided feature tour (tour.js decides whether to run,
+        // gated on settings.tourCompleted). Deferred so the overlay finishes
+        // hiding before the spotlight measures element positions.
+        setTimeout(() => document.dispatchEvent(new CustomEvent('welcomecompleted')), 60);
     }
 
     // ---- Control wiring (reuses existing mechanisms) ----

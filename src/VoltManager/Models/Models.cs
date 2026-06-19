@@ -181,6 +181,7 @@ public class AppSettings
     [JsonPropertyName("planGuidMap")] public Dictionary<string, string> PlanGuidMap { get; set; } = new();
     [JsonPropertyName("override")] public ManualOverride? Override { get; set; }
     [JsonPropertyName("welcomeCompleted")] public bool WelcomeCompleted { get; set; } = false;
+    [JsonPropertyName("tourCompleted")] public bool TourCompleted { get; set; } = false;
 
     public static List<AutomationRule> DefaultRules() => new()
     {

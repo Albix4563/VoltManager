@@ -178,7 +178,7 @@ html[data-theme=light] .welcome-theme-card .welcome-theme-check{border-color:rgb
         </div>
       </section>
 
-      <section class="mt-8">
+      <section class="mt-8" id="dash-taskmanager">
         <h3 class="text-title-lg text-on-surface mb-4 flex items-center gap-2">
           <span class="material-symbols-outlined text-secondary-container">memory</span>
           <span data-i18n="dash_task_manager">Task Manager</span>
@@ -698,6 +698,17 @@ html[data-theme=light] .welcome-theme-card .welcome-theme-check{border-color:rgb
                   <span data-i18n="set_show_welcome_btn">Apri</span>
                 </button>
               </div>
+              <!-- Replay guided tour button -->
+              <div class="flex items-center justify-between group mt-md" id="pref-show-tour">
+                <div>
+                  <p class="text-body-md text-on-surface group-hover:text-secondary-fixed transition-colors" data-i18n="set_show_tour">Tour guidato</p>
+                  <p class="text-label-sm text-on-surface-variant" data-i18n="set_show_tour_sub">Riavvia la visita guidata dell'app</p>
+                </div>
+                <button class="btn-ghost rounded-lg py-2 px-4 text-label-md flex items-center gap-xs" id="btn-show-tour" type="button">
+                  <span class="material-symbols-outlined text-[18px]">tour</span>
+                  <span data-i18n="set_show_tour_btn">Avvia</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -995,6 +1006,7 @@ html[data-theme=light] .welcome-theme-card .welcome-theme-check{border-color:rgb
 <script src="js/power.js?v=reorg2"></script>
 <script src="js/settings.js?v=temps2"></script>
 <script src="js/welcome.js?v=welcome1"></script>
+<script src="js/tour.js?v=tour1"></script>
 <script src="js/changelog.js?v=temps1"></script>
 <script src="js/setup.js?v=temps1"></script>
 <script src="js/advanced.js?v=adv2"></script>
