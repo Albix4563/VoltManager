@@ -90,6 +90,7 @@ public class HostBridge
         }
         catch (Exception ex)
         {
+            Logger.Error("Bridge message handling failed (id: " + (id ?? "none") + ")", ex);
             if (id != null) Reply(id, ok: false, ex.Message);
         }
     }
@@ -330,6 +331,16 @@ public class HostBridge
                 Process.Start(new ProcessStartInfo(path,
                     $"/update --pid {Environment.ProcessId}") { UseShellExecute = true });
                 ExitRequested?.Invoke();
+                return new { success = true };
+            }
+
+            case "logError":
+            {
+                string message = payload.TryGetProperty("message", out var msgEl)
+                    ? msgEl.GetString() ?? "" : "";
+                string? stack = payload.TryGetProperty("stack", out var stEl)
+                    ? stEl.GetString() : null;
+                Logger.Error("[UI] " + message + (stack != null ? "\n" + stack : ""));
                 return new { success = true };
             }
 

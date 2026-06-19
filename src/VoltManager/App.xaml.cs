@@ -5,6 +5,7 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows;
 using System.Windows.Shell;
+using System.Windows.Threading;
 using VoltManager.Models;
 using VoltManager.Services;
 
@@ -57,6 +58,9 @@ public partial class App : Application
 
     protected override void OnStartup(StartupEventArgs e)
     {
+        Logger.Init();
+        HookGlobalExceptionHandlers();
+
         string? startupCommand = RemoteCommandProtocol.ParseCommandArg(e.Args);
 
         _mutex = new Mutex(true, MutexName, out bool isNew);
@@ -119,6 +123,47 @@ public partial class App : Application
             _ = Task.Run(() => ApplyRemoteCommand(startupCommand));
 
         SetupJumpList();
+    }
+
+    private void HookGlobalExceptionHandlers()
+    {
+        // UI-thread exceptions: log, tell the user, and keep the app alive — a
+        // single broken handler must not kill the tray app the user relies on.
+        DispatcherUnhandledException += OnDispatcherUnhandledException;
+
+        // Background-thread exceptions are fatal to the process; log before exit.
+        AppDomain.CurrentDomain.UnhandledException += (_, args) =>
+        {
+            if (args.ExceptionObject is Exception ex)
+                Logger.Error("Unhandled exception (terminating: " + args.IsTerminating + ")", ex);
+            else
+                Logger.Error("Unhandled non-CLR exception (terminating: " + args.IsTerminating + ")");
+        };
+
+        // Faulted Tasks whose exception was never observed: log and swallow.
+        TaskScheduler.UnobservedTaskException += (_, args) =>
+        {
+            Logger.Error("Unobserved task exception", args.Exception);
+            args.SetObserved();
+        };
+    }
+
+    private void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
+    {
+        Logger.Error("Unhandled UI-thread exception", e.Exception);
+        e.Handled = true;
+        try
+        {
+            MessageBox.Show(
+                "Si è verificato un errore imprevisto. VoltManager resta attivo, ma l'ultima operazione potrebbe non essere riuscita.\n\n" +
+                "Dettagli salvati nel log:\n" + (Logger.LogFilePath ?? "(non disponibile)") +
+                "\n\nErrore: " + e.Exception.Message,
+                "VoltManager", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+        catch
+        {
+            // Showing the dialog must not itself crash the handler.
+        }
     }
 
     private void SetupJumpList()
@@ -189,9 +234,10 @@ public partial class App : Application
                     break;
             }
         }
-        catch
+        catch (Exception ex)
         {
             // Remote commands must never crash the app.
+            Logger.Error("Remote command failed: " + key, ex);
         }
     }
 
@@ -209,7 +255,7 @@ public partial class App : Application
                     ActivePlanChanged?.Invoke(current);
                 }
             }
-            catch { }
+            catch (Exception ex) { Logger.Error("Plan poll failed", ex); }
         }, null, 0, 3000);
     }
 
@@ -240,9 +286,10 @@ public partial class App : Application
                     ActivePlanChanged?.Invoke(current);
                 }
             }
-            catch
+            catch (Exception ex)
             {
                 // Automation must never crash the app.
+                Logger.Error("Automation loop tick failed", ex);
             }
         }, null, 3000, 1000);
     }
@@ -391,9 +438,10 @@ public partial class App : Application
                 Settings.Save();
                 ExecuteScheduledPowerAction(scheduled.Action);
             }
-            catch
+            catch (Exception ex)
             {
                 // Scheduled power actions must never crash the app.
+                Logger.Error("Scheduled power action check failed", ex);
             }
         }, null, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(15));
     }

@@ -51,4 +51,25 @@
             listeners.get(eventName).push(handler);
         },
     };
+
+    // Forward uncaught JS errors and rejected promises to the host log so UI
+    // failures are diagnosable from the same file as backend errors. Best-effort:
+    // never throw from a handler, never recurse if logError itself fails.
+    function reportToHost(message, stack) {
+        if (!hasWebView) return;
+        try {
+            Host.call('logError', { message: String(message || ''), stack: stack ? String(stack) : null })
+                .catch(() => {});
+        } catch (_) { /* swallow */ }
+    }
+
+    window.addEventListener('error', (e) => {
+        const msg = e.message || (e.error && e.error.message) || 'Errore script';
+        reportToHost(msg, e.error && e.error.stack);
+    });
+    window.addEventListener('unhandledrejection', (e) => {
+        const reason = e.reason;
+        const msg = (reason && reason.message) || String(reason) || 'Promise non gestita';
+        reportToHost('Unhandled rejection: ' + msg, reason && reason.stack);
+    });
 })();

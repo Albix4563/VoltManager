@@ -68,9 +68,10 @@ public class SettingsService
                 }
             }
         }
-        catch
+        catch (Exception ex)
         {
             // Corrupt settings file: fall through to defaults.
+            Logger.Error("Failed to load settings from " + _path + "; using defaults.", ex);
         }
         return new AppSettings();
     }

@@ -61,6 +61,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
+            Logger.Error("WebView2 initialization failed", ex);
             MessageBox.Show(
                 "Runtime WebView2 non trovato. Installa \"Microsoft Edge WebView2 Runtime\" e riavvia VoltManager.\n\nDettagli: " + ex.Message,
                 "VoltManager", MessageBoxButton.OK, MessageBoxImage.Error);
@@ -255,9 +256,10 @@ public partial class MainWindow : Window
             if (info.UpdateAvailable && info.DownloadUrl != null && !IsUpdateSuppressed(info, respectSnooze: true))
                 _bridge?.PushEvent("updateAvailable", info);
         }
-        catch
+        catch (Exception ex)
         {
             // Offline or rate-limited: stay silent, manual check remains available.
+            Logger.Warn("Startup update check failed: " + ex.Message);
         }
     }
 
@@ -297,9 +299,10 @@ public partial class MainWindow : Window
             else
                 await ShowBackgroundUpdatePromptAsync(info);
         }
-        catch
+        catch (Exception ex)
         {
             // Automatic checks must stay silent when the network or GitHub is unavailable.
+            Logger.Warn("Automatic update check failed: " + ex.Message);
         }
         finally
         {
@@ -369,6 +372,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
+            Logger.Error("Update download/install failed", ex);
             MessageBox.Show("Download aggiornamento fallito: " + ex.Message,
                 "VoltManager", MessageBoxButton.OK, MessageBoxImage.Error);
         }
