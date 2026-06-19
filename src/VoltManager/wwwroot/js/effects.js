@@ -63,13 +63,19 @@
       if (card) card.dataset.load = load;
     },
 
-    /** Width tween for a linear bar. */
+    /** Fill tween for a linear bar — compositor-only via scaleX (no per-frame
+     *  layout). Bar is pinned to full width once, then scaled from the left. */
     animateBar(bar, pct, dur = 900) {
       if (!bar) return;
       const clamped = Math.max(0, Math.min(100, pct));
+      if (bar.dataset.fxBar !== '1') {
+        bar.style.width = '100%';
+        bar.style.transformOrigin = 'left center';
+        bar.dataset.fxBar = '1';
+      }
       const from = lastNum.has(bar) ? lastNum.get(bar) : clamped;
       lastNum.set(bar, clamped);
-      tween(bar, from, clamped, dur, (v) => { bar.style.width = v.toFixed(1) + '%'; });
+      tween(bar, from, clamped, dur, (v) => { bar.style.transform = 'scaleX(' + (v / 100).toFixed(4) + ')'; });
     },
   };
   window.VoltFx = VoltFx;

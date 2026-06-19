@@ -37,6 +37,12 @@ body{
   will-change: stroke-dashoffset;
 }
 
+/* Linear bars are scaled (not width-animated) — composite on their own layer. */
+#ram-bar, #disk-bar{
+  transform-origin: left center;
+  will-change: transform;
+}
+
 /* ---------- 1. Ambient aurora background ---------- */
 /* Injected by effects.js as the first child of <main>. Three slow-drifting
    blurred orbs on a fixed plane behind the z-10 content. Transform/opacity
@@ -238,4 +244,21 @@ html[data-theme=light] .segmented-pill{
   .glass-card.fx-sheen::before{ animation: none !important; }
   .fx-title{ color: var(--vm-text,#d4e4fa); -webkit-text-fill-color: currentColor; }
   #cpu-ring, #gpu-ring{ transition: stroke .3s ease; will-change: auto; }
+}
+
+/* ---------- 10. Reduced-transparency: solid-fill fallback ---------- */
+/* The UI leans hard on backdrop-blur. Users who request reduced transparency
+   (or weak GPUs) get opaque surfaces and no translucent aurora wash. */
+@media (prefers-reduced-transparency: reduce){
+  .glass-panel, .glass-modal{
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background: var(--vm-card, #1e2a4a) !important;
+  }
+  nav.backdrop-blur-\[30px\]{
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background: var(--vm-surface, #122131) !important;
+  }
+  .vm-aurora{ display: none; }
 }
