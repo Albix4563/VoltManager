@@ -6,6 +6,7 @@
 <title>VoltManager</title>
 <link href="css/app.css?v=zfix2" rel="stylesheet"/>
 <link href="css/redesign.css?v=redesign1" rel="stylesheet"/>
+<link href="css/effects.css?v=effects1" rel="stylesheet"/>
 <script>
 (function () {
   function normalize(theme) { return theme === 'light' ? 'light' : 'dark'; }
@@ -183,7 +184,7 @@ html[data-theme=light] .welcome-theme-card .welcome-theme-check{border-color:rgb
         </h3>
         <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
           <!-- CPU Card (Circular) -->
-          <div class="glass-card rounded-xl p-6 flex flex-col items-center justify-center relative overflow-hidden group">
+          <div class="glass-card fx-metric rounded-xl p-6 flex flex-col items-center justify-center relative overflow-hidden group">
             <div class="absolute top-4 left-4 flex items-center gap-2">
               <span class="material-symbols-outlined text-secondary-container text-sm transition-transform duration-300 group-hover:scale-110">developer_board</span>
               <span class="text-label-md text-on-surface uppercase" data-i18n="dash_cpu_core">CPU Core</span>
@@ -206,7 +207,7 @@ html[data-theme=light] .welcome-theme-card .welcome-theme-check{border-color:rgb
           </div>
 
           <!-- GPU Card (Circular) -->
-          <div class="glass-card rounded-xl p-6 flex flex-col items-center justify-center relative overflow-hidden group">
+          <div class="glass-card fx-metric rounded-xl p-6 flex flex-col items-center justify-center relative overflow-hidden group">
             <div class="absolute top-4 left-4 flex items-center gap-2">
               <span class="material-symbols-outlined text-secondary-container text-sm transition-transform duration-300 group-hover:scale-110">dns</span>
               <span class="text-label-md text-on-surface uppercase" data-i18n="dash_gpu_load">GPU Load</span>
@@ -893,6 +894,7 @@ html[data-theme=light] .welcome-theme-card .welcome-theme-check{border-color:rgb
 <script src="js/bridge.js?v=temps1"></script>
 <script src="js/i18n.js?v=redesign1"></script>
 <script src="js/app.js?v=redesign1"></script>
+<script src="js/effects.js?v=effects1"></script>
 <script src="js/dashboard.js?v=gaming1"></script>
 <script src="js/power.js?v=reorg1"></script>
 <script src="js/settings.js?v=temps2"></script>

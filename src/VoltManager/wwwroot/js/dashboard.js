@@ -24,6 +24,7 @@
     const sensorList = document.getElementById('sensor-list');
 
     function setRing(circle, label, pct) {
+        if (window.VoltFx) { window.VoltFx.animateRing(circle, label, pct); return; }
         circle.style.strokeDashoffset = (CIRC * (1 - pct / 100)).toFixed(1);
         label.textContent = Math.round(pct) + '%';
     }
@@ -129,11 +130,18 @@
                 gpuUnavailableShown = true;
             }
         }
-        ramPct.textContent = Math.round(m.ramPct) + '%';
-        ramBar.style.width = m.ramPct + '%';
+        if (window.VoltFx) {
+            window.VoltFx.animateNumber(ramPct, m.ramPct, { suffix: '%' });
+            window.VoltFx.animateBar(ramBar, m.ramPct);
+            window.VoltFx.animateNumber(diskPct, m.disk, { suffix: '%' });
+            window.VoltFx.animateBar(diskBar, m.disk);
+        } else {
+            ramPct.textContent = Math.round(m.ramPct) + '%';
+            ramBar.style.width = m.ramPct + '%';
+            diskPct.textContent = Math.round(m.disk) + '%';
+            diskBar.style.width = m.disk + '%';
+        }
         ramDetail.textContent = m.ramUsedGb.toFixed(1) + ' GB / ' + m.ramTotalGb.toFixed(1) + ' GB In Use';
-        diskPct.textContent = Math.round(m.disk) + '%';
-        diskBar.style.width = m.disk + '%';
     });
 
     // ----- Power plan segmented control -----

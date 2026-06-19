@@ -1,0 +1,241 @@
+/* ============================================================
+   VoltManager — Effects layer (hand-written, no Tailwind build).
+   Loaded AFTER app.css + redesign.css. Pure additive polish:
+   - GPU-accelerated ambient aurora
+   - pointer-tracking card spotlight + hover sheen
+   - load-reactive metric rings
+   - gradient-shimmer headings
+   - comet nav indicator, button ripple
+   - rendering hints (layer promotion + containment)
+   Identity untouched: cyan-on-navy, glass surfaces.
+   Everything degrades to static under prefers-reduced-motion.
+   ============================================================ */
+
+/* ---------- 0. Rendering quality + GPU promotion ---------- */
+
+body{
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* Promote the heavy glass surfaces to their own compositor layers so the
+   backdrop blur + shadows repaint cheaply, and contain their internals so a
+   metric update never reflows the whole document. */
+.glass-card,
+.glass-panel{
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  contain: layout paint style;
+}
+
+/* The live rings repaint every second — isolate them. The fill (dashoffset)
+   is smoothed per-frame in JS, so only colour/halo transition via CSS;
+   transitioning dashoffset too would smear the rAF tween. */
+#cpu-ring, #gpu-ring{
+  transition: stroke .8s ease, filter .8s ease;
+  will-change: stroke-dashoffset;
+}
+
+/* ---------- 1. Ambient aurora background ---------- */
+/* Injected by effects.js as the first child of <main>. Three slow-drifting
+   blurred orbs on a fixed plane behind the z-10 content. Transform/opacity
+   only -> runs on the compositor, ~0 layout cost. */
+
+.vm-aurora{
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+  contain: strict;
+}
+.vm-aurora__orb{
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: .5;
+  will-change: transform;
+  mix-blend-mode: screen;
+}
+.vm-aurora__orb--1{
+  width: 46vw; height: 46vw; left: -6vw; top: -8vw;
+  background: radial-gradient(circle at 30% 30%, rgba(0,241,254,.55), rgba(0,241,254,0) 68%);
+  animation: vmOrb1 26s ease-in-out infinite;
+}
+.vm-aurora__orb--2{
+  width: 40vw; height: 40vw; right: -8vw; top: 18vh;
+  background: radial-gradient(circle at 60% 40%, rgba(94,124,255,.42), rgba(94,124,255,0) 70%);
+  animation: vmOrb2 32s ease-in-out infinite;
+}
+.vm-aurora__orb--3{
+  width: 38vw; height: 38vw; left: 24vw; bottom: -14vw;
+  background: radial-gradient(circle at 50% 50%, rgba(0,210,180,.34), rgba(0,210,180,0) 70%);
+  animation: vmOrb3 38s ease-in-out infinite;
+}
+@keyframes vmOrb1{
+  0%,100%{ transform: translate3d(0,0,0) scale(1); }
+  33%{ transform: translate3d(8vw,6vh,0) scale(1.12); }
+  66%{ transform: translate3d(-4vw,12vh,0) scale(.94); }
+}
+@keyframes vmOrb2{
+  0%,100%{ transform: translate3d(0,0,0) scale(1); }
+  40%{ transform: translate3d(-10vw,8vh,0) scale(1.15); }
+  70%{ transform: translate3d(-2vw,-6vh,0) scale(.9); }
+}
+@keyframes vmOrb3{
+  0%,100%{ transform: translate3d(0,0,0) scale(1); }
+  50%{ transform: translate3d(6vw,-10vh,0) scale(1.18); }
+}
+html[data-theme=light] .vm-aurora__orb{ opacity: .34; filter: blur(90px); mix-blend-mode: multiply; }
+html[data-theme=light] .vm-aurora__orb--1{ background: radial-gradient(circle at 30% 30%, rgba(0,174,187,.4), rgba(0,174,187,0) 68%); }
+html[data-theme=light] .vm-aurora__orb--2{ background: radial-gradient(circle at 60% 40%, rgba(90,120,210,.3), rgba(90,120,210,0) 70%); }
+html[data-theme=light] .vm-aurora__orb--3{ background: radial-gradient(circle at 50% 50%, rgba(0,180,160,.26), rgba(0,180,160,0) 70%); }
+
+/* ---------- 2. Card spotlight + hover sheen ---------- */
+/* --mx/--my are written by effects.js on pointermove (0-100%). The radial
+   tracks the cursor; a diagonal sheen sweeps once on hover. */
+
+.glass-card, .glass-panel{ position: relative; }
+.glass-card::after, .glass-panel::after{
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .35s ease;
+  background: radial-gradient(280px circle at var(--mx,50%) var(--my,50%),
+              rgba(0,241,254,.16), rgba(0,241,254,0) 60%);
+  z-index: -1; /* above the card's own background fill, beneath all content */
+}
+.glass-card.fx-spot::after, .glass-panel.fx-spot::after{ opacity: 1; }
+html[data-theme=light] .glass-card::after,
+html[data-theme=light] .glass-panel::after{
+  background: radial-gradient(280px circle at var(--mx,50%) var(--my,50%),
+              rgba(0,174,187,.14), rgba(0,174,187,0) 60%);
+}
+
+/* One-shot diagonal sheen on hover-in. */
+.glass-card{ overflow: hidden; }
+.glass-card::before{
+  content: "";
+  position: absolute;
+  top: 0; left: 0; width: 60%; height: 100%;
+  pointer-events: none;
+  z-index: -1;
+  background: linear-gradient(100deg, transparent, rgba(255,255,255,.10) 50%, transparent);
+  transform: translateX(-160%) skewX(-18deg);
+  opacity: 0;
+}
+.glass-card.fx-sheen::before{ animation: vmSheen .9s cubic-bezier(.22,1,.36,1); }
+@keyframes vmSheen{
+  0%{ transform: translateX(-160%) skewX(-18deg); opacity: 0; }
+  18%{ opacity: 1; }
+  100%{ transform: translateX(260%) skewX(-18deg); opacity: 0; }
+}
+
+/* ---------- 3. Load-reactive metric ring halo ---------- */
+/* effects.js sets data-load=low|mid|high on the ring's card; the colored halo
+   strengthens with utilization. Stroke colour is tweened from JS. */
+
+.fx-metric{ transition: box-shadow .6s ease; }
+.fx-metric[data-load="mid"]{ box-shadow: inset 0 0 0 1px rgba(255,193,74,.10), 0 14px 36px -18px rgba(255,193,74,.35); }
+.fx-metric[data-load="high"]{ box-shadow: inset 0 0 0 1px rgba(255,90,106,.16), 0 16px 40px -16px rgba(255,90,106,.5); }
+
+/* ---------- 4. Gradient-shimmer headings ---------- */
+
+.fx-title{
+  background: linear-gradient(100deg,
+              var(--vm-text,#d4e4fa) 0%, var(--vm-text,#d4e4fa) 38%,
+              var(--vm-accent,#00f1fe) 50%,
+              var(--vm-text,#d4e4fa) 62%, var(--vm-text,#d4e4fa) 100%);
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: vmTitleSheen 7s ease-in-out infinite;
+}
+@keyframes vmTitleSheen{
+  0%,100%{ background-position: 130% 0; }
+  50%{ background-position: -30% 0; }
+}
+
+/* ---------- 5. Comet nav indicator ---------- */
+
+.nav-indicator{
+  background: linear-gradient(180deg, #00f1fe, #3affe9) !important;
+  box-shadow: 0 0 12px #00f1fe, 0 0 26px rgba(0,241,254,.55) !important;
+  animation: vmNavPulse 2.6s ease-in-out infinite;
+}
+.nav-indicator::after{
+  content: "";
+  position: absolute;
+  inset: -6px -10px -6px -2px;
+  border-radius: 8px;
+  background: radial-gradient(60% 60% at 0% 50%, rgba(0,241,254,.5), transparent 70%);
+  filter: blur(6px);
+  pointer-events: none;
+}
+@keyframes vmNavPulse{
+  0%,100%{ box-shadow: 0 0 12px #00f1fe, 0 0 22px rgba(0,241,254,.45); }
+  50%{ box-shadow: 0 0 16px #00f1fe, 0 0 34px rgba(0,241,254,.7); }
+}
+html[data-theme=light] .nav-indicator{
+  background: linear-gradient(180deg, var(--vm-accent), #3fd6df) !important;
+  box-shadow: 0 0 8px rgba(0,174,187,.5), 0 0 18px rgba(0,174,187,.4) !important;
+}
+
+/* ---------- 6. Button ripple ---------- */
+
+.vm-ripple{
+  position: absolute;
+  border-radius: 50%;
+  transform: translate(-50%, -50%) scale(0);
+  background: radial-gradient(circle, rgba(255,255,255,.5), rgba(255,255,255,0) 70%);
+  pointer-events: none;
+  animation: vmRipple .6s ease-out forwards;
+  z-index: 3;
+  mix-blend-mode: screen;
+}
+@keyframes vmRipple{
+  to{ transform: translate(-50%, -50%) scale(1); opacity: 0; }
+}
+
+/* ---------- 7. Live monitoring dot — radiating ping ---------- */
+
+#monitoring-dot.animate-pulse{ position: relative; }
+#monitoring-dot.animate-pulse::after{
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  border: 1px solid rgba(0,241,254,.6);
+  animation: vmPing 1.8s cubic-bezier(0,0,.2,1) infinite;
+}
+@keyframes vmPing{
+  0%{ transform: scale(1); opacity: .8; }
+  80%,100%{ transform: scale(2.6); opacity: 0; }
+}
+
+/* ---------- 8. Segmented plan pill — accent glow ---------- */
+
+.segmented-pill{
+  box-shadow: 0 2px 8px rgba(0,0,0,.25), 0 0 0 1px rgba(0,241,254,.18),
+              0 0 18px rgba(0,241,254,.12) !important;
+}
+html[data-theme=light] .segmented-pill{
+  box-shadow: 0 4px 14px rgba(15,34,52,.12), 0 0 0 1px rgba(0,174,187,.18) !important;
+}
+
+/* ---------- 9. Reduced-motion: kill every continuous animation ---------- */
+
+@media (prefers-reduced-motion: reduce){
+  .vm-aurora__orb,
+  .fx-title,
+  .nav-indicator,
+  #monitoring-dot.animate-pulse::after,
+  .glass-card.fx-sheen::before{ animation: none !important; }
+  .fx-title{ color: var(--vm-text,#d4e4fa); -webkit-text-fill-color: currentColor; }
+  #cpu-ring, #gpu-ring{ transition: stroke .3s ease; will-change: auto; }
+}
