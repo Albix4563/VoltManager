@@ -22,6 +22,11 @@
     const ramClock = document.getElementById('ram-clock');
     const tempSection = document.getElementById('temp-section');
     const sensorList = document.getElementById('sensor-list');
+    const batteryHealthSection = document.getElementById('battery-health-section');
+    const batteryHealthRating = document.getElementById('battery-health-rating');
+    const batteryHealthPct = document.getElementById('battery-health-pct');
+    const batteryHealthDetail = document.getElementById('battery-health-detail');
+    const batteryHealthBar = document.getElementById('battery-health-bar');
 
     function setRing(circle, label, pct) {
         if (window.VoltFx) { window.VoltFx.animateRing(circle, label, pct); return; }
@@ -111,6 +116,35 @@
 
     document.addEventListener('langchanged', () => {
         sensorKey = ''; // force rebuild on next tick so group headers translate
+    });
+
+    // ----- Battery health (wear level) -----
+    let lastBatteryHealth = null;
+
+    function renderBatteryHealth(state) {
+        lastBatteryHealth = state;
+        const ok = state && state.available && state.healthPercent != null;
+        batteryHealthSection.classList.toggle('hidden', !ok);
+        if (!ok) return;
+
+        const health = state.healthPercent;
+        batteryHealthRating.textContent = I18n.t('dash_battery_health_rating_' + state.rating);
+        const wear = state.wearPercent != null ? state.wearPercent : (100 - health);
+        const designWh = state.designedCapacityMwh ? (state.designedCapacityMwh / 1000).toFixed(1) : '--';
+        const fullWh = state.fullChargedCapacityMwh != null ? (state.fullChargedCapacityMwh / 1000).toFixed(1) : '--';
+        batteryHealthDetail.textContent =
+            fullWh + ' Wh / ' + designWh + ' Wh · ' + wear + '% ' + I18n.t('dash_battery_health_wear');
+        if (window.VoltFx) {
+            window.VoltFx.animateNumber(batteryHealthPct, health, { suffix: '%' });
+            window.VoltFx.animateBar(batteryHealthBar, health);
+        } else {
+            batteryHealthPct.textContent = Math.round(health) + '%';
+            batteryHealthBar.style.width = health + '%';
+        }
+    }
+
+    document.addEventListener('langchanged', () => {
+        if (lastBatteryHealth) renderBatteryHealth(lastBatteryHealth);
     });
 
     Host.on('metrics', (m) => {
@@ -439,5 +473,6 @@
         }).catch(() => {});
         Host.call('getPowerSourcePlanState').then(renderPowerSourcePlanState).catch(() => {});
         Host.call('getGamingMode').then(renderGamingModeState).catch(() => {});
+        Host.call('getBatteryHealth').then(renderBatteryHealth).catch(() => {});
     }
 })();

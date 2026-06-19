@@ -277,6 +277,27 @@ html[data-theme=light] .welcome-theme-card .welcome-theme-check{border-color:rgb
         </div>
       </section>
 
+      <!-- Battery Health (hidden until firmware capacities are readable) -->
+      <section class="mt-8 hidden" id="battery-health-section">
+        <h3 class="text-title-lg text-on-surface mb-4 flex items-center gap-2">
+          <span class="material-symbols-outlined text-secondary-container">battery_horiz_075</span>
+          <span data-i18n="dash_battery_health_title">Battery Health</span>
+        </h3>
+        <div class="glass-card rounded-xl p-6">
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center gap-2">
+              <span class="material-symbols-outlined text-secondary-container text-sm">battery_charging_full</span>
+              <span class="text-label-md text-on-surface uppercase" id="battery-health-rating">--</span>
+            </div>
+            <span class="text-title-lg font-bold text-on-surface" id="battery-health-pct">--%</span>
+          </div>
+          <p class="text-label-sm text-on-surface-variant mb-4" id="battery-health-detail">--</p>
+          <div class="w-full h-3 bg-[#1E2A4A] rounded-full overflow-hidden">
+            <div class="h-full bg-gradient-to-r from-[#006a70] to-secondary-container rounded-full progress-glow transition-all duration-1000 ease-out" id="battery-health-bar" style="width: 0%"></div>
+          </div>
+        </div>
+      </section>
+
     </section>
 
     <!-- ============ VIEW: POWER MANAGEMENT ============ -->
@@ -907,10 +928,10 @@ html[data-theme=light] .welcome-theme-card .welcome-theme-check{border-color:rgb
 </div>
 
 <script src="js/bridge.js?v=errlog1"></script>
-<script src="js/i18n.js?v=redesign1"></script>
+<script src="js/i18n.js?v=battery1"></script>
 <script src="js/app.js?v=redesign1"></script>
 <script src="js/effects.js?v=effects1"></script>
-<script src="js/dashboard.js?v=gaming1"></script>
+<script src="js/dashboard.js?v=battery1"></script>
 <script src="js/power.js?v=reorg2"></script>
 <script src="js/settings.js?v=temps2"></script>
 <script src="js/welcome.js?v=welcome1"></script>
