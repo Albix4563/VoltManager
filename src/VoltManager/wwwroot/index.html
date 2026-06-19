@@ -122,6 +122,9 @@ html[data-theme=light] .welcome-theme-card .welcome-theme-check{border-color:rgb
   <!-- TopNavBar -->
   <header class="flex items-center justify-end h-16 px-lg w-full z-40 bg-transparent shrink-0">
     <div class="flex items-center gap-4">
+      <button class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:text-secondary-container transition-all duration-300 hover:bg-white/5 hover:scale-110 active:opacity-80 hover:shadow-[0_0_15px_rgba(0,241,254,0.15)]" id="btn-energy-tips" title="Consigli energetici">
+        <span class="material-symbols-outlined">tips_and_updates</span>
+      </button>
       <button class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:text-secondary-container transition-all duration-300 hover:bg-white/5 hover:scale-110 active:opacity-80 hover:shadow-[0_0_15px_rgba(0,241,254,0.15)]" id="btn-minimize-tray" title="Riduci nell'area di notifica">
         <span class="material-symbols-outlined">minimize</span>
       </button>
@@ -998,6 +1001,49 @@ html[data-theme=light] .welcome-theme-card .welcome-theme-check{border-color:rgb
   </main>
 </div>
 
+<!-- ============ ENERGY TIPS POPUP ============ -->
+<div class="fixed inset-0 z-[110] bg-black/60 hidden items-center justify-center" id="energy-tips-overlay">
+  <div class="w-full max-w-md mx-4 glass-modal rounded-2xl overflow-hidden" id="energy-tips-modal" role="dialog" aria-modal="true" aria-labelledby="energy-tips-title">
+    <!-- Header -->
+    <div class="px-6 py-5 border-b border-white/5 flex items-center justify-between gap-3">
+      <div class="flex items-center gap-3 min-w-0">
+        <div class="w-10 h-10 rounded-lg bg-secondary-container/20 flex items-center justify-center border border-secondary-container/30 shrink-0">
+          <span class="material-symbols-outlined text-secondary-container icon-fill">tips_and_updates</span>
+        </div>
+        <div class="min-w-0">
+          <h2 class="text-title-lg text-on-surface font-bold truncate" id="energy-tips-title" data-i18n="tips_modal_title">Consigli energetici</h2>
+          <p class="text-label-sm text-on-surface-variant truncate" data-i18n="tips_modal_sub">Suggerimenti per consumare meno e durare di più.</p>
+        </div>
+      </div>
+      <button id="energy-tips-close"
+              class="w-8 h-8 flex items-center justify-center rounded-lg text-on-surface-variant hover:bg-white/10 transition-colors cursor-pointer text-lg border-0 bg-transparent shrink-0">✕</button>
+    </div>
+    <!-- Tip body -->
+    <div class="px-6 py-5">
+      <div class="flex items-start gap-4">
+        <div class="w-12 h-12 rounded-xl bg-surface-container-high border border-white/5 flex items-center justify-center shrink-0 relative overflow-hidden">
+          <div class="absolute inset-0 bg-secondary-container/10 blur-xl"></div>
+          <span class="material-symbols-outlined text-secondary-container text-2xl relative z-10" id="energy-tip-icon">eco</span>
+        </div>
+        <div class="min-w-0">
+          <h3 class="text-headline-md text-on-surface mb-1" id="energy-tip-title">&nbsp;</h3>
+          <p class="text-body-md text-on-surface-variant" id="energy-tip-body">&nbsp;</p>
+        </div>
+      </div>
+    </div>
+    <!-- Dot indicator -->
+    <div class="flex items-center justify-center gap-xs pb-2" id="energy-tip-dots"></div>
+    <!-- Footer -->
+    <div class="px-6 py-4 border-t border-white/5 flex items-center justify-between gap-3">
+      <span class="text-label-sm text-on-surface-variant font-mono" id="energy-tip-counter">1 / 1</span>
+      <div class="flex items-center gap-2">
+        <button class="btn-ghost rounded-lg py-2.5 px-5 text-label-md" id="energy-tip-prev" type="button" data-i18n="tips_prev">Indietro</button>
+        <button class="btn-cyan rounded-lg py-2.5 px-6 text-label-md flex items-center gap-2 cursor-pointer border-0" id="energy-tip-next" type="button" data-i18n="tips_next">Avanti</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script src="js/bridge.js?v=errlog1"></script>
 <script src="js/i18n.js?v=batthist1"></script>
 <script src="js/app.js?v=redesign1"></script>
@@ -1007,6 +1053,7 @@ html[data-theme=light] .welcome-theme-card .welcome-theme-check{border-color:rgb
 <script src="js/settings.js?v=temps2"></script>
 <script src="js/welcome.js?v=welcome1"></script>
 <script src="js/tour.js?v=tour1"></script>
+<script src="js/tips.js?v=tips1"></script>
 <script src="js/changelog.js?v=temps1"></script>
 <script src="js/setup.js?v=temps1"></script>
 <script src="js/advanced.js?v=adv2"></script>
