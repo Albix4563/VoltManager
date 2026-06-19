@@ -10,6 +10,7 @@ namespace VoltManager.Setup.Pages
             InitializeComponent();
             TitleText.Text = I18n.T("progress_title");
             WaitText.Text  = I18n.T("progress_wait");
+            PctText.Text   = "0%";
         }
 
         public void SetStatus(string msg, double pct)

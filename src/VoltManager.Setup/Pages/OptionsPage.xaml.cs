@@ -20,6 +20,9 @@ namespace VoltManager.Setup.Pages
             ChkDesktop.Content  = I18n.T("options_desktop");
             ChkStartup.Content  = I18n.T("options_startup");
             ChkLaunch.Content   = I18n.T("options_launch");
+            DescDesktop.Text    = I18n.T("options_desktop_d");
+            DescStartup.Text    = I18n.T("options_startup_d");
+            DescLaunch.Text     = I18n.T("options_launch_d");
 
             TxtDir.Text            = opts.InstallDir;
             ChkDesktop.IsChecked   = opts.CreateDesktopShortcut;

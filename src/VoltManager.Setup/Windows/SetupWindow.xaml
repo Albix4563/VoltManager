@@ -15,8 +15,7 @@
         UseLayoutRounding="True"
         SnapsToDevicePixels="True">
 
-    <Border Background="{DynamicResource WindowBgGradient}" CornerRadius="16"
-            BorderBrush="#26property" BorderThickness="0">
+    <Border Background="{DynamicResource WindowBgGradient}" CornerRadius="16">
         <Border CornerRadius="16" BorderThickness="1">
             <Border.BorderBrush>
                 <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">

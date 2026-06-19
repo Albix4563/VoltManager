@@ -26,7 +26,7 @@ namespace VoltManager.Setup.Pages
                 {
                     ChkLaunch.Content    = I18n.T("done_launch");
                     ChkLaunch.IsChecked  = opts.LaunchAfterInstall;
-                    ChkLaunch.Visibility = Visibility.Visible;
+                    LaunchPill.Visibility = Visibility.Visible;
                 }
             }
             else
@@ -39,7 +39,7 @@ namespace VoltManager.Setup.Pages
                 if (!string.IsNullOrEmpty(errMsg))
                 {
                     ErrText.Text       = errMsg;
-                    ErrText.Visibility = Visibility.Visible;
+                    ErrCard.Visibility = Visibility.Visible;
                 }
             }
         }

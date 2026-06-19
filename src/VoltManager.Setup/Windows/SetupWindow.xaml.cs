@@ -52,83 +52,133 @@ namespace VoltManager.Setup.Windows
             catch { /* logo not critical */ }
         }
 
-        // ── Step indicator pills ─────────────────────────────────────
+        // ── Step indicator: numbered badge + label + connector line ──
+        private string[] _stepLabels = System.Array.Empty<string>();
+
         private void BuildSteps()
         {
-            string[] labels = _isUninstall
+            _stepLabels = _isUninstall
                 ? new[] { I18n.T("uninst_title"), I18n.T("progress_title"), I18n.T("done_title") }
                 : new[] { I18n.T("welcome_title"), I18n.T("options_title"), I18n.T("progress_title"), I18n.T("done_title") };
 
             StepPanel.Children.Clear();
-            for (int i = 0; i < labels.Length; i++)
+            for (int i = 0; i < _stepLabels.Length; i++)
             {
-                int idx = i;
-                var dot = new Ellipse
-                {
-                    Width = 8, Height = 8,
-                    Fill = Brush("BorderBrush2"),
-                    Margin = new Thickness(0, 0, 10, 0),
-                    Name = "Dot" + i,
-                };
-                var label = new TextBlock
-                {
-                    Text = labels[i],
-                    FontSize = 12,
-                    Foreground = Brush("MutedBrush"),
-                    VerticalAlignment = VerticalAlignment.Center,
-                    Name = "StepLabel" + i,
-                };
-                var row = new StackPanel
-                {
-                    Orientation = Orientation.Horizontal,
-                    Margin = new Thickness(0, 6, 0, 6),
-                    Tag = i,
-                };
-                row.Children.Add(dot);
-                row.Children.Add(label);
-                StepPanel.Children.Add(row);
+                bool last = i == _stepLabels.Length - 1;
+                StepPanel.Children.Add(BuildStepRow(i, _stepLabels[i], last));
             }
+        }
+
+        // One row = a vertical line column (badge + connector) + label.
+        private Grid BuildStepRow(int idx, string text, bool isLast)
+        {
+            var row = new Grid { Margin = new Thickness(0, 0, 0, isLast ? 0 : 4), Tag = idx };
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+            // connector line below the badge (skipped on last step)
+            var line = new Border
+            {
+                Width = 2, Height = 22,
+                CornerRadius = new CornerRadius(1),
+                Background = Brush("BorderBrush2"),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Bottom,
+                Margin = new Thickness(0, 0, 0, -11),
+                Visibility = isLast ? Visibility.Collapsed : Visibility.Visible,
+            };
+            Grid.SetColumn(line, 0);
+            Panel.SetZIndex(line, 0);
+
+            // numbered badge
+            var badge = new Border
+            {
+                Width = 30, Height = 30,
+                CornerRadius = new CornerRadius(15),
+                Background = Brush("PillBrush"),
+                BorderBrush = Brush("BorderBrush2"),
+                BorderThickness = new Thickness(1.4),
+                Margin = new Thickness(0, 7, 0, 7),
+            };
+            Panel.SetZIndex(badge, 1);
+            var num = new TextBlock
+            {
+                Text = (idx + 1).ToString(),
+                FontSize = 12.5, FontWeight = FontWeights.Bold,
+                Foreground = Brush("MutedBrush"),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+            };
+            badge.Child = num;
+            Grid.SetColumn(badge, 0);
+
+            var lbl = new TextBlock
+            {
+                Text = text,
+                FontSize = 12.5,
+                Foreground = Brush("MutedBrush"),
+                VerticalAlignment = VerticalAlignment.Center,
+                TextTrimming = System.Windows.TextTrimming.CharacterEllipsis,
+                Margin = new Thickness(13, 0, 0, 0),
+            };
+            Grid.SetColumn(lbl, 1);
+
+            row.Children.Add(line);
+            row.Children.Add(badge);
+            row.Children.Add(lbl);
+            return row;
         }
 
         private void HighlightStep(int stepIdx)
         {
+            var cyan = System.Windows.Media.Color.FromRgb(0x00, 0xF1, 0xFE);
             for (int i = 0; i < StepPanel.Children.Count; i++)
             {
-                var row = (StackPanel)StepPanel.Children[i];
-                var dot   = (Ellipse)row.Children[0];
-                var lbl   = (TextBlock)row.Children[1];
+                var row   = (Grid)StepPanel.Children[i];
+                var line  = (Border)row.Children[0];
+                var badge = (Border)row.Children[1];
+                var num   = (TextBlock)badge.Child;
+                var lbl   = (TextBlock)row.Children[2];
                 bool active = i == stepIdx;
                 bool done   = i < stepIdx;
 
                 if (active)
                 {
-                    dot.Fill = Brush("AccentBrush");
-                    dot.Width = dot.Height = 11;
-                    dot.Effect = new DropShadowEffect
-                    {
-                        Color = System.Windows.Media.Color.FromRgb(0x00, 0xF1, 0xFE),
-                        BlurRadius = 14, ShadowDepth = 0, Opacity = 0.95
-                    };
+                    badge.Background = Brush("AccentGradient");
+                    badge.BorderBrush = Brush("AccentBrush");
+                    badge.Effect = new DropShadowEffect { Color = cyan, BlurRadius = 16, ShadowDepth = 0, Opacity = 0.9 };
+                    num.Foreground = Brush("AccentTextBrush");
                     lbl.Foreground = Brush("AccentBrush");
                     lbl.FontWeight = FontWeights.SemiBold;
+                    line.Background = Brush("BorderBrush2");
                 }
                 else if (done)
                 {
-                    dot.Fill = Brush("AccentPressedBrush");
-                    dot.Width = dot.Height = 8;
-                    dot.Effect = null;
+                    badge.Background = Brush("AccentSoftBrush");
+                    badge.BorderBrush = Brush("AccentPressedBrush");
+                    badge.Effect = null;
+                    num.Text = "✓";
+                    num.Foreground = Brush("AccentBrush");
                     lbl.Foreground = Brush("TextBrush");
                     lbl.FontWeight = FontWeights.Normal;
+                    line.Background = Brush("AccentPressedBrush");
                 }
                 else
                 {
-                    dot.Fill = Brush("BorderBrush2");
-                    dot.Width = dot.Height = 8;
-                    dot.Effect = null;
+                    badge.Background = Brush("PillBrush");
+                    badge.BorderBrush = Brush("BorderBrush2");
+                    badge.Effect = null;
+                    num.Text = (i + 1).ToString();
+                    num.Foreground = Brush("MutedBrush");
                     lbl.Foreground = Brush("MutedBrush");
                     lbl.FontWeight = FontWeights.Normal;
+                    line.Background = Brush("BorderBrush2");
                 }
             }
+
+            // header breadcrumb on the right titlebar
+            if (stepIdx >= 0 && stepIdx < _stepLabels.Length)
+                HeaderText.Text = (_isUninstall ? "VoltManager  ·  " : "VoltManager Setup  ·  ") + _stepLabels[stepIdx];
         }
 
         // ── Navigation ───────────────────────────────────────────────
@@ -309,6 +359,9 @@ namespace VoltManager.Setup.Windows
         private void BtnCancel_Click(object sender, RoutedEventArgs e) => Close();
 
         private void BtnClose_Click(object sender, RoutedEventArgs e) => Close();
+
+        private void BtnMin_Click(object sender, RoutedEventArgs e)
+            => WindowState = WindowState.Minimized;
 
         private void TitleBar_MouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
         {
