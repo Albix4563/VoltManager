@@ -173,9 +173,14 @@
 
     function positionIndicator(link) {
         if (!link || !navIndicator) return;
-        const li = link.parentElement;
-        navIndicator.style.top = li.offsetTop + 'px';
-        navIndicator.style.height = li.offsetHeight + 'px';
+        // Rect-based so the indicator stays aligned even with the new
+        // grouped section-label rows between nav items.
+        const parent = navIndicator.offsetParent || navIndicator.parentElement;
+        if (!parent) return;
+        const pr = parent.getBoundingClientRect();
+        const lr = link.getBoundingClientRect();
+        navIndicator.style.top = (lr.top - pr.top) + 'px';
+        navIndicator.style.height = lr.height + 'px';
     }
 
     function activate(link) {
@@ -190,24 +195,92 @@
         positionIndicator(link);
     }
 
+    function prefersReducedMotion() {
+        return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    }
+
+    // Cascade a container's direct children in via the .vm-stagger keyframe.
+    function playStagger(container) {
+        if (!container) return;
+        Array.from(container.children).forEach((el, i) => el.style.setProperty('--vm-i', i));
+        container.classList.remove('vm-stagger');
+        void container.offsetWidth;
+        container.classList.add('vm-stagger');
+    }
+
+    // Soft scale/fade the whole view in, then cascade its real row group.
+    function staggerIn(view) {
+        if (!view) return;
+        view.classList.remove('vm-enter');
+        void view.offsetWidth;
+        view.classList.add('vm-enter');
+        let c = view;
+        while (c.children.length === 1 && c.firstElementChild && c.firstElementChild.children.length > 1) {
+            c = c.firstElementChild;
+        }
+        playStagger(c);
+    }
+
     function showView(name) {
         const views = getViews();
-        Object.entries(views).forEach(([key, el]) => {
-            el.classList.toggle('hidden', key !== name);
+        const next = views[name];
+        const current = Object.values(views).find(el => !el.classList.contains('hidden'));
+        const reduce = prefersReducedMotion();
+
+        const swap = () => {
+            Object.entries(views).forEach(([key, el]) => el.classList.toggle('hidden', key !== name));
+            if (!reduce) staggerIn(next);
+            document.dispatchEvent(new CustomEvent('viewchange', { detail: { view: name } }));
+        };
+
+        // Instant swap when motion is reduced, on first paint, or re-selecting
+        // the same tab. Otherwise: animate the current view out, then swap in.
+        if (reduce || !current || current === next) {
+            swap();
+            return;
+        }
+
+        current.classList.add('vm-leaving');
+        // vmLeave runs .24s; swap just after it completes. A timer (not
+        // animationend) avoids bubbled child-animation events ending it early.
+        setTimeout(() => {
+            current.classList.remove('vm-leaving');
+            swap();
+        }, 250);
+    }
+
+    // Power Management sub-nav: switch which .vm-acc-item panel is shown.
+    function activatePowerPanel(key, animate) {
+        const view = document.getElementById('view-power');
+        if (!view || !key) return;
+        view.querySelectorAll('.pm-seg').forEach(seg => {
+            const on = seg.dataset.pm === key;
+            seg.classList.toggle('active', on);
+            seg.setAttribute('aria-selected', on ? 'true' : 'false');
         });
-        mainContent.classList.remove('animate-in');
-        void mainContent.offsetWidth;
-        mainContent.classList.add('animate-in');
-        document.dispatchEvent(new CustomEvent('viewchange', { detail: { view: name } }));
+        let active = null;
+        view.querySelectorAll('.vm-acc-item[data-pm]').forEach(item => {
+            const on = item.dataset.pm === key;
+            item.classList.toggle('pm-active', on);
+            item.dataset.open = on ? 'true' : 'false';
+            if (on) active = item;
+        });
+        if (animate && active && !prefersReducedMotion()) {
+            active.classList.remove('vm-enter');
+            void active.offsetWidth;
+            active.classList.add('vm-enter');
+            playStagger(active.querySelector('.vm-acc-body-inner'));
+        }
     }
 
     function mountSystemTab() {
         ensureSystemStyles();
         if (!navList || document.querySelector('#nav-list a[data-view="system"]')) return;
-        const settingsLi = document.querySelector('#nav-list a[data-view="settings"]')?.parentElement;
+        // Place the System item under the CONTROL group (right after Power).
+        const powerLi = document.querySelector('#nav-list a[data-view="power"]')?.parentElement;
         const item = document.createElement('li');
         item.innerHTML = '<a class="nav-item flex items-center gap-3 text-on-surface-variant font-medium px-4 py-3 opacity-80 hover:bg-white/5 hover:text-secondary-fixed transition-all duration-300 rounded-lg active:scale-[0.98]" data-view="system" href="#"><span class="material-symbols-outlined">power_settings_new</span><span class="text-body-md system-nav-label"></span></a>';
-        if (settingsLi) settingsLi.parentElement.insertBefore(item, settingsLi);
+        if (powerLi) powerLi.parentElement.insertBefore(item, powerLi.nextSibling);
         else navList.appendChild(item);
 
         const settingsView = document.getElementById('view-settings');
@@ -465,6 +538,12 @@
         e.preventDefault();
         activate(link);
         showView(link.dataset.view);
+    });
+
+    document.addEventListener('click', (e) => {
+        const seg = e.target.closest('#view-power .pm-seg');
+        if (!seg) return;
+        activatePowerPanel(seg.dataset.pm, true);
     });
 
     const initialLink = getNavLinks()[0];

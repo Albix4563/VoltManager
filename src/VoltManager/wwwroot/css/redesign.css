@@ -1,0 +1,121 @@
+/* ============================================================
+   VoltManager — Redesign layer (hand-written, no Tailwind build).
+   Loaded AFTER app.css. Scope: tab organization + inter-tab motion.
+   Does not touch card/component visuals or the cyan-on-navy identity.
+   ============================================================ */
+
+/* ---------- 1. Inter-tab transition engine (cinematic + stagger) ---------- */
+
+/* Outgoing view: scale down + blur + fade. Plays on the live DOM so the
+   sequence is always visible (a View-Transitions snapshot would hide the
+   incoming stagger). */
+.view.vm-leaving{
+  animation: vmLeave .24s cubic-bezier(.4, 0, .2, 1) both;
+  pointer-events: none;
+}
+@keyframes vmLeave{
+  to{ opacity: 0; transform: scale(.97) translateY(-6px); filter: blur(4px); }
+}
+
+/* Incoming view/panel wrapper: soft scale/fade in under cascading children. */
+.vm-enter{
+  animation: vmEnter .32s cubic-bezier(.22, 1, .36, 1) both;
+}
+@keyframes vmEnter{
+  from{ opacity: 0; transform: scale(1.015); }
+  to{ opacity: 1; transform: none; }
+}
+
+/* Staggered child cascade. --vm-i is set per child in JS. */
+.vm-stagger > *{
+  animation: vmRise .5s cubic-bezier(.22, 1, .36, 1) both;
+  animation-delay: calc(var(--vm-i, 0) * 55ms);
+}
+@keyframes vmRise{
+  from{ opacity: 0; transform: translateY(16px); }
+  to{ opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce){
+  .view.vm-leaving,
+  .vm-enter,
+  .vm-stagger > *{ animation: none !important; }
+}
+
+/* ---------- 2. Sidebar section labels (grouped nav) ---------- */
+
+.nav-section-label{
+  padding: 16px 16px 6px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: rgba(211, 222, 239, .38);
+  pointer-events: none;
+  user-select: none;
+}
+.nav-section-label.is-first{ padding-top: 4px; }
+html[data-theme=light] .nav-section-label{ color: rgba(15, 34, 52, .42); }
+
+/* ---------- 3. Power Management: segmented sub-nav (was 6 accordions) ---------- */
+
+.pm-subnav{
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 24px;
+  padding: 6px;
+  border-radius: 16px;
+  background: rgba(30, 42, 74, .5);
+  border: 1px solid rgba(255, 255, 255, .06);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+.pm-seg{
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: rgba(211, 222, 239, .7);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background .25s cubic-bezier(.4, 0, .2, 1),
+              border-color .25s cubic-bezier(.4, 0, .2, 1),
+              color .25s cubic-bezier(.4, 0, .2, 1),
+              box-shadow .25s cubic-bezier(.4, 0, .2, 1),
+              transform .15s ease;
+}
+.pm-seg .material-symbols-outlined{ font-size: 20px; flex: 0 0 auto; }
+.pm-seg:hover{ background: rgba(255, 255, 255, .05); color: #d4e4fa; }
+.pm-seg:active{ transform: scale(.97); }
+.pm-seg.active{
+  background: rgba(0, 241, 254, .12);
+  border-color: rgba(0, 241, 254, .4);
+  color: #00f1fe;
+  box-shadow: 0 0 16px rgba(0, 241, 254, .12), inset 0 1px 0 rgba(255, 255, 255, .06);
+}
+
+/* Drive the existing .vm-acc-item blocks as switchable panels: hide their
+   headers (the sub-nav replaces them) and show one expanded panel at a time. */
+#view-power .vm-acc-header{ display: none; }
+#view-power .vm-acc-item:not(.pm-active){ display: none; }
+#view-power .vm-acc-item.pm-active{ display: block; }
+#view-power .vm-acc-item.pm-active .vm-acc-body{ grid-template-rows: 1fr; }
+#view-power .vm-acc-item.pm-active .vm-acc-body-inner{ padding: 24px; }
+
+html[data-theme=light] .pm-subnav{ background: #eaf2f7; border-color: rgba(15, 34, 52, .08); }
+html[data-theme=light] .pm-seg{ color: rgba(15, 34, 52, .6); }
+html[data-theme=light] .pm-seg:hover{ background: rgba(15, 34, 52, .04); color: #102033; }
+html[data-theme=light] .pm-seg.active{
+  background: rgba(0, 174, 187, .12);
+  border-color: rgba(0, 174, 187, .4);
+  color: #007f8b;
+  box-shadow: 0 0 16px rgba(0, 174, 187, .1), inset 0 1px 0 rgba(255, 255, 255, .6);
+}

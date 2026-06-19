@@ -5,6 +5,7 @@
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <title>VoltManager</title>
 <link href="css/app.css?v=zfix2" rel="stylesheet"/>
+<link href="css/redesign.css?v=redesign1" rel="stylesheet"/>
 <script>
 (function () {
   function normalize(theme) { return theme === 'light' ? 'light' : 'dark'; }
@@ -68,19 +69,22 @@ html[data-theme=light] .welcome-theme-card .welcome-theme-check{border-color:rgb
   <!-- Navigation Links -->
   <div class="relative w-full">
     <div class="nav-indicator" id="nav-indicator" style="top: 0px; height: 48px;"></div>
-    <ul class="flex flex-col gap-2 px-4 w-full relative z-20" id="nav-list">
+    <ul class="flex flex-col gap-1 px-4 w-full relative z-20" id="nav-list">
+      <li class="nav-section-label is-first" aria-hidden="true" data-i18n="nav_sec_monitor">Monitor</li>
       <li>
         <a class="nav-item flex items-center gap-3 text-secondary-container font-bold bg-surface-container-high/50 px-4 py-3 rounded-lg active:scale-[0.98] transition-all duration-300 hover:bg-white/10" data-view="home" href="#">
           <span class="material-symbols-outlined icon-fill">home</span>
           <span class="text-body-md font-medium" data-i18n="nav_home">Home</span>
         </a>
       </li>
+      <li class="nav-section-label" aria-hidden="true" data-i18n="nav_sec_control">Control</li>
       <li>
         <a class="nav-item flex items-center gap-3 text-on-surface-variant font-medium px-4 py-3 opacity-80 hover:bg-white/5 hover:text-secondary-fixed transition-all duration-300 rounded-lg active:scale-[0.98]" data-view="power" href="#">
           <span class="material-symbols-outlined">bolt</span>
           <span class="text-body-md" data-i18n="nav_power">Power Management</span>
         </a>
       </li>
+      <li class="nav-section-label" aria-hidden="true" data-i18n="nav_sec_app">App</li>
       <li>
         <a class="nav-item flex items-center gap-3 text-on-surface-variant font-medium px-4 py-3 opacity-80 hover:bg-white/5 hover:text-secondary-fixed transition-all duration-300 rounded-lg active:scale-[0.98]" data-view="settings" href="#">
           <span class="material-symbols-outlined">settings</span>
@@ -281,10 +285,19 @@ html[data-theme=light] .welcome-theme-card .welcome-theme-check{border-color:rgb
           <p class="text-body-md text-on-surface-variant" data-i18n="power_subtitle">Configura le regole di automazione per ottimizzare le prestazioni e il consumo del sistema.</p>
         </div>
 
+        <div class="pm-subnav" id="pm-subnav" role="tablist">
+          <button class="pm-seg active" type="button" data-pm="rules" role="tab" aria-selected="true"><span class="material-symbols-outlined">tune</span><span data-i18n="power_group_rules">CPU automation rules</span></button>
+          <button class="pm-seg" type="button" data-pm="apps" role="tab" aria-selected="false"><span class="material-symbols-outlined">app_shortcut</span><span data-i18n="power_group_app_profiles">App power profiles</span></button>
+          <button class="pm-seg" type="button" data-pm="games" role="tab" aria-selected="false"><span class="material-symbols-outlined">sports_esports</span><span data-i18n="power_group_heavy">Game &amp; heavy app detection</span></button>
+          <button class="pm-seg" type="button" data-pm="awake" role="tab" aria-selected="false"><span class="material-symbols-outlined">bedtime_off</span><span data-i18n="power_group_keepawake">Keep PC awake</span></button>
+          <button class="pm-seg" type="button" data-pm="advanced" role="tab" aria-selected="false"><span class="material-symbols-outlined">tune</span><span data-i18n="power_group_advanced">Advanced plan parameters</span></button>
+          <button class="pm-seg" type="button" data-pm="ram" role="tab" aria-selected="false"><span class="material-symbols-outlined">memory</span><span data-i18n="power_group_ramcleaner">Memory Optimization (RAM Cleaner)</span></button>
+        </div>
+
         <div class="vm-accordion space-y-md">
 
         <!-- Accordion item 1: CPU automation rules (open by default) -->
-        <div class="vm-acc-item glass-panel rounded-xl" data-open="true">
+        <div class="vm-acc-item glass-panel rounded-xl pm-active" data-pm="rules" data-open="true">
           <button class="vm-acc-header" type="button">
             <span class="material-symbols-outlined text-secondary-container">tune</span>
             <span class="vm-acc-title text-title-lg text-on-surface" data-i18n="power_group_rules">CPU automation rules</span>
@@ -390,7 +403,7 @@ html[data-theme=light] .welcome-theme-card .welcome-theme-check{border-color:rgb
         </div><!-- end accordion item 1 -->
 
         <!-- Accordion item 2: Per-app power profiles -->
-        <div class="vm-acc-item glass-panel rounded-xl" data-open="false">
+        <div class="vm-acc-item glass-panel rounded-xl" data-pm="apps" data-open="false">
           <button class="vm-acc-header" type="button">
             <span class="material-symbols-outlined text-secondary-container">app_shortcut</span>
             <span class="vm-acc-title text-title-lg text-on-surface" data-i18n="power_group_app_profiles">App power profiles</span>
@@ -402,7 +415,7 @@ html[data-theme=light] .welcome-theme-card .welcome-theme-check{border-color:rgb
         </div>
 
         <!-- Accordion item 3: Game & heavy app detection -->
-        <div class="vm-acc-item glass-panel rounded-xl" data-open="false">
+        <div class="vm-acc-item glass-panel rounded-xl" data-pm="games" data-open="false">
           <button class="vm-acc-header" type="button">
             <span class="material-symbols-outlined text-secondary-container">sports_esports</span>
             <span class="vm-acc-title text-title-lg text-on-surface" data-i18n="power_group_heavy">Game &amp; heavy app detection</span>
@@ -414,7 +427,7 @@ html[data-theme=light] .welcome-theme-card .welcome-theme-check{border-color:rgb
         </div>
 
         <!-- Accordion item 4: Keep PC awake -->
-        <div class="vm-acc-item glass-panel rounded-xl" data-open="false">
+        <div class="vm-acc-item glass-panel rounded-xl" data-pm="awake" data-open="false">
           <button class="vm-acc-header" type="button">
             <span class="material-symbols-outlined text-secondary-container">bedtime_off</span>
             <span class="vm-acc-title text-title-lg text-on-surface" data-i18n="power_group_keepawake">Keep PC awake</span>
@@ -426,7 +439,7 @@ html[data-theme=light] .welcome-theme-card .welcome-theme-check{border-color:rgb
         </div>
 
         <!-- Accordion item 5: Advanced plan parameters -->
-        <div class="vm-acc-item glass-panel rounded-xl" data-open="false">
+        <div class="vm-acc-item glass-panel rounded-xl" data-pm="advanced" data-open="false">
           <button class="vm-acc-header" type="button">
             <span class="material-symbols-outlined text-secondary-container">tune</span>
             <span class="vm-acc-title text-title-lg text-on-surface" data-i18n="power_group_advanced">Advanced plan parameters</span>
@@ -438,7 +451,7 @@ html[data-theme=light] .welcome-theme-card .welcome-theme-check{border-color:rgb
         </div>
 
         <!-- Accordion item 6: RAM Cleaner -->
-        <div class="vm-acc-item glass-panel rounded-xl" data-open="false">
+        <div class="vm-acc-item glass-panel rounded-xl" data-pm="ram" data-open="false">
           <button class="vm-acc-header" type="button">
             <span class="material-symbols-outlined text-secondary-container">memory</span>
             <span class="vm-acc-title text-title-lg text-on-surface" data-i18n="power_group_ramcleaner">Memory Optimization (RAM Cleaner)</span>
@@ -878,8 +891,8 @@ html[data-theme=light] .welcome-theme-card .welcome-theme-check{border-color:rgb
 </div>
 
 <script src="js/bridge.js?v=temps1"></script>
-<script src="js/i18n.js?v=gaming1"></script>
-<script src="js/app.js?v=gaming1"></script>
+<script src="js/i18n.js?v=redesign1"></script>
+<script src="js/app.js?v=redesign1"></script>
 <script src="js/dashboard.js?v=gaming1"></script>
 <script src="js/power.js?v=reorg1"></script>
 <script src="js/settings.js?v=temps2"></script>
