@@ -8,7 +8,6 @@
 (function () {
   const reduce = () => !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   const CIRC = 251.2; // 2*PI*r(40), matches dashboard ring geometry
-  const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
 
   function isLight() { return document.documentElement.dataset.theme === 'light'; }
 
@@ -20,48 +19,74 @@
     return { stroke: accent, load: 'low' };
   }
 
-  // ---- Generic rAF tween, one in-flight animation per element ----
-  const running = new WeakMap();
-  function tween(el, from, to, dur, onStep) {
-    const prev = running.get(el);
-    if (prev) cancelAnimationFrame(prev);
-    if (reduce() || dur <= 0) { onStep(to); running.delete(el); return; }
-    const start = performance.now();
-    const step = (now) => {
-      const t = Math.min(1, (now - start) / dur);
-      onStep(from + (to - from) * easeOutCubic(t));
-      if (t < 1) running.set(el, requestAnimationFrame(step));
-      else running.delete(el);
-    };
-    running.set(el, requestAnimationFrame(step));
+  // ---- Continuous damped-chase engine -------------------------------------
+  // One shared rAF loop eases every registered channel toward its *moving*
+  // target. Live metrics arrive ~1/s; the old code restarted a fixed 900ms
+  // easeOut tween each tick, so the fill decelerated to a near-stop, paused,
+  // then snapped into a fresh tween — read as stutter. Here a value is never
+  // restarted: each tick only retargets, and an exponential (frame-rate-
+  // independent) approach keeps it gliding so it's still in motion when the
+  // next sample lands. HALF_LIFE is tuned so a 1s-cadence metric closes ~85%
+  // of the gap per second — smooth, still responsive to real spikes.
+  const HALF_LIFE = 350; // ms to halve the remaining gap
+  const channels = new Map(); // el -> { value, target, render, eps }
+  let rafId = 0;
+  let lastTs = 0;
+
+  function frame(ts) {
+    const dt = lastTs ? Math.min(100, ts - lastTs) : 16; // clamp post-throttle jumps
+    lastTs = ts;
+    const alpha = 1 - Math.pow(2, -dt / HALF_LIFE);
+    let alive = false;
+    channels.forEach((ch) => {
+      const gap = ch.target - ch.value;
+      if (Math.abs(gap) <= ch.eps) {
+        if (ch.value !== ch.target) { ch.value = ch.target; ch.render(ch.value); }
+        return; // settled — kept idle in the map so the next retarget eases from here
+      }
+      ch.value += gap * alpha;
+      ch.render(ch.value);
+      alive = true;
+    });
+    if (alive) { rafId = requestAnimationFrame(frame); }
+    else { rafId = 0; lastTs = 0; } // all idle — park the loop until next retarget
   }
 
-  const lastNum = new WeakMap();
+  // Register/retarget a channel. First sighting snaps (no animate-from-zero);
+  // reduced-motion always snaps and never starts the loop.
+  function chase(el, target, render, eps) {
+    if (reduce()) { channels.delete(el); render(target); return; }
+    const ch = channels.get(el);
+    if (!ch) { channels.set(el, { value: target, target, render, eps }); render(target); return; }
+    ch.target = target;
+    ch.render = render;
+    ch.eps = eps;
+    if (!rafId) { lastTs = 0; rafId = requestAnimationFrame(frame); }
+  }
 
   const VoltFx = {
-    /** Count-up tween for a text node. */
-    animateNumber(el, target, { suffix = '', decimals = 0, dur = 850 } = {}) {
+    /** Count-up toward a moving target. `signed` keeps a leading + for >0. */
+    animateNumber(el, target, { suffix = '', decimals = 0, signed = false } = {}) {
       if (!el) return;
-      const from = lastNum.has(el) ? lastNum.get(el) : target;
-      lastNum.set(el, target);
-      tween(el, from, target, dur, (v) => { el.textContent = v.toFixed(decimals) + suffix; });
+      const eps = decimals > 0 ? 0.5 * Math.pow(10, -decimals) : 0.4;
+      chase(el, target, (v) => {
+        el.textContent = (signed && v > 0 ? '+' : '') + v.toFixed(decimals) + suffix;
+      }, eps);
     },
 
     /** Smooth ring fill + count-up + load-reactive colour. */
     animateRing(circle, label, pct) {
       if (!circle) return;
       const clamped = Math.max(0, Math.min(100, pct));
-      // rAF is the sole driver — strip the CSS transition so it can't re-ease
-      // every per-frame write (that layering is what made the fill stutter).
+      // rAF is the sole driver of the fill — strip the CSS transition so it
+      // can't re-ease every per-frame write (that layering smeared the chase).
       if (circle.dataset.fxRing !== '1') {
         circle.style.transition = 'stroke .4s ease, filter .4s ease';
         circle.style.willChange = 'stroke-dashoffset';
         circle.dataset.fxRing = '1';
       }
-      const fromOff = lastNum.has(circle) ? lastNum.get(circle) : (CIRC * (1 - clamped / 100));
       const toOff = CIRC * (1 - clamped / 100);
-      lastNum.set(circle, toOff);
-      tween(circle, fromOff, toOff, 900, (v) => { circle.style.strokeDashoffset = v.toFixed(1); });
+      chase(circle, toOff, (v) => { circle.style.strokeDashoffset = v.toFixed(1); }, 0.3);
       if (label) this.animateNumber(label, clamped, { suffix: '%' });
       const { stroke, load } = ringColor(clamped);
       circle.style.stroke = stroke;
@@ -70,9 +95,9 @@
       if (card) card.dataset.load = load;
     },
 
-    /** Fill tween for a linear bar — compositor-only via scaleX (no per-frame
-     *  layout). Bar is pinned to full width once, then scaled from the left. */
-    animateBar(bar, pct, dur = 900) {
+    /** Fill a linear bar — compositor-only via scaleX (no per-frame layout).
+     *  Bar is pinned to full width once, then scaled from the left. */
+    animateBar(bar, pct) {
       if (!bar) return;
       const clamped = Math.max(0, Math.min(100, pct));
       if (bar.dataset.fxBar !== '1') {
@@ -82,9 +107,7 @@
         bar.style.willChange = 'transform';
         bar.dataset.fxBar = '1';
       }
-      const from = lastNum.has(bar) ? lastNum.get(bar) : clamped;
-      lastNum.set(bar, clamped);
-      tween(bar, from, clamped, dur, (v) => { bar.style.transform = 'scaleX(' + (v / 100).toFixed(4) + ')'; });
+      chase(bar, clamped, (v) => { bar.style.transform = 'scaleX(' + (v / 100).toFixed(4) + ')'; }, 0.15);
     },
   };
   window.VoltFx = VoltFx;

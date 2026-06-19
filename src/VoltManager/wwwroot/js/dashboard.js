@@ -192,16 +192,11 @@
         const watts = state.powerWatts;
         if (watts == null) {
             powerFlowWatts.textContent = '--';
+        } else if (window.VoltFx) {
+            // signed:true keeps the +/- cue through every chase frame.
+            window.VoltFx.animateNumber(powerFlowWatts, watts, { suffix: ' W', decimals: 1, signed: true });
         } else {
-            const sign = watts > 0 ? '+' : '';
-            const wattsText = sign + watts.toFixed(1) + ' W';
-            if (window.VoltFx) {
-                window.VoltFx.animateNumber(powerFlowWatts, watts, { suffix: ' W', decimals: 1 });
-                // animateNumber drops the explicit sign; set directly for the +/- cue.
-                powerFlowWatts.textContent = wattsText;
-            } else {
-                powerFlowWatts.textContent = wattsText;
-            }
+            powerFlowWatts.textContent = (watts > 0 ? '+' : '') + watts.toFixed(1) + ' W';
         }
 
         powerFlowPercent.textContent = state.batteryPercent != null ? state.batteryPercent + '%' : '--';
