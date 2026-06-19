@@ -292,6 +292,46 @@ public record BatteryHealthState
 }
 
 /// <summary>
+/// Lettura istantanea del flusso energetico della batteria dal firmware (WMI BatteryStatus).
+/// Tutte le grandezze in unità firmware (mW, mWh, mV). Null = dato assente/non leggibile.
+/// </summary>
+public record BatteryPowerSnapshot
+{
+    [JsonPropertyName("powerOnline")] public bool PowerOnline { get; init; }     // alimentatore collegato
+    [JsonPropertyName("charging")] public bool Charging { get; init; }
+    [JsonPropertyName("discharging")] public bool Discharging { get; init; }
+    [JsonPropertyName("chargeRateMw")] public int? ChargeRateMw { get; init; }
+    [JsonPropertyName("dischargeRateMw")] public int? DischargeRateMw { get; init; }
+    [JsonPropertyName("remainingCapacityMwh")] public int? RemainingCapacityMwh { get; init; }
+    [JsonPropertyName("fullChargedCapacityMwh")] public int? FullChargedCapacityMwh { get; init; }
+    [JsonPropertyName("voltageMv")] public int? VoltageMv { get; init; }
+}
+
+/// <summary>
+/// Stato del flusso energetico della batteria: potenza in carica/scarica (W),
+/// percentuale e stima del tempo rimanente (a vuoto o a piena carica).
+/// </summary>
+public record BatteryPowerState
+{
+    // available=false quando non c'è batteria o i dati firmware sono assenti.
+    [JsonPropertyName("available")] public bool Available { get; init; }
+    [JsonPropertyName("onAc")] public bool OnAc { get; init; }
+    // charging|discharging|idle|full|unknown
+    [JsonPropertyName("status")] public string Status { get; init; } = "unknown";
+    // Potenza con segno: positiva in carica, negativa in scarica (W).
+    [JsonPropertyName("powerWatts")] public double? PowerWatts { get; init; }
+    [JsonPropertyName("batteryPercent")] public int? BatteryPercent { get; init; }
+    [JsonPropertyName("remainingCapacityMwh")] public int? RemainingCapacityMwh { get; init; }
+    [JsonPropertyName("fullChargedCapacityMwh")] public int? FullChargedCapacityMwh { get; init; }
+    [JsonPropertyName("voltageVolts")] public double? VoltageVolts { get; init; }
+    // Minuti stimati al traguardo indicato da timeKind.
+    [JsonPropertyName("minutesRemaining")] public int? MinutesRemaining { get; init; }
+    // toEmpty|toFull|none
+    [JsonPropertyName("timeKind")] public string TimeKind { get; init; } = "none";
+    [JsonPropertyName("message")] public string Message { get; init; } = "";
+}
+
+/// <summary>
 /// Snapshot dettagliato della memoria RAM (in GB e percentuale).
 /// </summary>
 public record MemoryStatus

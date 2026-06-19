@@ -298,6 +298,38 @@ html[data-theme=light] .welcome-theme-card .welcome-theme-check{border-color:rgb
         </div>
       </section>
 
+      <!-- Power Flow (live battery charge/discharge wattage; hidden until firmware rates are readable) -->
+      <section class="mt-8 hidden" id="power-flow-section">
+        <h3 class="text-title-lg text-on-surface mb-4 flex items-center gap-2">
+          <span class="material-symbols-outlined text-secondary-container" id="power-flow-icon">bolt</span>
+          <span data-i18n="power_flow_title">Power Flow</span>
+        </h3>
+        <div class="glass-card rounded-xl p-6">
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-2">
+              <span class="material-symbols-outlined text-secondary-container text-sm" id="power-flow-status-icon">battery_full</span>
+              <span class="text-label-md text-on-surface uppercase" id="power-flow-status">--</span>
+            </div>
+            <span class="text-title-lg font-bold text-on-surface" id="power-flow-watts">-- W</span>
+          </div>
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+            <div>
+              <p class="text-label-sm text-on-surface-variant" data-i18n="power_flow_charge_level">Charge</p>
+              <p class="text-title-md font-semibold text-on-surface" id="power-flow-percent">--%</p>
+            </div>
+            <div>
+              <p class="text-label-sm text-on-surface-variant" id="power-flow-time-label" data-i18n="power_flow_to_empty">Until empty</p>
+              <p class="text-title-md font-semibold text-on-surface" id="power-flow-time">--</p>
+            </div>
+            <div>
+              <p class="text-label-sm text-on-surface-variant" data-i18n="power_flow_voltage">Voltage</p>
+              <p class="text-title-md font-semibold text-on-surface" id="power-flow-voltage">--</p>
+            </div>
+          </div>
+          <p class="text-label-sm text-on-surface-variant mt-4" id="power-flow-detail">--</p>
+        </div>
+      </section>
+
     </section>
 
     <!-- ============ VIEW: POWER MANAGEMENT ============ -->
@@ -928,10 +960,10 @@ html[data-theme=light] .welcome-theme-card .welcome-theme-check{border-color:rgb
 </div>
 
 <script src="js/bridge.js?v=errlog1"></script>
-<script src="js/i18n.js?v=battery1"></script>
+<script src="js/i18n.js?v=powerflow1"></script>
 <script src="js/app.js?v=redesign1"></script>
 <script src="js/effects.js?v=effects1"></script>
-<script src="js/dashboard.js?v=battery1"></script>
+<script src="js/dashboard.js?v=powerflow1"></script>
 <script src="js/power.js?v=reorg2"></script>
 <script src="js/settings.js?v=temps2"></script>
 <script src="js/welcome.js?v=welcome1"></script>

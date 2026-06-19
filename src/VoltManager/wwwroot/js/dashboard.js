@@ -27,6 +27,16 @@
     const batteryHealthPct = document.getElementById('battery-health-pct');
     const batteryHealthDetail = document.getElementById('battery-health-detail');
     const batteryHealthBar = document.getElementById('battery-health-bar');
+    const powerFlowSection = document.getElementById('power-flow-section');
+    const powerFlowIcon = document.getElementById('power-flow-icon');
+    const powerFlowStatusIcon = document.getElementById('power-flow-status-icon');
+    const powerFlowStatus = document.getElementById('power-flow-status');
+    const powerFlowWatts = document.getElementById('power-flow-watts');
+    const powerFlowPercent = document.getElementById('power-flow-percent');
+    const powerFlowTimeLabel = document.getElementById('power-flow-time-label');
+    const powerFlowTime = document.getElementById('power-flow-time');
+    const powerFlowVoltage = document.getElementById('power-flow-voltage');
+    const powerFlowDetail = document.getElementById('power-flow-detail');
 
     function setRing(circle, label, pct) {
         if (window.VoltFx) { window.VoltFx.animateRing(circle, label, pct); return; }
@@ -145,6 +155,94 @@
 
     document.addEventListener('langchanged', () => {
         if (lastBatteryHealth) renderBatteryHealth(lastBatteryHealth);
+    });
+
+    // ----- Power flow (live battery charge/discharge wattage) -----
+    let lastPowerFlow = null;
+    let powerFlowTimer = null;
+
+    const POWER_FLOW_ICON = {
+        charging: 'battery_charging_full',
+        discharging: 'battery_5_bar',
+        full: 'battery_full',
+        idle: 'power',
+        unknown: 'battery_unknown',
+    };
+
+    function formatDuration(minutes) {
+        if (minutes == null || minutes < 0) return '--';
+        const h = Math.floor(minutes / 60);
+        const m = minutes % 60;
+        if (h > 0) return h + 'h ' + m + 'm';
+        return m + 'm';
+    }
+
+    function renderPowerFlow(state) {
+        lastPowerFlow = state;
+        const ok = state && state.available;
+        powerFlowSection.classList.toggle('hidden', !ok);
+        if (!ok) return;
+
+        const status = state.status || 'unknown';
+        powerFlowStatus.textContent = I18n.t('power_flow_status_' + status);
+        const iconName = POWER_FLOW_ICON[status] || POWER_FLOW_ICON.unknown;
+        powerFlowStatusIcon.textContent = iconName;
+        powerFlowIcon.textContent = status === 'discharging' ? 'battery_horiz_050' : 'bolt';
+
+        const watts = state.powerWatts;
+        if (watts == null) {
+            powerFlowWatts.textContent = '--';
+        } else {
+            const sign = watts > 0 ? '+' : '';
+            const wattsText = sign + watts.toFixed(1) + ' W';
+            if (window.VoltFx) {
+                window.VoltFx.animateNumber(powerFlowWatts, watts, { suffix: ' W', decimals: 1 });
+                // animateNumber drops the explicit sign; set directly for the +/- cue.
+                powerFlowWatts.textContent = wattsText;
+            } else {
+                powerFlowWatts.textContent = wattsText;
+            }
+        }
+
+        powerFlowPercent.textContent = state.batteryPercent != null ? state.batteryPercent + '%' : '--';
+
+        if (state.timeKind === 'toEmpty' || state.timeKind === 'toFull') {
+            powerFlowTimeLabel.textContent = I18n.t(
+                state.timeKind === 'toFull' ? 'power_flow_to_full' : 'power_flow_to_empty');
+            powerFlowTime.textContent = formatDuration(state.minutesRemaining);
+        } else {
+            powerFlowTimeLabel.textContent = I18n.t('power_flow_to_empty');
+            powerFlowTime.textContent = '--';
+        }
+
+        powerFlowVoltage.textContent = state.voltageVolts != null ? state.voltageVolts.toFixed(2) + ' V' : '--';
+
+        const acText = state.onAc ? I18n.t('power_flow_plugged') : I18n.t('power_flow_on_battery');
+        const capText = (state.remainingCapacityMwh != null && state.fullChargedCapacityMwh != null)
+            ? ' · ' + (state.remainingCapacityMwh / 1000).toFixed(1) + ' / '
+              + (state.fullChargedCapacityMwh / 1000).toFixed(1) + ' Wh'
+            : '';
+        powerFlowDetail.textContent = acText + capText;
+    }
+
+    async function pollPowerFlow() {
+        if (!Host.available) return;
+        try {
+            const state = await Host.call('getBatteryPower');
+            renderPowerFlow(state);
+        } catch (err) {
+            console.error('getBatteryPower failed', err);
+        }
+    }
+
+    function startPowerFlowPolling() {
+        if (powerFlowTimer) return;
+        pollPowerFlow();
+        powerFlowTimer = setInterval(pollPowerFlow, 5000);
+    }
+
+    document.addEventListener('langchanged', () => {
+        if (lastPowerFlow) renderPowerFlow(lastPowerFlow);
     });
 
     Host.on('metrics', (m) => {
@@ -457,6 +555,9 @@
         if (powerSourcePlanHome) {
             powerSourcePlanHome.classList.toggle('hidden', hasBattery === false);
         }
+        // No battery -> never poll the firmware power flow (section stays hidden).
+        if (hasBattery !== false) startPowerFlowPolling();
+        else powerFlowSection.classList.add('hidden');
     }
 
     // Initial active plan.
