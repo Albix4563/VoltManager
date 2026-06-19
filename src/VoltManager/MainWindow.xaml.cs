@@ -70,49 +70,63 @@ public partial class MainWindow : Window
             return;
         }
 
-        var core = WebView.CoreWebView2;
-        string wwwroot = Path.Combine(AppContext.BaseDirectory, "wwwroot");
-        core.SetVirtualHostNameToFolderMapping("app.local", wwwroot,
-            CoreWebView2HostResourceAccessKind.Allow);
-
-        core.Settings.AreDefaultContextMenusEnabled = false;
-        core.Settings.IsZoomControlEnabled = false;
-        core.Settings.AreBrowserAcceleratorKeysEnabled = false;
-        core.Settings.IsStatusBarEnabled = false;
-
-        _bridge = new HostBridge(WebView, _app.Hardware, _app.Power, _app.Settings, _app.Updates, _app.AutoStart, _app);
-        _bridge.Attach();
-        _bridge.ExitRequested += () => Dispatcher.Invoke(() => { _exiting = true; _app.ExitApp(); });
-        _bridge.MinimizeToTrayRequested += () => Dispatcher.Invoke(HideToTray);
-        _bridge.GamingModeRequested += SetGamingModeFromBridgeAsync;
-        _bridge.GamingModeStateRequested += GetGamingModeState;
-
-        _app.Monitor.MetricsUpdated += OnMetricsUpdated;
-        _app.ActivePlanChanged += p => _bridge.PushEvent("activePlanChanged", new { plan = p?.PlanId, guid = p?.Guid, name = p?.Name });
-        _app.Settings.SettingsChanged += s => _bridge.PushEvent("automationStateChanged", new { masterEnabled = s.MasterAutomationEnabled, @override = s.Override });
-        _app.ManualOverrideChanged += o =>
+        try
         {
-            _bridge.PushEvent("manualOverrideChanged", new { @override = o });
-            if (!IsPerformanceOverride(o, DateTime.UtcNow))
-                _gamingReminder.Stop();
-            PushGamingModeState();
-        };
-        _app.Awake.StateChanged += s => _bridge.PushEvent("keepAwakeChanged", s);
-        _app.PowerSourcePlans.StateChanged += s => _bridge.PushEvent("powerSourcePlanChanged", s);
+            var core = WebView.CoreWebView2;
+            string wwwroot = Path.Combine(AppContext.BaseDirectory, "wwwroot");
+            core.SetVirtualHostNameToFolderMapping("app.local", wwwroot,
+                CoreWebView2HostResourceAccessKind.Allow);
 
-        bool startupCheckDone = false;
-        core.NavigationCompleted += (_, args) =>
+            core.Settings.AreDefaultContextMenusEnabled = false;
+            core.Settings.IsZoomControlEnabled = false;
+            core.Settings.AreBrowserAcceleratorKeysEnabled = false;
+            core.Settings.IsStatusBarEnabled = false;
+
+            _bridge = new HostBridge(WebView, _app.Hardware, _app.Power, _app.Settings, _app.Updates, _app.AutoStart, _app);
+            _bridge.Attach();
+            _bridge.ExitRequested += () => Dispatcher.Invoke(() => { _exiting = true; _app.ExitApp(); });
+            _bridge.MinimizeToTrayRequested += () => Dispatcher.Invoke(HideToTray);
+            _bridge.GamingModeRequested += SetGamingModeFromBridgeAsync;
+            _bridge.GamingModeStateRequested += GetGamingModeState;
+
+            _app.Monitor.MetricsUpdated += OnMetricsUpdated;
+            _app.ActivePlanChanged += p => _bridge.PushEvent("activePlanChanged", new { plan = p?.PlanId, guid = p?.Guid, name = p?.Name });
+            _app.Settings.SettingsChanged += s => _bridge.PushEvent("automationStateChanged", new { masterEnabled = s.MasterAutomationEnabled, @override = s.Override });
+            _app.ManualOverrideChanged += o =>
+            {
+                _bridge.PushEvent("manualOverrideChanged", new { @override = o });
+                if (!IsPerformanceOverride(o, DateTime.UtcNow))
+                    _gamingReminder.Stop();
+                PushGamingModeState();
+            };
+            _app.Awake.StateChanged += s => _bridge.PushEvent("keepAwakeChanged", s);
+            _app.PowerSourcePlans.StateChanged += s => _bridge.PushEvent("powerSourcePlanChanged", s);
+
+            bool startupCheckDone = false;
+            core.NavigationCompleted += (_, args) =>
+            {
+                if (!args.IsSuccess || startupCheckDone) return;
+                startupCheckDone = true;
+                if (_justUpdated)
+                    _ = PushUpdatedToastAsync();
+                else
+                    _ = CheckForUpdatesOnStartupAsync();
+            };
+
+            StartAutoUpdateLoop();
+            core.Navigate("https://app.local/index.html?v=" + DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+        }
+        catch (Exception ex)
         {
-            if (!args.IsSuccess || startupCheckDone) return;
-            startupCheckDone = true;
-            if (_justUpdated)
-                _ = PushUpdatedToastAsync();
-            else
-                _ = CheckForUpdatesOnStartupAsync();
-        };
-
-        StartAutoUpdateLoop();
-        core.Navigate("https://app.local/index.html?v=" + DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+            // WebView came up but wiring the UI failed: the dashboard is unusable,
+            // so report it and exit cleanly rather than leaving a blank window.
+            Logger.Error("WebView UI setup failed", ex);
+            MessageBox.Show(
+                "Impossibile inizializzare l'interfaccia di VoltManager.\n\nDettagli: " + ex.Message,
+                "VoltManager", MessageBoxButton.OK, MessageBoxImage.Error);
+            _exiting = true;
+            _app.ExitApp();
+        }
     }
 
     private void OnMetricsUpdated(MetricsSnapshot metrics)

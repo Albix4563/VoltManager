@@ -57,7 +57,15 @@ public class HostBridge
     {
         _webView.CoreWebView2.WebMessageReceived += async (_, e) =>
         {
-            string json = e.WebMessageAsJson;
+            string json;
+            try { json = e.WebMessageAsJson; }
+            catch (Exception ex)
+            {
+                // Reading the raw message can throw if the payload is malformed;
+                // never let it surface as an unhandled async-void exception.
+                Logger.Error("Could not read web message", ex);
+                return;
+            }
             await HandleMessageAsync(json);
         };
         _updates.DownloadProgress += pct => PushEvent("updateDownloadProgress", new { pct });

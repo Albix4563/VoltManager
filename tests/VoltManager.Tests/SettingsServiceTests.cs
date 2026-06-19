@@ -117,6 +117,20 @@ public class SettingsServiceTests : IDisposable
     }
 
     [Fact]
+    public void CorruptFile_BacksUpOriginalContent()
+    {
+        Directory.CreateDirectory(_dir);
+        const string corrupt = "{not valid json!!";
+        File.WriteAllText(SettingsPath, corrupt);
+
+        _ = new SettingsService(SettingsPath);
+
+        var backup = SettingsPath + ".corrupt";
+        Assert.True(File.Exists(backup));
+        Assert.Equal(corrupt, File.ReadAllText(backup));
+    }
+
+    [Fact]
     public void EmptyRules_RestoredToDefaults()
     {
         Directory.CreateDirectory(_dir);

@@ -13,6 +13,7 @@ public class MonitorService : IDisposable
     private readonly HardwareSensorProvider _sensors;
     private readonly double _ramTotalGb;
     private System.Threading.Timer? _timer;
+    private bool _tickFaulted; // throttles error logging to once per failure streak
 
     public event Action<MetricsSnapshot>? MetricsUpdated;
     public MetricsSnapshot Latest { get; private set; } = new();
@@ -68,10 +69,22 @@ public class MonitorService : IDisposable
                 Sensors = sensors.Readings,
             };
             MetricsUpdated?.Invoke(Latest);
+
+            if (_tickFaulted)
+            {
+                _tickFaulted = false;
+                Logger.Info("Metrics loop recovered.");
+            }
         }
-        catch
+        catch (Exception ex)
         {
-            // Never let a counter glitch kill the timer loop.
+            // Never let a counter glitch kill the 1s timer loop. Log only the
+            // first failure of a streak so a persistent fault can't spam the log.
+            if (!_tickFaulted)
+            {
+                _tickFaulted = true;
+                Logger.Error("Metrics loop tick failed", ex);
+            }
         }
     }
 

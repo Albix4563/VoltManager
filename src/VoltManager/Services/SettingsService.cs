@@ -70,10 +70,28 @@ public class SettingsService
         }
         catch (Exception ex)
         {
-            // Corrupt settings file: fall through to defaults.
+            // Corrupt/unreadable settings: keep a copy so user data isn't silently
+            // overwritten by the next Save, then fall through to defaults.
             Logger.Error("Failed to load settings from " + _path + "; using defaults.", ex);
+            BackupCorruptSettings();
         }
         return new AppSettings();
+    }
+
+    private void BackupCorruptSettings()
+    {
+        try
+        {
+            if (!File.Exists(_path)) return;
+            var backup = _path + ".corrupt";
+            File.Copy(_path, backup, overwrite: true);
+            Logger.Warn("Backed up unreadable settings to " + backup);
+        }
+        catch (Exception ex)
+        {
+            // Best-effort: a failed backup must not block startup.
+            Logger.Warn("Could not back up corrupt settings: " + ex.Message);
+        }
     }
 
     private static void NormalizeTheme(AppSettings settings)
@@ -199,8 +217,9 @@ public class SettingsService
             Directory.CreateDirectory(dir);
             var tmp = _path + ".tmp";
             File.WriteAllText(tmp, JsonSerializer.Serialize(Current, JsonOpts));
-            if (File.Exists(_path)) File.Delete(_path);
-            File.Move(tmp, _path);
+            // Atomic replace: the previous file survives intact until the move
+            // completes, so a crash mid-write can never leave settings.json gone.
+            File.Move(tmp, _path, overwrite: true);
         }
         SettingsChanged?.Invoke(Current);
     }

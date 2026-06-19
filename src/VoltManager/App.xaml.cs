@@ -61,9 +61,34 @@ public partial class App : Application
 
     protected override void OnStartup(StartupEventArgs e)
     {
+        // Init logging + global handlers first so anything below is captured.
         Logger.Init();
         HookGlobalExceptionHandlers();
 
+        try
+        {
+            StartupCore(e);
+        }
+        catch (Exception ex)
+        {
+            // Startup failure leaves no usable app; log, tell the user where the
+            // log is, and shut down cleanly instead of dying with a raw crash.
+            Logger.Error("Fatal error during startup", ex);
+            try
+            {
+                MessageBox.Show(
+                    "VoltManager non è riuscito ad avviarsi.\n\n" +
+                    "Dettagli salvati nel log:\n" + (Logger.LogFilePath ?? "(non disponibile)") +
+                    "\n\nErrore: " + ex.Message,
+                    "VoltManager", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            catch { /* never let the dialog mask the original failure */ }
+            Shutdown(1);
+        }
+    }
+
+    private void StartupCore(StartupEventArgs e)
+    {
         string? startupCommand = RemoteCommandProtocol.ParseCommandArg(e.Args);
 
         _mutex = new Mutex(true, MutexName, out bool isNew);
@@ -78,7 +103,7 @@ public partial class App : Application
                     : ShowEventName);
                 evt.Set();
             }
-            catch { }
+            catch (Exception ex) { Logger.Warn("Could not signal existing instance: " + ex.Message); }
             Shutdown();
             return;
         }
@@ -117,7 +142,10 @@ public partial class App : Application
 
         _remoteCommands = new RemoteCommandService();
         _remoteCommands.CommandReceived += ApplyRemoteCommand;
-        _remoteCommands.Start();
+        // Jump-list remote command channel is best-effort: failing to register
+        // listeners must not block the rest of startup.
+        try { _remoteCommands.Start(); }
+        catch (Exception ex) { Logger.Error("Remote command listener failed to start", ex); }
 
         // Launched via jump list while closed: apply the command, stay in tray.
         bool startMinimized = e.Args.Contains("--minimized") || startupCommand != null;
@@ -129,6 +157,8 @@ public partial class App : Application
             _ = Task.Run(() => ApplyRemoteCommand(startupCommand));
 
         SetupJumpList();
+
+        Logger.Info("Startup complete.");
     }
 
     private void HookGlobalExceptionHandlers()
