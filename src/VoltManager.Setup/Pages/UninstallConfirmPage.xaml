@@ -1,7 +1,10 @@
 <UserControl x:Class="VoltManager.Setup.Pages.UninstallConfirmPage"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <StackPanel Margin="0,24,0,0">
+    <StackPanel Margin="0,24,0,0" Style="{StaticResource PageEntrance}">
+        <StackPanel.RenderTransform>
+            <TranslateTransform Y="22"/>
+        </StackPanel.RenderTransform>
 
         <TextBlock FontSize="40" HorizontalAlignment="Center" Margin="0,0,0,16"
                    Text="🗑" Foreground="{DynamicResource DangerBrush}"/>

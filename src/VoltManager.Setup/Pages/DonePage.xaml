@@ -1,11 +1,47 @@
 <UserControl x:Class="VoltManager.Setup.Pages.DonePage"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <StackPanel Margin="0,24,0,0">
+    <StackPanel Margin="0,24,0,0" Style="{StaticResource PageEntrance}">
+        <StackPanel.RenderTransform>
+            <TranslateTransform Y="22"/>
+        </StackPanel.RenderTransform>
 
-        <!-- Icon -->
-        <TextBlock x:Name="IconText" FontSize="40" HorizontalAlignment="Center"
-                   Margin="0,0,0,16"/>
+        <!-- Icon in glowing ring -->
+        <Grid Width="92" Height="92" HorizontalAlignment="Center" Margin="0,0,0,18"
+              RenderTransformOrigin="0.5,0.5">
+            <Grid.RenderTransform>
+                <ScaleTransform x:Name="IconScale" ScaleX="0.5" ScaleY="0.5"/>
+            </Grid.RenderTransform>
+            <Ellipse Width="92" Height="92" Fill="{DynamicResource GlowBlobBrush}"/>
+            <Ellipse Width="76" Height="76" Fill="#16223F" Stroke="{DynamicResource AccentBrush}"
+                     StrokeThickness="1.4">
+                <Ellipse.Effect>
+                    <DropShadowEffect Color="#00F1FE" BlurRadius="20" ShadowDepth="0" Opacity="0.7"/>
+                </Ellipse.Effect>
+            </Ellipse>
+            <TextBlock x:Name="IconText" FontSize="38" HorizontalAlignment="Center"
+                       VerticalAlignment="Center"/>
+            <Grid.Triggers>
+                <EventTrigger RoutedEvent="FrameworkElement.Loaded">
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <DoubleAnimation Storyboard.TargetName="IconScale" Storyboard.TargetProperty="ScaleX"
+                                             From="0.5" To="1" Duration="0:0:0.55">
+                                <DoubleAnimation.EasingFunction>
+                                    <BackEase EasingMode="EaseOut" Amplitude="0.6"/>
+                                </DoubleAnimation.EasingFunction>
+                            </DoubleAnimation>
+                            <DoubleAnimation Storyboard.TargetName="IconScale" Storyboard.TargetProperty="ScaleY"
+                                             From="0.5" To="1" Duration="0:0:0.55">
+                                <DoubleAnimation.EasingFunction>
+                                    <BackEase EasingMode="EaseOut" Amplitude="0.6"/>
+                                </DoubleAnimation.EasingFunction>
+                            </DoubleAnimation>
+                        </Storyboard>
+                    </BeginStoryboard>
+                </EventTrigger>
+            </Grid.Triggers>
+        </Grid>
 
         <TextBlock x:Name="TitleText" FontSize="22" FontWeight="Bold"
                    Foreground="{DynamicResource TextBrush}" HorizontalAlignment="Center" Margin="0,0,0,8"/>

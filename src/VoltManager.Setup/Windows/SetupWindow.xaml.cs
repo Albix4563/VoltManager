@@ -4,6 +4,7 @@ using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Media.Effects;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
 using VoltManager.Setup.Engine;
@@ -102,13 +103,36 @@ namespace VoltManager.Setup.Windows
                 var dot   = (Ellipse)row.Children[0];
                 var lbl   = (TextBlock)row.Children[1];
                 bool active = i == stepIdx;
-                dot.Fill = active
-                    ? Brush("AccentBrush")
-                    : Brush("BorderBrush2");
-                lbl.Foreground = active
-                    ? Brush("AccentBrush")
-                    : Brush("MutedBrush");
-                lbl.FontWeight = active ? FontWeights.SemiBold : FontWeights.Normal;
+                bool done   = i < stepIdx;
+
+                if (active)
+                {
+                    dot.Fill = Brush("AccentBrush");
+                    dot.Width = dot.Height = 11;
+                    dot.Effect = new DropShadowEffect
+                    {
+                        Color = System.Windows.Media.Color.FromRgb(0x00, 0xF1, 0xFE),
+                        BlurRadius = 14, ShadowDepth = 0, Opacity = 0.95
+                    };
+                    lbl.Foreground = Brush("AccentBrush");
+                    lbl.FontWeight = FontWeights.SemiBold;
+                }
+                else if (done)
+                {
+                    dot.Fill = Brush("AccentPressedBrush");
+                    dot.Width = dot.Height = 8;
+                    dot.Effect = null;
+                    lbl.Foreground = Brush("TextBrush");
+                    lbl.FontWeight = FontWeights.Normal;
+                }
+                else
+                {
+                    dot.Fill = Brush("BorderBrush2");
+                    dot.Width = dot.Height = 8;
+                    dot.Effect = null;
+                    lbl.Foreground = Brush("MutedBrush");
+                    lbl.FontWeight = FontWeights.Normal;
+                }
             }
         }
 

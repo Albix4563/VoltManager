@@ -11,7 +11,7 @@
         ResizeMode="NoResize"
         SnapsToDevicePixels="True">
 
-    <Border Background="{DynamicResource BgBrush}" CornerRadius="12"
+    <Border Background="{DynamicResource WindowBgGradient}" CornerRadius="12"
             BorderBrush="{DynamicResource BorderBrush2}" BorderThickness="1">
         <Border.Effect>
             <DropShadowEffect BlurRadius="30" ShadowDepth="0" Color="Black" Opacity="0.7"/>
@@ -22,8 +22,19 @@
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
+            <!-- ── Ambient accent glow (behind content) ─────────── -->
+            <Border Grid.Column="1" CornerRadius="0,12,12,0" ClipToBounds="True" IsHitTestVisible="False">
+                <Canvas>
+                    <Ellipse Width="320" Height="320" Canvas.Right="-120" Canvas.Top="-150"
+                             Fill="{DynamicResource GlowBlobBrush}" Opacity="0.7"/>
+                    <Ellipse Width="260" Height="260" Canvas.Left="-90" Canvas.Bottom="-130"
+                             Fill="{DynamicResource GlowBlobBrush}" Opacity="0.5"/>
+                </Canvas>
+            </Border>
+
             <!-- ── Left sidebar ─────────────────────────────────── -->
-            <Border Grid.Column="0" Background="{DynamicResource SidebarBrush}" CornerRadius="12,0,0,12">
+            <Border Grid.Column="0" Background="{DynamicResource SidebarGradient}" CornerRadius="12,0,0,12"
+                    BorderBrush="#14213F" BorderThickness="0,0,1,0">
                 <Grid Margin="0,28,0,28">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
@@ -33,11 +44,34 @@
 
                     <!-- Logo + title -->
                     <StackPanel Grid.Row="0" HorizontalAlignment="Center" Margin="0,0,0,32">
-                        <Ellipse Width="64" Height="64" HorizontalAlignment="Center">
-                            <Ellipse.Fill>
-                                <ImageBrush x:Name="LogoBrush" Stretch="Uniform"/>
-                            </Ellipse.Fill>
-                        </Ellipse>
+                        <Grid Width="74" Height="74" HorizontalAlignment="Center">
+                            <Ellipse x:Name="LogoRing" Width="74" Height="74" Stroke="{DynamicResource AccentBrush}"
+                                     StrokeThickness="1.4" Opacity="0.55">
+                                <Ellipse.Effect>
+                                    <DropShadowEffect Color="#00F1FE" BlurRadius="18" ShadowDepth="0" Opacity="0.9"/>
+                                </Ellipse.Effect>
+                            </Ellipse>
+                            <Ellipse Width="60" Height="60" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <Ellipse.Fill>
+                                    <ImageBrush x:Name="LogoBrush" Stretch="Uniform"/>
+                                </Ellipse.Fill>
+                            </Ellipse>
+                            <Grid.Triggers>
+                                <EventTrigger RoutedEvent="FrameworkElement.Loaded">
+                                    <BeginStoryboard>
+                                        <Storyboard RepeatBehavior="Forever" AutoReverse="True">
+                                            <DoubleAnimation Storyboard.TargetName="LogoRing"
+                                                             Storyboard.TargetProperty="Opacity"
+                                                             From="0.4" To="0.85" Duration="0:0:1.8">
+                                                <DoubleAnimation.EasingFunction>
+                                                    <SineEase EasingMode="EaseInOut"/>
+                                                </DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </EventTrigger>
+                            </Grid.Triggers>
+                        </Grid>
                         <TextBlock Text="VoltManager" FontSize="16" FontWeight="Bold"
                                    Foreground="{DynamicResource AccentBrush}" HorizontalAlignment="Center"
                                    Margin="0,10,0,0"/>
