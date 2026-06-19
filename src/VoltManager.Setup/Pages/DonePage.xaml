@@ -13,14 +13,14 @@
                 <ScaleTransform x:Name="IconScale" ScaleX="0.5" ScaleY="0.5"/>
             </Grid.RenderTransform>
             <Ellipse Width="92" Height="92" Fill="{DynamicResource GlowBlobBrush}"/>
-            <Ellipse Width="76" Height="76" Fill="#16223F" Stroke="{DynamicResource AccentBrush}"
+            <Ellipse x:Name="Ring" Width="76" Height="76" Fill="#16223F" Stroke="{DynamicResource AccentBrush}"
                      StrokeThickness="1.4">
                 <Ellipse.Effect>
-                    <DropShadowEffect Color="#00F1FE" BlurRadius="20" ShadowDepth="0" Opacity="0.7"/>
+                    <DropShadowEffect x:Name="RingGlow" Color="#00F1FE" BlurRadius="20" ShadowDepth="0" Opacity="0.7"/>
                 </Ellipse.Effect>
             </Ellipse>
-            <TextBlock x:Name="IconText" FontSize="38" HorizontalAlignment="Center"
-                       VerticalAlignment="Center"/>
+            <Path x:Name="IconPath" Style="{StaticResource Icon}" Width="38" Height="38"
+                  StrokeThickness="2.2" HorizontalAlignment="Center" VerticalAlignment="Center"/>
             <Grid.Triggers>
                 <EventTrigger RoutedEvent="FrameworkElement.Loaded">
                     <BeginStoryboard>
@@ -48,7 +48,7 @@
 
         <TextBlock x:Name="SubText" FontSize="13" Foreground="{DynamicResource MutedBrush}"
                    HorizontalAlignment="Center" TextWrapping="Wrap"
-                   TextAlignment="Center" Margin="0,0,0,24"/>
+                   TextAlignment="Center" Margin="0,0,0,24" MaxWidth="360"/>
 
         <TextBlock x:Name="ErrText" FontSize="11" Foreground="{DynamicResource DangerBrush}"
                    TextWrapping="Wrap" Margin="0,0,0,12" Visibility="Collapsed"/>

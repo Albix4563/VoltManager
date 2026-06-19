@@ -1,16 +1,16 @@
 <UserControl x:Class="VoltManager.Setup.Pages.WelcomePage"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <StackPanel Margin="0,16,0,0" Style="{StaticResource PageEntrance}">
+    <StackPanel Margin="0,18,0,0" Style="{StaticResource PageEntrance}">
         <StackPanel.RenderTransform>
             <TranslateTransform Y="22"/>
         </StackPanel.RenderTransform>
 
-        <TextBlock x:Name="TitleText" FontSize="26" FontWeight="Bold"
+        <TextBlock x:Name="TitleText" FontSize="27" FontWeight="Bold"
                    Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" Margin="0,0,0,12"/>
 
-        <TextBlock x:Name="SubtitleText" FontSize="13" LineHeight="22"
-                   Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,0,0,24"/>
+        <TextBlock x:Name="SubtitleText" FontSize="13" LineHeight="23"
+                   Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,0,0,26"/>
 
         <!-- Info card -->
         <Border Style="{StaticResource Card}" Padding="0">
@@ -20,9 +20,9 @@
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
                 <Border Grid.Column="0" Background="{DynamicResource AccentGradient}" CornerRadius="10,0,0,10"/>
-                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="16,12">
-                    <TextBlock Text="ℹ" FontSize="16" Foreground="{DynamicResource AccentBrush}"
-                               VerticalAlignment="Center" Margin="0,0,12,0"/>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="16,13">
+                    <Path Style="{StaticResource Icon}" Data="{StaticResource Icon.Info}"
+                          Width="18" Height="18" VerticalAlignment="Center" Margin="0,0,12,0"/>
                     <TextBlock x:Name="InfoText" FontSize="12" Foreground="{DynamicResource MutedBrush}"
                                VerticalAlignment="Center" TextWrapping="Wrap"/>
                 </StackPanel>
@@ -30,26 +30,29 @@
         </Border>
 
         <!-- Requirement pills -->
-        <StackPanel Orientation="Horizontal" Margin="0,20,0,0" FlowDirection="LeftToRight">
-            <Border Background="{DynamicResource PillBrush}" CornerRadius="6" Padding="10,5" Margin="0,0,8,0">
+        <StackPanel Orientation="Horizontal" Margin="0,22,0,0">
+            <Border Background="{DynamicResource PillBrush}" CornerRadius="7" Padding="11,6" Margin="0,0,8,0">
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="✓" Foreground="{DynamicResource AccentBrush}" FontSize="11" Margin="0,0,5,0"
+                    <Path Style="{StaticResource Icon}" Data="{StaticResource Icon.Check}"
+                          Width="12" Height="12" Margin="0,0,7,0" VerticalAlignment="Center"/>
+                    <TextBlock Text="Windows 10/11 x64" Foreground="{DynamicResource MutedBrush}" FontSize="11"
                                VerticalAlignment="Center"/>
-                    <TextBlock Text="Windows 10/11 x64" Foreground="{DynamicResource MutedBrush}" FontSize="11"/>
                 </StackPanel>
             </Border>
-            <Border Background="{DynamicResource PillBrush}" CornerRadius="6" Padding="10,5" Margin="0,0,8,0">
+            <Border Background="{DynamicResource PillBrush}" CornerRadius="7" Padding="11,6" Margin="0,0,8,0">
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="✓" Foreground="{DynamicResource AccentBrush}" FontSize="11" Margin="0,0,5,0"
+                    <Path Style="{StaticResource Icon}" Data="{StaticResource Icon.Check}"
+                          Width="12" Height="12" Margin="0,0,7,0" VerticalAlignment="Center"/>
+                    <TextBlock Text="WebView2 Runtime" Foreground="{DynamicResource MutedBrush}" FontSize="11"
                                VerticalAlignment="Center"/>
-                    <TextBlock Text="WebView2 Runtime" Foreground="{DynamicResource MutedBrush}" FontSize="11"/>
                 </StackPanel>
             </Border>
-            <Border Background="{DynamicResource PillBrush}" CornerRadius="6" Padding="10,5">
+            <Border Background="{DynamicResource PillBrush}" CornerRadius="7" Padding="11,6">
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="✓" Foreground="{DynamicResource AccentBrush}" FontSize="11" Margin="0,0,5,0"
+                    <Path Style="{StaticResource Icon}" Data="{StaticResource Icon.Check}"
+                          Width="12" Height="12" Margin="0,0,7,0" VerticalAlignment="Center"/>
+                    <TextBlock Text="Admin privileges" Foreground="{DynamicResource MutedBrush}" FontSize="11"
                                VerticalAlignment="Center"/>
-                    <TextBlock Text="Admin privileges" Foreground="{DynamicResource MutedBrush}" FontSize="11"/>
                 </StackPanel>
             </Border>
         </StackPanel>

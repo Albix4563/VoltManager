@@ -6,8 +6,33 @@
             <TranslateTransform Y="22"/>
         </StackPanel.RenderTransform>
 
-        <TextBlock x:Name="TitleText" FontSize="20" FontWeight="Bold"
-                   Foreground="{DynamicResource TextBrush}" Margin="0,0,0,8"/>
+        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+            <Path x:Name="PulseIcon" Style="{StaticResource Icon}" Data="{StaticResource Icon.Power}"
+                  Width="20" Height="20" VerticalAlignment="Center" Margin="0,0,11,0"
+                  RenderTransformOrigin="0.5,0.5">
+                <Path.RenderTransform>
+                    <ScaleTransform x:Name="PulseScale" ScaleX="1" ScaleY="1"/>
+                </Path.RenderTransform>
+                <Path.Triggers>
+                    <EventTrigger RoutedEvent="FrameworkElement.Loaded">
+                        <BeginStoryboard>
+                            <Storyboard RepeatBehavior="Forever" AutoReverse="True">
+                                <DoubleAnimation Storyboard.TargetName="PulseScale" Storyboard.TargetProperty="ScaleX"
+                                                 From="0.85" To="1.12" Duration="0:0:0.9">
+                                    <DoubleAnimation.EasingFunction><SineEase EasingMode="EaseInOut"/></DoubleAnimation.EasingFunction>
+                                </DoubleAnimation>
+                                <DoubleAnimation Storyboard.TargetName="PulseScale" Storyboard.TargetProperty="ScaleY"
+                                                 From="0.85" To="1.12" Duration="0:0:0.9">
+                                    <DoubleAnimation.EasingFunction><SineEase EasingMode="EaseInOut"/></DoubleAnimation.EasingFunction>
+                                </DoubleAnimation>
+                            </Storyboard>
+                        </BeginStoryboard>
+                    </EventTrigger>
+                </Path.Triggers>
+            </Path>
+            <TextBlock x:Name="TitleText" FontSize="20" FontWeight="Bold"
+                       Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center"/>
+        </StackPanel>
 
         <TextBlock x:Name="WaitText" FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="0,0,0,28"/>
 
@@ -17,8 +42,8 @@
         <Grid>
             <TextBlock x:Name="StatusText" FontSize="12" Foreground="{DynamicResource MutedBrush}"
                        HorizontalAlignment="Left"/>
-            <TextBlock x:Name="PctText" FontSize="12" Foreground="{DynamicResource AccentBrush}"
-                       HorizontalAlignment="Right"/>
+            <TextBlock x:Name="PctText" FontSize="12" FontWeight="SemiBold"
+                       Foreground="{DynamicResource AccentBrush}" HorizontalAlignment="Right"/>
         </Grid>
 
     </StackPanel>
