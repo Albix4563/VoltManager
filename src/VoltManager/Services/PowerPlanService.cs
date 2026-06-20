@@ -35,10 +35,49 @@ public class PowerPlanService
             RedirectStandardError = true,
             CreateNoWindow = true,
         };
-        using var p = Process.Start(psi)!;
-        string output = p.StandardOutput.ReadToEnd();
-        p.WaitForExit(10000);
-        return output;
+
+        Process? p = null;
+        try
+        {
+            p = Process.Start(psi);
+            if (p == null)
+            {
+                Logger.Warn($"powercfg {args}: process did not start");
+                return "";
+            }
+
+            // Drain BOTH pipes concurrently: reading only stdout while powercfg
+            // fills the stderr buffer would deadlock both processes forever.
+            var stdout = p.StandardOutput.ReadToEndAsync();
+            var stderr = p.StandardError.ReadToEndAsync();
+
+            if (!p.WaitForExit(10000))
+            {
+                // Hung powercfg: kill it so we don't leak a zombie or block the
+                // caller's thread indefinitely. Callers treat "" as "no data".
+                try { p.Kill(entireProcessTree: true); } catch { /* already gone */ }
+                Logger.Warn($"powercfg {args}: timed out after 10s, killed");
+                return "";
+            }
+
+            p.WaitForExit(); // flush the redirected async readers
+            string output = stdout.GetAwaiter().GetResult();
+            string err = stderr.GetAwaiter().GetResult();
+            if (p.ExitCode != 0 && err.Trim().Length > 0)
+                Logger.Warn($"powercfg {args}: exit {p.ExitCode}: {err.Trim()}");
+            return output;
+        }
+        catch (Exception ex)
+        {
+            // powercfg missing, blocked by policy, or any I/O failure: degrade
+            // gracefully instead of throwing — every caller treats "" as no data.
+            Logger.Error($"powercfg {args} failed", ex);
+            return "";
+        }
+        finally
+        {
+            p?.Dispose();
+        }
     }
 
     public static List<PowerPlan> ParseListOutput(string output, Dictionary<string, string>? guidMap = null)

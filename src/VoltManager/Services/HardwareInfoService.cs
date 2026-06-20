@@ -25,7 +25,7 @@ public class HardwareInfoService
                 break;
             }
         }
-        catch { }
+        catch (Exception ex) { Logger.Warn("RAM total query failed: " + ex.Message); }
 
         bool hasBattery = false;
         try
@@ -35,7 +35,7 @@ public class HardwareInfoService
                 hasBattery = (status.BatteryFlag & 128) == 0 && status.BatteryLifePercent != 255;
             }
         }
-        catch { }
+        catch (Exception ex) { Logger.Warn("Battery presence query failed: " + ex.Message); }
 
         _cached = new SystemInfo
         {
@@ -69,8 +69,9 @@ public class HardwareInfoService
             }
             return best ?? "GPU sconosciuta";
         }
-        catch
+        catch (Exception ex)
         {
+            Logger.Warn("GPU name query failed: " + ex.Message);
             return "GPU sconosciuta";
         }
     }
@@ -83,7 +84,7 @@ public class HardwareInfoService
             foreach (var mo in searcher.Get())
                 return mo[prop]?.ToString();
         }
-        catch { }
+        catch (Exception ex) { Logger.Warn($"WMI query {cls}.{prop} failed: " + ex.Message); }
         return null;
     }
 
