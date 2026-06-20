@@ -234,6 +234,15 @@ public class HostBridge
                 return new { success = true, autoUpdates = _settings.Current.AutoUpdates };
             }
 
+            case "setSilentAutoUpdates":
+            {
+                bool enable = payload.GetProperty("enabled").GetBoolean();
+                _settings.Current.AutoUpdates ??= new AutoUpdateSettings();
+                _settings.Current.AutoUpdates.SilentInstallEnabled = enable;
+                _settings.Save();
+                return new { success = true, autoUpdates = _settings.Current.AutoUpdates };
+            }
+
             case "setUpdateChannel":
             {
                 string channel = payload.GetProperty("channel").GetString() ?? "stable";

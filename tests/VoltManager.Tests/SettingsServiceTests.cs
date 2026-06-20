@@ -23,6 +23,7 @@ public class SettingsServiceTests : IDisposable
         Assert.Equal("23:00", svc.Current.AutoShutdown.Time);
         Assert.NotNull(svc.Current.AutoUpdates);
         Assert.True(svc.Current.AutoUpdates.Enabled);
+        Assert.True(svc.Current.AutoUpdates.SilentInstallEnabled);
         Assert.Equal(30, svc.Current.AutoUpdates.IntervalMinutes);
         Assert.Null(svc.Current.AutoUpdates.SnoozedUntilUtc);
         Assert.Null(svc.Current.AutoUpdates.SkippedVersion);
@@ -56,6 +57,7 @@ public class SettingsServiceTests : IDisposable
         svc.Current.AutoShutdown.Time = "22:30";
         svc.Current.AutoShutdown.LastTriggeredLocalDate = "2026-06-13";
         svc.Current.AutoUpdates.Enabled = false;
+        svc.Current.AutoUpdates.SilentInstallEnabled = false;
         svc.Current.AutoUpdates.IntervalMinutes = 45;
         svc.Current.AutoUpdates.SnoozedUntilUtc = new DateTime(2026, 06, 13, 16, 30, 00, DateTimeKind.Utc);
         svc.Current.AutoUpdates.SkippedVersion = "1.2.3";
@@ -89,6 +91,7 @@ public class SettingsServiceTests : IDisposable
         Assert.Equal("22:30", reloaded.Current.AutoShutdown.Time);
         Assert.Equal("2026-06-13", reloaded.Current.AutoShutdown.LastTriggeredLocalDate);
         Assert.False(reloaded.Current.AutoUpdates.Enabled);
+        Assert.False(reloaded.Current.AutoUpdates.SilentInstallEnabled);
         Assert.Equal(45, reloaded.Current.AutoUpdates.IntervalMinutes);
         Assert.Equal(new DateTime(2026, 06, 13, 16, 30, 00, DateTimeKind.Utc), reloaded.Current.AutoUpdates.SnoozedUntilUtc);
         Assert.Equal("1.2.3", reloaded.Current.AutoUpdates.SkippedVersion);
@@ -159,6 +162,7 @@ public class SettingsServiceTests : IDisposable
         var svc = new SettingsService(SettingsPath);
         Assert.NotNull(svc.Current.AutoUpdates);
         Assert.True(svc.Current.AutoUpdates.Enabled);
+        Assert.True(svc.Current.AutoUpdates.SilentInstallEnabled);
         Assert.Equal(30, svc.Current.AutoUpdates.IntervalMinutes);
         Assert.Null(svc.Current.AutoUpdates.SnoozedUntilUtc);
         Assert.Null(svc.Current.AutoUpdates.SkippedVersion);

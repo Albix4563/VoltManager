@@ -75,6 +75,7 @@ public class AutoShutdownSettings
 public class AutoUpdateSettings
 {
     [JsonPropertyName("enabled")] public bool Enabled { get; set; } = true;
+    [JsonPropertyName("silentInstallEnabled")] public bool SilentInstallEnabled { get; set; } = true;
     [JsonPropertyName("updateChannel")] public string UpdateChannel { get; set; } = "stable";
     
     [JsonPropertyName("previewChannel")]
