@@ -19,6 +19,7 @@ public class HardwareSensorProvider : IDisposable
     private readonly object _gate = new();
     private volatile bool _ready;
     private bool _disposed;
+    private bool _readFaulted; // throttles per-update read-failure logging
 
     public bool Available { get; private set; }
 
@@ -53,9 +54,11 @@ public class HardwareSensorProvider : IDisposable
                 _ready = true;
             }
         }
-        catch
+        catch (Exception ex)
         {
-            // VM, blocked driver, etc.: sensors stay unavailable.
+            // VM, blocked driver, etc.: sensors stay unavailable. One-shot init,
+            // so log once — explains why temp/clock badges show N/D.
+            Logger.Warn("Hardware sensors unavailable: " + ex.Message);
         }
     }
 
@@ -88,10 +91,13 @@ public class HardwareSensorProvider : IDisposable
                     RamClock = SensorAggregation.SelectRamClock(readings),
                     Readings = readings,
                 };
+                _readFaulted = false;
             }
-            catch
+            catch (Exception ex)
             {
-                // Keep last good report; never break the metrics loop.
+                // Keep last good report; never break the metrics loop. Log the
+                // first failure of a streak so a persistent sensor fault is visible.
+                _readFaulted = Logger.WarnOnce(_readFaulted, "Sensor update failed", ex);
             }
             return _last;
         }

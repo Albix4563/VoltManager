@@ -51,6 +51,7 @@ public sealed class HeavyAppDetectionService : IDisposable
     private readonly SettingsService _settings;
     private readonly object _lock = new();
     private Timer? _timer;
+    private bool _scanFaulted; // throttles scan-failure logging to once per streak
     private HeavyAppDetectionState _current = new();
 
     // Processes already classified as heavy stay tracked by PID across scans, even if their
@@ -87,10 +88,13 @@ public sealed class HeavyAppDetectionService : IDisposable
         try
         {
             Scan();
+            _scanFaulted = false;
         }
-        catch
+        catch (Exception ex)
         {
-            // Detection must never crash the background automation loop.
+            // Detection must never crash the background automation loop;
+            // log the first failure of a streak so a real bug isn't hidden.
+            _scanFaulted = Logger.WarnOnce(_scanFaulted, "Heavy-app scan failed", ex);
         }
     }
 

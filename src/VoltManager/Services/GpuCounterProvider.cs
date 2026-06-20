@@ -10,6 +10,7 @@ public class GpuCounterProvider : IDisposable
 {
     private List<PerformanceCounter>? _counters;
     private DateTime _lastRefresh = DateTime.MinValue;
+    private bool _readFaulted; // throttles per-counter read-failure logging
 
     public bool GpuAvailable { get; private set; }
 
@@ -34,8 +35,11 @@ public class GpuCounterProvider : IDisposable
             GpuAvailable = _counters.Count > 0;
             _lastRefresh = DateTime.UtcNow;
         }
-        catch
+        catch (Exception ex)
         {
+            // No "GPU Engine" category (VM/old driver): degrade to unavailable.
+            // One-shot — once unavailable, Read() returns early and never re-enters.
+            Logger.Warn("GPU counters unavailable: " + ex.Message);
             GpuAvailable = false;
             _counters = null;
         }
@@ -50,11 +54,13 @@ public class GpuCounterProvider : IDisposable
         if (_counters == null) return 0;
 
         double sum = 0;
+        bool anyFailed = false;
         foreach (var c in _counters)
         {
             try { sum += c.NextValue(); }
-            catch { }
+            catch (Exception ex) { anyFailed = true; _readFaulted = Logger.WarnOnce(_readFaulted, "GPU counter read failed", ex); }
         }
+        if (!anyFailed) _readFaulted = false;
         return Math.Min(100, Math.Round(sum, 1));
     }
 

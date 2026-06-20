@@ -14,6 +14,8 @@ public class MonitorService : IDisposable
     private readonly double _ramTotalGb;
     private System.Threading.Timer? _timer;
     private bool _tickFaulted; // throttles error logging to once per failure streak
+    private bool _ramFaulted;  // same throttle for the per-tick RAM WMI query
+    private bool _clockFaulted; // and for the CPU-clock WMI fallback
 
     private static readonly int ProcessorCount = Environment.ProcessorCount;
     private Dictionary<int, TimeSpan> _prevProcessCpuTimes = new();
@@ -37,8 +39,10 @@ public class MonitorService : IDisposable
 
     private static PerformanceCounter? TryCreate(string cat, string counter, string instance)
     {
+        // One-shot at startup: if the perf-counter category is missing/corrupt the
+        // metric degrades to 0 — log once so that's diagnosable, not invisible.
         try { return new PerformanceCounter(cat, counter, instance, readOnly: true); }
-        catch { return null; }
+        catch (Exception ex) { Logger.Warn($"Perf counter '{cat}\\{counter}' unavailable: " + ex.Message); return null; }
     }
 
     public void Start()
@@ -117,10 +121,11 @@ public class MonitorService : IDisposable
                 double freeKb = Convert.ToDouble(mo["FreePhysicalMemory"]);
                 double totalKb = Convert.ToDouble(mo["TotalVisibleMemorySize"]);
                 double usedKb = totalKb - freeKb;
+                _ramFaulted = false;
                 return (usedKb / (1024.0 * 1024), totalKb > 0 ? usedKb / totalKb * 100 : 0);
             }
         }
-        catch { }
+        catch (Exception ex) { _ramFaulted = Logger.WarnOnce(_ramFaulted, "RAM usage WMI query failed", ex); }
         return (0, 0);
     }
 
@@ -133,11 +138,12 @@ public class MonitorService : IDisposable
             {
                 if (mo["CurrentClockSpeed"] != null)
                 {
+                    _clockFaulted = false;
                     return Convert.ToDouble(mo["CurrentClockSpeed"]);
                 }
             }
         }
-        catch { }
+        catch (Exception ex) { _clockFaulted = Logger.WarnOnce(_clockFaulted, "CPU-clock WMI query failed", ex); }
         return null;
     }
 

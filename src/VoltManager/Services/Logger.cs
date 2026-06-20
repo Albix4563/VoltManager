@@ -53,6 +53,19 @@ public static class Logger
 
     public static void Error(Exception ex) => Write("ERROR", ex.Message, ex);
 
+    /// <summary>
+    /// Logs a warning only on the FIRST failure of a streak — when
+    /// <paramref name="faulted"/> is still false — so a persistently-failing hot
+    /// loop leaves one trace instead of spamming the log. Returns true; store it
+    /// (<c>_faulted = Logger.WarnOnce(_faulted, msg, ex);</c>) and reset the field
+    /// to false on the next success for a silent recovery.
+    /// </summary>
+    public static bool WarnOnce(bool faulted, string message, Exception? ex = null)
+    {
+        if (!faulted) Write("WARN", message, ex);
+        return true;
+    }
+
     private static void Write(string level, string message, Exception? ex)
     {
         try
