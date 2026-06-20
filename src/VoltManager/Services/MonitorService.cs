@@ -15,6 +15,12 @@ public class MonitorService : IDisposable
     private System.Threading.Timer? _timer;
     private bool _tickFaulted; // throttles error logging to once per failure streak
 
+    private static readonly int ProcessorCount = Environment.ProcessorCount;
+    private Dictionary<int, TimeSpan> _prevProcessCpuTimes = new();
+    private DateTime _prevProcessSampleTime;
+    private List<ProcessInfo> _cachedTopProcesses = new();
+    private int _processTickCounter;
+
     public event Action<MetricsSnapshot>? MetricsUpdated;
     public MetricsSnapshot Latest { get; private set; } = new();
 
@@ -69,6 +75,12 @@ public class MonitorService : IDisposable
                 Sensors = sensors.Readings,
             };
             MetricsUpdated?.Invoke(Latest);
+
+            if (++_processTickCounter >= 3)
+            {
+                _processTickCounter = 0;
+                UpdateProcesses();
+            }
 
             if (_tickFaulted)
             {
@@ -127,6 +139,66 @@ public class MonitorService : IDisposable
         }
         catch { }
         return null;
+    }
+
+    public List<ProcessInfo> GetTopProcesses(int count = 8)
+        => _cachedTopProcesses.Take(count).ToList();
+
+    private void UpdateProcesses()
+    {
+        try
+        {
+            var now = DateTime.UtcNow;
+            var elapsed = (now - _prevProcessSampleTime).TotalSeconds;
+            bool hasPrevious = _prevProcessCpuTimes.Count > 0 && elapsed > 0 && elapsed < 30;
+
+            var currentTimes = new Dictionary<int, TimeSpan>();
+            var results = new List<(string Name, int Pid, double CpuPct, double RamMb)>();
+
+            foreach (var p in Process.GetProcesses())
+            {
+                try
+                {
+                    if (p.Id == 0) continue;
+                    var cpuTime = p.TotalProcessorTime;
+                    var mem = p.WorkingSet64;
+                    currentTimes[p.Id] = cpuTime;
+
+                    double cpuPct = 0;
+                    if (hasPrevious && _prevProcessCpuTimes.TryGetValue(p.Id, out var prev))
+                    {
+                        cpuPct = (cpuTime - prev).TotalSeconds / elapsed / ProcessorCount * 100;
+                        cpuPct = Math.Clamp(cpuPct, 0, 100);
+                    }
+
+                    results.Add((p.ProcessName, p.Id, cpuPct, mem / (1024.0 * 1024)));
+                }
+                catch { }
+                finally { p.Dispose(); }
+            }
+
+            _prevProcessCpuTimes = currentTimes;
+            _prevProcessSampleTime = now;
+
+            _cachedTopProcesses = results
+                .GroupBy(r => r.Name, StringComparer.OrdinalIgnoreCase)
+                .Select(g => new ProcessInfo
+                {
+                    Name = g.Key,
+                    Pid = g.First().Pid,
+                    CpuPercent = Math.Round(g.Sum(r => r.CpuPct), 1),
+                    RamMb = Math.Round(g.Sum(r => r.RamMb), 0),
+                    Instances = g.Count(),
+                })
+                .OrderByDescending(p => p.CpuPercent)
+                .ThenByDescending(p => p.RamMb)
+                .Take(12)
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            Logger.Error("Process monitor update failed", ex);
+        }
     }
 
     public void Dispose()

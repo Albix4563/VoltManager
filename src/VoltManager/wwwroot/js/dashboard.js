@@ -345,6 +345,92 @@
         ramDetail.textContent = m.ramUsedGb.toFixed(1) + ' GB / ' + m.ramTotalGb.toFixed(1) + ' GB In Use';
     });
 
+    // ----- Top Processes -----
+    const processesSection = document.getElementById('processes-section');
+    const processesList = document.getElementById('processes-list');
+    const PROC_COUNT = 8;
+    let procRows = [];
+    let processesTimer = null;
+    let procBuilt = false;
+
+    function buildProcessRows() {
+        if (procBuilt) return;
+        procBuilt = true;
+        processesList.innerHTML = '';
+        var header = document.createElement('div');
+        header.className = 'flex items-center text-label-sm text-on-surface-variant uppercase mb-2 px-1';
+        var hName = document.createElement('span');
+        hName.className = 'flex-1';
+        hName.setAttribute('data-i18n', 'dash_proc_name');
+        hName.textContent = I18n.t('dash_proc_name');
+        var hCpu = document.createElement('span');
+        hCpu.className = 'w-20 text-right';
+        hCpu.textContent = 'CPU';
+        var hRam = document.createElement('span');
+        hRam.className = 'w-24 text-right';
+        hRam.textContent = 'RAM';
+        header.appendChild(hName);
+        header.appendChild(hCpu);
+        header.appendChild(hRam);
+        processesList.appendChild(header);
+
+        for (var i = 0; i < PROC_COUNT; i++) {
+            var row = document.createElement('div');
+            row.className = 'flex items-center py-2 border-b border-white/5 last:border-0 px-1';
+            var nameEl = document.createElement('span');
+            nameEl.className = 'flex-1 text-body-md text-on-surface truncate pr-4';
+            var cpuEl = document.createElement('span');
+            cpuEl.className = 'w-20 text-right text-body-md font-mono text-on-surface tabular-nums';
+            var ramEl = document.createElement('span');
+            ramEl.className = 'w-24 text-right text-body-md font-mono text-on-surface-variant tabular-nums';
+            row.appendChild(nameEl);
+            row.appendChild(cpuEl);
+            row.appendChild(ramEl);
+            processesList.appendChild(row);
+            procRows.push({ row: row, nameEl: nameEl, cpuEl: cpuEl, ramEl: ramEl });
+        }
+    }
+
+    function renderProcesses(procs) {
+        if (!procs || procs.length === 0) return;
+        buildProcessRows();
+        for (var i = 0; i < PROC_COUNT; i++) {
+            var r = procRows[i];
+            if (i < procs.length) {
+                var p = procs[i];
+                r.row.classList.remove('hidden');
+                var label = p.name;
+                if (p.instances > 1) label += ' (' + p.instances + ')';
+                r.nameEl.textContent = label;
+                r.cpuEl.textContent = p.cpuPercent.toFixed(1) + '%';
+                r.ramEl.textContent = Math.round(p.ramMb) + ' MB';
+            } else {
+                r.row.classList.add('hidden');
+            }
+        }
+    }
+
+    function pollProcesses() {
+        if (!Host.available) return;
+        Host.call('getTopProcesses', { count: PROC_COUNT }).then(renderProcesses).catch(function(err) {
+            console.error('getTopProcesses failed', err);
+        });
+    }
+
+    function startProcessPolling() {
+        if (processesTimer) return;
+        pollProcesses();
+        processesTimer = setInterval(pollProcesses, 3000);
+    }
+
+    if (Host.available) startProcessPolling();
+
+    document.addEventListener('langchanged', () => {
+        procBuilt = false;
+        procRows = [];
+        pollProcesses();
+    });
+
     // ----- Power plan segmented control -----
     const planButtons = Array.from(document.querySelectorAll('#plan-control button'));
     const pill = document.getElementById('plan-pill');

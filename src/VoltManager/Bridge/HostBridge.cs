@@ -32,6 +32,7 @@ public class HostBridge
     private readonly MemoryOptimizerService _memoryOptimizer;
     private readonly BatteryHealthService _batteryHealth = new();
     private readonly PowerFlowService _powerFlow = new();
+    private readonly MonitorService _monitor;
     private readonly App _app;
 
     public event Action? ExitRequested;
@@ -40,7 +41,7 @@ public class HostBridge
     public event Func<object?>? GamingModeStateRequested;
 
     public HostBridge(WebView2 webView, HardwareInfoService hardware, PowerPlanService power,
-        SettingsService settings, UpdateService updates, StartupService startup, App app)
+        SettingsService settings, UpdateService updates, StartupService startup, MonitorService monitor, App app)
     {
         _webView = webView;
         _hardware = hardware;
@@ -48,6 +49,7 @@ public class HostBridge
         _settings = settings;
         _updates = updates;
         _startup = startup;
+        _monitor = monitor;
         _planParams = new PowerPlanParameterService(power);
         _memoryOptimizer = new MemoryOptimizerService();
         _app = app;
@@ -300,6 +302,15 @@ public class HostBridge
             {
                 string? path = await _webView.Dispatcher.InvokeAsync(PickAppPowerProfileExecutable);
                 return new { path };
+            }
+
+            case "getTopProcesses":
+            {
+                int count = payload.ValueKind != JsonValueKind.Undefined &&
+                            payload.TryGetProperty("count", out var cntEl) &&
+                            cntEl.ValueKind == JsonValueKind.Number
+                    ? cntEl.GetInt32() : 8;
+                return await Task.Run(() => _monitor.GetTopProcesses(count));
             }
 
             case "getStartupApps":

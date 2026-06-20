@@ -346,6 +346,15 @@ public record BatteryHistorySample
     [JsonPropertyName("temp")] public double? Temp { get; init; }
 }
 
+public record ProcessInfo
+{
+    [JsonPropertyName("name")] public string Name { get; init; } = "";
+    [JsonPropertyName("pid")] public int Pid { get; init; }
+    [JsonPropertyName("cpuPercent")] public double CpuPercent { get; init; }
+    [JsonPropertyName("ramMb")] public double RamMb { get; init; }
+    [JsonPropertyName("instances")] public int Instances { get; init; } = 1;
+}
+
 /// <summary>
 /// Snapshot dettagliato della memoria RAM (in GB e percentuale).
 /// </summary>
