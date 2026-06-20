@@ -1,0 +1,165 @@
+/* ============================================================
+   VoltManager — Polish layer (hand-written, no Tailwind build).
+   Loaded AFTER app.css/redesign.css and BEFORE effects.css, so the
+   dynamic effects (fx-metric load halo, ::before sheen, ::after
+   spotlight, comet nav) keep winning by source order.
+
+   Scope: material depth + instrumentation polish on the EXISTING
+   cyan-on-navy identity. No new Tailwind classes — only existing
+   selectors are restyled, so wwwroot needs no recompile.
+   ============================================================ */
+
+/* ---------- 1. Glass cards — real material depth ----------
+   .glass-card was a flat solid fill (#1e2a4a) with one hairline.
+   Give it a backlit instrument-panel surface: top-edge light, a
+   faint vertical tint, and an ambient drop shadow that grounds it
+   on the navy. Signature: on hover the top edge energizes cyan
+   (inset 1px), reading like a powered circuit. Inset shadows are
+   used (never ::before/::after — those belong to effects.css). */
+
+html[data-theme=dark] .glass-card{
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,0) 42%),
+    linear-gradient(165deg, #223256 0%, #1a2440 100%);
+  border-color: rgba(255,255,255,.09);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.08),
+    0 1px 2px rgba(0,0,0,.28),
+    0 16px 34px -18px rgba(0,0,0,.66);
+}
+html[data-theme=dark] .glass-card:not(.fx-metric):hover{
+  border-color: rgba(0,241,254,.30);
+  box-shadow:
+    inset 0 1px 0 rgba(0,241,254,.30),
+    0 1px 2px rgba(0,0,0,.28),
+    0 22px 44px -20px rgba(0,0,0,.70),
+    0 0 40px -12px rgba(0,241,254,.28);
+}
+
+/* Black theme: keep the forced #161616 fill, just add depth + edge. */
+html[data-theme=black] .glass-card{
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.05),
+    0 1px 2px rgba(0,0,0,.5),
+    0 16px 34px -18px rgba(0,0,0,.8);
+}
+html[data-theme=black] .glass-card:not(.fx-metric):hover{
+  border-color: rgba(0,241,254,.28);
+  box-shadow:
+    inset 0 1px 0 rgba(0,241,254,.28),
+    0 1px 2px rgba(0,0,0,.5),
+    0 22px 44px -20px rgba(0,0,0,.85),
+    0 0 38px -12px rgba(0,241,254,.24);
+}
+
+/* Light theme: stay airy — deepen the shadow a touch, energize the
+   top edge in the light accent on hover. No gradient muddying. */
+html[data-theme=light] .glass-card{
+  box-shadow:
+    0 1px 2px rgba(15,34,52,.06),
+    0 18px 38px -20px rgba(15,34,52,.20),
+    inset 0 1px 0 rgba(255,255,255,.85);
+}
+html[data-theme=light] .glass-card:not(.fx-metric):hover{
+  border-color: rgba(0,174,187,.34);
+  box-shadow:
+    0 1px 2px rgba(15,34,52,.06),
+    0 22px 46px -22px rgba(15,34,52,.26),
+    inset 0 1px 0 rgba(0,174,187,.30),
+    0 0 30px -12px rgba(0,174,187,.22);
+}
+
+/* ponytail: fx-metric cards intentionally skip the cyan hover edge —
+   their hover story is the ring spotlight + load halo (effects.css).
+   They still get base depth and the transform lift from app.css. */
+
+/* ---------- 1b. Glass panels — matching depth ----------
+   The Power view is built on .glass-panel (translucent), not
+   .glass-card. Give it the same grounded material so the whole app
+   reads as one set. Base-only: no hover edge — panels nest (rows
+   inside the accordion), and a :hover edge would cross-trigger the
+   parent. Row hover already shows via the existing border-white/20. */
+html[data-theme=dark] .glass-panel{
+  border-color: rgba(255,255,255,.08);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.06),
+    0 12px 30px -20px rgba(0,0,0,.62);
+}
+html[data-theme=black] .glass-panel{
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.04),
+    0 12px 30px -20px rgba(0,0,0,.78);
+}
+html[data-theme=light] .glass-panel{
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.8),
+    0 14px 32px -22px rgba(15,34,52,.20);
+}
+
+/* ---------- 2. Progress tracks — inset depth ----------
+   The .h-3 bar tracks reused the old card colour (#1E2A4A); against
+   the new lighter card they washed out. Sink them so the glowing
+   fill reads. Only the linear bars (h-3) match, not the ring SVGs. */
+.h-3.bg-\[\#1E2A4A\]{
+  box-shadow: inset 0 1px 2px rgba(0,0,0,.38);
+}
+
+/* ---------- 3. Tabular figures on live metrics ----------
+   Animated readouts (effects.js tweens them) shifted width as digits
+   changed. Lock figure advance so the numbers hold still. */
+#cpu-pct, #gpu-pct, #ram-pct, #disk-pct,
+#battery-health-pct, #battery-history-current,
+#power-flow-watts, #power-flow-percent, #power-flow-voltage,
+#power-flow-time, #cpu-temp, #gpu-temp,
+#cpu-clock, #ram-clock, #ram-detail{
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+/* ---------- 4. Primary button — give it presence ----------
+   .btn-cyan was a flat fill. Light it from the top with a gradient
+   and a resting glow so the main action carries weight. */
+.btn-cyan{
+  background-image: linear-gradient(180deg, #2af6ff 0%, #00d9e6 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.45),
+    0 6px 16px -6px rgba(0,241,254,.5);
+}
+html[data-theme=light] .btn-cyan{
+  background-image: linear-gradient(180deg, #14c4d1 0%, #00aebb 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.5),
+    0 6px 16px -8px rgba(0,174,187,.45);
+}
+
+/* ---------- 5. Scrollbar — brand-tinted ---------- */
+::-webkit-scrollbar{ width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb{
+  background: linear-gradient(180deg, rgba(0,241,254,.38), rgba(0,241,254,.14));
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover{
+  background: linear-gradient(180deg, rgba(0,241,254,.58), rgba(0,241,254,.3));
+}
+html[data-theme=light] ::-webkit-scrollbar-thumb{
+  background: linear-gradient(180deg, rgba(0,174,187,.42), rgba(0,174,187,.18));
+}
+html[data-theme=light] ::-webkit-scrollbar-thumb:hover{
+  background: linear-gradient(180deg, rgba(0,174,187,.6), rgba(0,174,187,.32));
+}
+
+/* ---------- 6. Visible keyboard focus (accessibility floor) ----------
+   The app sets focus:outline-none everywhere, leaving keyboard users
+   with no focus indicator. Restore a brand ring on :focus-visible only
+   (mouse/touch focus stays clean). !important is needed to beat the
+   Tailwind .focus:outline-none (higher specificity than a bare pseudo). */
+:focus-visible{
+  outline: 2px solid var(--vm-accent, #00f1fe) !important;
+  outline-offset: 2px;
+}
+/* The real toggles are opacity:0 inputs — surface focus on their track. */
+.toggle-checkbox:focus-visible + .toggle-label,
+.toggle-large:focus-visible + .toggle-label-large{
+  outline: 2px solid var(--vm-accent, #00f1fe);
+  outline-offset: 2px;
+}
