@@ -101,6 +101,7 @@ AGENTS.md
 *.orig
 .DS_Store
 Thumbs.db
+/nul
 
 # Repo-local analysis output
 graphify-out/
