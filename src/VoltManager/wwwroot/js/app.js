@@ -9,10 +9,11 @@
 
     const labels = {
         it: {
-            nav: 'Sistema', title: 'Sistema', sub: 'Gestisci spegnimento, riavvio, sospensione e applicazioni avviate con Windows.',
+            nav: 'Gestione Energetica', title: 'Gestione Energetica', sub: 'Programma spegnimento, riavvio e sospensione del PC, e mantienilo attivo quando serve.',
             scheduleTitle: 'Azione automatica del PC', scheduleSub: 'Scegli cosa deve fare il computer a un orario preciso, se è acceso.',
             enable: 'Attiva pianificazione', action: 'Azione', shutdown: 'Spegni', restart: 'Riavvia', sleep: 'Sospendi', time: 'Orario',
             note: 'Spegnimento e riavvio non forzano il salvataggio del lavoro aperto. La sospensione usa lo stato sospensione di Windows.',
+            keepAwakeTitle: 'Mantieni il PC attivo', keepAwakeSub: 'Impedisce al PC di andare in sospensione automatica finché è attivo.',
             startupTitle: 'Applicazioni di avvio', startupSub: 'Controlla le applicazioni che partono o risultano disattivate all\'avvio di Windows.',
             addTitle: 'Aggiungi app personalizzata', addSub: 'Seleziona un file .exe, .lnk, .bat o .cmd. Verrà registrato come app gestita da Miliano\'s App.',
             add: 'Aggiungi', refresh: 'Aggiorna', enabled: 'Avvio attivo', disabled: 'Avvio disattivato', loading: 'Caricamento…', empty: 'Nessuna applicazione trovata.',
@@ -22,10 +23,11 @@
             loadErr: 'Errore caricamento app di avvio: ', addErr: 'Errore aggiunta app: ', removeErr: 'Errore rimozione app: ', toggleErr: 'Errore modifica stato app: '
         },
         en: {
-            nav: 'System', title: 'System', sub: 'Manage shutdown, restart, sleep, and Windows startup applications.',
+            nav: 'Power Schedule', title: 'Power Schedule', sub: 'Schedule PC shutdown, restart and sleep, and keep it awake when needed.',
             scheduleTitle: 'Automatic PC action', scheduleSub: 'Choose what the computer should do at a specific time, if it is on.',
             enable: 'Enable schedule', action: 'Action', shutdown: 'Shut down', restart: 'Restart', sleep: 'Sleep', time: 'Time',
             note: 'Shutdown and restart do not force-save open work. Sleep uses the Windows suspend state.',
+            keepAwakeTitle: 'Keep PC awake', keepAwakeSub: 'Prevents the PC from automatically sleeping while it is active.',
             startupTitle: 'Startup applications', startupSub: 'Review applications that start, or are disabled, when Windows starts.',
             addTitle: 'Add custom app', addSub: 'Select an .exe, .lnk, .bat, or .cmd file. It will be registered as a Miliano\'s App managed entry.',
             add: 'Add', refresh: 'Refresh', enabled: 'Enabled startup', disabled: 'Disabled startup', loading: 'Loading…', empty: 'No applications found.',
@@ -35,10 +37,11 @@
             loadErr: 'Error loading startup apps: ', addErr: 'Error adding app: ', removeErr: 'Error removing app: ', toggleErr: 'Error changing app state: '
         },
         zh: {
-            nav: '系统', title: '系统', sub: '管理关机、重启、睡眠以及随 Windows 启动的应用。',
+            nav: '电源计划', title: '电源计划', sub: '计划电脑的关机、重启和睡眠，并在需要时保持唤醒。',
             scheduleTitle: '电脑自动操作', scheduleSub: '选择电脑在指定时间应执行的操作（如果电脑处于开机状态）。',
             enable: '启用计划', action: '操作', shutdown: '关机', restart: '重启', sleep: '睡眠', time: '时间',
             note: '关机和重启不会强制保存打开的工作。睡眠使用 Windows 的挂起状态。',
+            keepAwakeTitle: '保持电脑唤醒', keepAwakeSub: '在电脑处于活动状态时阻止其自动进入睡眠。',
             startupTitle: '启动应用', startupSub: '查看 Windows 启动时启动或被禁用的应用。',
             addTitle: '添加自定义应用', addSub: '选择 .exe、.lnk、.bat 或 .cmd 文件。它会注册为由 Miliano\'s App 管理的启动项。',
             add: '添加', refresh: '刷新', enabled: '启动已启用', disabled: '启动已禁用', loading: '正在加载…', empty: '未找到应用。',
@@ -304,29 +307,33 @@
     }
 
     function systemViewHtml() {
-        return '<div class="max-w-5xl mx-auto space-y-lg relative z-10 w-full">' +
+        return '<div class="max-w-4xl mx-auto space-y-lg relative z-10 w-full">' +
             '<div class="mb-xl"><h2 class="text-headline-lg text-on-surface mb-xs system-title"></h2><p class="text-body-md text-on-surface-variant system-sub"></p></div>' +
             '<div class="grid grid-cols-12 gap-gutter">' +
-            '<div class="col-span-12 lg:col-span-5 flex flex-col gap-gutter">' +
+            // Schedule panel
+            '<div class="col-span-12 lg:col-span-6 flex flex-col gap-gutter">' +
             '<div class="glass-panel rounded-xl p-lg space-y-md"><h3 class="text-title-lg text-on-surface flex items-center gap-xs"><span class="material-symbols-outlined text-secondary-container">schedule</span><span class="system-schedule-title"></span></h3><p class="text-body-md text-on-surface-variant system-schedule-sub"></p>' +
             '<div class="flex items-center justify-between group pt-sm gap-md"><div><p class="text-body-md text-on-surface system-enable"></p><p class="text-label-sm text-on-surface-variant system-note"></p></div>' + switchHtml('toggle-scheduled-power', false, 'system-power-switch cursor-pointer') + '</div>' +
             '<label class="flex items-center justify-between gap-md"><span class="text-label-sm text-on-surface-variant system-action"></span><select id="scheduled-power-action" class="bg-surface-container-low/50 text-secondary-container font-medium border border-white/10 rounded-lg py-2 px-3 text-body-md focus:outline-none focus:border-secondary-container"><option value="shutdown" class="sys-opt-shutdown"></option><option value="restart" class="sys-opt-restart"></option><option value="sleep" class="sys-opt-sleep"></option></select></label>' +
             '<label class="flex items-center justify-between gap-md"><span class="text-label-sm text-on-surface-variant system-time"></span><input id="scheduled-power-time" type="time" class="bg-surface-container-low/50 text-secondary-container font-medium border border-white/10 rounded-lg py-2 px-3 text-body-md focus:outline-none focus:border-secondary-container" /></label>' +
             '<p class="text-label-md text-on-surface-variant hidden" id="system-status"></p></div>' +
-            '<div class="glass-panel rounded-xl p-lg"><h3 class="text-title-lg text-on-surface flex items-center gap-xs"><span class="material-symbols-outlined text-secondary-container">add_circle</span><span class="system-add-title"></span></h3><p class="text-body-md text-on-surface-variant mt-1 system-add-sub"></p><button class="btn-glow mt-md bg-secondary-container text-on-secondary-container text-label-md font-bold px-5 py-3 rounded-lg flex items-center gap-sm" id="btn-add-startup-app"><span class="material-symbols-outlined text-[18px]">add</span><span class="system-add-btn"></span></button></div>' +
-            '</div><div class="col-span-12 lg:col-span-7"><div class="glass-panel rounded-xl p-lg"><div class="flex items-start justify-between gap-md mb-lg"><div><h3 class="text-title-lg text-on-surface flex items-center gap-xs"><span class="material-symbols-outlined text-secondary-container">apps</span><span class="system-startup-title"></span></h3><p class="text-body-md text-on-surface-variant mt-1 system-startup-sub"></p></div><button class="btn-ghost rounded-lg py-2 px-4 text-label-md flex items-center gap-xs" id="btn-refresh-startup-apps"><span class="material-symbols-outlined text-[18px]">refresh</span><span class="system-refresh"></span></button></div>' +
-            '<div class="grid grid-cols-2 gap-sm mb-lg"><div class="startup-summary-card" data-tone="on"><div class="startup-summary-icon"><span class="material-symbols-outlined text-[20px]">rocket_launch</span></div><div><p class="text-title-lg text-on-surface" id="startup-enabled-count">--</p><p class="text-label-sm text-on-surface-variant system-enabled"></p></div></div><div class="startup-summary-card" data-tone="off"><div class="startup-summary-icon"><span class="material-symbols-outlined text-[20px]">pause_circle</span></div><div><p class="text-title-lg text-on-surface" id="startup-disabled-count">--</p><p class="text-label-sm text-on-surface-variant system-disabled"></p></div></div></div>' +
-            '<div class="space-y-lg"><div><h4 class="text-label-md uppercase tracking-wider text-secondary-container mb-sm system-enabled"></h4><div class="space-y-sm" id="startup-enabled-list"></div></div><div><h4 class="text-label-md uppercase tracking-wider text-on-surface-variant mb-sm system-disabled"></h4><div class="space-y-sm" id="startup-disabled-list"></div></div></div>' +
-            '</div></div></div></div>';
+            '</div>' +
+            // Keep-awake panel (relocated from Power Management). The mount is
+            // populated by power.js mountKeepAwakeUi(); id must stay keep-awake-mount.
+            '<div class="col-span-12 lg:col-span-6">' +
+            '<div class="glass-panel rounded-xl p-lg space-y-md"><h3 class="text-title-lg text-on-surface flex items-center gap-xs"><span class="material-symbols-outlined text-secondary-container">bedtime_off</span><span class="system-keepawake-title"></span></h3><p class="text-body-md text-on-surface-variant system-keepawake-sub"></p>' +
+            '<div id="keep-awake-mount"></div>' +
+            '</div>' +
+            '</div></div></div>';
     }
 
     function refreshSystemLabels() {
         document.querySelectorAll('.system-nav-label').forEach(el => el.textContent = t('nav'));
         const pairs = [
             ['.system-title','title'], ['.system-sub','sub'], ['.system-schedule-title','scheduleTitle'], ['.system-schedule-sub','scheduleSub'],
-            ['.system-enable','enable'], ['.system-note','note'], ['.system-action','action'], ['.system-time','time'], ['.system-add-title','addTitle'],
-            ['.system-add-sub','addSub'], ['.system-add-btn','add'], ['.system-startup-title','startupTitle'], ['.system-startup-sub','startupSub'],
-            ['.system-refresh','refresh'], ['.system-enabled','enabled'], ['.system-disabled','disabled'], ['.system-switch-on','on'], ['.system-switch-off','off']
+            ['.system-enable','enable'], ['.system-note','note'], ['.system-action','action'], ['.system-time','time'],
+            ['.system-keepawake-title','keepAwakeTitle'], ['.system-keepawake-sub','keepAwakeSub'],
+            ['.system-switch-on','on'], ['.system-switch-off','off']
         ];
         pairs.forEach(([sel, key]) => document.querySelectorAll(sel).forEach(el => el.textContent = t(key)));
         const opts = { '.sys-opt-shutdown': 'shutdown', '.sys-opt-restart': 'restart', '.sys-opt-sleep': 'sleep' };
@@ -690,6 +697,10 @@
         if (e.detail && e.detail.view === 'system') {
             mountSystemTab();
             applyScheduledUi();
+        }
+        // Startup apps now live in Settings & Info.
+        if (e.detail && e.detail.view === 'settings') {
+            ensureSystemStyles();
             loadStartupApps(false);
         }
     });

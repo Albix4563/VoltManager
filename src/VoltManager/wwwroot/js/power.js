@@ -831,11 +831,8 @@
                     wireHeavyAppUi();
                     if (settings) syncHeavyAppUi();
                     break;
-                case 'awake':
-                    mountKeepAwakeUi();
-                    wireKeepAwakeUi();
-                    if (settings) syncKeepAwakeUi();
-                    break;
+                // keep-awake (awake) moved to the dedicated energy tab; mount
+                // happens via loadIntoUi() at settings boot, no segment here.
             }
         }, 20);
     });
