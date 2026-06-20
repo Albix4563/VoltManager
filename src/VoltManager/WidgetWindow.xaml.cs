@@ -47,6 +47,8 @@ public partial class WidgetWindow : Window
         };
 
         Loaded += async (_, _) => await InitWebViewAsync();
+        SourceInitialized += (_, _) => ApplyRoundedRegion();
+        DpiChanged += (_, _) => ApplyRoundedRegion();
         LocationChanged += (_, _) =>
         {
             if (!IsLoaded) return;
@@ -59,7 +61,7 @@ public partial class WidgetWindow : Window
     {
         try
         {
-            WebView.DefaultBackgroundColor = Drawing.Color.FromArgb(0, 0, 0, 0);
+            WebView.DefaultBackgroundColor = Drawing.Color.FromArgb(255, 14, 26, 46);
             await WebView.EnsureCoreWebView2Async(await _envTask);
         }
         catch (Exception ex)
@@ -131,6 +133,21 @@ public partial class WidgetWindow : Window
         SendMessage(hwnd, WmNcLButtonDown, HtCaption, IntPtr.Zero);
     }
 
+    // Rounded window corners without per-pixel transparency: WebView2 renders black
+    // under a layered (AllowsTransparency) window, so we keep the window opaque and
+    // clip it to a rounded region that matches the card's 18px CSS border-radius.
+    private void ApplyRoundedRegion()
+    {
+        if (PresentationSource.FromVisual(this) is not HwndSource source || source.Handle == IntPtr.Zero)
+            return;
+
+        var m = source.CompositionTarget.TransformToDevice;
+        int w = (int)Math.Round(Width * m.M11);
+        int h = (int)Math.Round(Height * m.M22);
+        int d = (int)Math.Round(18 * 2 * m.M11); // diameter = 2 × 18px radius
+        SetWindowRgn(source.Handle, CreateRoundRectRgn(0, 0, w + 1, h + 1, d, d), true);
+    }
+
     protected override void OnClosed(EventArgs e)
     {
         _saveLocationTimer.Stop();
@@ -145,4 +162,10 @@ public partial class WidgetWindow : Window
 
     [DllImport("user32.dll")]
     private static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
+
+    [DllImport("gdi32.dll")]
+    private static extern IntPtr CreateRoundRectRgn(int x1, int y1, int x2, int y2, int cx, int cy);
+
+    [DllImport("user32.dll")]
+    private static extern int SetWindowRgn(IntPtr hWnd, IntPtr hRgn, bool bRedraw);
 }
