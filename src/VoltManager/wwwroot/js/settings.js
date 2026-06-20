@@ -701,17 +701,25 @@
     }
 
     function normalizeTheme(settings) {
-        settings.theme = settings.theme === 'light' ? 'light' : (settings.theme === 'black' ? 'black' : 'dark');
+        settings.theme = settings.theme === 'light' ? 'light'
+            : (settings.theme === 'black' ? 'black'
+            : (settings.theme === 'auto' ? 'auto' : 'dark'));
         return settings.theme;
     }
 
-    function setThemeUi(theme) {
-        theme = theme === 'light' ? 'light' : (theme === 'black' ? 'black' : 'dark');
-        if (window.VoltTheme && VoltTheme.apply) VoltTheme.apply(theme);
+    function setThemeUi(theme, resolvedTheme) {
+        // When theme is "auto", use the resolved theme from the host (C# ThemeService)
+        // to apply the actual dark/light variant to the DOM.
+        var effective = theme;
+        if (theme === 'auto') {
+            effective = resolvedTheme || (window.__voltResolvedTheme || 'dark');
+        }
+        effective = effective === 'light' ? 'light' : (effective === 'black' ? 'black' : 'dark');
+        if (window.VoltTheme && VoltTheme.apply) VoltTheme.apply(effective);
         else {
-            document.documentElement.dataset.theme = theme;
-            document.documentElement.classList.toggle('dark', theme !== 'light');
-            document.documentElement.classList.toggle('light', theme === 'light');
+            document.documentElement.dataset.theme = effective;
+            document.documentElement.classList.toggle('dark', effective !== 'light');
+            document.documentElement.classList.toggle('light', effective === 'light');
         }
         const select = document.getElementById('theme-select');
         if (select) select.value = theme;
@@ -826,15 +834,33 @@
 
         const themeSelect = document.getElementById('theme-select');
         if (themeSelect) {
-            setThemeUi(normalizeTheme(settings));
+            setThemeUi(normalizeTheme(settings), settings.resolvedTheme);
             if (themeSelect.dataset.wired !== 'true') {
                 themeSelect.dataset.wired = 'true';
                 themeSelect.addEventListener('change', (e) => {
                     const v = e.target.value;
-                    const next = v === 'light' ? 'light' : (v === 'black' ? 'black' : 'dark');
+                    const next = v === 'light' ? 'light' : (v === 'black' ? 'black' : (v === 'auto' ? 'auto' : 'dark'));
                     settings.theme = next;
                     setThemeUi(next);
                     if (window.__voltSettings.save) window.__voltSettings.save();
+                });
+            }
+        }
+
+        // Listen for system theme changes pushed by the host (C# ThemeService)
+        // when the user is in "auto" mode. The host resolves the actual theme
+        // and notifies the frontend so the DOM stays in sync with Windows.
+        if (!window.__voltThemeListenerWired) {
+            window.__voltThemeListenerWired = true;
+            if (window.Host && Host.on) {
+                Host.on('themeChanged', (data) => {
+                    if (data && data.resolvedTheme) {
+                        window.__voltResolvedTheme = data.resolvedTheme;
+                        if (window.__voltSettings) {
+                            const s = window.__voltSettings.get ? window.__voltSettings.get() : window.__voltSettings;
+                            if (s.theme === 'auto') setThemeUi('auto', data.resolvedTheme);
+                        }
+                    }
                 });
             }
         }

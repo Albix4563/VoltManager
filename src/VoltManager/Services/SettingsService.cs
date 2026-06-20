@@ -100,6 +100,7 @@ public class SettingsService
         {
             "light" => "light",
             "black" => "black",
+            "auto" => "auto",
             _ => "dark",
         };
     }
