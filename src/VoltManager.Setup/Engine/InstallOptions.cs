@@ -8,6 +8,7 @@ namespace VoltManager.Setup.Engine
                 "VoltManager");
         public bool CreateDesktopShortcut { get; set; } = true;
         public bool StartWithWindows { get; set; } = false;
+        public bool EnableWidgets { get; set; } = false;
         public bool LaunchAfterInstall { get; set; } = true;
     }
 }

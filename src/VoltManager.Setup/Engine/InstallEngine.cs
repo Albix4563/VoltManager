@@ -5,6 +5,7 @@ using System.IO.Compression;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Threading;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Microsoft.Win32;
 
@@ -54,6 +55,7 @@ namespace VoltManager.Setup.Engine
             Report(I18n.T("status_registry"), 88);
             WriteArpEntry(opts.InstallDir, version);
             CopyUninstaller(opts.InstallDir);
+            WriteInitialAppSettings(opts);
 
             Report("", 100);
         }
@@ -330,6 +332,159 @@ namespace VoltManager.Setup.Engine
             long size = DirSize(new DirectoryInfo(installDir)) / 1024;
             key.SetValue("EstimatedSize", (int)size, RegistryValueKind.DWord);
             key.SetValue("URLInfoAbout", "https://github.com/Albix4563/power_efficency");
+        }
+
+        private static void WriteInitialAppSettings(InstallOptions opts)
+        {
+            string settingsDir = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                AppName);
+            Directory.CreateDirectory(settingsDir);
+
+            string settingsPath = Path.Combine(settingsDir, "settings.json");
+            string json = File.Exists(settingsPath) ? File.ReadAllText(settingsPath) : "{}";
+            if (!LooksLikeJsonObject(json))
+            {
+                string backupPath = settingsPath + ".setup-corrupt";
+                try { File.Copy(settingsPath, backupPath, overwrite: true); } catch { }
+                json = "{}";
+            }
+
+            json = SetWidgetsEnabled(json, opts.EnableWidgets);
+
+            string tmpPath = settingsPath + ".tmp";
+            File.WriteAllText(tmpPath, json);
+            File.Copy(tmpPath, settingsPath, overwrite: true);
+            try { File.Delete(tmpPath); } catch { }
+        }
+
+        private static bool LooksLikeJsonObject(string json)
+        {
+            string trimmed = json.Trim();
+            return trimmed.Length >= 2 && trimmed[0] == '{' && trimmed[trimmed.Length - 1] == '}';
+        }
+
+        private static string SetWidgetsEnabled(string json, bool enabled)
+        {
+            string value = enabled ? "true" : "false";
+            int widgetsProperty = FindJsonProperty(json, "widgets");
+            if (widgetsProperty < 0)
+                return InsertTopLevelProperty(json, "\"widgets\": { \"enabled\": " + value + " }");
+
+            int widgetsValueStart = FindJsonValueStart(json, widgetsProperty);
+            if (widgetsValueStart < 0)
+                return InsertTopLevelProperty(json, "\"widgets\": { \"enabled\": " + value + " }");
+
+            if (json[widgetsValueStart] != '{')
+            {
+                int valueEnd = FindJsonValueEnd(json, widgetsValueStart);
+                if (valueEnd < widgetsValueStart) return InsertTopLevelProperty(json, "\"widgets\": { \"enabled\": " + value + " }");
+                return json.Substring(0, widgetsValueStart) + "{ \"enabled\": " + value + " }" + json.Substring(valueEnd + 1);
+            }
+
+            int widgetsObjectEnd = FindMatching(json, widgetsValueStart, '{', '}');
+            if (widgetsObjectEnd < widgetsValueStart)
+                return InsertTopLevelProperty(json, "\"widgets\": { \"enabled\": " + value + " }");
+
+            string widgetsJson = json.Substring(widgetsValueStart, widgetsObjectEnd - widgetsValueStart + 1);
+            string updatedWidgetsJson = SetObjectBooleanProperty(widgetsJson, "enabled", enabled);
+            return json.Substring(0, widgetsValueStart) + updatedWidgetsJson + json.Substring(widgetsObjectEnd + 1);
+        }
+
+        private static string SetObjectBooleanProperty(string objectJson, string propertyName, bool enabled)
+        {
+            string value = enabled ? "true" : "false";
+            int propertyStart = FindJsonProperty(objectJson, propertyName);
+            if (propertyStart >= 0)
+            {
+                int valueStart = FindJsonValueStart(objectJson, propertyStart);
+                int valueEnd = FindJsonValueEnd(objectJson, valueStart);
+                if (valueStart >= 0 && valueEnd >= valueStart)
+                    return objectJson.Substring(0, valueStart) + value + objectJson.Substring(valueEnd + 1);
+            }
+
+            string inner = objectJson.Substring(1, objectJson.Length - 2).Trim();
+            return inner.Length == 0
+                ? "{ \"" + propertyName + "\": " + value + " }"
+                : "{ \"" + propertyName + "\": " + value + ", " + inner + " }";
+        }
+
+        private static int FindJsonProperty(string json, string propertyName)
+        {
+            var match = Regex.Match(json, "\\\"" + Regex.Escape(propertyName) + "\\\"\\s*:", RegexOptions.CultureInvariant);
+            return match.Success ? match.Index : -1;
+        }
+
+        private static int FindJsonValueStart(string json, int propertyStart)
+        {
+            int colon = json.IndexOf(':', propertyStart);
+            if (colon < 0) return -1;
+            int i = colon + 1;
+            while (i < json.Length && char.IsWhiteSpace(json[i])) i++;
+            return i < json.Length ? i : -1;
+        }
+
+        private static int FindJsonValueEnd(string json, int valueStart)
+        {
+            if (valueStart < 0 || valueStart >= json.Length) return -1;
+            char first = json[valueStart];
+            if (first == '{') return FindMatching(json, valueStart, '{', '}');
+            if (first == '[') return FindMatching(json, valueStart, '[', ']');
+            if (first == '"') return FindStringEnd(json, valueStart);
+
+            int i = valueStart;
+            while (i < json.Length && json[i] != ',' && json[i] != '}') i++;
+            return i - 1;
+        }
+
+        private static int FindMatching(string json, int start, char open, char close)
+        {
+            bool inString = false;
+            bool escaped = false;
+            int depth = 0;
+
+            for (int i = start; i < json.Length; i++)
+            {
+                char c = json[i];
+                if (inString)
+                {
+                    if (escaped) escaped = false;
+                    else if (c == '\\') escaped = true;
+                    else if (c == '"') inString = false;
+                    continue;
+                }
+
+                if (c == '"') inString = true;
+                else if (c == open) depth++;
+                else if (c == close && --depth == 0) return i;
+            }
+
+            return -1;
+        }
+
+        private static int FindStringEnd(string json, int start)
+        {
+            bool escaped = false;
+            for (int i = start + 1; i < json.Length; i++)
+            {
+                char c = json[i];
+                if (escaped) escaped = false;
+                else if (c == '\\') escaped = true;
+                else if (c == '"') return i;
+            }
+            return -1;
+        }
+
+        private static string InsertTopLevelProperty(string json, string propertyJson)
+        {
+            int end = json.LastIndexOf('}');
+            if (end < 0) return "{\n  " + propertyJson + "\n}";
+
+            string prefix = json.Substring(0, end).TrimEnd();
+            int firstBrace = prefix.IndexOf('{');
+            bool hasProperties = firstBrace >= 0 && prefix.Substring(firstBrace + 1).Trim().Length > 0;
+            string separator = hasProperties ? ",\n  " : "\n  ";
+            return prefix + separator + propertyJson + "\n" + json.Substring(end);
         }
 
         private static void CopyUninstaller(string installDir)

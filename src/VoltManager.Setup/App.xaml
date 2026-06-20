@@ -465,6 +465,7 @@
         <Geometry x:Key="Icon.Monitor">M3 4 H21 V16 H3 Z M8 20 H16 M12 16 V20</Geometry>
         <Geometry x:Key="Icon.Power">M12 3 V12 M18.36 6.64 A9 9 0 1 1 5.64 6.64</Geometry>
         <Geometry x:Key="Icon.Play">M6 4 L20 12 L6 20 Z</Geometry>
+        <Geometry x:Key="Icon.Widgets">M4 4 H10 V10 H4 Z M14 4 H20 V10 H14 Z M4 14 H10 V20 H4 Z M14 14 H20 V20 H14 Z</Geometry>
         <Geometry x:Key="Icon.Gauge">M12 14 L16 10 M3 18 A10 10 0 0 1 21 18</Geometry>
         <Geometry x:Key="Icon.Leaf">M11 20 A7 7 0 0 1 4 13 C4 7 9 4 20 4 C20 14 16 20 11 20 Z M4 20 C8 14 12 12 18 11</Geometry>
         <Geometry x:Key="Icon.Bolt">M13 2 L4 14 H11 L10 22 L20 9 H13 Z</Geometry>

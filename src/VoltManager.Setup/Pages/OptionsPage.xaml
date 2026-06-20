@@ -63,6 +63,22 @@
                     </StackPanel>
                 </Grid>
                 <Border Height="1" Background="#1F2E4D" Margin="16,0"/>
+                <!-- widgets -->
+                <Grid Margin="16,14,18,14">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Path Grid.Column="0" Style="{StaticResource Icon}" Data="{StaticResource Icon.Widgets}"
+                          Stroke="{DynamicResource MutedBrush}" Width="19" Height="19"
+                          VerticalAlignment="Top" Margin="0,2,16,0"/>
+                    <StackPanel Grid.Column="1">
+                        <CheckBox x:Name="ChkWidgets"/>
+                        <TextBlock x:Name="DescWidgets" FontSize="11.5" Foreground="{DynamicResource FaintBrush}"
+                                   TextWrapping="Wrap" Margin="34,3,0,0"/>
+                    </StackPanel>
+                </Grid>
+                <Border Height="1" Background="#1F2E4D" Margin="16,0"/>
                 <!-- launch -->
                 <Grid Margin="16,14,18,14">
                     <Grid.ColumnDefinitions>

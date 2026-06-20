@@ -8,6 +8,7 @@ namespace VoltManager.Setup.Pages
     {
         public bool DesktopShortcut  => ChkDesktop.IsChecked == true;
         public bool StartWithWindows => ChkStartup.IsChecked == true;
+        public bool EnableWidgets => ChkWidgets.IsChecked == true;
         public bool LaunchAfterInstall => ChkLaunch.IsChecked == true;
         public string GetInstallDir() => TxtDir.Text.Trim();
 
@@ -19,14 +20,17 @@ namespace VoltManager.Setup.Pages
             BtnBrowse.Content = I18n.T("options_browse");
             ChkDesktop.Content  = I18n.T("options_desktop");
             ChkStartup.Content  = I18n.T("options_startup");
+            ChkWidgets.Content  = I18n.T("options_widgets");
             ChkLaunch.Content   = I18n.T("options_launch");
             DescDesktop.Text    = I18n.T("options_desktop_d");
             DescStartup.Text    = I18n.T("options_startup_d");
+            DescWidgets.Text    = I18n.T("options_widgets_d");
             DescLaunch.Text     = I18n.T("options_launch_d");
 
             TxtDir.Text            = opts.InstallDir;
             ChkDesktop.IsChecked   = opts.CreateDesktopShortcut;
             ChkStartup.IsChecked   = opts.StartWithWindows;
+            ChkWidgets.IsChecked   = opts.EnableWidgets;
             ChkLaunch.IsChecked    = opts.LaunchAfterInstall;
         }
 
