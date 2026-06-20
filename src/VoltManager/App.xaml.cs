@@ -34,6 +34,7 @@ public partial class App : Application
     public PowerSourcePlanService PowerSourcePlans { get; private set; } = null!;
     public StandbyAutoCleanerService StandbyAutoCleaner { get; private set; } = null!;
     public BatteryHistoryService BatteryHistory { get; private set; } = null!;
+    public ThemeService Theme { get; private set; } = null!;
 
     private PowerFlowService _powerFlow = null!;
     private System.Threading.Timer? _automationTimer;
@@ -117,6 +118,8 @@ public partial class App : Application
 
         Hardware = new HardwareInfoService();
         Settings = new SettingsService();
+        Theme = new ThemeService();
+        Theme.SetPreference(Settings.Current.Theme);
         Power = new PowerPlanService(Settings);
         Awake = new PowerAwakeService(Settings);
         Monitor = new MonitorService(Hardware);
@@ -635,6 +638,7 @@ public partial class App : Application
         AppProfiles.Dispose();
         Awake.Dispose();
         StandbyAutoCleaner.Dispose();
+        Theme.Dispose();
         _remoteCommands?.Dispose();
         _showWait?.Unregister(null);
         _showEvent?.Dispose();

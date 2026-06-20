@@ -10,12 +10,14 @@
 <link href="css/effects.css?v=effects1" rel="stylesheet"/>
 <script>
 (function () {
-  function normalize(theme) { return theme === 'light' ? 'light' : (theme === 'black' ? 'black' : 'dark'); }
-  function apply(theme) {
-    theme = normalize(theme);
-    document.documentElement.dataset.theme = theme;
-    document.documentElement.classList.toggle('dark', theme !== 'light');
-    document.documentElement.classList.toggle('light', theme === 'light');
+  function normalize(theme) { return theme === 'light' ? 'light' : (theme === 'black' ? 'black' : (theme === 'auto' ? 'auto' : 'dark')); }
+  function apply(theme, resolvedTheme) {
+    // When theme is "auto", use the resolved theme from the host (C# ThemeService).
+    var effective = theme === 'auto' ? (resolvedTheme || window.__voltResolvedTheme || 'dark') : theme;
+    effective = effective === 'light' ? 'light' : (effective === 'black' ? 'black' : 'dark');
+    document.documentElement.dataset.theme = effective;
+    document.documentElement.classList.toggle('dark', effective !== 'light');
+    document.documentElement.classList.toggle('light', effective === 'light');
   }
   window.VoltTheme = { normalize: normalize, apply: apply };
   apply(document.documentElement.dataset.theme);
@@ -723,6 +725,7 @@ html[data-theme=light] .welcome-theme-card .welcome-theme-check{border-color:rgb
                   <p class="text-label-sm text-on-surface-variant" data-i18n="set_pref_theme_sub">Tema interfaccia</p>
                 </div>
                 <select id="theme-select" class="bg-surface-container-low/50 text-secondary-container font-medium border border-white/10 rounded-lg py-2 px-4 pr-10 text-body-md focus:outline-none focus:border-secondary-container transition-all duration-300 cursor-pointer hover:bg-white/10 shadow-lg backdrop-blur-md" style="-webkit-appearance: none; -moz-appearance: none; appearance: none; background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2300f1fe%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E'); background-repeat: no-repeat; background-position: right 0.75rem center; background-size: 1.2em 1.2em;">
+                  <option value="auto" class="bg-[#0A1128] text-white" data-i18n="set_theme_auto">Automatico</option>
                   <option value="dark" class="bg-[#0A1128] text-white" data-i18n="set_theme_dark">Scuro</option>
                   <option value="black" class="bg-[#0A1128] text-white" data-i18n="set_theme_black">Nero</option>
                   <option value="light" class="bg-[#0A1128] text-white" data-i18n="set_theme_light">Chiaro</option>
