@@ -576,26 +576,69 @@
         }[type] || 'widgets';
     }
 
+    // ponytail: mirror di WidgetManager.GetWidgetSize; spostare nel payload se diverge
+    var WIDGET_SIZE = { clock: [260, 150], calendar: [320, 330], usage: [300, 220], temps: [280, 180], power: [300, 190] };
+
+    function widgetPositionLabel(item) {
+        if (item.x == null || item.y == null) return null;
+        return Math.round(item.x) + ', ' + Math.round(item.y);
+    }
+
     function renderWidgetsState(state) {
         state = normalizeWidgetsState(state);
         setToggle(toggleWidgetsMaster, state.enabled);
+
+        const activeCount = state.items.filter(function (i) { return i.enabled; }).length;
+        const totalCount = state.items.length;
+        const activeEl = document.getElementById('widgets-active-count');
+        const totalEl = document.getElementById('widgets-total-count');
+        if (activeEl) activeEl.textContent = String(activeCount);
+        if (totalEl) totalEl.textContent = String(totalCount);
+
         if (!widgetsList) return;
 
-        widgetsList.innerHTML = state.items.map(item =>
-            '<div class="flex items-center justify-between group cursor-pointer py-2 border-t border-white/5" data-widget-row data-widget-type="' + item.type + '">' +
-            '  <div class="min-w-0 flex items-center gap-sm">' +
-            '    <span class="material-symbols-outlined text-secondary-fixed-dim text-[18px]">' + widgetIcon(item.type) + '</span>' +
-            '    <div class="min-w-0">' +
-            '      <p class="text-body-md text-on-surface group-hover:text-secondary-fixed transition-colors" data-i18n="widget_' + item.type + '">' + item.type + '</p>' +
-            '      <p class="text-label-sm text-on-surface-variant" data-i18n="widget_' + item.type + '_sub"></p>' +
-            '    </div>' +
-            '  </div>' +
-            '  <div class="mini-toggle flex-shrink-0" data-on="' + (item.enabled ? 'true' : 'false') + '"><div class="mini-toggle-knob"></div></div>' +
-            '</div>'
-        ).join('');
+        widgetsList.innerHTML = state.items.map(function (item) {
+            var stateAttr = item.enabled ? 'on' : 'off';
+            var nextEnabled = !item.enabled;
+            var size = WIDGET_SIZE[item.type] || [0, 0];
+            var posLabel = widgetPositionLabel(item);
+
+            var badgePin = item.pinned
+                ? '<span class="startup-managed-badge"><span class="material-symbols-outlined text-[13px]">push_pin</span><span data-i18n="widget_pinned_badge">In primo piano</span></span>'
+                : '';
+
+            var chip = '<span class="startup-status-chip"><span data-i18n="' + (item.enabled ? 'widget_status_active' : 'widget_status_disabled') + '">' + (item.enabled ? 'Attivo' : 'Disattivo') + '</span></span>';
+
+            var toggleBtn = '<button class="startup-switch" data-state="' + stateAttr + '" aria-pressed="' + (item.enabled ? 'true' : 'false') + '" type="button" data-widget-toggle data-widget-type="' + esc(item.type) + '">' +
+                '<span class="startup-switch__track"><span class="startup-switch__label startup-switch__label-on">ON</span><span class="startup-switch__label startup-switch__label-off">OFF</span><span class="startup-switch__knob"><span class="material-symbols-outlined startup-switch__icon startup-switch__icon-on">check</span><span class="material-symbols-outlined startup-switch__icon startup-switch__icon-off">close</span></span></span>' +
+                '</button>';
+
+            // Pin button: active look when pinned; disabled when widget off.
+            var pinBtn = '<button class="startup-remove-btn' + (item.pinned ? ' startup-pin-btn--active' : '') + '" type="button" data-widget-pin data-widget-type="' + esc(item.type) + '" data-pinned="' + (item.pinned ? 'true' : 'false') + '"' + (item.enabled ? '' : ' disabled') + ' title="' + esc(item.pinned ? tr('widget_unpin_btn', 'Unpin') : tr('widget_pin_btn', 'Pin on top')) + '"><span class="material-symbols-outlined text-[18px]">push_pin</span></button>';
+
+            // Reset-position button: reuses remove-btn look; disabled when widget off.
+            var resetBtn = '<button class="startup-remove-btn" type="button" data-widget-reset data-widget-type="' + esc(item.type) + '"' + (item.enabled ? '' : ' disabled') + ' title="' + esc(tr('widget_reset_pos', 'Reset position')) + '"><span class="material-symbols-outlined text-[18px]">restart_alt</span></button>';
+
+            return '<article class="startup-card" data-state="' + stateAttr + '" data-widget-row data-widget-type="' + esc(item.type) + '">' +
+                '<div class="startup-card__accent"></div>' +
+                '<div class="startup-card__header"><div class="startup-card__title-wrap"><div class="startup-card__app-icon"><span class="material-symbols-outlined">' + widgetIcon(item.type) + '</span></div><div class="startup-card__meta"><p class="startup-card__name" data-i18n="widget_' + item.type + '">' + esc(item.type) + '</p><div class="startup-card__badges">' + chip + badgePin + '</div></div></div>' +
+                '<div class="startup-actions">' + toggleBtn + pinBtn + resetBtn + '</div></div>' +
+                '<div class="startup-card__details">' +
+                '<div class="startup-detail-line"><span class="startup-detail-label" data-i18n="widget_detail_size">Dimensione</span><span class="startup-detail-value">' + size[0] + '\u00d7' + size[1] + '</span></div>' +
+                '<div class="startup-detail-line"><span class="startup-detail-label" data-i18n="widget_detail_position">Posizione</span><span class="startup-detail-value">' + (posLabel ? esc(posLabel) : '<span data-i18n="widget_position_auto">Automatica</span>') + '</span></div>' +
+                '</div></article>';
+        }).join('');
+
         widgetsList.classList.toggle('opacity-60', !state.enabled);
         if (window.I18n && I18n.apply) I18n.apply();
         syncLocalWidgets(state);
+    }
+
+    function setWidgetSwitch(card, enabled) {
+        var sw = card.querySelector('.startup-switch');
+        if (!sw) return;
+        sw.dataset.state = enabled ? 'on' : 'off';
+        sw.setAttribute('aria-pressed', enabled ? 'true' : 'false');
     }
 
     function mountWidgetsUi() {
@@ -614,17 +657,41 @@
         });
 
         widgetsList.addEventListener('click', async (e) => {
-            const row = e.target.closest('[data-widget-row]');
-            if (!row) return;
-            const type = row.dataset.widgetType;
-            const toggle = row.querySelector('.mini-toggle');
-            const previous = toggle?.dataset.on === 'true';
-            const enabled = !previous;
-            setToggle(toggle, enabled);
-            try {
-                renderWidgetsState(await Host.call('setWidgetEnabled', { type, enabled }));
-            } catch {
-                setToggle(toggle, previous);
+            const card = e.target.closest('[data-widget-row]');
+            if (!card) return;
+            const type = card.dataset.widgetType;
+
+            // 1) Big animated switch -> enable/disable widget.
+            const sw = e.target.closest('[data-widget-toggle]');
+            if (sw && sw.dataset.widgetType === type) {
+                const current = sw.dataset.state === 'on';
+                const enabled = !current;
+                setWidgetSwitch(card, enabled);
+                try {
+                    renderWidgetsState(await Host.call('setWidgetEnabled', { type, enabled }));
+                } catch {
+                    setWidgetSwitch(card, current);
+                }
+                return;
+            }
+
+            // 2) Pin button -> toggle topmost.
+            const pinBtn = e.target.closest('[data-widget-pin]');
+            if (pinBtn && pinBtn.dataset.widgetType === type && !pinBtn.disabled) {
+                const pinned = pinBtn.dataset.pinned === 'true';
+                try {
+                    renderWidgetsState(await Host.call('setWidgetPinned', { type, pinned: !pinned }));
+                } catch { /* re-render restores state */ }
+                return;
+            }
+
+            // 3) Reset-position button -> recascade.
+            const resetBtn = e.target.closest('[data-widget-reset]');
+            if (resetBtn && resetBtn.dataset.widgetType === type && !resetBtn.disabled) {
+                try {
+                    renderWidgetsState(await Host.call('resetWidgetPosition', { type }));
+                } catch { /* re-render restores state */ }
+                return;
             }
         });
 

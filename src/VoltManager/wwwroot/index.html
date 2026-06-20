@@ -781,6 +781,22 @@ html[data-theme=light] .welcome-theme-card .welcome-theme-check{border-color:rgb
                 <div class="mini-toggle-knob"></div>
               </div>
             </div>
+            <div class="grid grid-cols-2 gap-sm mb-md">
+              <div class="startup-summary-card" data-tone="on">
+                <div class="startup-summary-icon"><span class="material-symbols-outlined text-[20px]">check_circle</span></div>
+                <div>
+                  <p class="text-title-lg text-on-surface" id="widgets-active-count">--</p>
+                  <p class="text-label-sm text-on-surface-variant" data-i18n="widget_active">Widget attivi</p>
+                </div>
+              </div>
+              <div class="startup-summary-card" data-tone="off">
+                <div class="startup-summary-icon"><span class="material-symbols-outlined text-[20px]">widgets</span></div>
+                <div>
+                  <p class="text-title-lg text-on-surface" id="widgets-total-count">--</p>
+                  <p class="text-label-sm text-on-surface-variant" data-i18n="widget_total">Widget totali</p>
+                </div>
+              </div>
+            </div>
             <div class="space-y-sm" id="widgets-list"></div>
           </div>
         </div>

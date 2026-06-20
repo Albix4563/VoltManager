@@ -91,13 +91,43 @@ public sealed class WidgetManager : IDisposable
         _app.Settings.Save();
     }
 
-    internal void SetPinned(string type, bool pinned)
+    public WidgetSettings SetPinned(string type, bool pinned)
     {
-        if (_disposing || !WidgetSettings.IsKnownType(type)) return;
-        var item = GetState().GetOrAdd(type);
+        if (_disposing || !WidgetSettings.IsKnownType(type)) return GetState();
+        var widgets = GetState();
+        var item = widgets.GetOrAdd(type);
         item.Pinned = pinned;
         _app.Settings.Save();
-        StateChanged?.Invoke(GetState());
+
+        if (_windows.TryGetValue(type, out var window))
+            window.Topmost = pinned;
+
+        StateChanged?.Invoke(widgets);
+        return widgets;
+    }
+
+    public WidgetSettings ResetPosition(string type)
+    {
+        if (_disposing || !WidgetSettings.IsKnownType(type)) return GetState();
+        var widgets = GetState();
+        var item = widgets.GetOrAdd(type);
+
+        item.X = null;
+        item.Y = null;
+
+        if (widgets.Enabled && item.Enabled)
+        {
+            EnsurePosition(item, EnabledIndex(item.Type));
+            if (_windows.TryGetValue(type, out var window) && item.X != null && item.Y != null)
+            {
+                window.Left = item.X.Value;
+                window.Top = item.Y.Value;
+            }
+        }
+
+        _app.Settings.Save();
+        StateChanged?.Invoke(widgets);
+        return widgets;
     }
 
     internal void ForgetWindow(string type)

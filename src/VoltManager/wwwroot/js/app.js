@@ -157,6 +157,10 @@
 .system-power-switch.startup-switch[data-on="true"]{--knob-x:62px;}
 .startup-remove-btn{width:38px;height:38px;border-radius:12px;border:1px solid rgba(255,255,255,.1);display:inline-flex;align-items:center;justify-content:center;color:rgba(211,222,239,.72);background:rgba(255,255,255,.04);transition:color .2s ease,border-color .2s ease,background .2s ease,transform .2s ease;}
 .startup-remove-btn:hover{color:#ffb4ab;border-color:rgba(255,180,171,.25);background:rgba(255,180,171,.08);transform:translateY(-1px);}
+.startup-pin-btn--active{color:#00f1fe;border-color:rgba(0,241,254,.32);background:rgba(0,241,254,.12);}
+.startup-pin-btn--active:hover{color:#9ffbff;border-color:rgba(0,241,254,.42);background:rgba(0,241,254,.18);transform:translateY(-1px);}
+.startup-remove-btn:disabled{opacity:.4;cursor:not-allowed;transform:none;}
+.startup-remove-btn:disabled:hover{color:rgba(211,222,239,.72);border-color:rgba(255,255,255,.1);background:rgba(255,255,255,.04);transform:none;}
 @media (max-width:720px){.startup-card__header{flex-direction:column}.startup-actions{align-self:stretch;justify-content:space-between}.startup-card__details{padding-left:0}.startup-switch{width:104px}.startup-switch[data-state="on"],.startup-switch[data-on="true"]{--knob-x:64px}}
         `.trim();
         document.head.appendChild(style);

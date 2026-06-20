@@ -175,6 +175,19 @@ public class HostBridge
                 return _app.Widgets.SetMasterEnabled(enabled);
             }
 
+            case "setWidgetPinned":
+            {
+                string type = payload.GetProperty("type").GetString() ?? "";
+                bool pinned = payload.GetProperty("pinned").GetBoolean();
+                return _app.Widgets.SetPinned(type, pinned);
+            }
+
+            case "resetWidgetPosition":
+            {
+                string type = payload.GetProperty("type").GetString() ?? "";
+                return _app.Widgets.ResetPosition(type);
+            }
+
             case "checkDefaultPlans":
             {
                 var (allPresent, missing) = await Task.Run(() => _power.CheckDefaultPlans());
