@@ -34,14 +34,19 @@ public class HostBridge
     private readonly PowerFlowService _powerFlow = new();
     private readonly MonitorService _monitor;
     private readonly App _app;
+    private readonly bool _subscribeGlobalEvents;
 
     public event Action? ExitRequested;
     public event Action? MinimizeToTrayRequested;
     public event Func<bool, Task<object?>>? GamingModeRequested;
     public event Func<object?>? GamingModeStateRequested;
+    public event Action? WidgetDragRequested;
+    public event Action<bool>? WidgetTopmostRequested;
+    public event Action? WidgetCloseRequested;
 
     public HostBridge(WebView2 webView, HardwareInfoService hardware, PowerPlanService power,
-        SettingsService settings, UpdateService updates, StartupService startup, MonitorService monitor, App app)
+        SettingsService settings, UpdateService updates, StartupService startup, MonitorService monitor, App app,
+        bool subscribeGlobalEvents = true)
     {
         _webView = webView;
         _hardware = hardware;
@@ -53,6 +58,7 @@ public class HostBridge
         _planParams = new PowerPlanParameterService(power);
         _memoryOptimizer = new MemoryOptimizerService();
         _app = app;
+        _subscribeGlobalEvents = subscribeGlobalEvents;
     }
 
     public void Attach()
@@ -70,6 +76,9 @@ public class HostBridge
             }
             await HandleMessageAsync(json);
         };
+
+        if (!_subscribeGlobalEvents) return;
+
         _updates.DownloadProgress += pct => PushEvent("updateDownloadProgress", new { pct });
         _app.HeavyApps.ActivityChanged += state => PushEvent("heavyAppActivityChanged", state);
         _app.AppProfiles.ActivityChanged += state => PushEvent("appPowerProfileActivityChanged", state);
@@ -134,6 +143,37 @@ public class HostBridge
 
             case "getBatteryHistory":
                 return await Task.Run(() => new { samples = _app.BatteryHistory.GetHistory() });
+
+            case "beginWidgetDrag":
+                WidgetDragRequested?.Invoke();
+                return new { success = true };
+
+            case "setWidgetTopmost":
+            {
+                bool topmost = payload.GetProperty("topmost").GetBoolean();
+                WidgetTopmostRequested?.Invoke(topmost);
+                return new { success = true, topmost };
+            }
+
+            case "closeWidget":
+                WidgetCloseRequested?.Invoke();
+                return new { success = true };
+
+            case "getWidgetsState":
+                return _app.Widgets.GetState();
+
+            case "setWidgetEnabled":
+            {
+                string type = payload.GetProperty("type").GetString() ?? "";
+                bool enabled = payload.GetProperty("enabled").GetBoolean();
+                return _app.Widgets.SetEnabled(type, enabled);
+            }
+
+            case "setWidgetsMaster":
+            {
+                bool enabled = payload.GetProperty("enabled").GetBoolean();
+                return _app.Widgets.SetMasterEnabled(enabled);
+            }
 
             case "checkDefaultPlans":
             {
@@ -456,6 +496,9 @@ public class HostBridge
         settings.AppPowerProfiles ??= new AppPowerProfileSettings();
         current.AutoShutdown ??= new AutoShutdownSettings();
         current.AutoUpdates ??= new AutoUpdateSettings();
+        current.Widgets ??= new WidgetSettings();
+        current.Widgets.Normalize();
+        settings.Widgets = current.Widgets;
         settings.AutoShutdown.LastTriggeredLocalDate = current.AutoShutdown.LastTriggeredLocalDate;
         settings.AutoUpdates.SnoozedUntilUtc = current.AutoUpdates.SnoozedUntilUtc;
         settings.AutoUpdates.SkippedVersion = current.AutoUpdates.SkippedVersion;

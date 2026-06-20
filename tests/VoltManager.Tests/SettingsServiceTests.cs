@@ -42,6 +42,11 @@ public class SettingsServiceTests : IDisposable
         Assert.Equal(2.0, svc.Current.StandbyAutoCleaner.ThresholdGb);
         Assert.Equal(60, svc.Current.StandbyAutoCleaner.IntervalMinutes);
         Assert.Null(svc.Current.StandbyAutoCleaner.LastPurgedUtc);
+        Assert.NotNull(svc.Current.Widgets);
+        Assert.False(svc.Current.Widgets.Enabled);
+        Assert.Equal(new[] { "clock", "calendar", "usage", "temps", "power" },
+            svc.Current.Widgets.Items.Select(i => i.Type).ToArray());
+        Assert.All(svc.Current.Widgets.Items, item => Assert.True(item.Enabled));
     }
 
     [Fact]
@@ -70,6 +75,11 @@ public class SettingsServiceTests : IDisposable
         svc.Current.StandbyAutoCleaner.ThresholdGb = 4.5;
         svc.Current.StandbyAutoCleaner.IntervalMinutes = 120;
         svc.Current.StandbyAutoCleaner.LastPurgedUtc = new DateTime(2026, 06, 13, 18, 00, 00, DateTimeKind.Utc);
+        svc.Current.Widgets.Enabled = true;
+        svc.Current.Widgets.Items[0].Pinned = true;
+        svc.Current.Widgets.Items[0].X = 100;
+        svc.Current.Widgets.Items[0].Y = 120;
+        svc.Current.Widgets.Items[2].Enabled = false;
         svc.Current.AppPowerProfiles.Enabled = true;
         svc.Current.AppPowerProfiles.Rules.Add(new AppPowerProfileRule
         {
@@ -104,6 +114,13 @@ public class SettingsServiceTests : IDisposable
         Assert.Equal(4.5, reloaded.Current.StandbyAutoCleaner.ThresholdGb);
         Assert.Equal(120, reloaded.Current.StandbyAutoCleaner.IntervalMinutes);
         Assert.Equal(new DateTime(2026, 06, 13, 18, 00, 00, DateTimeKind.Utc), reloaded.Current.StandbyAutoCleaner.LastPurgedUtc);
+        Assert.True(reloaded.Current.Widgets.Enabled);
+        Assert.Equal(new[] { "clock", "calendar", "usage", "temps", "power" },
+            reloaded.Current.Widgets.Items.Select(i => i.Type).ToArray());
+        Assert.True(reloaded.Current.Widgets.Items[0].Pinned);
+        Assert.Equal(100, reloaded.Current.Widgets.Items[0].X);
+        Assert.Equal(120, reloaded.Current.Widgets.Items[0].Y);
+        Assert.False(reloaded.Current.Widgets.Items[2].Enabled);
         Assert.True(reloaded.Current.AppPowerProfiles.Enabled);
         Assert.Single(reloaded.Current.AppPowerProfiles.Rules);
         Assert.Equal(@"C:\Apps\nike.exe", reloaded.Current.AppPowerProfiles.Rules[0].Path);
@@ -280,6 +297,48 @@ public class SettingsServiceTests : IDisposable
         Assert.Equal(2.0, svc.Current.StandbyAutoCleaner.ThresholdGb);
         Assert.Equal(60, svc.Current.StandbyAutoCleaner.IntervalMinutes);
         Assert.Null(svc.Current.StandbyAutoCleaner.LastPurgedUtc);
+    }
+
+    [Fact]
+    public void NullWidgets_RestoredToDefaults()
+    {
+        Directory.CreateDirectory(_dir);
+        File.WriteAllText(SettingsPath, "{\"widgets\":null}");
+        var svc = new SettingsService(SettingsPath);
+        Assert.NotNull(svc.Current.Widgets);
+        Assert.False(svc.Current.Widgets.Enabled);
+        Assert.Equal(new[] { "clock", "calendar", "usage", "temps", "power" },
+            svc.Current.Widgets.Items.Select(i => i.Type).ToArray());
+    }
+
+    [Fact]
+    public void Widgets_NormalizesKnownItemsAndAddsMissingDefaults()
+    {
+        Directory.CreateDirectory(_dir);
+        File.WriteAllText(SettingsPath, """
+        {
+          "widgets": {
+            "enabled": true,
+            "items": [
+              { "type": "CLOCK", "enabled": true, "pinned": true, "x": 10, "y": 20 },
+              { "type": "clock", "enabled": false },
+              { "type": "unknown", "enabled": true }
+            ]
+          }
+        }
+        """);
+
+        var svc = new SettingsService(SettingsPath);
+
+        Assert.True(svc.Current.Widgets.Enabled);
+        Assert.Equal(new[] { "clock", "calendar", "usage", "temps", "power" },
+            svc.Current.Widgets.Items.Select(i => i.Type).ToArray());
+        var clock = svc.Current.Widgets.Items[0];
+        Assert.True(clock.Enabled);
+        Assert.True(clock.Pinned);
+        Assert.Equal(10, clock.X);
+        Assert.Equal(20, clock.Y);
+        Assert.All(svc.Current.Widgets.Items.Skip(1), item => Assert.True(item.Enabled));
     }
 
     [Fact]

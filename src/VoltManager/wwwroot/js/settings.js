@@ -540,9 +540,95 @@
     const toggleAutostart = document.getElementById('toggle-autostart');
     const toggleTray = document.getElementById('toggle-tray');
     const togglePowerSourcePlan = document.getElementById('toggle-power-source-plan');
+    const toggleWidgetsMaster = document.getElementById('toggle-widgets-master');
+    const widgetsList = document.getElementById('widgets-list');
+    const WIDGET_TYPES = ['clock', 'calendar', 'usage', 'temps', 'power'];
 
     function setToggle(el, on) {
         if (el) el.dataset.on = on ? 'true' : 'false';
+    }
+
+    function normalizeWidgetsState(state) {
+        state = state || { enabled: false, items: [] };
+        if (!Array.isArray(state.items)) state.items = [];
+        const byType = {};
+        state.items.forEach(item => {
+            if (item && WIDGET_TYPES.includes(item.type)) byType[item.type] = item;
+        });
+        state.items = WIDGET_TYPES.map(type => byType[type] || { type, enabled: true, pinned: false, x: null, y: null });
+        state.enabled = state.enabled === true;
+        return state;
+    }
+
+    function syncLocalWidgets(state) {
+        if (!window.__voltSettings) return;
+        const settings = window.__voltSettings.get ? window.__voltSettings.get() : window.__voltSettings;
+        settings.widgets = normalizeWidgetsState(state);
+    }
+
+    function widgetIcon(type) {
+        return {
+            clock: 'schedule',
+            calendar: 'calendar_month',
+            usage: 'monitor_heart',
+            temps: 'device_thermostat',
+            power: 'bolt',
+        }[type] || 'widgets';
+    }
+
+    function renderWidgetsState(state) {
+        state = normalizeWidgetsState(state);
+        setToggle(toggleWidgetsMaster, state.enabled);
+        if (!widgetsList) return;
+
+        widgetsList.innerHTML = state.items.map(item =>
+            '<div class="flex items-center justify-between group cursor-pointer py-2 border-t border-white/5" data-widget-row data-widget-type="' + item.type + '">' +
+            '  <div class="min-w-0 flex items-center gap-sm">' +
+            '    <span class="material-symbols-outlined text-secondary-fixed-dim text-[18px]">' + widgetIcon(item.type) + '</span>' +
+            '    <div class="min-w-0">' +
+            '      <p class="text-body-md text-on-surface group-hover:text-secondary-fixed transition-colors" data-i18n="widget_' + item.type + '">' + item.type + '</p>' +
+            '      <p class="text-label-sm text-on-surface-variant" data-i18n="widget_' + item.type + '_sub"></p>' +
+            '    </div>' +
+            '  </div>' +
+            '  <div class="mini-toggle flex-shrink-0" data-on="' + (item.enabled ? 'true' : 'false') + '"><div class="mini-toggle-knob"></div></div>' +
+            '</div>'
+        ).join('');
+        widgetsList.classList.toggle('opacity-60', !state.enabled);
+        if (window.I18n && I18n.apply) I18n.apply();
+        syncLocalWidgets(state);
+    }
+
+    function mountWidgetsUi() {
+        if (!toggleWidgetsMaster || !widgetsList || toggleWidgetsMaster.dataset.wired === 'true') return;
+        toggleWidgetsMaster.dataset.wired = 'true';
+
+        toggleWidgetsMaster.addEventListener('click', async () => {
+            const previous = toggleWidgetsMaster.dataset.on === 'true';
+            const enabled = !previous;
+            setToggle(toggleWidgetsMaster, enabled);
+            try {
+                renderWidgetsState(await Host.call('setWidgetsMaster', { enabled }));
+            } catch {
+                setToggle(toggleWidgetsMaster, previous);
+            }
+        });
+
+        widgetsList.addEventListener('click', async (e) => {
+            const row = e.target.closest('[data-widget-row]');
+            if (!row) return;
+            const type = row.dataset.widgetType;
+            const toggle = row.querySelector('.mini-toggle');
+            const previous = toggle?.dataset.on === 'true';
+            const enabled = !previous;
+            setToggle(toggle, enabled);
+            try {
+                renderWidgetsState(await Host.call('setWidgetEnabled', { type, enabled }));
+            } catch {
+                setToggle(toggle, previous);
+            }
+        });
+
+        Host.on('widgetsStateChanged', renderWidgetsState);
     }
 
     function normalizeAutoUpdates(settings) {
@@ -823,6 +909,10 @@
         setAutoShutdownUi(normalizeAutoShutdownSettings(settings));
         wireAutoShutdownUi();
 
+        mountWidgetsUi();
+        renderWidgetsState(normalizeWidgetsState(settings.widgets));
+        Host.call('getWidgetsState').then(renderWidgetsState).catch(() => {});
+
         const langSelect = document.getElementById('lang-select');
         if (langSelect && window.I18n && I18n.getLang) {
             langSelect.value = I18n.getLang();
@@ -869,6 +959,10 @@
     document.addEventListener('langchanged', () => {
         refreshUpdateModalLabels();
         refreshAutoUpdateLabels();
+        if (window.__voltSettings) {
+            const settings = window.__voltSettings.get ? window.__voltSettings.get() : window.__voltSettings;
+            renderWidgetsState(normalizeWidgetsState(settings.widgets));
+        }
     });
 
     document.getElementById('pref-autostart')?.addEventListener('click', async () => {

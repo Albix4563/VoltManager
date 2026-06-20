@@ -131,6 +131,57 @@ public class PowerSourcePlanSettings
     [JsonPropertyName("unpluggedMode")] public string UnpluggedMode { get; set; } = "previous";
 }
 
+public class WidgetItem
+{
+    [JsonPropertyName("type")] public string Type { get; set; } = "";
+    [JsonPropertyName("enabled")] public bool Enabled { get; set; } = true;
+    [JsonPropertyName("pinned")] public bool Pinned { get; set; } = false;
+    [JsonPropertyName("x")] public double? X { get; set; }
+    [JsonPropertyName("y")] public double? Y { get; set; }
+}
+
+public class WidgetSettings
+{
+    public static readonly string[] Types = ["clock", "calendar", "usage", "temps", "power"];
+
+    [JsonPropertyName("enabled")] public bool Enabled { get; set; } = false;
+    [JsonPropertyName("items")] public List<WidgetItem> Items { get; set; } = DefaultItems();
+
+    public static List<WidgetItem> DefaultItems() => Types.Select(t => new WidgetItem { Type = t }).ToList();
+
+    public static bool IsKnownType(string? type)
+        => Types.Contains(type ?? "", StringComparer.OrdinalIgnoreCase);
+
+    public void Normalize()
+    {
+        Items ??= new List<WidgetItem>();
+
+        var byType = new Dictionary<string, WidgetItem>(StringComparer.OrdinalIgnoreCase);
+        foreach (var item in Items)
+        {
+            if (item == null || !IsKnownType(item.Type)) continue;
+            item.Type = Types.First(t => string.Equals(t, item.Type, StringComparison.OrdinalIgnoreCase));
+            if (double.IsNaN(item.X ?? 0) || double.IsInfinity(item.X ?? 0)) item.X = null;
+            if (double.IsNaN(item.Y ?? 0) || double.IsInfinity(item.Y ?? 0)) item.Y = null;
+            byType.TryAdd(item.Type, item);
+        }
+
+        Items = Types.Select(t => byType.TryGetValue(t, out var item) ? item : new WidgetItem { Type = t }).ToList();
+    }
+
+    public WidgetItem GetOrAdd(string type)
+    {
+        Normalize();
+        var item = Items.FirstOrDefault(i => string.Equals(i.Type, type, StringComparison.OrdinalIgnoreCase));
+        if (item != null) return item;
+
+        item = new WidgetItem { Type = type };
+        Items.Add(item);
+        Normalize();
+        return Items.First(i => string.Equals(i.Type, type, StringComparison.OrdinalIgnoreCase));
+    }
+}
+
 public record KeepAwakeState
 {
     [JsonPropertyName("enabled")] public bool Enabled { get; init; }
@@ -178,6 +229,7 @@ public class AppSettings
     [JsonPropertyName("appPowerProfiles")] public AppPowerProfileSettings AppPowerProfiles { get; set; } = new();
     [JsonPropertyName("keepAwake")] public KeepAwakeSettings KeepAwake { get; set; } = new();
     [JsonPropertyName("powerSourcePlan")] public PowerSourcePlanSettings PowerSourcePlan { get; set; } = new();
+    [JsonPropertyName("widgets")] public WidgetSettings Widgets { get; set; } = new();
     // duplicatescheme assigns new GUIDs; map canonical plan -> actual GUID on this machine.
     [JsonPropertyName("planGuidMap")] public Dictionary<string, string> PlanGuidMap { get; set; } = new();
     [JsonPropertyName("override")] public ManualOverride? Override { get; set; }

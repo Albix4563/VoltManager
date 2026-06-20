@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html class="dark" data-theme="dark" lang="it">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>VoltManager widget</title>
+<link href="css/app.css?v=black1" rel="stylesheet" />
+<link href="css/widgets.css?v=1" rel="stylesheet" />
+<script>
+(function () {
+  function apply(theme, resolvedTheme) {
+    var effective = theme === 'auto' ? (resolvedTheme || window.__voltResolvedTheme || 'dark') : theme;
+    effective = effective === 'light' ? 'light' : (effective === 'black' ? 'black' : 'dark');
+    document.documentElement.dataset.theme = effective;
+    document.documentElement.classList.toggle('dark', effective !== 'light');
+    document.documentElement.classList.toggle('light', effective === 'light');
+  }
+  window.VoltTheme = { apply: apply };
+  apply('dark');
+})();
+</script>
+</head>
+<body>
+  <main id="widget-root" class="widget-shell" aria-live="polite"></main>
+  <script src="js/bridge.js?v=errlog1"></script>
+  <script src="js/i18n.js?v=silentupdate1"></script>
+  <script src="js/widgets.js?v=1"></script>
+</body>
+</html>

@@ -6,6 +6,7 @@ using System.Threading;
 using System.Windows;
 using System.Windows.Shell;
 using System.Windows.Threading;
+using Microsoft.Web.WebView2.Core;
 using VoltManager.Models;
 using VoltManager.Services;
 
@@ -35,6 +36,8 @@ public partial class App : Application
     public StandbyAutoCleanerService StandbyAutoCleaner { get; private set; } = null!;
     public BatteryHistoryService BatteryHistory { get; private set; } = null!;
     public ThemeService Theme { get; private set; } = null!;
+    public WidgetManager Widgets { get; private set; } = null!;
+    public Task<CoreWebView2Environment> WebViewEnvironment { get; private set; } = null!;
 
     private PowerFlowService _powerFlow = null!;
     private System.Threading.Timer? _automationTimer;
@@ -132,6 +135,8 @@ public partial class App : Application
         StandbyAutoCleaner = new StandbyAutoCleanerService(Settings);
         _powerFlow = new PowerFlowService();
         BatteryHistory = new BatteryHistoryService();
+        WebViewEnvironment = CreateWebViewEnvironmentAsync();
+        Widgets = new WidgetManager(this, WebViewEnvironment);
         ClearExpiredManualOverride(DateTime.UtcNow);
 
         Monitor.Start();
@@ -153,8 +158,9 @@ public partial class App : Application
         // Launched via jump list while closed: apply the command, stay in tray.
         bool startMinimized = e.Args.Contains("--minimized") || startupCommand != null;
         bool justUpdated    = e.Args.Contains("--updated");
-        _mainWindow = new MainWindow(this, startMinimized, justUpdated);
+        _mainWindow = new MainWindow(this, startMinimized, justUpdated, WebViewEnvironment);
         if (!startMinimized) _mainWindow.Show();
+        if (Settings.Current.Widgets.Enabled) Widgets.ShowEnabled();
 
         if (startupCommand != null)
             _ = Task.Run(() => ApplyRemoteCommand(startupCommand));
@@ -162,6 +168,14 @@ public partial class App : Application
         SetupJumpList();
 
         Logger.Info("Startup complete.");
+    }
+
+    private static Task<CoreWebView2Environment> CreateWebViewEnvironmentAsync()
+    {
+        var userDataFolder = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "VoltManager", "WebView2");
+        return CoreWebView2Environment.CreateAsync(null, userDataFolder);
     }
 
     private void HookGlobalExceptionHandlers()
@@ -639,6 +653,7 @@ public partial class App : Application
         Awake.Dispose();
         StandbyAutoCleaner.Dispose();
         Theme.Dispose();
+        Widgets.Dispose();
         _remoteCommands?.Dispose();
         _showWait?.Unregister(null);
         _showEvent?.Dispose();

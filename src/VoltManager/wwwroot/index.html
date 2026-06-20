@@ -766,6 +766,23 @@ html[data-theme=light] .welcome-theme-card .welcome-theme-check{border-color:rgb
               </div>
             </div>
           </div>
+
+          <!-- Desktop widgets card -->
+          <div class="glass-panel rounded-xl p-lg" id="widgets-card">
+            <div class="flex items-start justify-between gap-md mb-md">
+              <div>
+                <h3 class="text-title-lg text-on-surface flex items-center gap-xs">
+                  <span class="material-symbols-outlined text-secondary-container">widgets</span>
+                  <span data-i18n="widget_settings_title">Widget desktop</span>
+                </h3>
+                <p class="text-body-md text-on-surface-variant mt-1" data-i18n="widget_settings_sub">Gadget separati sul desktop, con puntina per tenerli sopra.</p>
+              </div>
+              <div class="mini-toggle flex-shrink-0" data-on="false" id="toggle-widgets-master">
+                <div class="mini-toggle-knob"></div>
+              </div>
+            </div>
+            <div class="space-y-sm" id="widgets-list"></div>
+          </div>
         </div>
       </div>
     </section>

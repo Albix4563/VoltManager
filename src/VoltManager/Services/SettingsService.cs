@@ -53,6 +53,8 @@ public class SettingsService
                         loaded.PowerSourcePlan = new PowerSourcePlanSettings();
                     if (loaded.StandbyAutoCleaner == null)
                         loaded.StandbyAutoCleaner = new StandbyAutoCleanerSettings();
+                    if (loaded.Widgets == null)
+                        loaded.Widgets = new WidgetSettings();
                     NormalizeScheduledPowerAction(loaded.AutoShutdown);
                     NormalizeAutoUpdateSettings(loaded.AutoUpdates);
                     NormalizeHeavyAppDetectionSettings(loaded.HeavyAppDetection);
@@ -60,6 +62,7 @@ public class SettingsService
                     NormalizeKeepAwakeSettings(loaded.KeepAwake);
                     NormalizePowerSourcePlanSettings(loaded.PowerSourcePlan);
                     NormalizeStandbyAutoCleanerSettings(loaded.StandbyAutoCleaner);
+                    NormalizeWidgetSettings(loaded.Widgets);
                     NormalizeTheme(loaded);
                     // Migrate stale repo name from pre-release installs.
                     if (loaded.UpdateRepo == "Albix4563/VoltManager")
@@ -195,6 +198,8 @@ public class SettingsService
         settings.IntervalMinutes = Math.Clamp(settings.IntervalMinutes, 5, 1440);
     }
 
+    private static void NormalizeWidgetSettings(WidgetSettings settings) => settings.Normalize();
+
     public void Save()
     {
         lock (_lock)
@@ -206,6 +211,7 @@ public class SettingsService
             Current.KeepAwake ??= new KeepAwakeSettings();
             Current.PowerSourcePlan ??= new PowerSourcePlanSettings();
             Current.StandbyAutoCleaner ??= new StandbyAutoCleanerSettings();
+            Current.Widgets ??= new WidgetSettings();
             NormalizeScheduledPowerAction(Current.AutoShutdown);
             NormalizeAutoUpdateSettings(Current.AutoUpdates);
             NormalizeHeavyAppDetectionSettings(Current.HeavyAppDetection);
@@ -213,6 +219,7 @@ public class SettingsService
             NormalizeKeepAwakeSettings(Current.KeepAwake);
             NormalizePowerSourcePlanSettings(Current.PowerSourcePlan);
             NormalizeStandbyAutoCleanerSettings(Current.StandbyAutoCleaner);
+            NormalizeWidgetSettings(Current.Widgets);
             NormalizeTheme(Current);
             var dir = Path.GetDirectoryName(_path)!;
             Directory.CreateDirectory(dir);

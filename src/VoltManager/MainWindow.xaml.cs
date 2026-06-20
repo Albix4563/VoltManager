@@ -16,6 +16,7 @@ public partial class MainWindow : Window
 {
     private static readonly TimeSpan AutoUpdateInitialDelay = TimeSpan.FromMinutes(30);
     private readonly App _app;
+    private readonly Task<CoreWebView2Environment> _webViewEnvironment;
     private HostBridge? _bridge;
     private bool _exiting;
     private readonly bool _justUpdated;
@@ -25,9 +26,11 @@ public partial class MainWindow : Window
     private readonly GamingModeReminderService _gamingReminder = new();
     private int _gamingReminderPromptRunning;
 
-    public MainWindow(App app, bool startMinimized, bool justUpdated = false)
+    public MainWindow(App app, bool startMinimized, bool justUpdated = false,
+        Task<CoreWebView2Environment>? webViewEnvironment = null)
     {
         _app = app;
+        _webViewEnvironment = webViewEnvironment ?? app.WebViewEnvironment;
         _justUpdated = justUpdated;
         InitializeComponent();
         ApplyHostTheme(_app.Theme.ResolvedTheme);
@@ -62,11 +65,7 @@ public partial class MainWindow : Window
     {
         try
         {
-            var userDataFolder = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                "VoltManager", "WebView2");
-            var env = await CoreWebView2Environment.CreateAsync(null, userDataFolder);
-            await WebView.EnsureCoreWebView2Async(env);
+            await WebView.EnsureCoreWebView2Async(await _webViewEnvironment);
         }
         catch (Exception ex)
         {
@@ -110,6 +109,7 @@ public partial class MainWindow : Window
             };
             _app.Awake.StateChanged += s => _bridge.PushEvent("keepAwakeChanged", s);
             _app.PowerSourcePlans.StateChanged += s => _bridge.PushEvent("powerSourcePlanChanged", s);
+            _app.Widgets.StateChanged += s => _bridge.PushEvent("widgetsStateChanged", s);
 
             bool startupCheckDone = false;
             core.NavigationCompleted += (_, args) =>
