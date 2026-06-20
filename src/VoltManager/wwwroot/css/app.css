@@ -182,6 +182,16 @@ html[data-theme=light] .app-profile-missing{color:#b42318!important;}
 html[data-theme=light] #updated-toast{background:#fff!important;border-color:rgba(0,174,187,.32)!important;box-shadow:0 14px 34px rgba(15,34,52,.18)!important;color:var(--vm-text)!important;}
 html[data-theme=light] #updated-toast button{color:var(--vm-muted)!important;}
 
+.widgets-category-card{position:relative;overflow:hidden;}
+.widgets-category-card:before{content:"";position:absolute;top:-90px;right:-70px;width:260px;height:260px;border-radius:999px;background:radial-gradient(circle,rgba(0,241,254,.11),transparent 68%);pointer-events:none;}
+.widgets-category-card>*{position:relative;z-index:1;}
+.widgets-master-control{display:flex;align-items:center;justify-content:space-between;gap:16px;min-width:min(100%,320px);padding:14px 16px;border:1px solid rgba(255,255,255,.1);border-radius:16px;background:linear-gradient(135deg,rgba(18,33,49,.72),rgba(10,17,40,.56));box-shadow:inset 0 1px 0 rgba(255,255,255,.05);}
+.widgets-empty-state{min-height:96px;display:flex;align-items:center;justify-content:center;gap:8px;border:1px dashed rgba(255,255,255,.14);border-radius:16px;color:rgba(211,222,239,.58);background:rgba(255,255,255,.025);font-size:13px;font-weight:600;}
+.widgets-category-card .startup-card{min-height:0;}
+@media (max-width:720px){.widgets-master-control{width:100%;}}
+html[data-theme=light] .widgets-master-control{border-color:var(--vm-border)!important;background:rgba(255,255,255,.72)!important;box-shadow:0 8px 20px rgba(15,34,52,.05);}
+html[data-theme=light] .widgets-empty-state{border-color:rgba(15,34,52,.14)!important;background:rgba(15,34,52,.025)!important;color:var(--vm-muted-soft)!important;}
+
 /* ---------- Black theme (OLED) — dark variant with pure-black surfaces ---------- */
 html[data-theme=black]{
 --vm-bg:#000000;

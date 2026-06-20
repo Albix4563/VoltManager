@@ -541,7 +541,10 @@
     const toggleTray = document.getElementById('toggle-tray');
     const togglePowerSourcePlan = document.getElementById('toggle-power-source-plan');
     const toggleWidgetsMaster = document.getElementById('toggle-widgets-master');
+    const widgetsCard = document.getElementById('widgets-card');
     const widgetsList = document.getElementById('widgets-list');
+    const widgetsEnabledList = document.getElementById('widgets-enabled-list');
+    const widgetsDisabledList = document.getElementById('widgets-disabled-list');
     const WIDGET_TYPES = ['clock', 'calendar', 'usage', 'temps', 'power'];
 
     function setToggle(el, on) {
@@ -584,6 +587,10 @@
         return Math.round(item.x) + ', ' + Math.round(item.y);
     }
 
+    function widgetEmptyState(icon, key, fallback) {
+        return '<div class="widgets-empty-state"><span class="material-symbols-outlined text-[18px]">' + icon + '</span><span data-i18n="' + key + '">' + esc(tr(key, fallback)) + '</span></div>';
+    }
+
     function renderWidgetsState(state) {
         state = normalizeWidgetsState(state);
         setToggle(toggleWidgetsMaster, state.enabled);
@@ -595,11 +602,11 @@
         if (activeEl) activeEl.textContent = String(activeCount);
         if (totalEl) totalEl.textContent = String(totalCount);
 
-        if (!widgetsList) return;
+        const hasGroupedLists = widgetsEnabledList && widgetsDisabledList;
+        if (!widgetsList && !hasGroupedLists) return;
 
-        widgetsList.innerHTML = state.items.map(function (item) {
+        function renderWidgetCard(item) {
             var stateAttr = item.enabled ? 'on' : 'off';
-            var nextEnabled = !item.enabled;
             var size = WIDGET_SIZE[item.type] || [0, 0];
             var posLabel = widgetPositionLabel(item);
 
@@ -627,9 +634,25 @@
                 '<div class="startup-detail-line"><span class="startup-detail-label" data-i18n="widget_detail_size">Dimensione</span><span class="startup-detail-value">' + size[0] + '\u00d7' + size[1] + '</span></div>' +
                 '<div class="startup-detail-line"><span class="startup-detail-label" data-i18n="widget_detail_position">Posizione</span><span class="startup-detail-value">' + (posLabel ? esc(posLabel) : '<span data-i18n="widget_position_auto">Automatica</span>') + '</span></div>' +
                 '</div></article>';
-        }).join('');
+        }
 
-        widgetsList.classList.toggle('opacity-60', !state.enabled);
+        if (hasGroupedLists) {
+            const enabledItems = state.items.filter(function (item) { return item.enabled; });
+            const disabledItems = state.items.filter(function (item) { return !item.enabled; });
+            widgetsEnabledList.innerHTML = enabledItems.length
+                ? enabledItems.map(renderWidgetCard).join('')
+                : widgetEmptyState('visibility_off', 'widget_empty_enabled', 'Nessun widget attivo.');
+            widgetsDisabledList.innerHTML = disabledItems.length
+                ? disabledItems.map(renderWidgetCard).join('')
+                : widgetEmptyState('check_circle', 'widget_empty_disabled', 'Nessun widget disattivato.');
+            if (widgetsList) widgetsList.innerHTML = '';
+        } else if (widgetsList) {
+            widgetsList.innerHTML = state.items.map(renderWidgetCard).join('');
+        }
+
+        [widgetsList, widgetsEnabledList, widgetsDisabledList].filter(Boolean).forEach(function (list) {
+            list.classList.toggle('opacity-60', !state.enabled);
+        });
         if (window.I18n && I18n.apply) I18n.apply();
         syncLocalWidgets(state);
     }
@@ -642,7 +665,8 @@
     }
 
     function mountWidgetsUi() {
-        if (!toggleWidgetsMaster || !widgetsList || toggleWidgetsMaster.dataset.wired === 'true') return;
+        const widgetsClickRoot = widgetsCard || widgetsList;
+        if (!toggleWidgetsMaster || !widgetsClickRoot || toggleWidgetsMaster.dataset.wired === 'true') return;
         toggleWidgetsMaster.dataset.wired = 'true';
 
         toggleWidgetsMaster.addEventListener('click', async () => {
@@ -656,7 +680,7 @@
             }
         });
 
-        widgetsList.addEventListener('click', async (e) => {
+        widgetsClickRoot.addEventListener('click', async (e) => {
             const card = e.target.closest('[data-widget-row]');
             if (!card) return;
             const type = card.dataset.widgetType;
