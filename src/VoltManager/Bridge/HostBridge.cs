@@ -193,6 +193,7 @@ public class HostBridge
                 {
                     settings = _settings.Current,
                     startWithWindows = _startup.IsEnabled(),
+                    resolvedTheme = _app.Theme.ResolvedTheme,
                 };
 
             case "saveSettings":

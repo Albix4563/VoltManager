@@ -51,7 +51,9 @@ public static class Logger
 
     public static void Error(string message, Exception ex) => Write("ERROR", message, ex);
 
-    public static void Error(Exception ex) => Write("ERROR", ex.Message, ex);
+    // Null-tolerant: reading ex.Message before Write would throw outside its
+    // try/catch, so a stray Error(null) must not become a new failure path.
+    public static void Error(Exception? ex) => Write("ERROR", ex?.Message ?? "(null exception)", ex);
 
     /// <summary>
     /// Logs a warning only on the FIRST failure of a streak — when
@@ -64,6 +66,18 @@ public static class Logger
     {
         if (!faulted) Write("WARN", message, ex);
         return true;
+    }
+
+    // Test seam: redirect logging to an arbitrary directory and force a clean
+    // re-init. Not referenced by production code.
+    internal static void ResetForTests(string dir)
+    {
+        lock (Lock)
+        {
+            Directory.CreateDirectory(dir);
+            _path = Path.Combine(dir, "voltmanager.log");
+            _initialized = true;
+        }
     }
 
     private static void Write(string level, string message, Exception? ex)

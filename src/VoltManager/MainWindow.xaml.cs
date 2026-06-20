@@ -30,14 +30,23 @@ public partial class MainWindow : Window
         _app = app;
         _justUpdated = justUpdated;
         InitializeComponent();
-        ApplyHostTheme(_app.Settings.Current.Theme);
+        ApplyHostTheme(_app.Theme.ResolvedTheme);
         Loaded += async (_, _) => await InitWebViewAsync();
         Closing += OnClosingToTray;
         Closed += (_, _) => _autoUpdateTimer?.Dispose();
         // Fires from timer threads; tooltip lives on the UI thread.
         _app.ActivePlanChanged += p => Dispatcher.Invoke(() =>
             TrayIcon.ToolTipText = "VoltManager – " + PlanDisplayName(p));
-        _app.Settings.SettingsChanged += s => Dispatcher.Invoke(() => ApplyHostTheme(s.Theme));
+        _app.Settings.SettingsChanged += s => Dispatcher.Invoke(() =>
+        {
+            _app.Theme.SetPreference(s.Theme);
+            ApplyHostTheme(_app.Theme.ResolvedTheme);
+        });
+        _app.Theme.ThemeChanged += t => Dispatcher.Invoke(() =>
+        {
+            ApplyHostTheme(t);
+            _bridge?.PushEvent("themeChanged", new { resolvedTheme = t });
+        });
 
         if (startMinimized)
         {
@@ -363,7 +372,7 @@ public partial class MainWindow : Window
         _updatePromptOpen = true;
         try
         {
-            var prompt = new UpdatePromptWindow(info, _app.Settings.Current.Theme);
+            var prompt = new UpdatePromptWindow(info, _app.Theme.ResolvedTheme);
             if (IsVisible) prompt.Owner = this;
             prompt.Icon = Icon;
             prompt.ShowDialog();

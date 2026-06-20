@@ -25,6 +25,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="VoltManager.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <None Include="wwwroot\**\*" CopyToOutputDirectory="PreserveNewest" />
     <Resource Include="Assets\voltmanager.ico" />
   </ItemGroup>
