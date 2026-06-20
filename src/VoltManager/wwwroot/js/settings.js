@@ -19,6 +19,8 @@
         it: {
             autoUpdates: 'Autoricerca aggiornamenti',
             autoUpdatesSub: 'Controlla automaticamente nuove versioni ogni 30 minuti',
+            silentAutoUpdates: 'Aggiornamenti automatici silenziosi',
+            silentAutoUpdatesSub: 'Scarica e installa le nuove versioni senza chiedere conferma',
             channelStable: 'Stabile',
             channelPreview: 'Preview (Beta)',
             channelDev: 'Dev (Alpha)',
@@ -41,11 +43,15 @@
             snoozed: 'Aggiornamento rimandato.',
             skipped: 'Questa versione verrà saltata.',
             min15: '15 minuti', min30: '30 minuti', hour1: '1 ora', hours2: '2 ore',
-            updatedToast: 'VoltManager aggiornato correttamente'
+            updatedToastTitle: 'VoltManager si e aggiornato',
+            updatedToastBody: 'Ci sono novita: leggi il changelog per scoprire cosa e cambiato.',
+            updatedToastCta: 'Leggi changelog'
         },
         en: {
             autoUpdates: 'Automatic update checks',
             autoUpdatesSub: 'Automatically checks for new versions every 30 minutes',
+            silentAutoUpdates: 'Silent automatic updates',
+            silentAutoUpdatesSub: 'Downloads and installs new versions without asking first',
             channelStable: 'Stable',
             channelPreview: 'Preview (Beta)',
             channelDev: 'Dev (Alpha)',
@@ -68,7 +74,9 @@
             snoozed: 'Update postponed.',
             skipped: 'This version will be skipped.',
             min15: '15 minutes', min30: '30 minutes', hour1: '1 hour', hours2: '2 hours',
-            updatedToast: 'VoltManager updated successfully'
+            updatedToastTitle: 'VoltManager has updated',
+            updatedToastBody: 'There are new changes. Read the changelog to see what changed.',
+            updatedToastCta: 'Read changelog'
         },
         zh: {
             autoUpdates: '自动检查更新',
@@ -499,14 +507,27 @@
             'position:fixed;bottom:24px;right:24px;z-index:2000;' +
             'background:#1E2A4A;border:1px solid rgba(0,241,254,0.4);border-radius:12px;' +
             'padding:14px 18px;box-shadow:0 8px 32px rgba(0,0,0,0.6);color:#e2e8f0;' +
-            'font-size:13px;display:flex;align-items:center;gap:12px;max-width:calc(100vw - 48px);' +
+            'font-size:13px;display:flex;align-items:flex-start;gap:12px;max-width:min(420px,calc(100vw - 48px));' +
             'overflow-wrap:anywhere;animation:slideInRight 0.3s ease;';
         toast.innerHTML =
             '<span style="color:#00f1fe;font-size:18px;">✓</span>' +
             '<span>' + esc(tr('upd_toast_msg', lt('updatedToast'))) + (ver ? ' v' + esc(ver) : '') + '</span>' +
             '<button onclick="this.parentElement.remove()" style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:16px;margin-left:4px;">×</button>';
+        toast.innerHTML =
+            '<span class="material-symbols-outlined" style="color:#00f1fe;font-size:20px;margin-top:1px;">new_releases</span>' +
+            '<span style="display:flex;flex-direction:column;gap:6px;min-width:0;">' +
+            '  <strong style="color:#f8fbff;font-size:13px;">' + esc(lt('updatedToastTitle')) + (ver ? ' v' + esc(ver) : '') + '</strong>' +
+            '  <span style="color:#cbd5e1;line-height:1.35;">' + esc(lt('updatedToastBody')) + '</span>' +
+            '  <button id="updated-toast-changelog" type="button" style="align-self:flex-start;background:rgba(0,241,254,.12);border:1px solid rgba(0,241,254,.32);color:#9ffbff;border-radius:8px;padding:6px 10px;cursor:pointer;font-weight:700;font-size:12px;">' + esc(lt('updatedToastCta')) + '</button>' +
+            '</span>' +
+            '<button id="updated-toast-close" type="button" style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:18px;margin-left:4px;line-height:1;">x</button>';
         document.body.appendChild(toast);
-        setTimeout(() => { if (toast.parentElement) toast.remove(); }, 6000);
+        document.getElementById('updated-toast-close')?.addEventListener('click', () => toast.remove());
+        document.getElementById('updated-toast-changelog')?.addEventListener('click', () => {
+            document.querySelector('#nav-list a[data-view="changelog"]')?.click();
+            toast.remove();
+        });
+        setTimeout(() => { if (toast.parentElement) toast.remove(); }, 12000);
     }
 
     btnDownload?.addEventListener('click', () => {
@@ -526,7 +547,10 @@
 
     function normalizeAutoUpdates(settings) {
         if (!settings.autoUpdates) {
-            settings.autoUpdates = { enabled: true, updateChannel: 'stable', intervalMinutes: 30, snoozedUntilUtc: null, skippedVersion: null };
+            settings.autoUpdates = { enabled: true, silentInstallEnabled: true, updateChannel: 'stable', intervalMinutes: 30, snoozedUntilUtc: null, skippedVersion: null };
+        }
+        if (typeof settings.autoUpdates.silentInstallEnabled !== 'boolean') {
+            settings.autoUpdates.silentInstallEnabled = true;
         }
         if (!Number.isFinite(settings.autoUpdates.intervalMinutes) || settings.autoUpdates.intervalMinutes < 5) {
             settings.autoUpdates.intervalMinutes = 30;
@@ -547,6 +571,14 @@
             '    <p class="text-body-md text-on-surface group-hover:text-secondary-fixed transition-colors" id="pref-auto-updates-title"></p>' +
             '    <p class="text-label-sm text-on-surface-variant" id="pref-auto-updates-sub"></p>' +
             '  </div>' +
+            '  <div class="mini-toggle" data-on="true" id="toggle-auto-updates"><div class="mini-toggle-knob"></div></div>' +
+            '</div>' +
+            '<div class="flex items-center justify-between group cursor-pointer mt-md" id="pref-silent-auto-updates">' +
+            '  <div>' +
+            '    <p class="text-body-md text-on-surface group-hover:text-secondary-fixed transition-colors" id="pref-silent-auto-updates-title"></p>' +
+            '    <p class="text-label-sm text-on-surface-variant" id="pref-silent-auto-updates-sub"></p>' +
+            '  </div>' +
+            '  <div class="mini-toggle" data-on="true" id="toggle-silent-auto-updates"><div class="mini-toggle-knob"></div></div>' +
             '</div>');
         refreshAutoUpdateLabels();
     }
@@ -554,8 +586,24 @@
     function refreshAutoUpdateLabels() {
         const title = document.getElementById('pref-auto-updates-title');
         const sub = document.getElementById('pref-auto-updates-sub');
+        const silentTitle = document.getElementById('pref-silent-auto-updates-title');
+        const silentSub = document.getElementById('pref-silent-auto-updates-sub');
         if (title) title.textContent = lt('autoUpdates');
         if (sub) sub.textContent = lt('autoUpdatesSub');
+        if (silentTitle) silentTitle.textContent = lt('silentAutoUpdates');
+        if (silentSub) silentSub.textContent = lt('silentAutoUpdatesSub');
+    }
+
+    function syncAutoUpdateToggles(autoUpdates) {
+        autoUpdates = autoUpdates || { enabled: true, silentInstallEnabled: true };
+        setToggle(document.getElementById('toggle-auto-updates'), autoUpdates.enabled !== false);
+        setToggle(document.getElementById('toggle-silent-auto-updates'), autoUpdates.silentInstallEnabled !== false);
+        const silentPref = document.getElementById('pref-silent-auto-updates');
+        if (silentPref) {
+            const enabled = autoUpdates.enabled !== false;
+            silentPref.classList.toggle('opacity-50', !enabled);
+            silentPref.classList.toggle('pointer-events-none', !enabled);
+        }
     }
 
     // Reflects the selected channel in the dropdown + the card badge.
@@ -586,6 +634,26 @@
                     setToggle(toggle, !enable);
                     normalizeAutoUpdates(settings).enabled = !enable;
                 }
+                syncAutoUpdateToggles(normalizeAutoUpdates(settings));
+                return;
+            }
+
+            pref = e.target.closest('#pref-silent-auto-updates');
+            if (pref && window.__voltSettings) {
+                const settings = window.__voltSettings.get ? window.__voltSettings.get() : window.__voltSettings;
+                const autoUpdates = normalizeAutoUpdates(settings);
+                if (autoUpdates.enabled === false) return;
+                const toggle = document.getElementById('toggle-silent-auto-updates');
+                const enable = toggle?.dataset.on !== 'true';
+                setToggle(toggle, enable);
+                autoUpdates.silentInstallEnabled = enable;
+                try {
+                    await Host.call('setSilentAutoUpdates', { enabled: enable });
+                } catch {
+                    autoUpdates.silentInstallEnabled = !enable;
+                    setToggle(toggle, !enable);
+                }
+                syncAutoUpdateToggles(autoUpdates);
                 return;
             }
         });
@@ -738,8 +806,9 @@
         checkBatteryPresence();
 
         mountAutoUpdateUi();
-        setToggle(document.getElementById('toggle-auto-updates'), normalizeAutoUpdates(settings).enabled);
-        setChannelUi(normalizeAutoUpdates(settings).updateChannel);
+        const autoUpdates = normalizeAutoUpdates(settings);
+        syncAutoUpdateToggles(autoUpdates);
+        setChannelUi(autoUpdates.updateChannel);
         wireAutoUpdateUi();
 
         mountAutoShutdownUi();

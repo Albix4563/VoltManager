@@ -266,8 +266,16 @@ public partial class MainWindow : Window
         {
             // Small delay so JS event handlers are registered before the push.
             await Task.Delay(TimeSpan.FromSeconds(3));
+            var autoUpdates = _app.Settings.Current.AutoUpdates;
+            if (autoUpdates is not { Enabled: true }) return;
+
             var info = await _app.Updates.CheckForUpdatesAsync();
-            if (info.UpdateAvailable && info.DownloadUrl != null && !IsUpdateSuppressed(info, respectSnooze: true))
+            if (!info.UpdateAvailable || string.IsNullOrWhiteSpace(info.DownloadUrl)) return;
+            if (IsUpdateSuppressed(info, respectSnooze: true)) return;
+
+            if (ShouldInstallUpdatesSilently())
+                await DownloadAndInstallUpdateAsync(info.DownloadUrl);
+            else
                 _bridge?.PushEvent("updateAvailable", info);
         }
         catch (Exception ex)
@@ -308,7 +316,9 @@ public partial class MainWindow : Window
             if (!info.UpdateAvailable || string.IsNullOrWhiteSpace(info.DownloadUrl)) return;
             if (IsUpdateSuppressed(info, respectSnooze: true)) return;
 
-            if (IsAppInForeground())
+            if (ShouldInstallUpdatesSilently())
+                await DownloadAndInstallUpdateAsync(info.DownloadUrl);
+            else if (IsAppInForeground())
                 _bridge?.PushEvent("updateAvailable", info);
             else
                 await ShowBackgroundUpdatePromptAsync(info);
@@ -337,6 +347,9 @@ public partial class MainWindow : Window
         return latest.Length > 0 && skipped.Length > 0 &&
                string.Equals(latest, skipped, StringComparison.OrdinalIgnoreCase);
     }
+
+    private bool ShouldInstallUpdatesSilently()
+        => _app.Settings.Current.AutoUpdates is { Enabled: true, SilentInstallEnabled: true };
 
     private static string NormalizeVersion(string? version)
         => string.IsNullOrWhiteSpace(version) ? "" : version.Trim().TrimStart('v', 'V');

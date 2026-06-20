@@ -143,6 +143,16 @@
         }
     }
 
+    function normalizeAutoUpdates(settings) {
+        if (!settings.autoUpdates) {
+            settings.autoUpdates = { enabled: true, silentInstallEnabled: true, updateChannel: 'stable', intervalMinutes: 30, snoozedUntilUtc: null, skippedVersion: null };
+        }
+        if (typeof settings.autoUpdates.silentInstallEnabled !== 'boolean') {
+            settings.autoUpdates.silentInstallEnabled = true;
+        }
+        return settings.autoUpdates;
+    }
+
     function syncControlsFromSettings() {
         const settings = getSettings();
 
@@ -156,6 +166,10 @@
         // Auto-switch
         const master = document.getElementById('welcome-master-toggle');
         if (master && settings) master.checked = settings.masterAutomationEnabled !== false;
+
+        // Silent auto updates
+        const silentUpdates = document.getElementById('welcome-silent-update-toggle');
+        if (silentUpdates && settings) silentUpdates.checked = normalizeAutoUpdates(settings).silentInstallEnabled !== false;
     }
 
     function wireControls() {
@@ -193,6 +207,18 @@
             // Keep the Power view master toggle in sync if mounted.
             const powerToggle = document.getElementById('master-toggle');
             if (powerToggle) powerToggle.checked = e.target.checked;
+        });
+
+        // Silent auto updates
+        const silentUpdates = document.getElementById('welcome-silent-update-toggle');
+        silentUpdates?.addEventListener('change', (e) => {
+            const settings = getSettings();
+            if (settings) {
+                normalizeAutoUpdates(settings).silentInstallEnabled = e.target.checked;
+                save();
+            }
+            const settingsToggle = document.getElementById('toggle-silent-auto-updates');
+            if (settingsToggle) settingsToggle.dataset.on = e.target.checked ? 'true' : 'false';
         });
     }
 

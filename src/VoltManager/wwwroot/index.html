@@ -961,6 +961,20 @@ html[data-theme=light] .welcome-theme-card .welcome-theme-check{border-color:rgb
             </label>
           </div>
         </div>
+
+        <!-- Silent auto updates -->
+        <div class="flex items-center justify-between gap-md">
+          <div class="flex-1">
+            <p class="text-body-md text-on-surface font-medium" data-i18n="set_pref_silent_updates">Aggiornamenti automatici silenziosi</p>
+            <p class="text-label-sm text-on-surface-variant" data-i18n="set_pref_silent_updates_sub">Installa le nuove versioni in automatico e avvisa al riavvio.</p>
+          </div>
+          <div class="relative inline-block w-16 h-8 align-middle select-none transition duration-200 ease-in flex-shrink-0">
+            <input checked class="toggle-large" id="welcome-silent-update-toggle" type="checkbox"/>
+            <label class="toggle-label-large cursor-pointer" for="welcome-silent-update-toggle">
+              <span class="sr-only">Silent auto updates</span>
+            </label>
+          </div>
+        </div>
       </section>
 
       <!-- Dot indicator -->
@@ -1059,13 +1073,13 @@ html[data-theme=light] .welcome-theme-card .welcome-theme-check{border-color:rgb
 </div>
 
 <script src="js/bridge.js?v=errlog1"></script>
-<script src="js/i18n.js?v=batthist1"></script>
+<script src="js/i18n.js?v=silentupdate1"></script>
 <script src="js/app.js?v=redesign1"></script>
 <script src="js/effects.js?v=chase1"></script>
 <script src="js/dashboard.js?v=chase1"></script>
 <script src="js/power.js?v=reorg2"></script>
-<script src="js/settings.js?v=temps2"></script>
-<script src="js/welcome.js?v=welcome1"></script>
+<script src="js/settings.js?v=silentupdate1"></script>
+<script src="js/welcome.js?v=silentupdate1"></script>
 <script src="js/tour.js?v=tour1"></script>
 <script src="js/tips.js?v=tips1"></script>
 <script src="js/changelog.js?v=temps1"></script>
