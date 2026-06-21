@@ -73,9 +73,24 @@
                           Stroke="{DynamicResource MutedBrush}" Width="19" Height="19"
                           VerticalAlignment="Top" Margin="0,2,16,0"/>
                     <StackPanel Grid.Column="1">
-                        <CheckBox x:Name="ChkWidgets"/>
+                        <CheckBox x:Name="ChkWidgets" Checked="ChkWidgets_Changed" Unchecked="ChkWidgets_Changed"/>
                         <TextBlock x:Name="DescWidgets" FontSize="11.5" Foreground="{DynamicResource FaintBrush}"
                                    TextWrapping="Wrap" Margin="34,3,0,0"/>
+                        <!-- sub-picker: visibile solo se ChkWidgets è checked -->
+                        <Border x:Name="WidgetPicker" Visibility="Collapsed"
+                                Margin="34,10,0,0" Padding="12,10"
+                                Background="{DynamicResource PillBrush}" CornerRadius="8">
+                            <StackPanel>
+                                <TextBlock x:Name="LblWidgetPick" FontSize="11" Foreground="{DynamicResource MutedBrush}" Margin="0,0,0,8"/>
+                                <WrapPanel>
+                                    <CheckBox x:Name="ChkWClock"    IsChecked="True" Margin="0,0,18,6"/>
+                                    <CheckBox x:Name="ChkWCalendar" IsChecked="True" Margin="0,0,18,6"/>
+                                    <CheckBox x:Name="ChkWUsage"    IsChecked="True" Margin="0,0,18,6"/>
+                                    <CheckBox x:Name="ChkWTemps"    IsChecked="True" Margin="0,0,18,6"/>
+                                    <CheckBox x:Name="ChkWPower"    IsChecked="True" Margin="0,0,0,6"/>
+                                </WrapPanel>
+                            </StackPanel>
+                        </Border>
                     </StackPanel>
                 </Grid>
                 <Border Height="1" Background="#1F2E4D" Margin="16,0"/>

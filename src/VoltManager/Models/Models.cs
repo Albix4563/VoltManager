@@ -136,6 +136,7 @@ public class WidgetItem
     [JsonPropertyName("type")] public string Type { get; set; } = "";
     [JsonPropertyName("enabled")] public bool Enabled { get; set; } = true;
     [JsonPropertyName("pinned")] public bool Pinned { get; set; } = false;
+    [JsonPropertyName("size")] public string Size { get; set; } = "medium";
     [JsonPropertyName("x")] public double? X { get; set; }
     [JsonPropertyName("y")] public double? Y { get; set; }
 }
@@ -143,6 +144,7 @@ public class WidgetItem
 public class WidgetSettings
 {
     public static readonly string[] Types = ["clock", "calendar", "usage", "temps", "power"];
+    public static readonly string[] Sizes = ["mini", "medium", "large"];
 
     [JsonPropertyName("enabled")] public bool Enabled { get; set; } = false;
     [JsonPropertyName("items")] public List<WidgetItem> Items { get; set; } = DefaultItems();
@@ -151,6 +153,9 @@ public class WidgetSettings
 
     public static bool IsKnownType(string? type)
         => Types.Contains(type ?? "", StringComparer.OrdinalIgnoreCase);
+
+    public static string NormalizeSize(string? size)
+        => Sizes.FirstOrDefault(s => string.Equals(s, size, StringComparison.OrdinalIgnoreCase)) ?? "medium";
 
     public void Normalize()
     {
@@ -161,6 +166,7 @@ public class WidgetSettings
         {
             if (item == null || !IsKnownType(item.Type)) continue;
             item.Type = Types.First(t => string.Equals(t, item.Type, StringComparison.OrdinalIgnoreCase));
+            item.Size = NormalizeSize(item.Size);
             if (double.IsNaN(item.X ?? 0) || double.IsInfinity(item.X ?? 0)) item.X = null;
             if (double.IsNaN(item.Y ?? 0) || double.IsInfinity(item.Y ?? 0)) item.Y = null;
             byType.TryAdd(item.Type, item);

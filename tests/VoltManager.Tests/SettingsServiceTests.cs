@@ -47,6 +47,7 @@ public class SettingsServiceTests : IDisposable
         Assert.Equal(new[] { "clock", "calendar", "usage", "temps", "power" },
             svc.Current.Widgets.Items.Select(i => i.Type).ToArray());
         Assert.All(svc.Current.Widgets.Items, item => Assert.True(item.Enabled));
+        Assert.All(svc.Current.Widgets.Items, item => Assert.Equal("medium", item.Size));
     }
 
     [Fact]
@@ -77,9 +78,11 @@ public class SettingsServiceTests : IDisposable
         svc.Current.StandbyAutoCleaner.LastPurgedUtc = new DateTime(2026, 06, 13, 18, 00, 00, DateTimeKind.Utc);
         svc.Current.Widgets.Enabled = true;
         svc.Current.Widgets.Items[0].Pinned = true;
+        svc.Current.Widgets.Items[0].Size = "large";
         svc.Current.Widgets.Items[0].X = 100;
         svc.Current.Widgets.Items[0].Y = 120;
         svc.Current.Widgets.Items[2].Enabled = false;
+        svc.Current.Widgets.Items[2].Size = "mini";
         svc.Current.AppPowerProfiles.Enabled = true;
         svc.Current.AppPowerProfiles.Rules.Add(new AppPowerProfileRule
         {
@@ -118,9 +121,11 @@ public class SettingsServiceTests : IDisposable
         Assert.Equal(new[] { "clock", "calendar", "usage", "temps", "power" },
             reloaded.Current.Widgets.Items.Select(i => i.Type).ToArray());
         Assert.True(reloaded.Current.Widgets.Items[0].Pinned);
+        Assert.Equal("large", reloaded.Current.Widgets.Items[0].Size);
         Assert.Equal(100, reloaded.Current.Widgets.Items[0].X);
         Assert.Equal(120, reloaded.Current.Widgets.Items[0].Y);
         Assert.False(reloaded.Current.Widgets.Items[2].Enabled);
+        Assert.Equal("mini", reloaded.Current.Widgets.Items[2].Size);
         Assert.True(reloaded.Current.AppPowerProfiles.Enabled);
         Assert.Single(reloaded.Current.AppPowerProfiles.Rules);
         Assert.Equal(@"C:\Apps\nike.exe", reloaded.Current.AppPowerProfiles.Rules[0].Path);
@@ -309,6 +314,7 @@ public class SettingsServiceTests : IDisposable
         Assert.False(svc.Current.Widgets.Enabled);
         Assert.Equal(new[] { "clock", "calendar", "usage", "temps", "power" },
             svc.Current.Widgets.Items.Select(i => i.Type).ToArray());
+        Assert.All(svc.Current.Widgets.Items, item => Assert.Equal("medium", item.Size));
     }
 
     [Fact]
@@ -320,8 +326,8 @@ public class SettingsServiceTests : IDisposable
           "widgets": {
             "enabled": true,
             "items": [
-              { "type": "CLOCK", "enabled": true, "pinned": true, "x": 10, "y": 20 },
-              { "type": "clock", "enabled": false },
+              { "type": "CLOCK", "enabled": true, "pinned": true, "size": "LARGE", "x": 10, "y": 20 },
+              { "type": "clock", "enabled": false, "size": "mini" },
               { "type": "unknown", "enabled": true }
             ]
           }
@@ -336,9 +342,32 @@ public class SettingsServiceTests : IDisposable
         var clock = svc.Current.Widgets.Items[0];
         Assert.True(clock.Enabled);
         Assert.True(clock.Pinned);
+        Assert.Equal("large", clock.Size);
         Assert.Equal(10, clock.X);
         Assert.Equal(20, clock.Y);
         Assert.All(svc.Current.Widgets.Items.Skip(1), item => Assert.True(item.Enabled));
+        Assert.All(svc.Current.Widgets.Items.Skip(1), item => Assert.Equal("medium", item.Size));
+    }
+
+    [Fact]
+    public void Widgets_InvalidSizeDefaultsToMedium()
+    {
+        Directory.CreateDirectory(_dir);
+        File.WriteAllText(SettingsPath, """
+        {
+          "widgets": {
+            "items": [
+              { "type": "clock", "size": "tiny" },
+              { "type": "usage", "size": "mini" }
+            ]
+          }
+        }
+        """);
+
+        var svc = new SettingsService(SettingsPath);
+
+        Assert.Equal("medium", svc.Current.Widgets.Items[0].Size);
+        Assert.Equal("mini", svc.Current.Widgets.Items[2].Size);
     }
 
     [Fact]

@@ -1,10 +1,13 @@
 (function () {
     const TYPES = ['clock', 'calendar', 'usage', 'temps', 'power'];
+    const SIZES = ['mini', 'medium', 'large'];
     const params = new URLSearchParams(location.search);
     const type = TYPES.includes(params.get('w')) ? params.get('w') : 'clock';
+    const size = SIZES.includes(params.get('s')) ? params.get('s') : 'medium';
     const root = document.getElementById('widget-root');
     let pinned = false;
     let locale = (window.I18n && I18n.getLang && I18n.getLang()) || 'it';
+    document.documentElement.dataset.size = size;
 
     const labels = {
         clock: ['schedule', 'widget_clock'],
@@ -23,7 +26,7 @@
     function shell(bodyHtml) {
         const meta = labels[type] || labels.clock;
         root.innerHTML =
-            '<article class="desktop-widget">' +
+            '<article class="desktop-widget" data-size="' + size + '">' +
             '  <header class="widget-header" id="widget-drag">' +
             '    <div class="widget-title"><span class="material-symbols-outlined">' + meta[0] + '</span><span data-i18n="' + meta[1] + '">' + t(meta[1], type) + '</span></div>' +
             '    <button class="widget-action" id="widget-pin" type="button" title="' + t('widget_pin', 'Pin') + '" aria-label="' + t('widget_pin', 'Pin') + '"><span class="material-symbols-outlined">push_pin</span></button>' +
@@ -80,21 +83,33 @@
     }
 
     function startClock() {
-        shell('<div class="widget-value" id="clock-time">--:--</div><div class="widget-muted" id="clock-date">--</div>');
+        shell('<div class="widget-value" id="clock-time">--:--</div>' + (size === 'mini' ? '' : '<div class="widget-muted" id="clock-date">--</div>'));
         const timeEl = document.getElementById('clock-time');
         const dateEl = document.getElementById('clock-date');
         function tick() {
             const now = new Date();
             timeEl.textContent = new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit' }).format(now);
-            dateEl.textContent = new Intl.DateTimeFormat(locale, { weekday: 'long', day: '2-digit', month: 'long' }).format(now);
+            if (dateEl) dateEl.textContent = new Intl.DateTimeFormat(locale, { weekday: 'long', day: '2-digit', month: 'long' }).format(now);
         }
         tick();
         setInterval(tick, 1000);
     }
 
     function startCalendar() {
+        if (size === 'mini') {
+            shell('<div class="calendar-mini"><div class="widget-muted" id="calendar-mini-weekday">--</div><div class="calendar-mini-day" id="calendar-mini-day">--</div><div class="widget-muted" id="calendar-mini-month">--</div></div>');
+            renderCalendarMini();
+            return;
+        }
         shell('<div class="widget-muted" id="calendar-title" style="margin-bottom:10px"></div><div class="calendar-head" id="calendar-head"></div><div class="calendar-grid" id="calendar-grid"></div>');
         renderCalendar();
+    }
+
+    function renderCalendarMini() {
+        const now = new Date();
+        document.getElementById('calendar-mini-weekday').textContent = new Intl.DateTimeFormat(locale, { weekday: 'long' }).format(now);
+        document.getElementById('calendar-mini-day').textContent = new Intl.DateTimeFormat(locale, { day: '2-digit' }).format(now);
+        document.getElementById('calendar-mini-month').textContent = new Intl.DateTimeFormat(locale, { month: 'long', year: 'numeric' }).format(now);
     }
 
     function renderCalendar() {
@@ -135,9 +150,8 @@
         shell(
             '<div class="widget-grid">' +
             statHtml('CPU', 'usage-cpu') +
-            statHtml('GPU', 'usage-gpu') +
             statHtml('RAM', 'usage-ram') +
-            statHtml('Disk', 'usage-disk') +
+            (size === 'mini' ? '' : statHtml('GPU', 'usage-gpu') + statHtml('Disk', 'usage-disk')) +
             '</div>');
         Host.on('metrics', renderUsage);
     }
@@ -156,6 +170,7 @@
     function setStat(id, value) {
         const valueEl = document.getElementById(id);
         const bar = document.getElementById(id + '-bar');
+        if (!valueEl || !bar) return;
         if (value == null) {
             valueEl.textContent = 'N/D';
             bar.style.width = '0%';
@@ -180,10 +195,10 @@
         shell(
             '<div class="power-row"><span class="widget-muted" data-i18n="widget_power_now">Power</span><strong id="power-watts">--</strong></div>' +
             '<div class="power-row"><span class="widget-muted" data-i18n="widget_battery">Battery</span><strong id="power-battery">--</strong></div>' +
-            '<div class="power-row"><span class="widget-muted" data-i18n="widget_plan">Plan</span><strong id="power-plan">--</strong></div>');
+            (size === 'mini' ? '' : '<div class="power-row"><span class="widget-muted" data-i18n="widget_plan">Plan</span><strong id="power-plan">--</strong></div>'));
         if (window.I18n && I18n.apply) I18n.apply();
         pollPower();
-        pollPlan();
+        if (size !== 'mini') pollPlan();
         setInterval(pollPower, 5000);
         Host.on('activePlanChanged', (data) => renderPlan(data && data.plan));
     }
@@ -215,7 +230,8 @@
     }
 
     function renderPlan(plan) {
-        document.getElementById('power-plan').textContent = planName(plan);
+        const planEl = document.getElementById('power-plan');
+        if (planEl) planEl.textContent = planName(plan);
     }
 
     function applySettings(res) {

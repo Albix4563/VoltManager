@@ -106,6 +106,32 @@ public sealed class WidgetManager : IDisposable
         return widgets;
     }
 
+    public WidgetSettings SetSize(string type, string size)
+    {
+        if (_disposing || !WidgetSettings.IsKnownType(type)) return GetState();
+        var widgets = GetState();
+        var item = widgets.GetOrAdd(type);
+        item.Size = WidgetSettings.NormalizeSize(size);
+        var preset = GetWidgetSize(item.Type, item.Size);
+
+        if (_windows.TryGetValue(item.Type, out var window))
+        {
+            window.ApplyPresetSize(preset, item.Size);
+            item.X = window.Left;
+            item.Y = window.Top;
+        }
+        else if (item.X != null && item.Y != null)
+        {
+            var p = ClampPosition(SystemParameters.WorkArea, item.X.Value, item.Y.Value, preset);
+            item.X = p.X;
+            item.Y = p.Y;
+        }
+
+        _app.Settings.Save();
+        StateChanged?.Invoke(widgets);
+        return widgets;
+    }
+
     public WidgetSettings ResetPosition(string type)
     {
         if (_disposing || !WidgetSettings.IsKnownType(type)) return GetState();
@@ -158,7 +184,7 @@ public sealed class WidgetManager : IDisposable
     {
         if (item.X != null && item.Y != null) return false;
 
-        var p = CalculateCascadePosition(SystemParameters.WorkArea, index, GetWidgetSize(item.Type));
+        var p = CalculateCascadePosition(SystemParameters.WorkArea, index, GetWidgetSize(item.Type, item.Size));
         item.X ??= p.X;
         item.Y ??= p.Y;
         return true;
@@ -173,7 +199,7 @@ public sealed class WidgetManager : IDisposable
             return;
         }
 
-        var window = new WidgetWindow(_app, this, item, _envTask, GetWidgetSize(item.Type));
+        var window = new WidgetWindow(_app, this, item, _envTask, GetWidgetSize(item.Type, item.Size));
         _windows[item.Type] = window;
         window.Closed += (_, _) => ForgetWindow(item.Type);
         window.Show();
@@ -192,12 +218,24 @@ public sealed class WidgetManager : IDisposable
         _windows.Clear();
     }
 
-    public static Size GetWidgetSize(string type) => type switch
+    public static Size GetWidgetSize(string type, string size = "medium") => (type, WidgetSettings.NormalizeSize(size)) switch
     {
-        "calendar" => new Size(320, 330),
-        "usage" => new Size(300, 220),
-        "temps" => new Size(280, 180),
-        "power" => new Size(300, 190),
+        ("clock", "mini") => new Size(180, 96),
+        ("clock", "large") => new Size(340, 200),
+        ("calendar", "mini") => new Size(190, 120),
+        ("calendar", "medium") => new Size(320, 330),
+        ("calendar", "large") => new Size(420, 430),
+        ("usage", "mini") => new Size(220, 118),
+        ("usage", "medium") => new Size(300, 220),
+        ("usage", "large") => new Size(390, 285),
+        ("temps", "mini") => new Size(210, 110),
+        ("temps", "medium") => new Size(280, 180),
+        ("temps", "large") => new Size(360, 235),
+        ("power", "mini") => new Size(220, 118),
+        ("power", "medium") => new Size(300, 190),
+        ("power", "large") => new Size(390, 250),
+        (_, "mini") => new Size(180, 96),
+        (_, "large") => new Size(340, 200),
         _ => new Size(260, 150),
     };
 
@@ -213,6 +251,16 @@ public sealed class WidgetManager : IDisposable
             y = workArea.Top + margin;
 
         return new Point(x, y);
+    }
+
+    public static Point ClampPosition(Rect workArea, double left, double top, Size size)
+    {
+        const double edge = 8;
+        double minX = workArea.Left + edge;
+        double maxX = Math.Max(minX, workArea.Right - size.Width - edge);
+        double minY = workArea.Top + edge;
+        double maxY = Math.Max(minY, workArea.Bottom - size.Height - edge);
+        return new Point(Math.Clamp(left, minX, maxX), Math.Clamp(top, minY, maxY));
     }
 
     public void Dispose()

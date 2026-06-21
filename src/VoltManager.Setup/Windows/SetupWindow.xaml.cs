@@ -288,6 +288,8 @@ namespace VoltManager.Setup.Windows
                 _opts.CreateDesktopShortcut = _options?.DesktopShortcut ?? true;
                 _opts.StartWithWindows = _options?.StartWithWindows ?? false;
                 _opts.EnableWidgets = _options?.EnableWidgets ?? false;
+                _opts.EnabledWidgetTypes = _options?.GetEnabledWidgetTypes()
+                    ?? new System.Collections.Generic.HashSet<string> { "clock", "calendar", "usage", "temps", "power" };
                 _opts.LaunchAfterInstall = _options?.LaunchAfterInstall ?? true;
 
                 await _engine.InstallAsync(_opts, App.GetVersion());

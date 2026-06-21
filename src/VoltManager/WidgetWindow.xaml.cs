@@ -22,6 +22,7 @@ public partial class WidgetWindow : Window
     private readonly string _type;
     private readonly DispatcherTimer _saveLocationTimer;
     private HostBridge? _bridge;
+    private string _size;
 
     public WidgetWindow(App app, WidgetManager manager, WidgetItem item,
         Task<CoreWebView2Environment> envTask, Size size)
@@ -30,6 +31,7 @@ public partial class WidgetWindow : Window
         _manager = manager;
         _envTask = envTask;
         _type = item.Type;
+        _size = WidgetSettings.NormalizeSize(item.Size);
 
         InitializeComponent();
 
@@ -101,8 +103,7 @@ public partial class WidgetWindow : Window
                 _manager.PushTheme();
             };
 
-            core.Navigate("https://app.local/widgets.html?w=" + Uri.EscapeDataString(_type) +
-                "&v=" + DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+            core.Navigate(WidgetUrl());
         }
         catch (Exception ex)
         {
@@ -112,6 +113,23 @@ public partial class WidgetWindow : Window
     }
 
     public void PushEvent(string name, object data) => _bridge?.PushEvent(name, data);
+
+    public void ApplyPresetSize(Size size, string sizeKey)
+    {
+        _size = WidgetSettings.NormalizeSize(sizeKey);
+        Width = size.Width;
+        Height = size.Height;
+        var p = WidgetManager.ClampPosition(SystemParameters.WorkArea, Left, Top, size);
+        Left = p.X;
+        Top = p.Y;
+        ApplyRoundedRegion();
+        WebView.CoreWebView2?.Navigate(WidgetUrl());
+    }
+
+    private string WidgetUrl() =>
+        "https://app.local/widgets.html?w=" + Uri.EscapeDataString(_type) +
+        "&s=" + Uri.EscapeDataString(_size) +
+        "&v=" + DateTimeOffset.UtcNow.ToUnixTimeSeconds();
 
     private void OnMetricsUpdated(MetricsSnapshot metrics) => _bridge?.PushEvent("metrics", metrics);
 

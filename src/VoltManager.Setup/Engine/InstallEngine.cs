@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
@@ -350,7 +351,7 @@ namespace VoltManager.Setup.Engine
                 json = "{}";
             }
 
-            json = SetWidgetsEnabled(json, opts.EnableWidgets);
+            json = SetWidgetsState(json, opts.EnableWidgets, opts.EnabledWidgetTypes);
 
             string tmpPath = settingsPath + ".tmp";
             File.WriteAllText(tmpPath, json);
@@ -364,31 +365,24 @@ namespace VoltManager.Setup.Engine
             return trimmed.Length >= 2 && trimmed[0] == '{' && trimmed[trimmed.Length - 1] == '}';
         }
 
-        private static string SetWidgetsEnabled(string json, bool enabled)
+        private static string SetWidgetsState(string json, bool masterEnabled, HashSet<string> enabledTypes)
         {
-            string value = enabled ? "true" : "false";
-            int widgetsProperty = FindJsonProperty(json, "widgets");
-            if (widgetsProperty < 0)
-                return InsertTopLevelProperty(json, "\"widgets\": { \"enabled\": " + value + " }");
+            var all = new[] { "clock", "calendar", "usage", "temps", "power" };
+            var items = string.Join(",", Array.ConvertAll(all, t =>
+                "{\"type\":\"" + t + "\",\"enabled\":" + (enabledTypes.Contains(t) ? "true" : "false") + ",\"pinned\":false}"));
+            string widgetsVal = "{\"enabled\":" + (masterEnabled ? "true" : "false") + ",\"items\":[" + items + "]}";
 
-            int widgetsValueStart = FindJsonValueStart(json, widgetsProperty);
-            if (widgetsValueStart < 0)
-                return InsertTopLevelProperty(json, "\"widgets\": { \"enabled\": " + value + " }");
+            int propStart = FindJsonProperty(json, "widgets");
+            if (propStart < 0)
+                return InsertTopLevelProperty(json, "\"widgets\": " + widgetsVal);
 
-            if (json[widgetsValueStart] != '{')
-            {
-                int valueEnd = FindJsonValueEnd(json, widgetsValueStart);
-                if (valueEnd < widgetsValueStart) return InsertTopLevelProperty(json, "\"widgets\": { \"enabled\": " + value + " }");
-                return json.Substring(0, widgetsValueStart) + "{ \"enabled\": " + value + " }" + json.Substring(valueEnd + 1);
-            }
-
-            int widgetsObjectEnd = FindMatching(json, widgetsValueStart, '{', '}');
-            if (widgetsObjectEnd < widgetsValueStart)
-                return InsertTopLevelProperty(json, "\"widgets\": { \"enabled\": " + value + " }");
-
-            string widgetsJson = json.Substring(widgetsValueStart, widgetsObjectEnd - widgetsValueStart + 1);
-            string updatedWidgetsJson = SetObjectBooleanProperty(widgetsJson, "enabled", enabled);
-            return json.Substring(0, widgetsValueStart) + updatedWidgetsJson + json.Substring(widgetsObjectEnd + 1);
+            int valueStart = FindJsonValueStart(json, propStart);
+            if (valueStart < 0) return InsertTopLevelProperty("{}", "\"widgets\": " + widgetsVal);
+            int valueEnd = json[valueStart] == '{'
+                ? FindMatching(json, valueStart, '{', '}')
+                : FindJsonValueEnd(json, valueStart);
+            if (valueEnd < valueStart) return InsertTopLevelProperty("{}", "\"widgets\": " + widgetsVal);
+            return json.Substring(0, valueStart) + widgetsVal + json.Substring(valueEnd + 1);
         }
 
         private static string SetObjectBooleanProperty(string objectJson, string propertyName, bool enabled)

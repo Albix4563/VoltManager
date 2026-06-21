@@ -546,6 +546,7 @@
     const widgetsEnabledList = document.getElementById('widgets-enabled-list');
     const widgetsDisabledList = document.getElementById('widgets-disabled-list');
     const WIDGET_TYPES = ['clock', 'calendar', 'usage', 'temps', 'power'];
+    const WIDGET_PRESETS = ['mini', 'medium', 'large'];
 
     function setToggle(el, on) {
         if (el) el.dataset.on = on ? 'true' : 'false';
@@ -559,6 +560,7 @@
             if (item && WIDGET_TYPES.includes(item.type)) byType[item.type] = item;
         });
         state.items = WIDGET_TYPES.map(type => byType[type] || { type, enabled: true, pinned: false, x: null, y: null });
+        state.items.forEach(item => { item.size = normalizeWidgetSize(item.size); });
         state.enabled = state.enabled === true;
         return state;
     }
@@ -579,8 +581,27 @@
         }[type] || 'widgets';
     }
 
+    function normalizeWidgetSize(size) {
+        return WIDGET_PRESETS.includes(size) ? size : 'medium';
+    }
+
     // ponytail: mirror di WidgetManager.GetWidgetSize; spostare nel payload se diverge
-    var WIDGET_SIZE = { clock: [260, 150], calendar: [320, 330], usage: [300, 220], temps: [280, 180], power: [300, 190] };
+    var WIDGET_SIZE = {
+        clock: { mini: [180, 96], medium: [260, 150], large: [340, 200] },
+        calendar: { mini: [190, 120], medium: [320, 330], large: [420, 430] },
+        usage: { mini: [220, 118], medium: [300, 220], large: [390, 285] },
+        temps: { mini: [210, 110], medium: [280, 180], large: [360, 235] },
+        power: { mini: [220, 118], medium: [300, 190], large: [390, 250] },
+    };
+
+    function widgetSize(type, size) {
+        return (WIDGET_SIZE[type] && WIDGET_SIZE[type][normalizeWidgetSize(size)]) || WIDGET_SIZE.clock.medium;
+    }
+
+    function widgetSizeLabel(size) {
+        size = normalizeWidgetSize(size);
+        return tr('widget_size_' + size, size);
+    }
 
     function widgetPositionLabel(item) {
         if (item.x == null || item.y == null) return null;
@@ -607,8 +628,15 @@
 
         function renderWidgetCard(item) {
             var stateAttr = item.enabled ? 'on' : 'off';
-            var size = WIDGET_SIZE[item.type] || [0, 0];
+            var sizeKey = normalizeWidgetSize(item.size);
+            var size = widgetSize(item.type, sizeKey);
             var posLabel = widgetPositionLabel(item);
+            var sizeButtons = WIDGET_PRESETS.map(function (preset) {
+                var selected = preset === sizeKey;
+                return '<button class="widget-size-option" type="button" data-widget-size data-widget-type="' + esc(item.type) + '" data-size="' + preset + '" aria-pressed="' + (selected ? 'true' : 'false') + '">' +
+                    '<span data-i18n="widget_size_' + preset + '">' + esc(widgetSizeLabel(preset)) + '</span>' +
+                    '</button>';
+            }).join('');
 
             var badgePin = item.pinned
                 ? '<span class="startup-managed-badge"><span class="material-symbols-outlined text-[13px]">push_pin</span><span data-i18n="widget_pinned_badge">In primo piano</span></span>'
@@ -631,7 +659,7 @@
                 '<div class="startup-card__header"><div class="startup-card__title-wrap"><div class="startup-card__app-icon"><span class="material-symbols-outlined">' + widgetIcon(item.type) + '</span></div><div class="startup-card__meta"><p class="startup-card__name" data-i18n="widget_' + item.type + '">' + esc(item.type) + '</p><div class="startup-card__badges">' + chip + badgePin + '</div></div></div>' +
                 '<div class="startup-actions">' + toggleBtn + pinBtn + resetBtn + '</div></div>' +
                 '<div class="startup-card__details">' +
-                '<div class="startup-detail-line"><span class="startup-detail-label" data-i18n="widget_detail_size">Dimensione</span><span class="startup-detail-value">' + size[0] + '\u00d7' + size[1] + '</span></div>' +
+                '<div class="widget-size-row"><div><span class="startup-detail-label" data-i18n="widget_detail_size">Dimensione</span><span class="startup-detail-value">' + size[0] + '\u00d7' + size[1] + '</span></div><div class="widget-size-control" role="group" aria-label="' + esc(tr('widget_size_selector', 'Widget size')) + '">' + sizeButtons + '</div></div>' +
                 '<div class="startup-detail-line"><span class="startup-detail-label" data-i18n="widget_detail_position">Posizione</span><span class="startup-detail-value">' + (posLabel ? esc(posLabel) : '<span data-i18n="widget_position_auto">Automatica</span>') + '</span></div>' +
                 '</div></article>';
         }
@@ -685,7 +713,17 @@
             if (!card) return;
             const type = card.dataset.widgetType;
 
-            // 1) Big animated switch -> enable/disable widget.
+            const sizeBtn = e.target.closest('[data-widget-size]');
+            if (sizeBtn && sizeBtn.dataset.widgetType === type) {
+                const size = normalizeWidgetSize(sizeBtn.dataset.size);
+                if (sizeBtn.getAttribute('aria-pressed') === 'true') return;
+                try {
+                    renderWidgetsState(await Host.call('setWidgetSize', { type, size }));
+                } catch { /* re-render restores state */ }
+                return;
+            }
+
+            // Big animated switch -> enable/disable widget.
             const sw = e.target.closest('[data-widget-toggle]');
             if (sw && sw.dataset.widgetType === type) {
                 const current = sw.dataset.state === 'on';
@@ -699,7 +737,7 @@
                 return;
             }
 
-            // 2) Pin button -> toggle topmost.
+            // Pin button -> toggle topmost.
             const pinBtn = e.target.closest('[data-widget-pin]');
             if (pinBtn && pinBtn.dataset.widgetType === type && !pinBtn.disabled) {
                 const pinned = pinBtn.dataset.pinned === 'true';
@@ -709,7 +747,7 @@
                 return;
             }
 
-            // 3) Reset-position button -> recascade.
+            // Reset-position button -> recascade.
             const resetBtn = e.target.closest('[data-widget-reset]');
             if (resetBtn && resetBtn.dataset.widgetType === type && !resetBtn.disabled) {
                 try {

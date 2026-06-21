@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Windows;
 using System.Windows.Controls;
 using WinForms = System.Windows.Forms;
 using VoltManager.Setup.Engine;
@@ -27,14 +29,27 @@ namespace VoltManager.Setup.Pages
             DescWidgets.Text    = I18n.T("options_widgets_d");
             DescLaunch.Text     = I18n.T("options_launch_d");
 
+            LblWidgetPick.Text   = I18n.T("options_widgets_select");
+            ChkWClock.Content    = I18n.T("widget_clock");
+            ChkWCalendar.Content = I18n.T("widget_calendar");
+            ChkWUsage.Content    = I18n.T("widget_usage");
+            ChkWTemps.Content    = I18n.T("widget_temps");
+            ChkWPower.Content    = I18n.T("widget_power");
+
             TxtDir.Text            = opts.InstallDir;
             ChkDesktop.IsChecked   = opts.CreateDesktopShortcut;
             ChkStartup.IsChecked   = opts.StartWithWindows;
             ChkWidgets.IsChecked   = opts.EnableWidgets;
+
+            // stato iniziale del picker basato su opts
+            WidgetPicker.Visibility = opts.EnableWidgets ? Visibility.Visible : Visibility.Collapsed;
+            foreach (var t in new[] { ("clock",ChkWClock),("calendar",ChkWCalendar),
+                                       ("usage",ChkWUsage),("temps",ChkWTemps),("power",ChkWPower) })
+                t.Item2.IsChecked = opts.EnabledWidgetTypes.Contains(t.Item1);
             ChkLaunch.IsChecked    = opts.LaunchAfterInstall;
         }
 
-        private void BtnBrowse_Click(object sender, System.Windows.RoutedEventArgs e)
+        private void BtnBrowse_Click(object sender, RoutedEventArgs e)
         {
             using var dlg = new WinForms.FolderBrowserDialog
             {
@@ -43,6 +58,20 @@ namespace VoltManager.Setup.Pages
             };
             if (dlg.ShowDialog() == WinForms.DialogResult.OK)
                 TxtDir.Text = dlg.SelectedPath;
+        }
+
+        private void ChkWidgets_Changed(object sender, RoutedEventArgs e)
+            => WidgetPicker.Visibility = ChkWidgets.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
+
+        public HashSet<string> GetEnabledWidgetTypes()
+        {
+            var s = new HashSet<string>();
+            if (ChkWClock.IsChecked    == true) s.Add("clock");
+            if (ChkWCalendar.IsChecked == true) s.Add("calendar");
+            if (ChkWUsage.IsChecked    == true) s.Add("usage");
+            if (ChkWTemps.IsChecked    == true) s.Add("temps");
+            if (ChkWPower.IsChecked    == true) s.Add("power");
+            return s;
         }
     }
 }

@@ -182,6 +182,13 @@ public class HostBridge
                 return _app.Widgets.SetPinned(type, pinned);
             }
 
+            case "setWidgetSize":
+            {
+                string type = payload.GetProperty("type").GetString() ?? "";
+                string size = payload.GetProperty("size").GetString() ?? "medium";
+                return _app.Widgets.SetSize(type, size);
+            }
+
             case "resetWidgetPosition":
             {
                 string type = payload.GetProperty("type").GetString() ?? "";

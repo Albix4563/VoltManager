@@ -106,6 +106,9 @@ Thumbs.db
 # Repo-local analysis output
 graphify-out/
 
+# Piani locali
+piano/
+
 # Local scratch, external projects, old material
 albyfit/
 tmp/

@@ -5,6 +5,37 @@ namespace VoltManager.Tests;
 
 public class WidgetManagerTests
 {
+    [Theory]
+    [InlineData("clock", "mini", 180, 96)]
+    [InlineData("clock", "medium", 260, 150)]
+    [InlineData("clock", "large", 340, 200)]
+    [InlineData("calendar", "mini", 190, 120)]
+    [InlineData("calendar", "medium", 320, 330)]
+    [InlineData("calendar", "large", 420, 430)]
+    [InlineData("usage", "mini", 220, 118)]
+    [InlineData("usage", "medium", 300, 220)]
+    [InlineData("usage", "large", 390, 285)]
+    [InlineData("temps", "mini", 210, 110)]
+    [InlineData("temps", "medium", 280, 180)]
+    [InlineData("temps", "large", 360, 235)]
+    [InlineData("power", "mini", 220, 118)]
+    [InlineData("power", "medium", 300, 190)]
+    [InlineData("power", "large", 390, 250)]
+    public void GetWidgetSize_ReturnsPresetDimensions(string type, string preset, double width, double height)
+    {
+        var size = WidgetManager.GetWidgetSize(type, preset);
+
+        Assert.Equal(width, size.Width);
+        Assert.Equal(height, size.Height);
+    }
+
+    [Fact]
+    public void GetWidgetSize_DefaultsToMedium()
+    {
+        Assert.Equal(WidgetManager.GetWidgetSize("usage", "medium"), WidgetManager.GetWidgetSize("usage"));
+        Assert.Equal(WidgetManager.GetWidgetSize("usage", "medium"), WidgetManager.GetWidgetSize("usage", "huge"));
+    }
+
     [Fact]
     public void CalculateCascadePosition_StartsTopRightAndOffsets()
     {

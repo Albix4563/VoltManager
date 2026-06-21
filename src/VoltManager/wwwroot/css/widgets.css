@@ -123,12 +123,57 @@ html[data-theme=light] .widget-title {
   justify-content: center;
 }
 
+html[data-size=mini] .widget-header {
+  height: 34px;
+  padding: 0 7px 0 10px;
+}
+
+html[data-size=mini] .widget-title {
+  gap: 6px;
+  font-size: 10px;
+}
+
+html[data-size=mini] .widget-title .material-symbols-outlined {
+  font-size: 16px;
+}
+
+html[data-size=mini] .widget-action {
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
+}
+
+html[data-size=mini] .widget-action .material-symbols-outlined {
+  font-size: 16px;
+}
+
+html[data-size=mini] .widget-body {
+  padding: 0 12px 12px;
+}
+
+html[data-size=large] .widget-header {
+  height: 50px;
+  padding: 0 14px 0 18px;
+}
+
+html[data-size=large] .widget-body {
+  padding: 2px 22px 22px;
+}
+
 .widget-value {
   color: var(--vm-text, #d4e4fa);
   font-size: 42px;
   font-weight: 700;
   line-height: .95;
   letter-spacing: 0;
+}
+
+html[data-size=mini] .widget-value {
+  font-size: 38px;
+}
+
+html[data-size=large] .widget-value {
+  font-size: 58px;
 }
 
 html[data-theme=light] .widget-value {
@@ -142,6 +187,14 @@ html[data-theme=light] .widget-value {
   line-height: 1.3;
 }
 
+html[data-size=mini] .widget-muted {
+  font-size: 11px;
+}
+
+html[data-size=large] .widget-muted {
+  font-size: 14px;
+}
+
 html[data-theme=light] .widget-muted {
   color: rgba(15,34,52,.58);
 }
@@ -152,12 +205,29 @@ html[data-theme=light] .widget-muted {
   gap: 10px;
 }
 
+html[data-size=mini] .widget-grid {
+  gap: 8px;
+}
+
+html[data-size=large] .widget-grid {
+  gap: 14px;
+}
+
 .widget-stat {
   min-width: 0;
   padding: 10px;
   border-radius: 12px;
   background: rgba(255,255,255,.055);
   border: 1px solid rgba(255,255,255,.08);
+}
+
+html[data-size=mini] .widget-stat {
+  padding: 8px;
+  border-radius: 10px;
+}
+
+html[data-size=large] .widget-stat {
+  padding: 14px;
 }
 
 html[data-theme=light] .widget-stat {
@@ -186,6 +256,14 @@ html[data-theme=light] .widget-stat label {
   font-weight: 700;
   line-height: 1;
   white-space: nowrap;
+}
+
+html[data-size=mini] .widget-stat strong {
+  font-size: 22px;
+}
+
+html[data-size=large] .widget-stat strong {
+  font-size: 32px;
 }
 
 html[data-theme=light] .widget-stat strong {
@@ -235,12 +313,32 @@ html[data-theme=light] .widget-stat strong {
   font-weight: 700;
 }
 
+.calendar-mini {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+}
+
+.calendar-mini-day {
+  color: var(--vm-text, #d4e4fa);
+  font-size: 42px;
+  font-weight: 800;
+  line-height: .95;
+}
+
 .calendar-day {
   height: 30px;
   border-radius: 8px;
   color: rgba(212,228,250,.84);
   font-size: 13px;
   font-weight: 600;
+}
+
+html[data-size=large] .calendar-day {
+  height: 39px;
+  font-size: 16px;
 }
 
 html[data-theme=light] .calendar-day {
@@ -267,6 +365,16 @@ html[data-theme=light] .calendar-day {
   border-bottom: 1px solid rgba(255,255,255,.07);
 }
 
+html[data-size=mini] .temp-row,
+html[data-size=mini] .power-row {
+  padding: 7px 0;
+}
+
+html[data-size=large] .temp-row,
+html[data-size=large] .power-row {
+  padding: 14px 0;
+}
+
 .temp-row:last-child,
 .power-row:last-child {
   border-bottom: 0;
@@ -276,6 +384,16 @@ html[data-theme=light] .calendar-day {
 .power-row strong {
   font-size: 22px;
   line-height: 1;
+}
+
+html[data-size=mini] .temp-row strong,
+html[data-size=mini] .power-row strong {
+  font-size: 20px;
+}
+
+html[data-size=large] .temp-row strong,
+html[data-size=large] .power-row strong {
+  font-size: 30px;
 }
 
 .empty-note {
