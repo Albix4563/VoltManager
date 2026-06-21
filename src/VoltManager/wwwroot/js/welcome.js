@@ -170,6 +170,13 @@
         // Silent auto updates
         const silentUpdates = document.getElementById('welcome-silent-update-toggle');
         if (silentUpdates && settings) silentUpdates.checked = normalizeAutoUpdates(settings).silentInstallEnabled !== false;
+
+        // Desktop widgets
+        const widgetsToggle = document.getElementById('welcome-widgets-toggle');
+        if (widgetsToggle && settings) {
+            const ws = settings.widgets;
+            widgetsToggle.checked = !!(ws && ws.enabled);
+        }
     }
 
     function wireControls() {
@@ -219,6 +226,20 @@
             }
             const settingsToggle = document.getElementById('toggle-silent-auto-updates');
             if (settingsToggle) settingsToggle.dataset.on = e.target.checked ? 'true' : 'false';
+        });
+
+        // Desktop widgets
+        const widgetsToggle = document.getElementById('welcome-widgets-toggle');
+        widgetsToggle?.addEventListener('change', async (e) => {
+            const enabled = e.target.checked;
+            try {
+                if (window.Host && Host.call) {
+                    await Host.call('setWidgetsMaster', { enabled });
+                }
+            } catch { /* best-effort */ }
+            // Keep the Settings page mini-toggle in sync if mounted.
+            const settingsToggle = document.getElementById('toggle-widgets-master');
+            if (settingsToggle) settingsToggle.dataset.on = enabled ? 'true' : 'false';
         });
     }
 
