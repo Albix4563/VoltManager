@@ -164,6 +164,11 @@ public sealed class HeavyAppDetectionService : IDisposable
                 _sticky.Remove(stalePid);
 
             var detectedPids = detected.Select(a => a.ProcessId).ToHashSet();
+
+            // ponytail: resourceHeuristic entries don't get sticky — drop them when RAM falls below threshold
+            foreach (var pid in _sticky.Keys.Where(pid => !detectedPids.Contains(pid) && _sticky[pid].Reason == "resourceHeuristic").ToList())
+                _sticky.Remove(pid);
+
             foreach (var kept in _sticky.Where(kv => !detectedPids.Contains(kv.Key)))
                 detected.Add(kept.Value);
         }
