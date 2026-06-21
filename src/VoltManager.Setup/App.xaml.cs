@@ -52,7 +52,7 @@ namespace VoltManager.Setup
             var engine = new InstallEngine();
             try
             {
-                await engine.UpdateAsync(pid);
+                await engine.UpdateAsync(pid, GetVersion());
             }
             catch { /* silent */ }
             Shutdown();

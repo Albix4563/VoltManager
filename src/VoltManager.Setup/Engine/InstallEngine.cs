@@ -4,11 +4,14 @@ using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Microsoft.Win32;
+
+[assembly: InternalsVisibleTo("VoltManager.Tests")]
 
 namespace VoltManager.Setup.Engine
 {
@@ -61,7 +64,7 @@ namespace VoltManager.Setup.Engine
             Report("", 100);
         }
 
-        public async Task UpdateAsync(int waitPid, CancellationToken ct = default)
+        public async Task UpdateAsync(int waitPid, string version, CancellationToken ct = default)
         {
             // Wait for main app to exit.
             if (waitPid > 0)
@@ -78,8 +81,6 @@ namespace VoltManager.Setup.Engine
             if (string.IsNullOrEmpty(installDir) || !Directory.Exists(installDir))
                 throw new InvalidOperationException("VoltManager install directory not found in registry.");
 
-            string version = ReadInstalledVersion() ?? "1.0.0";
-
             Report(I18n.T("status_extract"), 0);
             await ExtractPayloadAsync(installDir!, ct);
 
@@ -88,6 +89,7 @@ namespace VoltManager.Setup.Engine
             CopyUninstaller(installDir!);
 
             Report("", 100);
+            ScheduleDownloadedUpdateDelete();
 
             // Relaunch the app with --updated flag.
             string exe = Path.Combine(installDir!, AppExe);
@@ -186,17 +188,45 @@ namespace VoltManager.Setup.Engine
             using (var fs = File.Create(tempZip))
                 await src.CopyToAsync(fs, 81920, ct);
 
-            // Remove old files before extracting (net48 ZipFile has no overwrite option).
-            if (Directory.Exists(destDir))
-            {
-                foreach (var f in Directory.GetFiles(destDir, "*", SearchOption.AllDirectories))
-                {
-                    try { File.Delete(f); } catch { }
-                }
-            }
+            ClearInstallDirectory(destDir);
 
             ZipFile.ExtractToDirectory(tempZip, destDir);
             try { File.Delete(tempZip); } catch { }
+        }
+
+        internal static void ClearInstallDirectory(string destDir)
+        {
+            Directory.CreateDirectory(destDir);
+
+            foreach (string path in Directory.GetFileSystemEntries(destDir))
+            {
+                if (File.Exists(path))
+                {
+                    MakeWritable(path);
+                    File.Delete(path);
+                }
+                else if (Directory.Exists(path))
+                {
+                    MakeWritableTree(path);
+                    Directory.Delete(path, true);
+                }
+            }
+        }
+
+        private static void MakeWritableTree(string dir)
+        {
+            foreach (string file in Directory.GetFiles(dir, "*", SearchOption.AllDirectories))
+                MakeWritable(file);
+            foreach (string subdir in Directory.GetDirectories(dir, "*", SearchOption.AllDirectories))
+                MakeWritable(subdir);
+            MakeWritable(dir);
+        }
+
+        private static void MakeWritable(string path)
+        {
+            FileAttributes attrs = File.GetAttributes(path);
+            attrs &= ~(FileAttributes.ReadOnly | FileAttributes.Hidden | FileAttributes.System);
+            File.SetAttributes(path, attrs);
         }
 
         private static bool WebView2Missing()
@@ -505,6 +535,34 @@ namespace VoltManager.Setup.Engine
             });
         }
 
+        private static void ScheduleDownloadedUpdateDelete()
+        {
+            string self = Assembly.GetExecutingAssembly().Location;
+            string temp = Path.GetFullPath(Path.GetTempPath()).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            string fullSelf = Path.GetFullPath(self);
+
+            if (!fullSelf.StartsWith(temp + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+                return;
+            if (!string.Equals(Path.GetFileName(fullSelf), "VoltManagerUpdate.exe", StringComparison.OrdinalIgnoreCase))
+                return;
+
+            string bat = Path.Combine(Path.GetTempPath(), "vmgr_update_cleanup.bat");
+            File.WriteAllText(bat,
+                "@echo off\r\n" +
+                "for /l %%i in (1,1,30) do (\r\n" +
+                "  del /f /q \"" + fullSelf + "\" 2>nul && goto done\r\n" +
+                "  timeout /t 1 /nobreak >nul\r\n" +
+                ")\r\n" +
+                ":done\r\n" +
+                "del \"%~f0\"\r\n");
+            Process.Start(new ProcessStartInfo("cmd", "/c \"" + bat + "\"")
+            {
+                CreateNoWindow = true,
+                UseShellExecute = false,
+                WindowStyle = ProcessWindowStyle.Hidden,
+            });
+        }
+
         private static long DirSize(DirectoryInfo d)
         {
             long size = 0;
@@ -530,10 +588,5 @@ namespace VoltManager.Setup.Engine
             return k?.GetValue("InstallLocation") as string;
         }
 
-        private static string? ReadInstalledVersion()
-        {
-            using var k = Registry.LocalMachine.OpenSubKey(ARP_KEY);
-            return k?.GetValue("DisplayVersion") as string;
-        }
     }
 }
