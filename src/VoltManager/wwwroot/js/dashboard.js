@@ -353,59 +353,149 @@
     let processesTimer = null;
     let procBuilt = false;
 
+    function clampPercent(value) {
+        value = Number(value) || 0;
+        return Math.max(0, Math.min(100, value));
+    }
+
+    function formatRam(mb) {
+        mb = Number(mb) || 0;
+        if (mb >= 1024) {
+            const gb = mb / 1024;
+            return gb >= 10 ? Math.round(gb) + ' GB' : gb.toFixed(1) + ' GB';
+        }
+        return Math.round(mb) + ' MB';
+    }
+
+    function setProcessMeter(fill, pct) {
+        fill.style.transform = 'scaleX(' + (clampPercent(pct) / 100).toFixed(3) + ')';
+    }
+
+    function getProcessLoad(cpu) {
+        if (cpu >= 20) return 'high';
+        if (cpu >= 8) return 'medium';
+        return 'low';
+    }
+
+    function buildMetricCell(kind) {
+        var metric = document.createElement('div');
+        metric.className = 'process-metric process-' + kind;
+
+        var value = document.createElement('span');
+        value.className = 'process-value';
+
+        var meter = document.createElement('div');
+        meter.className = 'process-meter';
+
+        var fill = document.createElement('div');
+        fill.className = 'process-meter-fill';
+
+        meter.appendChild(fill);
+        metric.appendChild(value);
+        metric.appendChild(meter);
+
+        return { root: metric, value: value, fill: fill };
+    }
+
     function buildProcessRows() {
         if (procBuilt) return;
         procBuilt = true;
         processesList.innerHTML = '';
+
+        var table = document.createElement('div');
+        table.className = 'process-table';
+
         var header = document.createElement('div');
-        header.className = 'flex items-center text-label-sm text-on-surface-variant uppercase mb-2 px-1';
+        header.className = 'process-head';
         var hName = document.createElement('span');
-        hName.className = 'flex-1';
+        hName.className = 'process-head-name';
         hName.setAttribute('data-i18n', 'dash_proc_name');
         hName.textContent = I18n.t('dash_proc_name');
         var hCpu = document.createElement('span');
-        hCpu.className = 'w-20 text-right';
+        hCpu.className = 'process-head-metric';
         hCpu.textContent = 'CPU';
         var hRam = document.createElement('span');
-        hRam.className = 'w-24 text-right';
+        hRam.className = 'process-head-metric';
         hRam.textContent = 'RAM';
         header.appendChild(hName);
         header.appendChild(hCpu);
         header.appendChild(hRam);
-        processesList.appendChild(header);
+        table.appendChild(header);
 
         for (var i = 0; i < PROC_COUNT; i++) {
             var row = document.createElement('div');
-            row.className = 'flex items-center py-2 border-b border-white/5 last:border-0 px-1';
+            row.className = 'process-row';
+
+            var nameCell = document.createElement('div');
+            nameCell.className = 'process-name-cell';
+
+            var rankEl = document.createElement('span');
+            rankEl.className = 'process-rank';
+
+            var nameBlock = document.createElement('div');
+            nameBlock.className = 'process-name-block';
+
             var nameEl = document.createElement('span');
-            nameEl.className = 'flex-1 text-body-md text-on-surface truncate pr-4';
-            var cpuEl = document.createElement('span');
-            cpuEl.className = 'w-20 text-right text-body-md font-mono text-on-surface tabular-nums';
-            var ramEl = document.createElement('span');
-            ramEl.className = 'w-24 text-right text-body-md font-mono text-on-surface-variant tabular-nums';
-            row.appendChild(nameEl);
-            row.appendChild(cpuEl);
-            row.appendChild(ramEl);
-            processesList.appendChild(row);
-            procRows.push({ row: row, nameEl: nameEl, cpuEl: cpuEl, ramEl: ramEl });
+            nameEl.className = 'process-name';
+
+            var metaEl = document.createElement('span');
+            metaEl.className = 'process-meta';
+
+            nameBlock.appendChild(nameEl);
+            nameBlock.appendChild(metaEl);
+            nameCell.appendChild(rankEl);
+            nameCell.appendChild(nameBlock);
+
+            var cpu = buildMetricCell('cpu');
+            var ram = buildMetricCell('ram');
+
+            row.appendChild(nameCell);
+            row.appendChild(cpu.root);
+            row.appendChild(ram.root);
+            table.appendChild(row);
+
+            procRows.push({
+                row: row,
+                rankEl: rankEl,
+                nameEl: nameEl,
+                metaEl: metaEl,
+                cpuEl: cpu.value,
+                cpuFill: cpu.fill,
+                ramEl: ram.value,
+                ramFill: ram.fill,
+            });
         }
+
+        processesList.appendChild(table);
     }
 
     function renderProcesses(procs) {
         if (!procs || procs.length === 0) return;
         buildProcessRows();
+
+        var maxRam = Math.max.apply(null, procs.map(function (p) { return Number(p.ramMb) || 0; }).concat([1]));
+
         for (var i = 0; i < PROC_COUNT; i++) {
             var r = procRows[i];
             if (i < procs.length) {
                 var p = procs[i];
+                var cpu = Number(p.cpuPercent) || 0;
+                var ram = Number(p.ramMb) || 0;
+                var instances = Number(p.instances) || 1;
+
                 r.row.classList.remove('hidden');
-                var label = p.name;
-                if (p.instances > 1) label += ' (' + p.instances + ')';
-                r.nameEl.textContent = label;
-                r.cpuEl.textContent = p.cpuPercent.toFixed(1) + '%';
-                r.ramEl.textContent = Math.round(p.ramMb) + ' MB';
+                r.row.dataset.load = getProcessLoad(cpu);
+                r.rankEl.textContent = '#' + (i + 1);
+                r.nameEl.textContent = p.name || 'Process';
+                r.metaEl.textContent = (instances > 1 ? instances + '× · ' : '') + 'PID ' + p.pid;
+                r.cpuEl.textContent = cpu.toFixed(1) + '%';
+                r.ramEl.textContent = formatRam(ram);
+                setProcessMeter(r.cpuFill, cpu);
+                setProcessMeter(r.ramFill, (ram / maxRam) * 100);
             } else {
                 r.row.classList.add('hidden');
+                setProcessMeter(r.cpuFill, 0);
+                setProcessMeter(r.ramFill, 0);
             }
         }
     }
