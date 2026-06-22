@@ -4,7 +4,7 @@ using VoltManager.Models;
 
 namespace VoltManager.Services;
 
-/// <summary>1s metrics loop on a background timer. Degrades per-metric on counter failure.</summary>
+/// <summary>Configurable metrics loop on a background timer. Degrades per-metric on counter failure.</summary>
 public class MonitorService : IDisposable
 {
     private readonly PerformanceCounter? _cpuCounter;
@@ -22,6 +22,7 @@ public class MonitorService : IDisposable
     private DateTime _prevProcessSampleTime;
     private List<ProcessInfo> _cachedTopProcesses = new();
     private int _processTickCounter;
+    private TimeSpan _interval = TimeSpan.FromSeconds(1);
 
     public event Action<MetricsSnapshot>? MetricsUpdated;
     public MetricsSnapshot Latest { get; private set; } = new();
@@ -45,9 +46,25 @@ public class MonitorService : IDisposable
         catch (Exception ex) { Logger.Warn($"Perf counter '{cat}\\{counter}' unavailable: " + ex.Message); return null; }
     }
 
-    public void Start()
+    public void Start(TimeSpan? interval = null)
     {
-        _timer ??= new System.Threading.Timer(_ => Tick(), null, 1000, 1000);
+        _interval = NormalizeInterval(interval ?? _interval);
+        _timer ??= new System.Threading.Timer(_ => Tick(), null, _interval, _interval);
+    }
+
+    public void SetInterval(TimeSpan interval)
+    {
+        _interval = NormalizeInterval(interval);
+        _timer?.Change(_interval, _interval);
+    }
+
+    private static TimeSpan NormalizeInterval(TimeSpan interval)
+    {
+        var min = TimeSpan.FromSeconds(CpuAutomationSettings.MinSampleIntervalSeconds);
+        var max = TimeSpan.FromSeconds(CpuAutomationSettings.MaxSampleIntervalSeconds);
+        if (interval < min) return min;
+        if (interval > max) return max;
+        return interval;
     }
 
     private void Tick()

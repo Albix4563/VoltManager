@@ -40,7 +40,8 @@ public partial class App : Application
     public Task<CoreWebView2Environment> WebViewEnvironment { get; private set; } = null!;
 
     private PowerFlowService _powerFlow = null!;
-    private System.Threading.Timer? _automationTimer;
+    private int _automationTickRunning;
+    private TimeSpan _currentSamplingInterval = TimeSpan.FromSeconds(1);
     private System.Threading.Timer? _scheduledPowerActionTimer;
     private System.Threading.Timer? _planPollTimer;
     private System.Threading.Timer? _batteryHistoryTimer;
@@ -131,7 +132,7 @@ public partial class App : Application
         Updates = new UpdateService(Settings);
         AutoStart = new StartupService();
         Automation = new AutomationEngine();
-        Settings.SettingsChanged += _ => UpdateAutomationTimerPeriod();
+        Settings.SettingsChanged += _ => UpdateSamplingPeriod();
         HeavyApps = new HeavyAppDetectionService(Settings);
         AppProfiles = new AppPowerProfileService(Settings);
         PowerSourcePlans = new PowerSourcePlanService(Settings);
@@ -142,12 +143,13 @@ public partial class App : Application
         Widgets = new WidgetManager(this, WebViewEnvironment);
         ClearExpiredManualOverride(DateTime.UtcNow);
 
-        Monitor.Start();
+        _currentSamplingInterval = CpuAutomationSampleInterval();
+        Monitor.MetricsUpdated += OnMetricsSampled;
+        Monitor.Start(_currentSamplingInterval);
         HeavyApps.Start();
         AppProfiles.Start();
         StandbyAutoCleaner.Start();
         StartPlanPoll();
-        StartAutomationLoop();
         StartScheduledPowerActionLoop();
         StartBatteryHistoryLoop();
 
@@ -315,41 +317,44 @@ public partial class App : Application
         }, null, 0, 3000);
     }
 
-    private void StartAutomationLoop()
+    private void OnMetricsSampled(MetricsSnapshot metrics)
     {
-        var sampleInterval = CpuAutomationSampleInterval();
-        _automationTimer = new System.Threading.Timer(_ =>
+        if (Interlocked.Exchange(ref _automationTickRunning, 1) == 1)
+            return;
+
+        try
         {
-            try
+            var now = DateTime.UtcNow;
+            double avg = Automation.AddSample(metrics.Cpu, now);
+            ClearExpiredManualOverride(now);
+
+            bool handledByHigherPriority =
+                HandlePowerSourcePlans(now) ||
+                HandleAppPowerProfiles(now) ||
+                HandleHeavyAppDetection(now);
+
+            if (!handledByHigherPriority)
             {
-                var now = DateTime.UtcNow;
-                double avg = Automation.AddSample(Monitor.Latest.Cpu, now);
-                ClearExpiredManualOverride(now);
-
-                bool handledByHigherPriority =
-                    HandlePowerSourcePlans(now) ||
-                    HandleAppPowerProfiles(now) ||
-                    HandleHeavyAppDetection(now);
-
-                if (!handledByHigherPriority)
+                var target = Automation.Evaluate(avg, now, ActivePlan?.PlanId, Settings.Current);
+                if (target != null && Power.SetActivePlan(target.Value))
                 {
-                    var target = Automation.Evaluate(avg, now, ActivePlan?.PlanId, Settings.Current);
-                    if (target != null && Power.SetActivePlan(target.Value))
-                    {
-                        var current = Power.GetActivePlan();
-                        ActivePlan = current;
-                        ActivePlanChanged?.Invoke(current);
-                    }
+                    var current = Power.GetActivePlan();
+                    ActivePlan = current;
+                    ActivePlanChanged?.Invoke(current);
                 }
+            }
 
-                PublishCpuAutomationState(now);
-            }
-            catch (Exception ex)
-            {
-                // Automation must never crash the app.
-                Logger.Error("Automation loop tick failed", ex);
-            }
-        }, null, TimeSpan.FromSeconds(3), sampleInterval);
+            PublishCpuAutomationState(now);
+        }
+        catch (Exception ex)
+        {
+            // Automation must never crash the shared metrics/automation sample.
+            Logger.Error("Automation sample handling failed", ex);
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _automationTickRunning, 0);
+        }
     }
 
     private TimeSpan CpuAutomationSampleInterval()
@@ -359,10 +364,18 @@ public partial class App : Application
         return TimeSpan.FromSeconds(Settings.Current.CpuAutomation.SampleIntervalSeconds);
     }
 
-    private void UpdateAutomationTimerPeriod()
+    private void UpdateSamplingPeriod()
     {
         var interval = CpuAutomationSampleInterval();
-        _automationTimer?.Change(interval, interval);
+        if (interval == _currentSamplingInterval)
+        {
+            PublishCpuAutomationState(DateTime.UtcNow);
+            return;
+        }
+
+        _currentSamplingInterval = interval;
+        Monitor.SetInterval(interval);
+        Automation.Reset();
         PublishCpuAutomationState(DateTime.UtcNow);
     }
 
@@ -690,7 +703,7 @@ public partial class App : Application
 
     public void ExitApp()
     {
-        _automationTimer?.Dispose();
+        Monitor.MetricsUpdated -= OnMetricsSampled;
         _scheduledPowerActionTimer?.Dispose();
         _planPollTimer?.Dispose();
         _batteryHistoryTimer?.Dispose();
