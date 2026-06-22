@@ -25,6 +25,7 @@ public partial class MainWindow : Window
     private bool _updatePromptOpen;
     private readonly GamingModeReminderService _gamingReminder = new();
     private int _gamingReminderPromptRunning;
+    private int _rendererReloadCount;
 
     public MainWindow(App app, bool startMinimized, bool justUpdated = false,
         Task<CoreWebView2Environment>? webViewEnvironment = null)
@@ -112,10 +113,14 @@ public partial class MainWindow : Window
             _app.PowerSourcePlans.StateChanged += s => _bridge.PushEvent("powerSourcePlanChanged", s);
             _app.Widgets.StateChanged += s => _bridge.PushEvent("widgetsStateChanged", s);
 
+            core.ProcessFailed += OnWebViewProcessFailed;
+
             bool startupCheckDone = false;
             core.NavigationCompleted += (_, args) =>
             {
-                if (!args.IsSuccess || startupCheckDone) return;
+                if (!args.IsSuccess) return;
+                _rendererReloadCount = 0; // a clean load means the renderer recovered
+                if (startupCheckDone) return;
                 startupCheckDone = true;
                 if (_justUpdated)
                     _ = PushUpdatedToastAsync();
@@ -125,6 +130,10 @@ public partial class MainWindow : Window
 
             StartAutoUpdateLoop();
             core.Navigate("https://app.local/index.html?v=" + DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+
+            // Launched straight into the tray: start trimmed until the user opens it.
+            if (!IsVisible || WindowState == WindowState.Minimized)
+                SetWebViewMemoryLevel(low: true);
         }
         catch (Exception ex)
         {
@@ -137,6 +146,28 @@ public partial class MainWindow : Window
             _exiting = true;
             _app.ExitApp();
         }
+    }
+
+    private void OnWebViewProcessFailed(object? sender, CoreWebView2ProcessFailedEventArgs e)
+    {
+        // Under memory pressure the OS can kill the WebView2 renderer; without this
+        // the dashboard just goes blank and the app looks crashed. Reload so it
+        // self-heals. A dead *browser* process can't be reloaded into (the whole
+        // CoreWebView2 is gone), so bail there. Cap retries so a renderer that
+        // keeps dying can't spin in a reload loop.
+        Logger.Warn($"WebView2 process failed: {e.ProcessFailedKind} (reason: {e.Reason})");
+        if (e.ProcessFailedKind == CoreWebView2ProcessFailedKind.BrowserProcessExited)
+            return;
+        if (Interlocked.Increment(ref _rendererReloadCount) > 5)
+        {
+            Logger.Error("WebView2 renderer kept failing; giving up auto-reload.");
+            return;
+        }
+        _ = Dispatcher.InvokeAsync(() =>
+        {
+            try { WebView.CoreWebView2?.Reload(); }
+            catch (Exception ex) { Logger.Error("WebView reload after crash failed", ex); }
+        });
     }
 
     private void OnMetricsUpdated(MetricsSnapshot metrics)
@@ -452,6 +483,9 @@ public partial class MainWindow : Window
     {
         Hide();
         ShowInTaskbar = false;
+        // Hidden in the tray the dashboard isn't visible, so let Chromium release
+        // its working set — on a saturated PC this is the app's biggest memory win.
+        SetWebViewMemoryLevel(low: true);
     }
 
     public void ShowFromTray()
@@ -460,6 +494,19 @@ public partial class MainWindow : Window
         Show();
         WindowState = WindowState.Normal;
         Activate();
+        SetWebViewMemoryLevel(low: false);
+    }
+
+    private void SetWebViewMemoryLevel(bool low)
+    {
+        try
+        {
+            if (WebView.CoreWebView2 is { } core)
+                core.MemoryUsageTargetLevel = low
+                    ? CoreWebView2MemoryUsageTargetLevel.Low
+                    : CoreWebView2MemoryUsageTargetLevel.Normal;
+        }
+        catch (Exception ex) { Logger.Warn("Could not set WebView2 memory level: " + ex.Message); }
     }
 
     private void TrayIcon_LeftClick(object sender, RoutedEventArgs e) => ShowFromTray();

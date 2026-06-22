@@ -13,9 +13,15 @@ public class MonitorService : IDisposable
     private readonly HardwareSensorProvider _sensors;
     private readonly double _ramTotalGb;
     private System.Threading.Timer? _timer;
+    private int _tickRunning; // reentrancy guard: skip a tick if the prior one is still in WMI
     private bool _tickFaulted; // throttles error logging to once per failure streak
     private bool _ramFaulted;  // same throttle for the per-tick RAM WMI query
     private bool _clockFaulted; // and for the CPU-clock WMI fallback
+
+    // Above this system-RAM %, skip the full Process.GetProcesses() scan — it is the
+    // loop's heaviest allocator, and on a saturated machine that churn is exactly what
+    // tips the app over. The top-processes panel just goes briefly stale instead.
+    private const double ProcessScanRamCutoffPct = 92;
 
     private static readonly int ProcessorCount = Environment.ProcessorCount;
     private Dictionary<int, TimeSpan> _prevProcessCpuTimes = new();
@@ -69,6 +75,10 @@ public class MonitorService : IDisposable
 
     private void Tick()
     {
+        // Under saturation a WMI/perf-counter call can stall for seconds; the timer
+        // would keep firing and pile overlapping ticks onto the thread pool. Skip
+        // any tick that lands while the previous one is still running.
+        if (Interlocked.Exchange(ref _tickRunning, 1) == 1) return;
         try
         {
             double cpu = SafeRead(_cpuCounter);
@@ -100,7 +110,7 @@ public class MonitorService : IDisposable
             if (++_processTickCounter >= 3)
             {
                 _processTickCounter = 0;
-                UpdateProcesses();
+                if (pct < ProcessScanRamCutoffPct) UpdateProcesses();
             }
 
             if (_tickFaulted)
@@ -118,6 +128,10 @@ public class MonitorService : IDisposable
                 _tickFaulted = true;
                 Logger.Error("Metrics loop tick failed", ex);
             }
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _tickRunning, 0);
         }
     }
 

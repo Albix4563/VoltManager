@@ -262,3 +262,40 @@ html[data-theme=light] .segmented-pill{
   }
   .vm-aurora{ display: none; }
 }
+
+/* ---------- 11. RAM-pressure lite mode ---------- */
+/* perf-guard.js sets html[data-perf="lite"] when system RAM runs high. This is
+   the reduced-motion kills PLUS dropping the GPU-heavy aurora/backdrop-blur/halo
+   layers — those are what balloon renderer memory and crash WebView2 under load.
+   effects.js independently snaps every JS tween to static via the same flag. */
+html[data-perf="lite"] .vm-aurora{ display: none; }
+html[data-perf="lite"] .vm-aurora__orb,
+html[data-perf="lite"] .fx-title,
+html[data-perf="lite"] .nav-indicator,
+html[data-perf="lite"] #monitoring-dot.animate-pulse::after,
+html[data-perf="lite"] .glass-card.fx-sheen::before{ animation: none !important; }
+html[data-perf="lite"] .fx-title{ color: var(--vm-text,#d4e4fa); -webkit-text-fill-color: currentColor; }
+html[data-perf="lite"] #cpu-ring,
+html[data-perf="lite"] #gpu-ring{ transition: stroke .3s ease; will-change: auto; }
+/* Pointer spotlight + hover sheen overlays: no spare GPU budget for them now. */
+html[data-perf="lite"] .glass-card::after,
+html[data-perf="lite"] .glass-panel::after,
+html[data-perf="lite"] .glass-card::before{ display: none !important; }
+html[data-perf="lite"] .fx-metric[data-load="mid"],
+html[data-perf="lite"] .fx-metric[data-load="high"]{ box-shadow: none !important; }
+/* Backdrop blur is the single biggest GPU-memory cost — opaque fallback. */
+html[data-perf="lite"] .glass-panel,
+html[data-perf="lite"] .glass-modal{
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  background: var(--vm-card, #1e2a4a) !important;
+}
+html[data-perf="lite"] nav.backdrop-blur-\[30px\]{
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  background: var(--vm-surface, #122131) !important;
+}
+html[data-perf="lite"] .pm-subnav{
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}

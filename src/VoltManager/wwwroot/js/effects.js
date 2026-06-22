@@ -6,7 +6,12 @@
  * under prefers-reduced-motion.
  */
 (function () {
-  const reduce = () => !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  // Motion is killed by the OS setting OR by perf-guard.js flipping the page
+  // into RAM-pressure "lite" mode (data-perf=lite) when memory runs high.
+  const reduce = () => !!(
+    (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) ||
+    document.documentElement.dataset.perf === 'lite'
+  );
   const CIRC = 251.2; // 2*PI*r(40), matches dashboard ring geometry
 
   function isLight() { return document.documentElement.dataset.theme === 'light'; }
@@ -108,6 +113,14 @@
         bar.dataset.fxBar = '1';
       }
       chase(bar, clamped, (v) => { bar.style.transform = 'scaleX(' + (v / 100).toFixed(4) + ')'; }, 0.15);
+    },
+
+    /** Freeze + drop every running tween at once. perf-guard.js calls this when
+     *  RAM-pressure lite mode kicks in so the rAF loop parks immediately instead
+     *  of waiting for each channel's next retarget. */
+    stopMotion() {
+      channels.clear();
+      if (rafId) { cancelAnimationFrame(rafId); rafId = 0; lastTs = 0; }
     },
   };
   window.VoltFx = VoltFx;
