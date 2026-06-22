@@ -19,8 +19,8 @@ public class WidgetManagerTests
     [InlineData("temps", "medium", 280, 180)]
     [InlineData("temps", "large", 360, 235)]
     [InlineData("power", "mini", 220, 118)]
-    [InlineData("power", "medium", 300, 190)]
-    [InlineData("power", "large", 390, 250)]
+    [InlineData("power", "medium", 300, 230)]
+    [InlineData("power", "large", 390, 300)]
     public void GetWidgetSize_ReturnsPresetDimensions(string type, string preset, double width, double height)
     {
         var size = WidgetManager.GetWidgetSize(type, preset);

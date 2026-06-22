@@ -249,6 +249,15 @@
         return settings.keepAwake;
     }
 
+    function normalizeCpuAutomation() {
+        if (!settings.cpuAutomation) settings.cpuAutomation = { sampleIntervalSeconds: 1 };
+        const n = Number(settings.cpuAutomation.sampleIntervalSeconds);
+        settings.cpuAutomation.sampleIntervalSeconds = Number.isFinite(n)
+            ? Math.max(1, Math.min(60, Math.round(n)))
+            : 1;
+        return settings.cpuAutomation;
+    }
+
     function ensurePowerStyles() {
         if (document.getElementById('power-feature-styles')) return;
 
@@ -706,6 +715,9 @@
         });
 
         document.getElementById('master-toggle').checked = settings.masterAutomationEnabled;
+        const cpuAutomation = normalizeCpuAutomation();
+        const sampleInput = document.getElementById('cpu-sample-interval');
+        if (sampleInput) sampleInput.value = cpuAutomation.sampleIntervalSeconds;
         mountAppPowerProfileUi();
         mountHeavyAppUi();
         mountKeepAwakeUi();
@@ -783,6 +795,16 @@
             settings.masterAutomationEnabled = e.target.checked;
             scheduleSave();
         });
+
+        const sampleInput = document.getElementById('cpu-sample-interval');
+        if (sampleInput) {
+            sampleInput.addEventListener('change', (e) => {
+                const cfg = normalizeCpuAutomation();
+                cfg.sampleIntervalSeconds = Math.round(clamp(e.target.value, 1, 60, cfg.sampleIntervalSeconds));
+                e.target.value = cfg.sampleIntervalSeconds;
+                scheduleSave();
+            });
+        }
     }
 
     Host.call('getSettings').then(res => {

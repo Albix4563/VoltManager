@@ -51,6 +51,8 @@ public class SettingsService
                         loaded.KeepAwake = new KeepAwakeSettings();
                     if (loaded.PowerSourcePlan == null)
                         loaded.PowerSourcePlan = new PowerSourcePlanSettings();
+                    if (loaded.CpuAutomation == null)
+                        loaded.CpuAutomation = new CpuAutomationSettings();
                     if (loaded.StandbyAutoCleaner == null)
                         loaded.StandbyAutoCleaner = new StandbyAutoCleanerSettings();
                     if (loaded.Widgets == null)
@@ -61,6 +63,7 @@ public class SettingsService
                     NormalizeAppPowerProfileSettings(loaded.AppPowerProfiles);
                     NormalizeKeepAwakeSettings(loaded.KeepAwake);
                     NormalizePowerSourcePlanSettings(loaded.PowerSourcePlan);
+                    NormalizeCpuAutomationSettings(loaded.CpuAutomation);
                     NormalizeStandbyAutoCleanerSettings(loaded.StandbyAutoCleaner);
                     NormalizeWidgetSettings(loaded.Widgets);
                     NormalizeTheme(loaded);
@@ -192,6 +195,8 @@ public class SettingsService
         };
     }
 
+    private static void NormalizeCpuAutomationSettings(CpuAutomationSettings settings) => settings.Normalize();
+
     private static void NormalizeStandbyAutoCleanerSettings(StandbyAutoCleanerSettings settings)
     {
         settings.ThresholdGb = Math.Clamp(settings.ThresholdGb, 0.5, 128.0);
@@ -210,6 +215,7 @@ public class SettingsService
             Current.AppPowerProfiles ??= new AppPowerProfileSettings();
             Current.KeepAwake ??= new KeepAwakeSettings();
             Current.PowerSourcePlan ??= new PowerSourcePlanSettings();
+            Current.CpuAutomation ??= new CpuAutomationSettings();
             Current.StandbyAutoCleaner ??= new StandbyAutoCleanerSettings();
             Current.Widgets ??= new WidgetSettings();
             NormalizeScheduledPowerAction(Current.AutoShutdown);
@@ -218,6 +224,7 @@ public class SettingsService
             NormalizeAppPowerProfileSettings(Current.AppPowerProfiles);
             NormalizeKeepAwakeSettings(Current.KeepAwake);
             NormalizePowerSourcePlanSettings(Current.PowerSourcePlan);
+            NormalizeCpuAutomationSettings(Current.CpuAutomation);
             NormalizeStandbyAutoCleanerSettings(Current.StandbyAutoCleaner);
             NormalizeWidgetSettings(Current.Widgets);
             NormalizeTheme(Current);

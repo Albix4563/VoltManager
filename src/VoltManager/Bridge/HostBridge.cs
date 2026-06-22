@@ -207,6 +207,9 @@ public class HostBridge
             case "getActivePlan":
                 return await Task.Run(() => _power.GetActivePlan());
 
+            case "getCpuAutomationState":
+                return _app.CpuAutomationState;
+
             case "setActivePlan":
             {
                 var planStr = payload.GetProperty("plan").GetString() ?? "";
@@ -514,6 +517,7 @@ public class HostBridge
         settings.AutoUpdates ??= new AutoUpdateSettings();
         settings.HeavyAppDetection ??= new HeavyAppDetectionSettings();
         settings.AppPowerProfiles ??= new AppPowerProfileSettings();
+        settings.CpuAutomation ??= new CpuAutomationSettings();
         current.AutoShutdown ??= new AutoShutdownSettings();
         current.AutoUpdates ??= new AutoUpdateSettings();
         current.Widgets ??= new WidgetSettings();

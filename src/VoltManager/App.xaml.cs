@@ -57,8 +57,10 @@ public partial class App : Application
     private static readonly TimeSpan AppProfileTeardownGrace = TimeSpan.FromSeconds(15);
 
     public PowerPlan? ActivePlan { get; private set; }
+    public CpuAutomationState CpuAutomationState { get; private set; } = new();
     public event Action<PowerPlan?>? ActivePlanChanged;
     public event Action<ManualOverride?>? ManualOverrideChanged;
+    public event Action<CpuAutomationState>? CpuAutomationStateChanged;
 
     [DllImport("powrprof.dll", SetLastError = true)]
     private static extern bool SetSuspendState(bool hibernate, bool forceCritical, bool disableWakeEvent);
@@ -129,6 +131,7 @@ public partial class App : Application
         Updates = new UpdateService(Settings);
         AutoStart = new StartupService();
         Automation = new AutomationEngine();
+        Settings.SettingsChanged += _ => UpdateAutomationTimerPeriod();
         HeavyApps = new HeavyAppDetectionService(Settings);
         AppProfiles = new AppPowerProfileService(Settings);
         PowerSourcePlans = new PowerSourcePlanService(Settings);
@@ -314,37 +317,77 @@ public partial class App : Application
 
     private void StartAutomationLoop()
     {
+        var sampleInterval = CpuAutomationSampleInterval();
         _automationTimer = new System.Threading.Timer(_ =>
         {
             try
             {
-                double avg = Automation.AddSample(Monitor.Latest.Cpu);
                 var now = DateTime.UtcNow;
+                double avg = Automation.AddSample(Monitor.Latest.Cpu, now);
                 ClearExpiredManualOverride(now);
 
-                if (HandlePowerSourcePlans(now))
-                    return;
+                bool handledByHigherPriority =
+                    HandlePowerSourcePlans(now) ||
+                    HandleAppPowerProfiles(now) ||
+                    HandleHeavyAppDetection(now);
 
-                if (HandleAppPowerProfiles(now))
-                    return;
-
-                if (HandleHeavyAppDetection(now))
-                    return;
-
-                var target = Automation.Evaluate(avg, now, ActivePlan?.PlanId, Settings.Current);
-                if (target != null && Power.SetActivePlan(target.Value))
+                if (!handledByHigherPriority)
                 {
-                    var current = Power.GetActivePlan();
-                    ActivePlan = current;
-                    ActivePlanChanged?.Invoke(current);
+                    var target = Automation.Evaluate(avg, now, ActivePlan?.PlanId, Settings.Current);
+                    if (target != null && Power.SetActivePlan(target.Value))
+                    {
+                        var current = Power.GetActivePlan();
+                        ActivePlan = current;
+                        ActivePlanChanged?.Invoke(current);
+                    }
                 }
+
+                PublishCpuAutomationState(now);
             }
             catch (Exception ex)
             {
                 // Automation must never crash the app.
                 Logger.Error("Automation loop tick failed", ex);
             }
-        }, null, 3000, 1000);
+        }, null, TimeSpan.FromSeconds(3), sampleInterval);
+    }
+
+    private TimeSpan CpuAutomationSampleInterval()
+    {
+        Settings.Current.CpuAutomation ??= new CpuAutomationSettings();
+        Settings.Current.CpuAutomation.Normalize();
+        return TimeSpan.FromSeconds(Settings.Current.CpuAutomation.SampleIntervalSeconds);
+    }
+
+    private void UpdateAutomationTimerPeriod()
+    {
+        var interval = CpuAutomationSampleInterval();
+        _automationTimer?.Change(interval, interval);
+        PublishCpuAutomationState(DateTime.UtcNow);
+    }
+
+    private void PublishCpuAutomationState(DateTime now)
+    {
+        Settings.Current.CpuAutomation ??= new CpuAutomationSettings();
+        Settings.Current.CpuAutomation.Normalize();
+        bool manualOverrideActive = Settings.Current.Override?.IsActive(now) == true;
+        var candidate = string.IsNullOrWhiteSpace(Automation.CandidateRuleId)
+            ? null
+            : Settings.Current.Rules.FirstOrDefault(r => r.Id == Automation.CandidateRuleId);
+
+        CpuAutomationState = new CpuAutomationState
+        {
+            Enabled = Settings.Current.MasterAutomationEnabled && !manualOverrideActive,
+            SampleIntervalSeconds = Settings.Current.CpuAutomation.SampleIntervalSeconds,
+            RawCpu = Automation.LastRawCpu,
+            AverageCpu = Automation.LastAverageCpu,
+            SampledAtUtc = Automation.LastSampledAtUtc,
+            CandidateRuleId = Automation.CandidateRuleId,
+            CandidateTargetPlan = candidate?.TargetPlan,
+            ActivePlan = ActivePlan?.PlanId,
+            ManualOverrideActive = manualOverrideActive,
+        };
+        CpuAutomationStateChanged?.Invoke(CpuAutomationState);
     }
 
     private bool HandleAppPowerProfiles(DateTime now)
@@ -580,6 +623,7 @@ public partial class App : Application
         ActivePlan = current;
         ActivePlanChanged?.Invoke(current);
         ManualOverrideChanged?.Invoke(Settings.Current.Override);
+        PublishCpuAutomationState(DateTime.UtcNow);
         return true;
     }
 
@@ -591,6 +635,7 @@ public partial class App : Application
         Settings.Save();
         Automation.Reset();
         ManualOverrideChanged?.Invoke(null);
+        PublishCpuAutomationState(DateTime.UtcNow);
     }
 
     public void ClearManualOverride()
@@ -601,6 +646,7 @@ public partial class App : Application
         Settings.Save();
         Automation.Reset();
         ManualOverrideChanged?.Invoke(null);
+        PublishCpuAutomationState(DateTime.UtcNow);
     }
 
     public HeavyAppDetectionState GetHeavyAppStatus() => HeavyApps.Current;
@@ -631,6 +677,7 @@ public partial class App : Application
         Settings.Save();
         Automation.Reset();
         ManualOverrideChanged?.Invoke(null);
+        PublishCpuAutomationState(now);
     }
 
     private static string ToPlanKey(PlanId plan) => plan switch

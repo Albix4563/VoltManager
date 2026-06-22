@@ -100,6 +100,7 @@ public partial class MainWindow : Window
             _app.Monitor.MetricsUpdated += OnMetricsUpdated;
             _app.ActivePlanChanged += p => _bridge.PushEvent("activePlanChanged", new { plan = p?.PlanId, guid = p?.Guid, name = p?.Name });
             _app.Settings.SettingsChanged += s => _bridge.PushEvent("automationStateChanged", new { masterEnabled = s.MasterAutomationEnabled, @override = s.Override });
+            _app.CpuAutomationStateChanged += s => _bridge.PushEvent("cpuAutomationStateChanged", s);
             _app.ManualOverrideChanged += o =>
             {
                 _bridge.PushEvent("manualOverrideChanged", new { @override = o });

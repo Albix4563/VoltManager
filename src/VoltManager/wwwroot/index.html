@@ -420,6 +420,24 @@ html[data-theme=light] .welcome-theme-card .welcome-theme-check{border-color:rgb
               </div>
             </div>
 
+            <div class="glass-panel p-lg rounded-xl mb-md">
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-md">
+                <div class="flex items-center gap-md">
+                  <div class="w-12 h-12 rounded-lg bg-surface-container-lowest border border-white/5 flex items-center justify-center shrink-0">
+                    <span class="material-symbols-outlined text-secondary-fixed-dim">schedule</span>
+                  </div>
+                  <div>
+                    <h3 class="text-title-md text-on-surface" data-i18n="power_sample_title">Intervallo campionamento CPU</h3>
+                    <p class="text-body-sm text-on-surface-variant mt-1" data-i18n="power_sample_sub">Scegli ogni quanti secondi VoltManager legge l'uso CPU per decidere il piano energetico automatico.</p>
+                  </div>
+                </div>
+                <div class="flex items-center gap-xs shrink-0">
+                  <input class="w-16 h-9 bg-surface-container-lowest border-b border-white/20 rounded text-center text-body-md text-secondary-container input-glow transition-all" id="cpu-sample-interval" max="60" min="1" type="number" value="1"/>
+                  <span class="text-body-md text-on-surface-variant" data-i18n="power_sample_seconds">secondi</span>
+                </div>
+              </div>
+            </div>
+
             <div class="space-y-md">
           <!-- Rule: Risparmio Energetico -->
           <div class="glass-panel p-lg rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-md group hover:border-white/20 transition-all duration-300">

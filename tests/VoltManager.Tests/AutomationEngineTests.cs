@@ -164,6 +164,20 @@ public class AutomationEngineTests
     }
 
     [Fact]
+    public void AddSample_TracksLatestSampleState()
+    {
+        var engine = new AutomationEngine();
+        var sampledAt = T0.AddSeconds(10);
+
+        var avg = engine.AddSample(42.5, sampledAt);
+
+        Assert.Equal(42.5, avg, 3);
+        Assert.Equal(42.5, engine.LastRawCpu, 3);
+        Assert.Equal(42.5, engine.LastAverageCpu, 3);
+        Assert.Equal(sampledAt, engine.LastSampledAtUtc);
+    }
+
+    [Fact]
     public void CustomThresholds_Respected()
     {
         var engine = new AutomationEngine();

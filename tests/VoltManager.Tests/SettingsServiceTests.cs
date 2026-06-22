@@ -34,6 +34,8 @@ public class SettingsServiceTests : IDisposable
         Assert.True(svc.Current.PowerSourcePlan.Enabled);
         Assert.Equal(PlanId.Performance, svc.Current.PowerSourcePlan.PluggedPlan);
         Assert.Equal("previous", svc.Current.PowerSourcePlan.UnpluggedMode);
+        Assert.NotNull(svc.Current.CpuAutomation);
+        Assert.Equal(1, svc.Current.CpuAutomation.SampleIntervalSeconds);
         Assert.NotNull(svc.Current.AppPowerProfiles);
         Assert.True(svc.Current.AppPowerProfiles.Enabled);
         Assert.Empty(svc.Current.AppPowerProfiles.Rules);
@@ -72,6 +74,7 @@ public class SettingsServiceTests : IDisposable
         svc.Current.PowerSourcePlan.Enabled = false;
         svc.Current.PowerSourcePlan.PluggedPlan = PlanId.Performance;
         svc.Current.PowerSourcePlan.UnpluggedMode = "previous";
+        svc.Current.CpuAutomation.SampleIntervalSeconds = 5;
         svc.Current.StandbyAutoCleaner.Enabled = true;
         svc.Current.StandbyAutoCleaner.ThresholdGb = 4.5;
         svc.Current.StandbyAutoCleaner.IntervalMinutes = 120;
@@ -113,6 +116,7 @@ public class SettingsServiceTests : IDisposable
         Assert.False(reloaded.Current.PowerSourcePlan.Enabled);
         Assert.Equal(PlanId.Performance, reloaded.Current.PowerSourcePlan.PluggedPlan);
         Assert.Equal("previous", reloaded.Current.PowerSourcePlan.UnpluggedMode);
+        Assert.Equal(5, reloaded.Current.CpuAutomation.SampleIntervalSeconds);
         Assert.True(reloaded.Current.StandbyAutoCleaner.Enabled);
         Assert.Equal(4.5, reloaded.Current.StandbyAutoCleaner.ThresholdGb);
         Assert.Equal(120, reloaded.Current.StandbyAutoCleaner.IntervalMinutes);
@@ -211,6 +215,31 @@ public class SettingsServiceTests : IDisposable
         Assert.True(svc.Current.PowerSourcePlan.Enabled);
         Assert.Equal(PlanId.Performance, svc.Current.PowerSourcePlan.PluggedPlan);
         Assert.Equal("previous", svc.Current.PowerSourcePlan.UnpluggedMode);
+    }
+
+    [Fact]
+    public void NullCpuAutomation_RestoredToDefaults()
+    {
+        Directory.CreateDirectory(_dir);
+        File.WriteAllText(SettingsPath, "{\"cpuAutomation\":null}");
+        var svc = new SettingsService(SettingsPath);
+        Assert.NotNull(svc.Current.CpuAutomation);
+        Assert.Equal(1, svc.Current.CpuAutomation.SampleIntervalSeconds);
+    }
+
+    [Fact]
+    public void CpuAutomation_ClampsSampleInterval()
+    {
+        Directory.CreateDirectory(_dir);
+        File.WriteAllText(SettingsPath, "{\"cpuAutomation\":{\"sampleIntervalSeconds\":0}}");
+        var svc = new SettingsService(SettingsPath);
+        Assert.Equal(1, svc.Current.CpuAutomation.SampleIntervalSeconds);
+
+        svc.Current.CpuAutomation.SampleIntervalSeconds = 200;
+        svc.Save();
+
+        var reloaded = new SettingsService(SettingsPath);
+        Assert.Equal(60, reloaded.Current.CpuAutomation.SampleIntervalSeconds);
     }
 
     [Fact]

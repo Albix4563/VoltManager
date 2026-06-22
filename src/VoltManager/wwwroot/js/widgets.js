@@ -195,12 +195,19 @@
         shell(
             '<div class="power-row"><span class="widget-muted" data-i18n="widget_power_now">Power</span><strong id="power-watts">--</strong></div>' +
             '<div class="power-row"><span class="widget-muted" data-i18n="widget_battery">Battery</span><strong id="power-battery">--</strong></div>' +
-            (size === 'mini' ? '' : '<div class="power-row"><span class="widget-muted" data-i18n="widget_plan">Plan</span><strong id="power-plan">--</strong></div>'));
+            (size === 'mini' ? '' :
+                '<div class="power-row"><span class="widget-muted" data-i18n="widget_plan">Plan</span><strong id="power-plan">--</strong></div>' +
+                '<div class="power-row"><span class="widget-muted" data-i18n="widget_cpu_auto">CPU avg</span><strong id="power-auto-cpu">--</strong></div>' +
+                '<div class="power-row"><span class="widget-muted" data-i18n="widget_sample_interval">Sample</span><strong id="power-auto-sample">--</strong></div>'));
         if (window.I18n && I18n.apply) I18n.apply();
         pollPower();
-        if (size !== 'mini') pollPlan();
+        if (size !== 'mini') {
+            pollPlan();
+            pollCpuAutomation();
+        }
         setInterval(pollPower, 5000);
         Host.on('activePlanChanged', (data) => renderPlan(data && data.plan));
+        Host.on('cpuAutomationStateChanged', renderCpuAutomation);
     }
 
     async function pollPower() {
@@ -214,6 +221,13 @@
         try {
             const plan = await Host.call('getActivePlan');
             renderPlan(plan && plan.planId);
+        } catch { }
+    }
+
+    async function pollCpuAutomation() {
+        try {
+            const state = await Host.call('getCpuAutomationState');
+            renderCpuAutomation(state);
         } catch { }
     }
 
@@ -232,6 +246,19 @@
     function renderPlan(plan) {
         const planEl = document.getElementById('power-plan');
         if (planEl) planEl.textContent = planName(plan);
+    }
+
+    function renderCpuAutomation(state) {
+        const cpuEl = document.getElementById('power-auto-cpu');
+        const sampleEl = document.getElementById('power-auto-sample');
+        if (cpuEl) {
+            const avg = Number(state && state.averageCpu);
+            cpuEl.textContent = Number.isFinite(avg) ? Math.round(avg) + '%' : '--';
+        }
+        if (sampleEl) {
+            const seconds = Number(state && state.sampleIntervalSeconds);
+            sampleEl.textContent = Number.isFinite(seconds) ? Math.round(seconds) + 's' : '--';
+        }
     }
 
     function applySettings(res) {

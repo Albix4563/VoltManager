@@ -131,6 +131,32 @@ public class PowerSourcePlanSettings
     [JsonPropertyName("unpluggedMode")] public string UnpluggedMode { get; set; } = "previous";
 }
 
+public class CpuAutomationSettings
+{
+    public const int MinSampleIntervalSeconds = 1;
+    public const int MaxSampleIntervalSeconds = 60;
+
+    [JsonPropertyName("sampleIntervalSeconds")] public int SampleIntervalSeconds { get; set; } = 1;
+
+    public void Normalize()
+    {
+        SampleIntervalSeconds = Math.Clamp(SampleIntervalSeconds, MinSampleIntervalSeconds, MaxSampleIntervalSeconds);
+    }
+}
+
+public record CpuAutomationState
+{
+    [JsonPropertyName("enabled")] public bool Enabled { get; init; }
+    [JsonPropertyName("sampleIntervalSeconds")] public int SampleIntervalSeconds { get; init; } = 1;
+    [JsonPropertyName("rawCpu")] public double RawCpu { get; init; }
+    [JsonPropertyName("averageCpu")] public double AverageCpu { get; init; }
+    [JsonPropertyName("sampledAtUtc")] public DateTime? SampledAtUtc { get; init; }
+    [JsonPropertyName("candidateRuleId")] public string? CandidateRuleId { get; init; }
+    [JsonPropertyName("candidateTargetPlan")] public PlanId? CandidateTargetPlan { get; init; }
+    [JsonPropertyName("activePlan")] public PlanId? ActivePlan { get; init; }
+    [JsonPropertyName("manualOverrideActive")] public bool ManualOverrideActive { get; init; }
+}
+
 public class WidgetItem
 {
     [JsonPropertyName("type")] public string Type { get; set; } = "";
@@ -235,6 +261,7 @@ public class AppSettings
     [JsonPropertyName("appPowerProfiles")] public AppPowerProfileSettings AppPowerProfiles { get; set; } = new();
     [JsonPropertyName("keepAwake")] public KeepAwakeSettings KeepAwake { get; set; } = new();
     [JsonPropertyName("powerSourcePlan")] public PowerSourcePlanSettings PowerSourcePlan { get; set; } = new();
+    [JsonPropertyName("cpuAutomation")] public CpuAutomationSettings CpuAutomation { get; set; } = new();
     [JsonPropertyName("widgets")] public WidgetSettings Widgets { get; set; } = new();
     // duplicatescheme assigns new GUIDs; map canonical plan -> actual GUID on this machine.
     [JsonPropertyName("planGuidMap")] public Dictionary<string, string> PlanGuidMap { get; set; } = new();

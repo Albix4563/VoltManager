@@ -94,12 +94,14 @@ public partial class WidgetWindow : Window
 
             _app.Monitor.MetricsUpdated += OnMetricsUpdated;
             _app.ActivePlanChanged += OnActivePlanChanged;
+            _app.CpuAutomationStateChanged += OnCpuAutomationStateChanged;
 
             core.NavigationCompleted += (_, args) =>
             {
                 if (!args.IsSuccess) return;
                 _bridge?.PushEvent("metrics", _app.Monitor.Latest);
                 OnActivePlanChanged(_app.ActivePlan);
+                OnCpuAutomationStateChanged(_app.CpuAutomationState);
                 _manager.PushTheme();
             };
 
@@ -132,6 +134,9 @@ public partial class WidgetWindow : Window
         "&v=" + DateTimeOffset.UtcNow.ToUnixTimeSeconds();
 
     private void OnMetricsUpdated(MetricsSnapshot metrics) => _bridge?.PushEvent("metrics", metrics);
+
+    private void OnCpuAutomationStateChanged(CpuAutomationState state)
+        => _bridge?.PushEvent("cpuAutomationStateChanged", state);
 
     private void OnActivePlanChanged(PowerPlan? plan)
         => _bridge?.PushEvent("activePlanChanged", new { plan = plan?.PlanId, guid = plan?.Guid, name = plan?.Name });
@@ -172,6 +177,7 @@ public partial class WidgetWindow : Window
         _manager.SavePosition(_type, Left, Top);
         _app.Monitor.MetricsUpdated -= OnMetricsUpdated;
         _app.ActivePlanChanged -= OnActivePlanChanged;
+        _app.CpuAutomationStateChanged -= OnCpuAutomationStateChanged;
         base.OnClosed(e);
     }
 

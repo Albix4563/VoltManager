@@ -25,12 +25,20 @@ public class AutomationEngine
     private DateTime _candidateSince;
     private DateTime _lastFired = DateTime.MinValue;
 
+    public double LastRawCpu { get; private set; }
+    public double LastAverageCpu { get; private set; }
+    public DateTime? LastSampledAtUtc { get; private set; }
+    public string? CandidateRuleId => _candidateRuleId;
+
     /// <summary>Adds a raw CPU sample, returns smoothed moving average.</summary>
-    public double AddSample(double cpu)
+    public double AddSample(double cpu, DateTime? sampledAtUtc = null)
     {
+        LastRawCpu = Math.Round(cpu, 1);
+        LastSampledAtUtc = sampledAtUtc ?? DateTime.UtcNow;
         _samples.Enqueue(cpu);
         while (_samples.Count > SmoothingWindow) _samples.Dequeue();
-        return _samples.Average();
+        LastAverageCpu = Math.Round(_samples.Average(), 1);
+        return LastAverageCpu;
     }
 
     public PlanId? Evaluate(double cpuAvg, DateTime now, PlanId? activePlan, AppSettings settings)
