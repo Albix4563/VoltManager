@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.IO;
 using System.Text.Json.Serialization;
 using Microsoft.Win32;
 using VoltManager.Models;
@@ -12,7 +13,10 @@ public record DetectedHeavyApp
     [JsonPropertyName("path")] public string Path { get; init; } = "";
     [JsonPropertyName("reason")] public string Reason { get; init; } = "";
     [JsonPropertyName("workingSetMb")] public long WorkingSetMb { get; init; }
+    [JsonPropertyName("startedAtUtc")] public DateTime? StartedAtUtc { get; init; }
 }
+
+public record ObservedHeavyProcess(int ProcessId, string Path, DateTime? StartedAtUtc, string Name = "", long WorkingSetMb = 0);
 
 public record HeavyAppDetectionState
 {
@@ -119,18 +123,20 @@ public sealed class HeavyAppDetectionService : IDisposable
             : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         var detected = new List<DetectedHeavyApp>();
-        var livePids = new HashSet<int>();
+        var observed = new List<ObservedHeavyProcess>();
         foreach (var process in Process.GetProcesses())
         {
             try
             {
                 if (process.Id == Environment.ProcessId) continue;
-                livePids.Add(process.Id);
 
                 string path = TryGetProcessPath(process);
                 if (string.IsNullOrWhiteSpace(path)) continue;
+                DateTime? startedAtUtc = TryGetProcessStartTimeUtc(process);
+                long workingSetMb = Math.Max(0, process.WorkingSet64 / 1024 / 1024);
+                observed.Add(new ObservedHeavyProcess(process.Id, path, startedAtUtc, process.ProcessName, workingSetMb));
 
-                string? reason = Classify(path, process.ProcessName, process.WorkingSet64, gpuHighPerformancePaths, config);
+                string? reason = ClassifyProcess(path, process.ProcessName, process.WorkingSet64, gpuHighPerformancePaths, config);
                 if (reason == null) continue;
 
                 detected.Add(new DetectedHeavyApp
@@ -139,7 +145,8 @@ public sealed class HeavyAppDetectionService : IDisposable
                     Name = string.IsNullOrWhiteSpace(process.ProcessName) ? System.IO.Path.GetFileNameWithoutExtension(path) : process.ProcessName,
                     Path = path,
                     Reason = reason,
-                    WorkingSetMb = Math.Max(0, process.WorkingSet64 / 1024 / 1024),
+                    WorkingSetMb = workingSetMb,
+                    StartedAtUtc = startedAtUtc,
                 });
             }
             catch
@@ -153,24 +160,11 @@ public sealed class HeavyAppDetectionService : IDisposable
         }
 
         // Merge with sticky tracking: refresh entries for freshly classified processes, drop
-        // sticky PIDs whose process has exited, and keep alive-but-no-longer-qualifying processes
-        // (e.g. a minimized game whose working set was trimmed) as still detected.
+        // sticky entries whose PID now belongs to a different executable, and keep alive-but-
+        // no-longer-qualifying real game processes (e.g. minimized after alt-tab) as detected.
         lock (_lock)
         {
-            foreach (var app in detected)
-                _sticky[app.ProcessId] = app;
-
-            foreach (var stalePid in _sticky.Keys.Where(pid => !livePids.Contains(pid)).ToList())
-                _sticky.Remove(stalePid);
-
-            var detectedPids = detected.Select(a => a.ProcessId).ToHashSet();
-
-            // ponytail: resourceHeuristic entries don't get sticky — drop them when RAM falls below threshold
-            foreach (var pid in _sticky.Keys.Where(pid => !detectedPids.Contains(pid) && _sticky[pid].Reason == "resourceHeuristic").ToList())
-                _sticky.Remove(pid);
-
-            foreach (var kept in _sticky.Where(kv => !detectedPids.Contains(kv.Key)))
-                detected.Add(kept.Value);
+            detected = MergeStickyDetections(_sticky, detected, observed, DateTime.UtcNow, config.MinWorkingSetMb);
         }
 
         var unique = detected
@@ -225,9 +219,75 @@ public sealed class HeavyAppDetectionService : IDisposable
         _ => 0,
     };
 
-    private static string? Classify(string path, string processName, long workingSetBytes, HashSet<string> gpuHighPerformancePaths, HeavyAppDetectionSettings config)
+    public static List<DetectedHeavyApp> MergeStickyDetections(IDictionary<int, DetectedHeavyApp> sticky,
+        IEnumerable<DetectedHeavyApp> detected, IEnumerable<ObservedHeavyProcess> observed, DateTime nowUtc,
+        int minWorkingSetMb = 1536)
+    {
+        var detectedList = detected.ToList();
+        var observedByPid = observed
+            .GroupBy(p => p.ProcessId)
+            .ToDictionary(g => g.Key, g => g.First());
+
+        foreach (var app in detectedList)
+            sticky[app.ProcessId] = app;
+
+        var detectedPids = detectedList.Select(a => a.ProcessId).ToHashSet();
+        foreach (var pid in sticky.Keys.ToList())
+        {
+            if (!observedByPid.TryGetValue(pid, out var live) || !SameObservedProcess(sticky[pid], live))
+            {
+                sticky.Remove(pid);
+                continue;
+            }
+
+            // Resource-only hits are deliberately non-sticky: once the process drops below the
+            // threshold it stops forcing the high-performance plan.
+            if (!detectedPids.Contains(pid) && sticky[pid].Reason == "resourceHeuristic")
+            {
+                sticky.Remove(pid);
+                continue;
+            }
+
+            if (!detectedPids.Contains(pid) && LooksLikeIdleGameHelper(
+                    NormalizePath(live.Path),
+                    string.IsNullOrWhiteSpace(live.Name) ? sticky[pid].Name : live.Name,
+                    live.WorkingSetMb * 1024 * 1024,
+                    minWorkingSetMb))
+            {
+                sticky.Remove(pid);
+            }
+        }
+
+        foreach (var kept in sticky.Where(kv => !detectedPids.Contains(kv.Key)))
+            detectedList.Add(kept.Value);
+
+        return detectedList;
+    }
+
+    private static bool SameObservedProcess(DetectedHeavyApp sticky, ObservedHeavyProcess observed)
+    {
+        if (!NormalizePath(sticky.Path).Equals(NormalizePath(observed.Path), StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        if (sticky.StartedAtUtc != null && observed.StartedAtUtc != null)
+        {
+            var delta = (sticky.StartedAtUtc.Value - observed.StartedAtUtc.Value).Duration();
+            if (delta > TimeSpan.FromSeconds(1))
+                return false;
+        }
+
+        return true;
+    }
+
+    public static string? ClassifyProcess(string path, string processName, long workingSetBytes,
+        HashSet<string> gpuHighPerformancePaths, HeavyAppDetectionSettings config)
     {
         string normalized = NormalizePath(path);
+        bool idleGameHelper = LooksLikeGameInstallPath(normalized) &&
+                              LooksLikeIdleGameHelper(normalized, processName, workingSetBytes, config.MinWorkingSetMb);
+        if (idleGameHelper)
+            return null;
+
         if (config.UseWindowsGpuPreferences && gpuHighPerformancePaths.Contains(normalized))
             return "windowsGpuPreference";
 
@@ -242,6 +302,20 @@ public sealed class HeavyAppDetectionService : IDisposable
 
     private static bool LooksLikeGameInstallPath(string normalizedPath)
         => GamePathMarkers.Any(marker => normalizedPath.Contains(marker, StringComparison.OrdinalIgnoreCase));
+
+    private static bool LooksLikeIdleGameHelper(string normalizedPath, string processName, long workingSetBytes, int minWorkingSetMb)
+    {
+        if (workingSetBytes / 1024 / 1024 >= minWorkingSetMb) return false;
+
+        string file = Path.GetFileNameWithoutExtension(normalizedPath);
+        string combined = (file + " " + processName).ToLowerInvariant();
+        string[] helperMarkers =
+        {
+            "launcher", "updater", "update", "bootstrapper", "crashhandler", "crashreporter",
+            "reporter", "webhelper", "helper", "service", "setup", "uninstall", "redist", "vc_redist"
+        };
+        return helperMarkers.Any(marker => combined.Contains(marker, StringComparison.OrdinalIgnoreCase));
+    }
 
     private static bool LooksLikeHeavyUserProcess(string normalizedPath, string processName, long workingSetBytes, int minWorkingSetMb)
     {
@@ -263,6 +337,18 @@ public sealed class HeavyAppDetectionService : IDisposable
         catch
         {
             return "";
+        }
+    }
+
+    private static DateTime? TryGetProcessStartTimeUtc(Process process)
+    {
+        try
+        {
+            return process.StartTime.ToUniversalTime();
+        }
+        catch
+        {
+            return null;
         }
     }
 
@@ -290,7 +376,7 @@ public sealed class HeavyAppDetectionService : IDisposable
         return paths;
     }
 
-    private static string NormalizePath(string path)
+    public static string NormalizePath(string path)
     {
         try
         {

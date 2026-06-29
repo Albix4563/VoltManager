@@ -82,6 +82,7 @@ public class HostBridge
         _updates.DownloadProgress += pct => PushEvent("updateDownloadProgress", new { pct });
         _app.HeavyApps.ActivityChanged += state => PushEvent("heavyAppActivityChanged", state);
         _app.AppProfiles.ActivityChanged += state => PushEvent("appPowerProfileActivityChanged", state);
+        _app.PowerPlanConflictDetected += notice => PushEvent("powerPlanConflictDetected", notice);
         _app.StandbyAutoCleaner.AutoCleaned += freshMem => PushEvent("standbyAutoCleaned", freshMem);
     }
 

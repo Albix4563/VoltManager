@@ -62,6 +62,11 @@
             reason_windowsGpuPreference: 'Preferenza GPU Windows',
             reason_gameInstallPath: 'Percorso gioco',
             reason_resourceHeuristic: 'Carico risorse',
+            planConflictTitle: 'Piano energetico ripristinato',
+            planConflictExternal: 'Cambio piano esterno rilevato',
+            planConflictKnown: 'Processo rilevato',
+            planConflictProbable: 'Processo probabile',
+            planConflictExpected: 'Piano corretto',
             plan_powerSaver: 'Risparmio energia',
             plan_balanced: 'Bilanciato',
             plan_performance: 'Prestazioni elevate'
@@ -109,6 +114,11 @@
             reason_windowsGpuPreference: 'Windows GPU preference',
             reason_gameInstallPath: 'Game path',
             reason_resourceHeuristic: 'Resource load',
+            planConflictTitle: 'Power plan restored',
+            planConflictExternal: 'External power-plan change detected',
+            planConflictKnown: 'Detected process',
+            planConflictProbable: 'Likely process',
+            planConflictExpected: 'Correct plan',
             plan_powerSaver: 'Power saver',
             plan_balanced: 'Balanced',
             plan_performance: 'High performance'
@@ -156,6 +166,11 @@
             reason_windowsGpuPreference: 'Windows GPU 偏好',
             reason_gameInstallPath: '游戏路径',
             reason_resourceHeuristic: '资源负载',
+            planConflictTitle: '电源计划已恢复',
+            planConflictExternal: '检测到外部电源计划更改',
+            planConflictKnown: '检测到的进程',
+            planConflictProbable: '可能的进程',
+            planConflictExpected: '正确计划',
             plan_powerSaver: '节能',
             plan_balanced: '平衡',
             plan_performance: '高性能'
@@ -552,6 +567,36 @@
         }).join('');
     }
 
+    function renderPlanConflictToast(data) {
+        if (!data || data.shouldNotifyUser === false) return;
+
+        const previous = document.getElementById('power-plan-conflict-toast');
+        if (previous) previous.remove();
+
+        const suspects = Array.isArray(data.suspects) ? data.suspects : [];
+        const suspect = suspects[0];
+        const confidence = String((suspect && suspect.confidence) || '').toLowerCase();
+        const processLine = suspect
+            ? (confidence === 'known' ? tt('planConflictKnown') : tt('planConflictProbable')) + ': ' + (suspect.name || 'App')
+            : tt('planConflictExternal');
+        const expected = tt('plan_' + data.expectedPlan) || data.expectedPlan || '';
+
+        const toast = document.createElement('div');
+        toast.id = 'power-plan-conflict-toast';
+        toast.style.cssText = 'position:fixed;right:22px;bottom:22px;z-index:9999;max-width:390px;border:1px solid rgba(0,241,254,.32);background:linear-gradient(135deg,rgba(18,33,49,.96),rgba(10,17,40,.96));color:#d3deef;border-radius:16px;padding:14px 16px;box-shadow:0 18px 45px rgba(0,0,0,.38),0 0 0 1px rgba(0,241,254,.08);display:flex;gap:12px;align-items:flex-start;';
+        toast.innerHTML =
+            '<span class="material-symbols-outlined text-secondary-container" style="font-size:24px;line-height:1;">admin_panel_settings</span>' +
+            '<div style="min-width:0;flex:1;display:grid;gap:4px;">' +
+            '<strong style="color:#9ffbff;font-size:14px;">' + esc(tt('planConflictTitle')) + '</strong>' +
+            '<span style="font-size:13px;line-height:1.35;color:rgba(211,222,239,.86);">' + esc(processLine) + '</span>' +
+            '<span style="font-size:12px;line-height:1.35;color:rgba(211,222,239,.66);">' + esc(tt('planConflictExpected')) + ': ' + esc(expected) + '</span>' +
+            '</div>' +
+            '<button type="button" aria-label="close" style="background:none;border:0;color:#94a3b8;cursor:pointer;font-size:18px;line-height:1;padding:0;">x</button>';
+        toast.querySelector('button')?.addEventListener('click', () => toast.remove());
+        document.body.appendChild(toast);
+        setTimeout(() => { if (toast.parentElement) toast.remove(); }, 12000);
+    }
+
     function updateHeavySetting(update) {
         const cfg = normalizeHeavyAppDetection();
         update(cfg);
@@ -679,6 +724,7 @@
             heavyAppStatus = status;
             renderHeavyAppStatus(status);
         });
+        Host.on('powerPlanConflictDetected', renderPlanConflictToast);
         heavyAppWired = true;
     }
 

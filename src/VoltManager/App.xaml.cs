@@ -52,6 +52,7 @@ public partial class App : Application
     private bool _appProfilePlanSessionActive;
     private PlanId? _planBeforeAppProfileSession;
     private DateTime _appProfileLastActiveUtc;
+    private readonly PowerPlanGuardService _planGuard = new();
     // Grace before tearing down a heavy-app session: absorbs transient scan misses so an
     // alt-tabbed/minimized game does not immediately revert the power plan.
     private static readonly TimeSpan HeavyAppTeardownGrace = TimeSpan.FromSeconds(15);
@@ -62,6 +63,7 @@ public partial class App : Application
     public event Action<PowerPlan?>? ActivePlanChanged;
     public event Action<ManualOverride?>? ManualOverrideChanged;
     public event Action<CpuAutomationState>? CpuAutomationStateChanged;
+    public event Action<PowerPlanConflictNotification>? PowerPlanConflictDetected;
 
     [DllImport("powrprof.dll", SetLastError = true)]
     private static extern bool SetSuspendState(bool hibernate, bool forceCritical, bool disableWakeEvent);
@@ -141,7 +143,9 @@ public partial class App : Application
         BatteryHistory = new BatteryHistoryService();
         WebViewEnvironment = CreateWebViewEnvironmentAsync();
         Widgets = new WidgetManager(this, WebViewEnvironment);
-        ClearExpiredManualOverride(DateTime.UtcNow);
+        var startupNow = DateTime.UtcNow;
+        ClearExpiredManualOverride(startupNow);
+        _planGuard.RefreshManualOverride(Settings.Current.Override, startupNow);
 
         _currentSamplingInterval = CpuAutomationSampleInterval();
         Monitor.MetricsUpdated += OnMetricsSampled;
@@ -307,6 +311,7 @@ public partial class App : Application
             try
             {
                 var current = Power.GetActivePlan();
+                current = ReassertExpectedPlanIfNeeded(current, DateTime.UtcNow) ?? current;
                 if (current?.Guid != ActivePlan?.Guid)
                 {
                     ActivePlan = current;
@@ -327,6 +332,7 @@ public partial class App : Application
             var now = DateTime.UtcNow;
             double avg = Automation.AddSample(metrics.Cpu, now);
             ClearExpiredManualOverride(now);
+            _planGuard.RefreshManualOverride(Settings.Current.Override, now);
 
             bool handledByHigherPriority =
                 HandlePowerSourcePlans(now) ||
@@ -421,6 +427,7 @@ public partial class App : Application
             }
 
             var target = state.TargetPlan.Value;
+            _planGuard.SetExpected(target, "appProfile", state.ActiveProfiles.FirstOrDefault()?.Name ?? "");
             if (ActivePlan?.PlanId == target)
                 return true;
 
@@ -441,6 +448,7 @@ public partial class App : Application
             _appProfilePlanSessionActive = false;
             var previous = _planBeforeAppProfileSession;
             _planBeforeAppProfileSession = null;
+            _planGuard.ClearExpected("appProfile");
             Automation.Reset();
 
             if (!userOverrideActive && previous != null && ActivePlan?.PlanId != previous && Power.SetActivePlan(previous.Value))
@@ -473,6 +481,7 @@ public partial class App : Application
             }
 
             var target = state.TargetPlan;
+            _planGuard.SetExpected(target, "heavyApp", state.ActiveProcesses.FirstOrDefault()?.Name ?? "");
             if (ActivePlan?.PlanId == target)
                 return true;
 
@@ -495,6 +504,7 @@ public partial class App : Application
             _heavyAppPlanSessionActive = false;
             var previous = _planBeforeHeavyAppSession;
             _planBeforeHeavyAppSession = null;
+            _planGuard.ClearExpected("heavyApp");
             Automation.Reset();
 
             if (!userOverrideActive && previous != null && ActivePlan?.PlanId != previous && Power.SetActivePlan(previous.Value))
@@ -513,6 +523,11 @@ public partial class App : Application
     {
         bool userOverrideActive = Settings.Current.Override?.IsActive(now) == true;
         var decision = PowerSourcePlans.Evaluate(ActivePlan?.PlanId, userOverrideActive);
+        var expectedPowerSourcePlan = ExpectedPowerSourcePlan(decision);
+        if (expectedPowerSourcePlan != null)
+            _planGuard.SetExpected(expectedPowerSourcePlan.Value, "powerSource", decision.State.Message);
+        else
+            _planGuard.ClearExpected("powerSource");
 
         if (decision.TargetPlan != null && Power.SetActivePlan(decision.TargetPlan.Value))
         {
@@ -525,6 +540,41 @@ public partial class App : Application
             Automation.Reset();
 
         return decision.BlocksLowerPriority;
+    }
+
+    private static PlanId? ExpectedPowerSourcePlan(PowerSourcePlanDecision decision)
+    {
+        if (!decision.BlocksLowerPriority)
+            return null;
+
+        if (decision.TargetPlan != null)
+            return decision.TargetPlan.Value;
+
+        if (decision.State.LowBatteryActive)
+            return PlanId.PowerSaver;
+
+        if (decision.State.Active && decision.State.PluggedIn)
+            return decision.State.PluggedPlan;
+
+        return null;
+    }
+
+    private PowerPlan? ReassertExpectedPlanIfNeeded(PowerPlan? current, DateTime now)
+    {
+        if (!_planGuard.ShouldReassert(current?.PlanId, now, out var conflict) || conflict == null)
+            return current;
+
+        var suspects = PowerPlanGuardService.FindLikelyInterferingProcesses();
+        var enriched = PowerPlanGuardService.WithSuspectsAndMessage(conflict, suspects);
+        Logger.Warn(enriched.Message);
+
+        if (!Power.SetActivePlan(conflict.ExpectedPlan))
+            return current;
+
+        var restored = Power.GetActivePlan();
+        if (enriched.ShouldNotifyUser)
+            PowerPlanConflictDetected?.Invoke(enriched);
+        return restored ?? current;
     }
 
     private void StartBatteryHistoryLoop()
@@ -629,6 +679,7 @@ public partial class App : Application
             Plan = ToPlanKey(plan),
             ExpiresAtUtc = duration == null ? null : DateTime.UtcNow.Add(duration.Value),
         };
+        _planGuard.SetExpected(plan, "manualOverride", ToPlanKey(plan));
         Settings.Save();
         Automation.Reset();
 
@@ -645,6 +696,7 @@ public partial class App : Application
     {
         Settings.Current.Override = null;
         Settings.Current.MasterAutomationEnabled = true;
+        _planGuard.ClearExpected();
         Settings.Save();
         Automation.Reset();
         ManualOverrideChanged?.Invoke(null);
@@ -656,6 +708,7 @@ public partial class App : Application
         if (Settings.Current.Override == null) return;
 
         Settings.Current.Override = null;
+        _planGuard.ClearExpected("manualOverride");
         Settings.Save();
         Automation.Reset();
         ManualOverrideChanged?.Invoke(null);
@@ -687,6 +740,7 @@ public partial class App : Application
         if (Settings.Current.Override.ExpiresAtUtc > now) return;
 
         Settings.Current.Override = null;
+        _planGuard.ClearExpected("manualOverride");
         Settings.Save();
         Automation.Reset();
         ManualOverrideChanged?.Invoke(null);
