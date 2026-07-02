@@ -21,6 +21,14 @@ public class HostBridge
         Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) },
     };
 
+    // Same shape as settings.json on disk (PascalCase, enum names), so a backup
+    // is interchangeable with the real settings file.
+    private static readonly JsonSerializerOptions BackupJsonOpts = new()
+    {
+        WriteIndented = true,
+        Converters = { new JsonStringEnumConverter() },
+    };
+
     private readonly WebView2 _webView;
     private readonly HardwareInfoService _hardware;
     private readonly PowerPlanService _power;
@@ -86,14 +94,26 @@ public class HostBridge
         _app.StandbyAutoCleaner.AutoCleaned += freshMem => PushEvent("standbyAutoCleaned", freshMem);
     }
 
+    private bool _pushEventFaulted;
+
     public void PushEvent(string name, object data)
     {
-        var payload = JsonSerializer.Serialize(new { @event = name, data }, JsonOpts);
-        _webView.Dispatcher.Invoke(() =>
+        try
         {
-            try { _webView.CoreWebView2?.PostWebMessageAsJson(payload); }
-            catch { }
-        });
+            var payload = JsonSerializer.Serialize(new { @event = name, data }, JsonOpts);
+            _webView.Dispatcher.Invoke(() =>
+            {
+                try { _webView.CoreWebView2?.PostWebMessageAsJson(payload); }
+                catch { /* WebView torn down mid-push */ }
+            });
+            _pushEventFaulted = false;
+        }
+        catch (Exception ex)
+        {
+            // Serialization bugs or a shutting-down dispatcher must not crash the
+            // event source; log the first failure of a streak only.
+            _pushEventFaulted = Logger.WarnOnce(_pushEventFaulted, "PushEvent failed: " + name, ex);
+        }
     }
 
     private async Task HandleMessageAsync(string json)
@@ -502,6 +522,48 @@ public class HostBridge
                     ?? throw new ArgumentException("Impostazioni StandbyAutoCleaner non valide");
                 var savedSettings = SaveStandbyAutoCleanSettings(_settings, autoSettings);
                 return new { success = true, settings = savedSettings };
+            }
+
+            case "exportSettings":
+            {
+                string? path = await _webView.Dispatcher.InvokeAsync(() =>
+                {
+                    var dialog = new SaveFileDialog
+                    {
+                        Title = "Esporta impostazioni VoltManager",
+                        Filter = "JSON (*.json)|*.json",
+                        FileName = $"voltmanager-settings-{DateTime.Now:yyyyMMdd}.json",
+                    };
+                    return dialog.ShowDialog() == true ? dialog.FileName : null;
+                });
+                if (path == null) return new { success = false, cancelled = true };
+                await Task.Run(() => System.IO.File.WriteAllText(path,
+                    JsonSerializer.Serialize(_settings.Current, BackupJsonOpts)));
+                return new { success = true, path };
+            }
+
+            case "importSettings":
+            {
+                string? path = await _webView.Dispatcher.InvokeAsync(() =>
+                {
+                    var dialog = new OpenFileDialog
+                    {
+                        Title = "Importa impostazioni VoltManager",
+                        Filter = "JSON (*.json)|*.json",
+                        CheckFileExists = true,
+                    };
+                    return dialog.ShowDialog() == true ? dialog.FileName : null;
+                });
+                if (path == null) return new { success = false, cancelled = true };
+                var json = await Task.Run(() => System.IO.File.ReadAllText(path));
+                var imported = JsonSerializer.Deserialize<AppSettings>(json, BackupJsonOpts)
+                    ?? throw new ArgumentException("File di backup non valido");
+                // Machine-local/runtime state must survive an import from another PC.
+                PreserveRuntimeOwnedSettings(imported, _settings.Current);
+                _settings.Update(imported);
+                _app.RefreshAppPowerProfiles();
+                _app.RefreshHeavyAppDetection();
+                return new { success = true, path };
             }
 
             default:

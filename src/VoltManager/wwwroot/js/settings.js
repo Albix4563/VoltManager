@@ -1136,6 +1136,18 @@
         }
     });
 
+    document.getElementById('btn-export-settings')?.addEventListener('click', async () => {
+        try { await Host.call('exportSettings'); } catch (e) { console.error('exportSettings failed', e); }
+    });
+
+    document.getElementById('btn-import-settings')?.addEventListener('click', async () => {
+        try {
+            const res = await Host.call('importSettings');
+            // ponytail: full reload instead of re-hydrating every panel from the new settings
+            if (res && res.success) location.reload();
+        } catch (e) { console.error('importSettings failed', e); }
+    });
+
     Host.on('powerSourcePlanChanged', (state) => {
         if (!state) return;
         setToggle(togglePowerSourcePlan, !!state.enabled);

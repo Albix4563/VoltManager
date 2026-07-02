@@ -236,7 +236,10 @@ public class SettingsService
             // completes, so a crash mid-write can never leave settings.json gone.
             File.Move(tmp, _path, overwrite: true);
         }
-        SettingsChanged?.Invoke(Current);
+        // A throwing subscriber must not surface as a save failure: the file is
+        // already written at this point.
+        try { SettingsChanged?.Invoke(Current); }
+        catch (Exception ex) { Logger.Error("SettingsChanged subscriber failed", ex); }
     }
 
     public void Update(AppSettings settings)

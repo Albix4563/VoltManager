@@ -169,7 +169,9 @@ public partial class App : Application
         bool justUpdated    = e.Args.Contains("--updated");
         _mainWindow = new MainWindow(this, startMinimized, justUpdated, WebViewEnvironment);
         if (!startMinimized) _mainWindow.Show();
-        if (Settings.Current.Widgets.Enabled) Widgets.ShowEnabled();
+        // Widgets are best-effort: a broken widget must not abort startup.
+        try { if (Settings.Current.Widgets.Enabled) Widgets.ShowEnabled(); }
+        catch (Exception ex) { Logger.Error("Widget startup failed", ex); }
 
         if (startupCommand != null)
             _ = Task.Run(() => ApplyRemoteCommand(startupCommand));
@@ -757,22 +759,33 @@ public partial class App : Application
 
     public void ExitApp()
     {
-        Monitor.MetricsUpdated -= OnMetricsSampled;
-        _scheduledPowerActionTimer?.Dispose();
-        _planPollTimer?.Dispose();
-        _batteryHistoryTimer?.Dispose();
-        Monitor.Dispose();
-        HeavyApps.Dispose();
-        AppProfiles.Dispose();
-        Awake.Dispose();
-        StandbyAutoCleaner.Dispose();
-        Theme.Dispose();
-        Widgets.Dispose();
-        _remoteCommands?.Dispose();
-        _showWait?.Unregister(null);
-        _showEvent?.Dispose();
-        _mutex?.ReleaseMutex();
-        _mutex?.Dispose();
+        // Each step is independent: one failing teardown must not skip the
+        // rest, and above all must not prevent Shutdown().
+        SafeCleanup("metrics handler", () => Monitor.MetricsUpdated -= OnMetricsSampled);
+        SafeCleanup("scheduled action timer", () => _scheduledPowerActionTimer?.Dispose());
+        SafeCleanup("plan poll timer", () => _planPollTimer?.Dispose());
+        SafeCleanup("battery history timer", () => _batteryHistoryTimer?.Dispose());
+        SafeCleanup("monitor", Monitor.Dispose);
+        SafeCleanup("heavy apps", HeavyApps.Dispose);
+        SafeCleanup("app profiles", AppProfiles.Dispose);
+        SafeCleanup("keep awake", Awake.Dispose);
+        SafeCleanup("standby cleaner", StandbyAutoCleaner.Dispose);
+        SafeCleanup("theme", Theme.Dispose);
+        SafeCleanup("widgets", Widgets.Dispose);
+        SafeCleanup("remote commands", () => _remoteCommands?.Dispose());
+        SafeCleanup("show wait", () => _showWait?.Unregister(null));
+        SafeCleanup("show event", () => _showEvent?.Dispose());
+        SafeCleanup("mutex", () =>
+        {
+            _mutex?.ReleaseMutex();
+            _mutex?.Dispose();
+        });
         Shutdown();
+    }
+
+    private static void SafeCleanup(string what, Action action)
+    {
+        try { action(); }
+        catch (Exception ex) { Logger.Warn("Cleanup failed (" + what + "): " + ex.Message); }
     }
 }
