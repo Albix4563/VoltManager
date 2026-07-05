@@ -235,14 +235,29 @@ public sealed class PowerSourcePlanService
         if (!GetSystemPowerStatus(out var status))
             return null;
 
-        bool? pluggedIn = status.ACLineStatus switch
+        return ToSnapshot(status.ACLineStatus, status.BatteryFlag, status.BatteryLifePercent);
+    }
+
+    /// <summary>
+    /// Senza batteria di sistema (desktop fisso) la sorgente AC/DC non è applicabile:
+    /// PluggedIn=null fa cadere Evaluate nel ramo "unknown_power_source", che non blocca
+    /// né forza alcun piano. Senza questo check un desktop risulta "sempre collegato" e
+    /// resta inchiodato sul PluggedPlan. Stessa condizione batteria di HardwareInfoService.
+    /// </summary>
+    public static PowerSourceSnapshot ToSnapshot(byte acLineStatus, byte batteryFlag, byte batteryLifePercent)
+    {
+        bool hasBattery = (batteryFlag & 128) == 0 && batteryLifePercent != 255;
+        if (!hasBattery)
+            return new PowerSourceSnapshot(null, null);
+
+        bool? pluggedIn = acLineStatus switch
         {
             0 => false,
             1 => true,
             _ => null,
         };
 
-        int? batteryPercent = status.BatteryLifePercent == 255 ? null : status.BatteryLifePercent;
+        int? batteryPercent = batteryLifePercent == 255 ? null : batteryLifePercent;
         return new PowerSourceSnapshot(pluggedIn, batteryPercent);
     }
 

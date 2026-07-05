@@ -146,6 +146,41 @@ public class PowerSourcePlanServiceTests : IDisposable
     }
 
     [Fact]
+    public void UnknownPowerSource_DoesNotBlockOrTarget()
+    {
+        var service = CreateService(() => Snapshot(null));
+
+        var decision = service.Evaluate(PlanId.Performance, manualOverrideActive: false);
+
+        Assert.Null(decision.TargetPlan);
+        Assert.False(decision.BlocksLowerPriority);
+        Assert.False(decision.State.Active);
+    }
+
+    [Fact]
+    public void NoSystemBattery_ReportsUnknownSource_SoDesktopIsNeverLockedToPluggedPlan()
+    {
+        // Desktop fisso: ACLineStatus=1 (sempre AC), BatteryFlag=128 (no system battery),
+        // BatteryLifePercent=255 (unknown). La feature non deve mai attivarsi.
+        var snapshot = PowerSourcePlanService.ToSnapshot(acLineStatus: 1, batteryFlag: 128, batteryLifePercent: 255);
+
+        Assert.Null(snapshot.PluggedIn);
+        Assert.Null(snapshot.BatteryPercent);
+    }
+
+    [Fact]
+    public void LaptopWithBattery_StillReportsPluggedState()
+    {
+        var onAc = PowerSourcePlanService.ToSnapshot(acLineStatus: 1, batteryFlag: 8, batteryLifePercent: 80);
+        var onDc = PowerSourcePlanService.ToSnapshot(acLineStatus: 0, batteryFlag: 1, batteryLifePercent: 55);
+
+        Assert.True(onAc.PluggedIn);
+        Assert.Equal(80, onAc.BatteryPercent);
+        Assert.False(onDc.PluggedIn);
+        Assert.Equal(55, onDc.BatteryPercent);
+    }
+
+    [Fact]
     public void DisablingDuringAcSession_RestoresPreviousPlan()
     {
         var settings = new SettingsService(SettingsPath);
