@@ -16,6 +16,11 @@ public partial class WidgetWindow : Window
     private const int WmNcLButtonDown = 0xA1;
     private static readonly IntPtr HtCaption = new(0x2);
 
+    // WS_EX_TOOLWINDOW excludes this window from the Alt+Tab switcher and taskbar
+    // (in combination with WindowStyle=None + ShowInTaskbar=False in XAML).
+    private const int GWL_EXSTYLE = -20;
+    private const int WS_EX_TOOLWINDOW = 0x00000080;
+
     private readonly App _app;
     private readonly WidgetManager _manager;
     private readonly Task<CoreWebView2Environment> _envTask;
@@ -49,7 +54,11 @@ public partial class WidgetWindow : Window
         };
 
         Loaded += async (_, _) => await InitWebViewAsync();
-        SourceInitialized += (_, _) => ApplyRoundedRegion();
+        SourceInitialized += (_, _) =>
+        {
+            ApplyToolWindowStyle();
+            ApplyRoundedRegion();
+        };
         DpiChanged += (_, _) => ApplyRoundedRegion();
         LocationChanged += (_, _) =>
         {
@@ -171,6 +180,15 @@ public partial class WidgetWindow : Window
         SetWindowRgn(source.Handle, CreateRoundRectRgn(0, 0, w + 1, h + 1, d, d), true);
     }
 
+    private void ApplyToolWindowStyle()
+    {
+        var hwnd = new WindowInteropHelper(this).Handle;
+        if (hwnd == IntPtr.Zero) return;
+
+        int exStyle = GetWindowLong(hwnd, GWL_EXSTYLE);
+        SetWindowLong(hwnd, GWL_EXSTYLE, exStyle | WS_EX_TOOLWINDOW);
+    }
+
     protected override void OnClosed(EventArgs e)
     {
         _saveLocationTimer.Stop();
@@ -192,4 +210,11 @@ public partial class WidgetWindow : Window
 
     [DllImport("user32.dll")]
     private static extern int SetWindowRgn(IntPtr hWnd, IntPtr hRgn, bool bRedraw);
+
+    // Used to set WS_EX_TOOLWINDOW so widgets do not appear in Alt+Tab.
+    [DllImport("user32.dll")]
+    private static extern int GetWindowLong(IntPtr hWnd, int nIndex);
+
+    [DllImport("user32.dll")]
+    private static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
 }
