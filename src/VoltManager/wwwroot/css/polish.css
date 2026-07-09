@@ -163,3 +163,72 @@ html[data-theme=light] ::-webkit-scrollbar-thumb:hover{
   outline: 2px solid var(--vm-accent, #00f1fe);
   outline-offset: 2px;
 }
+
+/* ---------- 7. Button text containment ----------
+   Keep clickable controls readable with translated labels: icons keep their
+   footprint, text may wrap instead of forcing the button to clip/overflow. */
+button,
+[role="button"],
+.nav-item,
+.pm-seg{
+  min-width: 0;
+}
+
+button .material-symbols-outlined,
+[role="button"] .material-symbols-outlined,
+.nav-item .material-symbols-outlined,
+.pm-seg .material-symbols-outlined,
+.vm-acc-header .material-symbols-outlined,
+.widget-action .material-symbols-outlined{
+  flex: 0 0 auto;
+}
+
+.btn-cyan,
+.btn-glow,
+.btn-ghost,
+.pm-seg,
+#plan-control > button{
+  white-space: normal;
+}
+
+.btn-cyan > span:not(.material-symbols-outlined),
+.btn-glow > span:not(.material-symbols-outlined),
+.btn-ghost > span:not(.material-symbols-outlined),
+.pm-seg > span:not(.material-symbols-outlined),
+.nav-item > span:not(.material-symbols-outlined),
+#plan-control > button{
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.pm-seg{
+  line-height: 1.25;
+}
+
+#plan-control{
+  align-items: stretch;
+}
+
+#plan-control > button{
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.2;
+}
+
+#btn-energy-tips,
+#btn-minimize-tray{
+  flex: 0 0 2.5rem;
+  aspect-ratio: 1;
+}
+
+#energy-tips-title{
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+}
+
+.app-profile-panel .app-profile-path,
+.heavy-app-panel .heavy-app-path{
+  overflow-wrap: anywhere;
+}
