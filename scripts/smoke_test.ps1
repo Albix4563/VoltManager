@@ -65,14 +65,18 @@ if (Test-Path $exe) {
 }
 
 # 5. Silent uninstall
-$unins = Join-Path $installDir 'unins000.exe'
+$unins = Join-Path $installDir 'uninstall.exe'
 if (Test-Path $unins) {
-    $proc = Start-Process $unins -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -Wait -PassThru
+    $proc = Start-Process $unins -ArgumentList '/uninstall','/SILENT' -Wait -PassThru
     Step 'Silent uninstall exit 0' ($proc.ExitCode -eq 0) ("exit=" + $proc.ExitCode)
-    Start-Sleep -Seconds 3
-    Step 'Install dir removed' (-not (Test-Path $exe)) $installDir
+    Start-Sleep -Seconds 2
+    Step 'Install dir removed' (-not (Test-Path $installDir)) $installDir
+    $appData = Join-Path $env:APPDATA 'VoltManager'
+    Step 'AppData removed' (-not (Test-Path $appData)) $appData
+    $arp = Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\VoltManager' -ErrorAction SilentlyContinue
+    Step 'ARP entry removed' ($null -eq $arp) 'Uninstall\VoltManager'
 } else {
-    Step 'Silent uninstall exit 0' $false 'unins000.exe missing'
+    Step 'Silent uninstall exit 0' $false 'uninstall.exe missing'
 }
 
 # 6. Restore original plan

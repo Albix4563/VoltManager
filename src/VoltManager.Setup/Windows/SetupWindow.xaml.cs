@@ -318,7 +318,9 @@ namespace VoltManager.Setup.Windows
             string? err = null;
             try
             {
-                await _engine.UninstallAsync(_args.TargetDir);
+                var result = await _engine.UninstallAsync(_args.TargetDir);
+                ok = result.Success;
+                if (!ok) err = result.Summary;
             }
             catch (Exception ex) { ok = false; err = ex.Message; }
 

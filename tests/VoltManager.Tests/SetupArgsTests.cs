@@ -58,6 +58,16 @@ public class SetupArgsTests
         var a = SetupArgs.Parse(["/uninstall", "/SILENT"]);
         Assert.Equal(SetupMode.Uninstall, a.Mode);
         Assert.True(a.SilentUninstall);
+        Assert.False(a.FromTemp);
+    }
+
+    [Fact]
+    public void UninstallFromTemp_ParsesFlag()
+    {
+        var a = SetupArgs.Parse(["/uninstall", "--from-temp", "--target", @"C:\Program Files\VoltManager"]);
+        Assert.Equal(SetupMode.Uninstall, a.Mode);
+        Assert.True(a.FromTemp);
+        Assert.Equal(@"C:\Program Files\VoltManager", a.TargetDir);
     }
 
     [Fact]

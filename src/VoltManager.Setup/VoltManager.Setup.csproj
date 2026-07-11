@@ -29,10 +29,6 @@
     <Reference Include="System.Windows.Forms" />
   </ItemGroup>
 
-  <ItemGroup>
-    <PackageReference Include="System.Text.Json" Version="8.0.5" />
-  </ItemGroup>
-
   <!-- App logo — always bundled so the sidebar logo shows in dev and release builds -->
   <ItemGroup>
     <Resource Include="Assets\voltmanager.ico" />

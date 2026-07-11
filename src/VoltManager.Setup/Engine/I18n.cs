@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
-using System.Text.Json;
+using System.Text.RegularExpressions;
 
 namespace VoltManager.Setup.Engine
 {
@@ -319,13 +319,13 @@ namespace VoltManager.Setup.Engine
                     Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
                     "VoltManager", "settings.json");
                 if (!File.Exists(settingsPath)) return null;
-                var json = File.ReadAllText(settingsPath);
-                using var doc = JsonDocument.Parse(json);
-                if (doc.RootElement.TryGetProperty("language", out var langProp))
-                {
-                    var val = langProp.GetString();
-                    if (!string.IsNullOrEmpty(val)) return val;
-                }
+                var match = Regex.Match(
+                    File.ReadAllText(settingsPath),
+                    "\"language\"\\s*:\\s*\"(?<lang>[^\"]*)\"",
+                    RegexOptions.IgnoreCase);
+                if (!match.Success) return null;
+                var val = match.Groups["lang"].Value;
+                return string.IsNullOrEmpty(val) ? null : val;
             }
             catch { /* best-effort */ }
             return null;

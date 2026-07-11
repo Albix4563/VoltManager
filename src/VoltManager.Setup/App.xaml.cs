@@ -28,7 +28,18 @@ namespace VoltManager.Setup
                     break;
 
                 case SetupMode.Uninstall:
-                    new SetupWindow(args).Show();
+                    if (InstallEngine.TryRelaunchFromTempIfNeeded(args, out int handoffExit))
+                    {
+                        if (args.SilentUninstall)
+                            Shutdown(handoffExit);
+                        else
+                            Shutdown();
+                        return;
+                    }
+                    if (args.SilentUninstall)
+                        RunSilentUninstall(args);
+                    else
+                        new SetupWindow(args).Show();
                     break;
 
                 default:
@@ -58,6 +69,22 @@ namespace VoltManager.Setup
             }
             catch { /* silent */ }
             Shutdown();
+        }
+
+        private async void RunSilentUninstall(SetupArgs args)
+        {
+            int exit = 0;
+            try
+            {
+                var result = await new InstallEngine().UninstallAsync(args.TargetDir);
+                if (!result.Success) exit = 1;
+            }
+            catch
+            {
+                exit = 1;
+            }
+
+            Shutdown(exit);
         }
 
         internal static string GetVersion()

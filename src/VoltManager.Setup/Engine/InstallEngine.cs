@@ -15,6 +15,19 @@ using Microsoft.Win32;
 
 namespace VoltManager.Setup.Engine
 {
+    public sealed class UninstallResult
+    {
+        public List<string> Failures { get; } = new List<string>();
+        public bool Success => Failures.Count == 0;
+        public string Summary => string.Join("; ", Failures);
+
+        public void Add(string failure)
+        {
+            if (!string.IsNullOrWhiteSpace(failure))
+                Failures.Add(failure);
+        }
+    }
+
     public class InstallEngine
     {
         private const string AppName        = "VoltManager";
@@ -97,45 +110,165 @@ namespace VoltManager.Setup.Engine
                 Process.Start(new ProcessStartInfo(exe, "--updated") { UseShellExecute = true });
         }
 
-        public async Task UninstallAsync(string? targetDir = null, CancellationToken ct = default)
+        public async Task<UninstallResult> UninstallAsync(string? targetDir = null, CancellationToken ct = default)
         {
-            string dir = targetDir ?? ReadInstallLocation() ?? "";
+            var result = new UninstallResult();
+            string dir = ResolveInstallDir(targetDir);
 
             Report(I18n.T("status_uninst_kill"), 5);
-            KillRunningApp();
-            await Task.Delay(800, ct);
+            if (!KillRunningAppVerified())
+                result.Add("VoltManager process still running");
+            await Task.Delay(400, ct);
 
             Report(I18n.T("status_uninst_files"), 20);
             if (!string.IsNullOrEmpty(dir) && Directory.Exists(dir))
             {
-                // Schedule self-deletion via cmd after we exit (uninstall.exe is inside dir).
-                ScheduleSelfDelete(dir);
+                if (IsRunningFromDirectory(dir))
+                {
+                    result.Add("Uninstaller is still running from the install directory");
+                }
+                else if (!TryDeleteDirectoryTree(dir, out string filesErr))
+                {
+                    result.Add("Install directory: " + filesErr);
+                }
             }
 
-            // Remove WebView2 user-data cache.
-            try
-            {
-                string wv2Cache = Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                    "VoltManager", "WebView2");
-                if (Directory.Exists(wv2Cache)) Directory.Delete(wv2Cache, true);
-            }
-            catch { }
+            Report(I18n.T("status_uninst_files"), 45);
+            string appData = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), AppName);
+            if (Directory.Exists(appData) && !TryDeleteDirectoryTree(appData, out string appDataErr))
+                result.Add("AppData: " + appDataErr);
 
             Report(I18n.T("status_startup"), 60);
-            try { RunSchtasks($"/delete /f /tn \"{STARTUP_TASK}\""); } catch { }
+            try { RunSchtasks($"/delete /f /tn \"{STARTUP_TASK}\""); }
+            catch (Exception ex) { result.Add("Startup task delete: " + ex.Message); }
+            if (StartupTaskExists())
+                result.Add("Startup task still present: " + STARTUP_TASK);
 
-            // Remove shortcuts.
-            try
-            {
-                RemoveShortcuts();
-            }
-            catch { }
+            Report(I18n.T("status_uninst_files"), 75);
+            try { RemoveShortcuts(); }
+            catch (Exception ex) { result.Add("Shortcuts: " + ex.Message); }
+            if (ShortcutsRemain(out string shortcutLeft))
+                result.Add("Shortcuts still present: " + shortcutLeft);
 
-            Report(I18n.T("status_uninst_reg"), 80);
-            try { Registry.LocalMachine.DeleteSubKey(ARP_KEY, false); } catch { }
+            Report(I18n.T("status_uninst_reg"), 90);
+            try { Registry.LocalMachine.DeleteSubKey(ARP_KEY, false); }
+            catch (Exception ex) { result.Add("ARP delete: " + ex.Message); }
+            try { Registry.LocalMachine.DeleteSubKey(INNO_ARP_KEY, false); } catch { /* legacy best-effort */ }
+            if (ArpKeyExists())
+                result.Add("ARP entry still present");
+
+            if (!string.IsNullOrEmpty(dir) && Directory.Exists(dir))
+                result.Add("Install directory still exists: " + dir);
+            if (Directory.Exists(appData))
+                result.Add("AppData still exists: " + appData);
 
             Report("", 100);
+            return result;
+        }
+
+        public static string ResolveInstallDir(string? targetDir = null)
+        {
+            if (!string.IsNullOrWhiteSpace(targetDir) && Directory.Exists(targetDir))
+                return Path.GetFullPath(targetDir);
+
+            string? fromRegistry = ReadInstallLocation();
+            if (!string.IsNullOrWhiteSpace(fromRegistry) && Directory.Exists(fromRegistry))
+                return Path.GetFullPath(fromRegistry);
+
+            string fallback = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), AppName);
+            if (Directory.Exists(fallback))
+                return Path.GetFullPath(fallback);
+
+            return !string.IsNullOrWhiteSpace(targetDir)
+                ? Path.GetFullPath(targetDir)
+                : (!string.IsNullOrWhiteSpace(fromRegistry) ? Path.GetFullPath(fromRegistry) : fallback);
+        }
+
+        /// <summary>
+        /// If this process is running from the install dir, copy self to %TEMP% and relaunch.
+        /// Returns true when the caller should exit (handoff done).
+        /// For silent mode waits for the child and sets <paramref name="exitCode"/>.
+        /// For UI mode starts the child and returns immediately with exitCode 0.
+        /// </summary>
+        public static bool TryRelaunchFromTempIfNeeded(SetupArgs args, out int exitCode)
+        {
+            exitCode = 0;
+            if (args.FromTemp) return false;
+
+            string installDir = ResolveInstallDir(args.TargetDir);
+            if (string.IsNullOrEmpty(installDir) || !Directory.Exists(installDir))
+                return false;
+
+            string self = Assembly.GetExecutingAssembly().Location;
+            if (string.IsNullOrEmpty(self) || !File.Exists(self))
+                return false;
+
+            if (!IsPathUnder(self, installDir))
+                return false;
+
+            string tempExe = Path.Combine(Path.GetTempPath(), "VoltManagerUninstall.exe");
+            File.Copy(self, tempExe, true);
+
+            var parts = new List<string> { "/uninstall", "--from-temp", "--target", installDir };
+            if (args.SilentUninstall) parts.Add("/SILENT");
+            if (!string.IsNullOrEmpty(args.Language))
+            {
+                parts.Add("--lang");
+                parts.Add(args.Language);
+            }
+
+            string cmdLine = string.Join(" ", parts.ConvertAll(QuoteArg));
+            var psi = new ProcessStartInfo(tempExe, cmdLine)
+            {
+                UseShellExecute = !args.SilentUninstall,
+                CreateNoWindow = args.SilentUninstall,
+            };
+
+            var child = Process.Start(psi);
+            if (child == null)
+            {
+                exitCode = 1;
+                return true;
+            }
+
+            if (args.SilentUninstall)
+            {
+                child.WaitForExit();
+                exitCode = child.ExitCode;
+            }
+            else
+            {
+                exitCode = 0;
+            }
+
+            return true;
+        }
+
+        internal static bool TryDeleteDirectoryTree(string dir, out string error)
+        {
+            error = "";
+            if (!Directory.Exists(dir)) return true;
+
+            for (int attempt = 1; attempt <= 5; attempt++)
+            {
+                try
+                {
+                    MakeWritableTree(dir);
+                    Directory.Delete(dir, true);
+                    if (!Directory.Exists(dir)) return true;
+                    error = "directory still exists after delete";
+                }
+                catch (Exception ex)
+                {
+                    error = ex.Message;
+                }
+
+                Thread.Sleep(300 * attempt);
+            }
+
+            return !Directory.Exists(dir);
         }
 
         // ── Private helpers ──────────────────────────────────────────────────
@@ -148,11 +281,81 @@ namespace VoltManager.Setup.Engine
             {
                 try
                 {
-                    if (!p.CloseMainWindow()) p.Kill();
+                    p.Kill();
                     p.WaitForExit(5000);
                 }
                 catch { }
             }
+        }
+
+        private static bool KillRunningAppVerified()
+        {
+            KillRunningApp();
+            Thread.Sleep(300);
+            KillRunningApp();
+            return Process.GetProcessesByName("VoltManager").Length == 0;
+        }
+
+        private static bool IsRunningFromDirectory(string dir)
+        {
+            string self = Assembly.GetExecutingAssembly().Location;
+            return !string.IsNullOrEmpty(self) && IsPathUnder(self, dir);
+        }
+
+        private static bool IsPathUnder(string path, string directory)
+        {
+            string fullPath = Path.GetFullPath(path);
+            string fullDir = Path.GetFullPath(directory)
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                + Path.DirectorySeparatorChar;
+            return fullPath.StartsWith(fullDir, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool StartupTaskExists()
+        {
+            try
+            {
+                var p = Process.Start(new ProcessStartInfo("schtasks", $"/query /tn \"{STARTUP_TASK}\"")
+                {
+                    CreateNoWindow = true,
+                    UseShellExecute = false,
+                })!;
+                p.WaitForExit(10_000);
+                return p.ExitCode == 0;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static bool ShortcutsRemain(out string remaining)
+        {
+            var left = new List<string>();
+            string startDir = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.CommonPrograms), AppName);
+            if (Directory.Exists(startDir)) left.Add(startDir);
+
+            string desktop = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.CommonDesktopDirectory),
+                AppName + ".lnk");
+            if (File.Exists(desktop)) left.Add(desktop);
+
+            remaining = string.Join(", ", left);
+            return left.Count > 0;
+        }
+
+        private static bool ArpKeyExists()
+        {
+            using var k = Registry.LocalMachine.OpenSubKey(ARP_KEY);
+            return k != null;
+        }
+
+        private static string QuoteArg(string value)
+        {
+            if (value.Length == 0) return "\"\"";
+            if (value.IndexOfAny(new[] { ' ', '\t', '"' }) < 0) return value;
+            return "\"" + value.Replace("\"", "\\\"") + "\"";
         }
 
         private static async Task RemoveLegacyInnoInstallAsync(CancellationToken ct)
@@ -516,23 +719,6 @@ namespace VoltManager.Setup.Engine
             string self = Assembly.GetExecutingAssembly().Location;
             string dest = Path.Combine(installDir, "uninstall.exe");
             try { File.Copy(self, dest, true); } catch { }
-        }
-
-        private static void ScheduleSelfDelete(string dir)
-        {
-            // Use cmd /c timeout + rmdir to delete the install dir after process exits.
-            string bat = Path.Combine(Path.GetTempPath(), "vmgr_uninst.bat");
-            File.WriteAllText(bat,
-                "@echo off\r\n" +
-                "timeout /t 2 /nobreak >nul\r\n" +
-                "rmdir /s /q \"" + dir + "\"\r\n" +
-                "del \"%~f0\"\r\n");
-            Process.Start(new ProcessStartInfo("cmd", "/c \"" + bat + "\"")
-            {
-                CreateNoWindow = true,
-                UseShellExecute = false,
-                WindowStyle = ProcessWindowStyle.Hidden,
-            });
         }
 
         private static void ScheduleDownloadedUpdateDelete()
