@@ -5,7 +5,7 @@
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <title>VoltManager</title>
 <link href="css/app.css?v=widgets-category1" rel="stylesheet"/>
-<link href="css/redesign.css?v=black1" rel="stylesheet"/>
+<link href="css/redesign.css?v=sidebar-scrim1" rel="stylesheet"/>
 <link href="css/polish.css?v=polish1" rel="stylesheet"/>
 <link href="css/effects.css?v=perfguard1" rel="stylesheet"/>
 <script>
@@ -60,16 +60,19 @@ html[data-theme=light] .welcome-theme-card .welcome-theme-check{border-color:rgb
 <body class="bg-primary-container text-on-surface h-screen flex overflow-hidden selection:bg-secondary-container selection:text-on-secondary">
 
 <!-- SideNavBar -->
-<nav class="fixed left-0 top-0 h-full w-[280px] border-r border-white/10 backdrop-blur-[30px] bg-surface-container/70 shadow-xl z-50 flex flex-col py-lg gap-md">
+<nav id="side-nav" class="side-nav fixed left-0 top-0 h-full w-[280px] border-r border-white/10 backdrop-blur-[30px] bg-surface-container/70 shadow-xl z-50 flex flex-col py-lg gap-md" data-collapsed="false">
   <!-- Header -->
-  <div class="px-lg mb-8 flex items-center gap-3">
-    <div class="w-10 h-10 rounded-full overflow-hidden border border-secondary-container/30 transition-transform duration-300 hover:scale-110 hover:shadow-[0_0_15px_rgba(0,241,254,0.3)] flex-shrink-0">
+  <div class="side-nav__header px-lg mb-8 flex items-center gap-3">
+    <div class="side-nav__logo w-10 h-10 rounded-full overflow-hidden border border-secondary-container/30 transition-transform duration-300 hover:scale-110 hover:shadow-[0_0_15px_rgba(0,241,254,0.3)] flex-shrink-0">
       <img src="images/project_logo.png" alt="VoltManager" class="w-full h-full object-cover" />
     </div>
-    <div>
+    <div class="side-nav__brand min-w-0">
       <h1 class="text-headline-md font-bold text-secondary-container" data-i18n="app_title">VoltManager</h1>
       <p class="text-label-md text-on-surface-variant" data-i18n="app_subtitle">System Optimized</p>
     </div>
+    <button type="button" id="btn-sidebar-toggle" class="side-nav__toggle ml-auto w-9 h-9 rounded-full flex items-center justify-center text-on-surface-variant hover:text-secondary-container hover:bg-white/5 transition-all duration-300 flex-shrink-0" title="Comprimi barra laterale" aria-label="Comprimi barra laterale" aria-expanded="true" aria-controls="side-nav">
+      <span class="material-symbols-outlined text-[20px]" id="sidebar-toggle-icon">left_panel_close</span>
+    </button>
   </div>
   <!-- Navigation Links -->
   <div class="relative w-full">
@@ -117,14 +120,17 @@ html[data-theme=light] .welcome-theme-card .welcome-theme-check{border-color:rgb
 </nav>
 
 <!-- Main Content Area -->
-<main class="flex-1 ml-[280px] h-full flex flex-col relative bg-[#0A1128]">
+<main id="app-main" class="app-main flex-1 ml-[280px] h-full flex flex-col relative bg-[#0A1128]">
   <!-- Ambient Background Glows -->
   <div class="absolute top-0 left-1/4 w-96 h-96 bg-secondary-container/5 rounded-full blur-3xl pointer-events-none"></div>
   <div class="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-primary-fixed-dim/5 rounded-full blur-[100px] pointer-events-none"></div>
 
   <!-- TopNavBar -->
-  <header class="flex items-center justify-end h-16 px-lg w-full z-40 bg-transparent shrink-0">
-    <div class="flex items-center gap-4">
+  <header class="flex items-center justify-between h-16 px-lg w-full z-40 bg-transparent shrink-0">
+    <button type="button" id="btn-sidebar-expand" class="side-nav-expand-btn hidden w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:text-secondary-container transition-all duration-300 hover:bg-white/5 hover:scale-110 active:opacity-80 hover:shadow-[0_0_15px_rgba(0,241,254,0.15)]" title="Espandi barra laterale" aria-label="Espandi barra laterale">
+      <span class="material-symbols-outlined">left_panel_open</span>
+    </button>
+    <div class="flex items-center gap-4 ml-auto">
       <button class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:text-secondary-container transition-all duration-300 hover:bg-white/5 hover:scale-110 active:opacity-80 hover:shadow-[0_0_15px_rgba(0,241,254,0.15)]" id="btn-energy-tips" title="Consigli energetici">
         <span class="material-symbols-outlined">tips_and_updates</span>
       </button>
@@ -931,8 +937,7 @@ html[data-theme=light] .welcome-theme-card .welcome-theme-check{border-color:rgb
 </div>
 
 <!-- ============ MANUAL OVERRIDE MODAL ============ -->
-<div class="fixed inset-0 z-[100] bg-background hidden items-center justify-center" id="manual-override-overlay">
-  <div class="ambient-glow"></div>
+<div class="fixed inset-0 z-[100] vm-scrim hidden items-center justify-center" id="manual-override-overlay">
   <main class="w-full max-w-md px-lg z-10">
     <div class="glass-modal rounded-3xl p-xl flex flex-col" id="manual-override-modal">
       <div class="flex items-center gap-3 mb-md">
@@ -1215,12 +1220,12 @@ html[data-theme=light] .welcome-theme-card .welcome-theme-check{border-color:rgb
 
 <script src="js/bridge.js?v=errlog1"></script>
 <script src="js/i18n.js?v=widgets-category1"></script>
-<script src="js/app.js?v=widget-layout-fix1"></script>
+<script src="js/app.js?v=sidebar-collapse1"></script>
 <script src="js/effects.js?v=perfguard1"></script>
 <script src="js/perf-guard.js?v=perfguard1"></script>
 <script src="js/dashboard.js?v=chase1"></script>
 <script src="js/power.js?v=reorg2"></script>
-<script src="js/settings.js?v=widgets-category1"></script>
+<script src="js/settings.js?v=widgets-default-off1"></script>
 <script src="js/welcome.js?v=silentupdate1"></script>
 <script src="js/tour.js?v=tour1"></script>
 <script src="js/tips.js?v=tips1"></script>

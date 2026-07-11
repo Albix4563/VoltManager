@@ -48,7 +48,7 @@ public class SettingsServiceTests : IDisposable
         Assert.False(svc.Current.Widgets.Enabled);
         Assert.Equal(new[] { "clock", "calendar", "usage", "temps", "power" },
             svc.Current.Widgets.Items.Select(i => i.Type).ToArray());
-        Assert.All(svc.Current.Widgets.Items, item => Assert.True(item.Enabled));
+        Assert.All(svc.Current.Widgets.Items, item => Assert.False(item.Enabled));
         Assert.All(svc.Current.Widgets.Items, item => Assert.Equal("medium", item.Size));
     }
 
@@ -374,7 +374,7 @@ public class SettingsServiceTests : IDisposable
         Assert.Equal("large", clock.Size);
         Assert.Equal(10, clock.X);
         Assert.Equal(20, clock.Y);
-        Assert.All(svc.Current.Widgets.Items.Skip(1), item => Assert.True(item.Enabled));
+        Assert.All(svc.Current.Widgets.Items.Skip(1), item => Assert.False(item.Enabled));
         Assert.All(svc.Current.Widgets.Items.Skip(1), item => Assert.Equal("medium", item.Size));
     }
 

@@ -76,18 +76,20 @@
                         <CheckBox x:Name="ChkWidgets" Checked="ChkWidgets_Changed" Unchecked="ChkWidgets_Changed"/>
                         <TextBlock x:Name="DescWidgets" FontSize="11.5" Foreground="{DynamicResource FaintBrush}"
                                    TextWrapping="Wrap" Margin="34,3,0,0"/>
-                        <!-- sub-picker: visibile solo se ChkWidgets è checked -->
+                        <!-- sub-picker: visibile solo se ChkWidgets è checked; default unchecked = scelta esplicita -->
                         <Border x:Name="WidgetPicker" Visibility="Collapsed"
-                                Margin="34,10,0,0" Padding="12,10"
-                                Background="{DynamicResource PillBrush}" CornerRadius="8">
+                                Margin="34,10,0,0" Padding="14,12"
+                                Background="#0A162F" BorderBrush="{DynamicResource AccentSoftBrush}"
+                                BorderThickness="1" CornerRadius="10">
                             <StackPanel>
-                                <TextBlock x:Name="LblWidgetPick" FontSize="11" Foreground="{DynamicResource MutedBrush}" Margin="0,0,0,8"/>
+                                <TextBlock x:Name="LblWidgetPick" FontSize="11.5" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextBrush}" Margin="0,0,0,10"/>
                                 <WrapPanel>
-                                    <CheckBox x:Name="ChkWClock"    IsChecked="True" Margin="0,0,18,6"/>
-                                    <CheckBox x:Name="ChkWCalendar" IsChecked="True" Margin="0,0,18,6"/>
-                                    <CheckBox x:Name="ChkWUsage"    IsChecked="True" Margin="0,0,18,6"/>
-                                    <CheckBox x:Name="ChkWTemps"    IsChecked="True" Margin="0,0,18,6"/>
-                                    <CheckBox x:Name="ChkWPower"    IsChecked="True" Margin="0,0,0,6"/>
+                                    <CheckBox x:Name="ChkWClock"    Style="{StaticResource WidgetPickCheck}" IsChecked="False" Margin="0,0,14,8"/>
+                                    <CheckBox x:Name="ChkWCalendar" Style="{StaticResource WidgetPickCheck}" IsChecked="False" Margin="0,0,14,8"/>
+                                    <CheckBox x:Name="ChkWUsage"    Style="{StaticResource WidgetPickCheck}" IsChecked="False" Margin="0,0,14,8"/>
+                                    <CheckBox x:Name="ChkWTemps"    Style="{StaticResource WidgetPickCheck}" IsChecked="False" Margin="0,0,14,8"/>
+                                    <CheckBox x:Name="ChkWPower"    Style="{StaticResource WidgetPickCheck}" IsChecked="False" Margin="0,0,0,8"/>
                                 </WrapPanel>
                             </StackPanel>
                         </Border>

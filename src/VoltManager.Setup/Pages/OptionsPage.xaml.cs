@@ -41,11 +41,12 @@ namespace VoltManager.Setup.Pages
             ChkStartup.IsChecked   = opts.StartWithWindows;
             ChkWidgets.IsChecked   = opts.EnableWidgets;
 
-            // stato iniziale del picker basato su opts
+            // stato iniziale del picker basato su opts (nessun widget pre-selezionato)
             WidgetPicker.Visibility = opts.EnableWidgets ? Visibility.Visible : Visibility.Collapsed;
+            var selected = opts.EnabledWidgetTypes ?? new HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
             foreach (var t in new[] { ("clock",ChkWClock),("calendar",ChkWCalendar),
                                        ("usage",ChkWUsage),("temps",ChkWTemps),("power",ChkWPower) })
-                t.Item2.IsChecked = opts.EnabledWidgetTypes.Contains(t.Item1);
+                t.Item2.IsChecked = selected.Contains(t.Item1);
             ChkLaunch.IsChecked    = opts.LaunchAfterInstall;
         }
 

@@ -160,7 +160,8 @@ public record CpuAutomationState
 public class WidgetItem
 {
     [JsonPropertyName("type")] public string Type { get; set; } = "";
-    [JsonPropertyName("enabled")] public bool Enabled { get; set; } = true;
+    // Off until the user (or installer) explicitly enables a widget type.
+    [JsonPropertyName("enabled")] public bool Enabled { get; set; } = false;
     [JsonPropertyName("pinned")] public bool Pinned { get; set; } = false;
     [JsonPropertyName("size")] public string Size { get; set; } = "medium";
     [JsonPropertyName("x")] public double? X { get; set; }

@@ -601,9 +601,14 @@ namespace VoltManager.Setup.Engine
         private static string SetWidgetsState(string json, bool masterEnabled, HashSet<string> enabledTypes)
         {
             var all = new[] { "clock", "calendar", "usage", "temps", "power" };
+            // Only explicitly selected types start enabled. Empty selection ⇒ master off.
+            var selected = enabledTypes ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            bool any = false;
+            foreach (var t in all) if (selected.Contains(t)) { any = true; break; }
+            bool master = masterEnabled && any;
             var items = string.Join(",", Array.ConvertAll(all, t =>
-                "{\"type\":\"" + t + "\",\"enabled\":" + (enabledTypes.Contains(t) ? "true" : "false") + ",\"pinned\":false}"));
-            string widgetsVal = "{\"enabled\":" + (masterEnabled ? "true" : "false") + ",\"items\":[" + items + "]}";
+                "{\"type\":\"" + t + "\",\"enabled\":" + (selected.Contains(t) ? "true" : "false") + ",\"pinned\":false}"));
+            string widgetsVal = "{\"enabled\":" + (master ? "true" : "false") + ",\"items\":[" + items + "]}";
 
             int propStart = FindJsonProperty(json, "widgets");
             if (propStart < 0)

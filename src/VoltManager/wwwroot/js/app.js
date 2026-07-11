@@ -590,6 +590,42 @@
         Host.call('minimizeToTray').catch(() => {});
     });
 
+    // Collapsible side rail: icons remain, labels compact away.
+    (function wireSidebarCollapse() {
+        const KEY = 'volt.sidebarCollapsed';
+        const nav = document.getElementById('side-nav');
+        const collapseBtn = document.getElementById('btn-sidebar-toggle');
+        const expandBtn = document.getElementById('btn-sidebar-expand');
+        const icon = document.getElementById('sidebar-toggle-icon');
+        if (!nav || !collapseBtn) return;
+
+        function apply(collapsed) {
+            document.body.classList.toggle('sidebar-collapsed', collapsed);
+            nav.dataset.collapsed = collapsed ? 'true' : 'false';
+            collapseBtn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+            const label = collapsed ? 'Espandi barra laterale' : 'Comprimi barra laterale';
+            collapseBtn.title = label;
+            collapseBtn.setAttribute('aria-label', label);
+            if (expandBtn) {
+                expandBtn.title = 'Espandi barra laterale';
+                expandBtn.setAttribute('aria-label', 'Espandi barra laterale');
+            }
+            if (icon) icon.textContent = collapsed ? 'left_panel_open' : 'left_panel_close';
+            try { localStorage.setItem(KEY, collapsed ? '1' : '0'); } catch (_) {}
+            requestAnimationFrame(() => {
+                const activeLink = document.querySelector('#nav-list a.text-secondary-container[data-view]') || getNavLinks()[0];
+                if (activeLink) positionIndicator(activeLink);
+            });
+        }
+
+        let collapsed = false;
+        try { collapsed = localStorage.getItem(KEY) === '1'; } catch (_) {}
+        apply(collapsed);
+
+        collapseBtn.addEventListener('click', () => apply(true));
+        expandBtn?.addEventListener('click', () => apply(false));
+    })();
+
     async function boot() {
         if (!Host.available) return;
         try {

@@ -393,6 +393,49 @@
             </Setter>
         </Style>
 
+        <!-- Widget picker: high-contrast so selection is obvious on nested dark panels -->
+        <Style x:Key="WidgetPickCheck" TargetType="CheckBox" BasedOn="{StaticResource {x:Type CheckBox}}">
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
+            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Padding" Value="8,5"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="CheckBox">
+                        <Border x:Name="chip" CornerRadius="9" Padding="10,7"
+                                Background="#121F3A" BorderBrush="#334866" BorderThickness="1.2"
+                                SnapsToDevicePixels="True">
+                            <StackPanel Orientation="Horizontal">
+                                <Border x:Name="box" Width="20" Height="20" CornerRadius="6"
+                                        Background="#0A1428" BorderBrush="#5B6F91" BorderThickness="1.6"
+                                        VerticalAlignment="Center">
+                                    <Path x:Name="check" Stretch="Uniform" Width="11" Height="11"
+                                          Stroke="#03101F" StrokeThickness="2.6"
+                                          StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                          StrokeLineJoin="Round" Opacity="0"
+                                          Data="M2,6 L5,9 L10,2"/>
+                                </Border>
+                                <ContentPresenter VerticalAlignment="Center" Margin="10,0,0,0"/>
+                            </StackPanel>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="chip" Property="Background" Value="#1A3A4A"/>
+                                <Setter TargetName="chip" Property="BorderBrush" Value="#00F1FE"/>
+                                <Setter TargetName="box" Property="Background" Value="{DynamicResource AccentGradient}"/>
+                                <Setter TargetName="box" Property="BorderBrush" Value="#00F1FE"/>
+                                <Setter TargetName="check" Property="Opacity" Value="1"/>
+                                <Setter Property="Foreground" Value="#F4F8FF"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="chip" Property="BorderBrush" Value="#00F1FE"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <!-- ══════════════════════════════════════════════════════════
              PROGRESSBAR  (gradient + shimmer)
              ══════════════════════════════════════════════════════════ -->

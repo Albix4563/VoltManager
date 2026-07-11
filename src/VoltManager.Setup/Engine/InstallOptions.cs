@@ -9,8 +9,9 @@ namespace VoltManager.Setup.Engine
         public bool CreateDesktopShortcut { get; set; } = true;
         public bool StartWithWindows { get; set; } = false;
         public bool EnableWidgets { get; set; } = false;
+        // Empty until the user picks in OptionsPage — do not auto-start all widgets.
         public System.Collections.Generic.HashSet<string> EnabledWidgetTypes { get; set; } =
-            new System.Collections.Generic.HashSet<string> { "clock", "calendar", "usage", "temps", "power" };
+            new System.Collections.Generic.HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
         public bool LaunchAfterInstall { get; set; } = true;
     }
 }

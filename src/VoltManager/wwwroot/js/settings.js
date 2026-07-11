@@ -590,7 +590,7 @@
         state.items.forEach(item => {
             if (item && WIDGET_TYPES.includes(item.type)) byType[item.type] = item;
         });
-        state.items = WIDGET_TYPES.map(type => byType[type] || { type, enabled: true, pinned: false, x: null, y: null });
+        state.items = WIDGET_TYPES.map(type => byType[type] || { type, enabled: false, pinned: false, x: null, y: null });
         state.items.forEach(item => { item.size = normalizeWidgetSize(item.size); });
         state.enabled = state.enabled === true;
         return state;
