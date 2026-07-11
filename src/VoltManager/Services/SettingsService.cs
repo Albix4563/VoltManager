@@ -247,6 +247,7 @@ public class SettingsService
             NormalizeStandbyAutoCleanerSettings(Current.StandbyAutoCleaner);
             NormalizeWidgetSettings(Current.Widgets);
             NormalizeTheme(Current);
+            NormalizeLanguage(Current);
             var dir = Path.GetDirectoryName(_path)!;
             Directory.CreateDirectory(dir);
             var tmp = _path + ".tmp";

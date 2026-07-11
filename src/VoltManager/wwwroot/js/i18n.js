@@ -1574,6 +1574,13 @@ window.I18n = (function() {
         if (normalized === lang) return;
         lang = normalized;
         localStorage.setItem('volt_lang', normalized);
+        // Keep in-memory settings cache in sync so later saveSettings won't wipe language.
+        try {
+            if (window.__voltSettings) {
+                var s = window.__voltSettings.get ? window.__voltSettings.get() : window.__voltSettings;
+                if (s) s.language = normalized;
+            }
+        } catch (_) { /* ignore */ }
         apply();
         document.dispatchEvent(new CustomEvent('langchanged', { detail: normalized }));
         // Also persist to backend if bridge is available.
@@ -1597,6 +1604,7 @@ window.I18n = (function() {
         if (!normalized) return;
         if (normalized === lang) return;
         lang = normalized;
+        localStorage.setItem('volt_lang', normalized);
         apply();
         document.dispatchEvent(new CustomEvent('langchanged', { detail: normalized }));
     }
@@ -1607,14 +1615,21 @@ window.I18n = (function() {
      */
     function initFromSettings(settingsResult) {
         if (!settingsResult) return;
-        var resolved = settingsResult.resolvedLanguage;
-        if (resolved && isSupported(resolved)) {
+        var settingsNorm = normalizeLang(settingsResult.settings && settingsResult.settings.language);
+        var hostNorm = normalizeLang(settingsResult.resolvedLanguage);
+        var storedNorm = normalizeLang(localStorage.getItem('volt_lang'));
+        // Explicit settings > localStorage (migrate) > host OS fallback.
+        var resolved = settingsNorm || storedNorm || hostNorm;
+        if (!resolved) return;
+        if (resolved !== lang) {
             lang = resolved;
-            localStorage.setItem('volt_lang', resolved);
             apply();
             document.dispatchEvent(new CustomEvent('langchanged', { detail: resolved }));
-            // Migration: if backend has a resolved language different from localStorage,
-            // we now have the canonical source.
+        }
+        localStorage.setItem('volt_lang', resolved);
+        // Persist localStorage choice when settings.language is empty (migration / wiped save).
+        if (!settingsNorm && storedNorm && storedNorm === resolved) {
+            _persistToBackend(resolved);
         }
     }
 

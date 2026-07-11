@@ -843,6 +843,7 @@
 
     function saveSettingsNow() {
         clearTimeout(saveTimer);
+        if (window.I18n && I18n.getLang && settings) settings.language = I18n.getLang();
         return Host.call('saveSettings', settings)
             .then(() => Host.call('getAppPowerProfileStatus'))
             .then(status => {
@@ -907,6 +908,8 @@
 
     Host.call('getSettings').then(res => {
         settings = res.settings;
+        if (window.I18n && I18n.initFromSettings) I18n.initFromSettings(res);
+        if (window.I18n && I18n.getLang && settings) settings.language = I18n.getLang();
         if (window.VoltTheme && VoltTheme.apply) VoltTheme.apply(settings.theme);
         loadIntoUi();
         wireUi();

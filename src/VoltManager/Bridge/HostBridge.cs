@@ -67,8 +67,6 @@ public class HostBridge
         _monitor = monitor;
         _planParams = new PowerPlanParameterService(power);
         _memoryOptimizer = new MemoryOptimizerService();
-        _batteryHealth = new BatteryHealthService();
-        _powerFlow = new PowerFlowService();
         _app = app;
         _loc = app.Loc;
         _subscribeGlobalEvents = subscribeGlobalEvents;
@@ -303,7 +301,7 @@ public class HostBridge
             {
                 string lang = payload.GetProperty("language").GetString() ?? "";
                 if (!LanguageResolver.IsSupported(lang))
-                    throw new ArgumentException(_loc.T("Error_UnknownPlan", lang));
+                    throw new ArgumentException(_loc.T("Error_UnknownMethod", lang));
                 var normalized = LanguageResolver.Normalize(lang);
                 _settings.Current.Language = normalized;
                 _settings.Save();
@@ -610,6 +608,11 @@ public class HostBridge
         settings.AutoShutdown.LastTriggeredLocalDate = current.AutoShutdown.LastTriggeredLocalDate;
         settings.AutoUpdates.SnoozedUntilUtc = current.AutoUpdates.SnoozedUntilUtc;
         settings.AutoUpdates.SkippedVersion = current.AutoUpdates.SkippedVersion;
+        // UI saveSettings often omits language; never wipe a previously chosen locale.
+        if (string.IsNullOrWhiteSpace(settings.Language) || !LanguageResolver.IsSupported(settings.Language))
+            settings.Language = current.Language ?? "";
+        else
+            settings.Language = LanguageResolver.Normalize(settings.Language);
     }
 
     internal static StandbyAutoCleanerSettings SaveStandbyAutoCleanSettings(

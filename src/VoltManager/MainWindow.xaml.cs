@@ -27,6 +27,8 @@ public partial class MainWindow : Window
     private readonly GamingModeReminderService _gamingReminder = new();
     private int _gamingReminderPromptRunning;
     private int _rendererReloadCount;
+    private bool _hostEventsWired;
+    private bool _webViewRecovering;
 
     public MainWindow(App app, bool startMinimized, bool justUpdated = false,
         Task<CoreWebView2Environment>? webViewEnvironment = null)
@@ -58,6 +60,7 @@ public partial class MainWindow : Window
             _app.Widgets.PushLanguage();
             _bridge?.PushEvent("languageChanged", new { language = code, locale = culture.Name });
         });
+        LocalizeTrayMenu();
 
         if (startMinimized)
         {
@@ -88,55 +91,7 @@ public partial class MainWindow : Window
 
         try
         {
-            var core = WebView.CoreWebView2;
-            string wwwroot = Path.Combine(AppContext.BaseDirectory, "wwwroot");
-            core.SetVirtualHostNameToFolderMapping("app.local", wwwroot,
-                CoreWebView2HostResourceAccessKind.Allow);
-
-            core.Settings.AreDefaultContextMenusEnabled = false;
-            core.Settings.IsZoomControlEnabled = false;
-            core.Settings.AreBrowserAcceleratorKeysEnabled = false;
-            core.Settings.IsStatusBarEnabled = false;
-
-            _bridge = new HostBridge(WebView, _app.Hardware, _app.Power, _app.Settings, _app.Updates, _app.AutoStart, _app.Monitor, _app);
-            _bridge.Attach();
-            _bridge.ExitRequested += () => Dispatcher.Invoke(() => { _exiting = true; _app.ExitApp(); });
-            _bridge.MinimizeToTrayRequested += () => Dispatcher.Invoke(HideToTray);
-            _bridge.GamingModeRequested += SetGamingModeFromBridgeAsync;
-            _bridge.GamingModeStateRequested += GetGamingModeState;
-
-            _app.Monitor.MetricsUpdated += OnMetricsUpdated;
-            _app.ActivePlanChanged += p => _bridge.PushEvent("activePlanChanged", new { plan = p?.PlanId, guid = p?.Guid, name = p?.Name });
-            _app.Settings.SettingsChanged += s => _bridge.PushEvent("automationStateChanged", new { masterEnabled = s.MasterAutomationEnabled, @override = s.Override });
-            _app.CpuAutomationStateChanged += s => _bridge.PushEvent("cpuAutomationStateChanged", s);
-            _app.ManualOverrideChanged += o =>
-            {
-                _bridge.PushEvent("manualOverrideChanged", new { @override = o });
-                if (!IsPerformanceOverride(o, DateTime.UtcNow))
-                    _gamingReminder.Stop();
-                PushGamingModeState();
-            };
-            _app.Awake.StateChanged += s => _bridge.PushEvent("keepAwakeChanged", s);
-            _app.PowerSourcePlans.StateChanged += s => _bridge.PushEvent("powerSourcePlanChanged", s);
-            _app.Widgets.StateChanged += s => _bridge.PushEvent("widgetsStateChanged", s);
-
-            core.ProcessFailed += OnWebViewProcessFailed;
-
-            bool startupCheckDone = false;
-            core.NavigationCompleted += (_, args) =>
-            {
-                if (!args.IsSuccess) return;
-                _rendererReloadCount = 0; // a clean load means the renderer recovered
-                if (startupCheckDone) return;
-                startupCheckDone = true;
-                if (_justUpdated)
-                    _ = PushUpdatedToastAsync();
-                else
-                    _ = CheckForUpdatesOnStartupAsync();
-            };
-
-            StartAutoUpdateLoop();
-            core.Navigate("https://app.local/index.html?v=" + DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+            WireWebViewCore(firstBoot: !_hostEventsWired);
 
             // Launched straight into the tray: start trimmed until the user opens it.
             if (!IsVisible || WindowState == WindowState.Minimized)
@@ -155,21 +110,106 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// Binds CoreWebView2 + HostBridge. App-level event subscriptions run once
+    /// (firstBoot); recovery after BrowserProcessExited only re-binds the WebView.
+    /// </summary>
+    private void WireWebViewCore(bool firstBoot)
+    {
+        var core = WebView.CoreWebView2
+            ?? throw new InvalidOperationException("CoreWebView2 not ready");
+        string wwwroot = Path.Combine(AppContext.BaseDirectory, "wwwroot");
+        core.SetVirtualHostNameToFolderMapping("app.local", wwwroot,
+            CoreWebView2HostResourceAccessKind.Allow);
+
+        core.Settings.AreDefaultContextMenusEnabled = false;
+        core.Settings.IsZoomControlEnabled = false;
+        core.Settings.AreBrowserAcceleratorKeysEnabled = false;
+        core.Settings.IsStatusBarEnabled = false;
+
+        _bridge = new HostBridge(WebView, _app.Hardware, _app.Power, _app.Settings, _app.Updates, _app.AutoStart, _app.Monitor, _app);
+        _bridge.Attach();
+        _bridge.ExitRequested += () => Dispatcher.Invoke(() => { _exiting = true; _app.ExitApp(); });
+        _bridge.MinimizeToTrayRequested += () => Dispatcher.Invoke(HideToTray);
+        _bridge.GamingModeRequested += SetGamingModeFromBridgeAsync;
+        _bridge.GamingModeStateRequested += GetGamingModeState;
+
+        if (firstBoot)
+        {
+            _app.Monitor.MetricsUpdated += OnMetricsUpdated;
+            _app.ActivePlanChanged += p => _bridge?.PushEvent("activePlanChanged", new { plan = p?.PlanId, guid = p?.Guid, name = p?.Name });
+            _app.Settings.SettingsChanged += s => _bridge?.PushEvent("automationStateChanged", new { masterEnabled = s.MasterAutomationEnabled, @override = s.Override });
+            _app.CpuAutomationStateChanged += s => _bridge?.PushEvent("cpuAutomationStateChanged", s);
+            _app.ManualOverrideChanged += o =>
+            {
+                _bridge?.PushEvent("manualOverrideChanged", new { @override = o });
+                if (!IsPerformanceOverride(o, DateTime.UtcNow))
+                    _gamingReminder.Stop();
+                PushGamingModeState();
+            };
+            _app.Awake.StateChanged += s => _bridge?.PushEvent("keepAwakeChanged", s);
+            _app.PowerSourcePlans.StateChanged += s => _bridge?.PushEvent("powerSourcePlanChanged", s);
+            _app.Widgets.StateChanged += s => _bridge?.PushEvent("widgetsStateChanged", s);
+            StartAutoUpdateLoop();
+            _hostEventsWired = true;
+        }
+
+        core.ProcessFailed += OnWebViewProcessFailed;
+
+        bool startupCheckDone = false;
+        core.NavigationCompleted += (_, args) =>
+        {
+            if (!args.IsSuccess) return;
+            _rendererReloadCount = 0; // a clean load means the renderer recovered
+            if (startupCheckDone) return;
+            startupCheckDone = true;
+            if (_justUpdated)
+                _ = PushUpdatedToastAsync();
+            else
+                _ = CheckForUpdatesOnStartupAsync();
+        };
+
+        core.Navigate("https://app.local/index.html?v=" + DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+    }
+
     private void OnWebViewProcessFailed(object? sender, CoreWebView2ProcessFailedEventArgs e)
     {
         // Under memory pressure the OS can kill the WebView2 renderer; without this
         // the dashboard just goes blank and the app looks crashed. Reload so it
-        // self-heals. A dead *browser* process can't be reloaded into (the whole
-        // CoreWebView2 is gone), so bail there. Cap retries so a renderer that
-        // keeps dying can't spin in a reload loop.
+        // self-heals. Cap retries so a renderer that keeps dying can't spin forever.
         Logger.Warn($"WebView2 process failed: {e.ProcessFailedKind} (reason: {e.Reason})");
-        if (e.ProcessFailedKind == CoreWebView2ProcessFailedKind.BrowserProcessExited)
-            return;
         if (Interlocked.Increment(ref _rendererReloadCount) > 5)
         {
             Logger.Error("WebView2 renderer kept failing; giving up auto-reload.");
             return;
         }
+
+        // Browser process exit kills CoreWebView2; re-create host without stacking
+        // app-level event handlers.
+        if (e.ProcessFailedKind == CoreWebView2ProcessFailedKind.BrowserProcessExited)
+        {
+            if (_webViewRecovering) return;
+            _webViewRecovering = true;
+            _ = Dispatcher.InvokeAsync(async () =>
+            {
+                try
+                {
+                    Logger.Info("Re-initializing WebView2 after browser process exit…");
+                    await WebView.EnsureCoreWebView2Async(await _webViewEnvironment);
+                    WireWebViewCore(firstBoot: false);
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error("WebView re-init after browser exit failed", ex);
+                }
+                finally
+                {
+                    _webViewRecovering = false;
+                }
+            });
+            return;
+        }
+
         _ = Dispatcher.InvokeAsync(() =>
         {
             try { WebView.CoreWebView2?.Reload(); }

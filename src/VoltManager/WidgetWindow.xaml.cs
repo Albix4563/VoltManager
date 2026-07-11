@@ -112,6 +112,7 @@ public partial class WidgetWindow : Window
                 OnActivePlanChanged(_app.ActivePlan);
                 OnCpuAutomationStateChanged(_app.CpuAutomationState);
                 _manager.PushTheme();
+                _manager.PushLanguage();
             };
 
             core.Navigate(WidgetUrl());
