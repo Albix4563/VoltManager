@@ -418,6 +418,63 @@ public class SettingsServiceTests : IDisposable
         Assert.Equal(1440, reloaded.Current.StandbyAutoCleaner.IntervalMinutes);
     }
 
+    [Fact]
+    public void FreshSettings_LanguageIsEmpty()
+    {
+        var svc = new SettingsService(SettingsPath);
+        Assert.Equal("", svc.Current.Language);
+    }
+
+    [Fact]
+    public void Language_RoundTrip_Es()
+    {
+        var svc = new SettingsService(SettingsPath);
+        svc.Current.Language = "es";
+        svc.Save();
+
+        var reloaded = new SettingsService(SettingsPath);
+        Assert.Equal("es", reloaded.Current.Language);
+    }
+
+    [Theory]
+    [InlineData("ES-es", "es")]
+    [InlineData("zh-Hans", "zh")]
+    [InlineData("en-GB", "en")]
+    [InlineData("IT", "it")]
+    public void Language_Normalization_Applies(string input, string expected)
+    {
+        var svc = new SettingsService(SettingsPath);
+        svc.Current.Language = input;
+        svc.Save();
+
+        var reloaded = new SettingsService(SettingsPath);
+        Assert.Equal(expected, reloaded.Current.Language);
+    }
+
+    [Fact]
+    public void Language_UnsupportedValue_ClearsToEmpty()
+    {
+        var svc = new SettingsService(SettingsPath);
+        svc.Current.Language = "fr";
+        svc.Save();
+
+        var reloaded = new SettingsService(SettingsPath);
+        Assert.Equal("", reloaded.Current.Language);
+    }
+
+    [Fact]
+    public void SettingsFile_WithoutLanguageProperty_LoadsWithEmptyLanguage()
+    {
+        // Write a settings.json without the language property
+        Directory.CreateDirectory(Path.GetDirectoryName(SettingsPath)!);
+        var json = "{\"theme\":\"dark\",\"masterAutomationEnabled\":true}";
+        File.WriteAllText(SettingsPath, json);
+
+        var svc = new SettingsService(SettingsPath);
+        Assert.Equal("", svc.Current.Language);
+        Assert.True(svc.Current.MasterAutomationEnabled);
+    }
+
     public void Dispose()
     {
         try { Directory.Delete(_dir, true); } catch { }

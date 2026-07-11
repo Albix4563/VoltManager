@@ -6,6 +6,7 @@ using System.Windows;
 using Drawing = System.Drawing;
 using Microsoft.Web.WebView2.Core;
 using VoltManager.Bridge;
+using VoltManager.Localization;
 using VoltManager.Models;
 using VoltManager.Services;
 using Media = System.Windows.Media;
@@ -51,6 +52,12 @@ public partial class MainWindow : Window
             ApplyHostTheme(t);
             _bridge?.PushEvent("themeChanged", new { resolvedTheme = t });
         });
+        _app.Loc.LanguageChanged += (code, culture) => Dispatcher.Invoke(() =>
+        {
+            LocalizeTrayMenu();
+            _app.Widgets.PushLanguage();
+            _bridge?.PushEvent("languageChanged", new { language = code, locale = culture.Name });
+        });
 
         if (startMinimized)
         {
@@ -72,8 +79,8 @@ public partial class MainWindow : Window
         {
             Logger.Error("WebView2 initialization failed", ex);
             MessageBox.Show(
-                "Runtime WebView2 non trovato. Installa \"Microsoft Edge WebView2 Runtime\" e riavvia VoltManager.\n\nDettagli: " + ex.Message,
-                "VoltManager", MessageBoxButton.OK, MessageBoxImage.Error);
+                _app.Loc.T("Dialog_WebView2Missing", ex.Message),
+                _app.Loc.T("Dialog_VoltManagerTitle"), MessageBoxButton.OK, MessageBoxImage.Error);
             _exiting = true;
             _app.ExitApp();
             return;
@@ -141,8 +148,8 @@ public partial class MainWindow : Window
             // so report it and exit cleanly rather than leaving a blank window.
             Logger.Error("WebView UI setup failed", ex);
             MessageBox.Show(
-                "Impossibile inizializzare l'interfaccia di VoltManager.\n\nDettagli: " + ex.Message,
-                "VoltManager", MessageBoxButton.OK, MessageBoxImage.Error);
+                _app.Loc.T("Dialog_WebView2SetupFailed", ex.Message),
+                _app.Loc.T("Dialog_VoltManagerTitle"), MessageBoxButton.OK, MessageBoxImage.Error);
             _exiting = true;
             _app.ExitApp();
         }
@@ -206,8 +213,8 @@ public partial class MainWindow : Window
         }
 
         var result = MessageBox.Show(
-            $"Hai il piano gaming attivo, ma la CPU risulta a riposo ({currentCpu:0.0}%) da diversi minuti.\n\nVuoi disattivare il piano gaming e riprendere il piano energetico automatico?",
-            "Piano gaming attivo",
+            _app.Loc.T("Dialog_GamingReminder", currentCpu),
+            _app.Loc.T("Dialog_GamingTitle"),
             MessageBoxButton.YesNo,
             MessageBoxImage.Question);
 
@@ -404,7 +411,7 @@ public partial class MainWindow : Window
         _updatePromptOpen = true;
         try
         {
-            var prompt = new UpdatePromptWindow(info, _app.Theme.ResolvedTheme);
+            var prompt = new UpdatePromptWindow(info, _app.Loc, _app.Theme.ResolvedTheme);
             if (IsVisible) prompt.Owner = this;
             prompt.Icon = Icon;
             prompt.ShowDialog();
@@ -434,15 +441,15 @@ public partial class MainWindow : Window
         {
             string path = await _app.Updates.DownloadUpdateAsync(url);
             Process.Start(new ProcessStartInfo(path,
-                $"/update --pid {Environment.ProcessId}") { UseShellExecute = true });
+                $"/update --pid {Environment.ProcessId} --lang {_app.Loc.CurrentLanguage}") { UseShellExecute = true });
             _exiting = true;
             _app.ExitApp();
         }
         catch (Exception ex)
         {
             Logger.Error("Update download/install failed", ex);
-            MessageBox.Show("Download aggiornamento fallito: " + ex.Message,
-                "VoltManager", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(_app.Loc.T("Dialog_UpdateDownloadFailed", ex.Message),
+                _app.Loc.T("Dialog_VoltManagerTitle"), MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
@@ -509,20 +516,49 @@ public partial class MainWindow : Window
         catch (Exception ex) { Logger.Warn("Could not set WebView2 memory level: " + ex.Message); }
     }
 
+    /// <summary>Applies localized strings to tray menu items with x:Name in XAML.</summary>
+    private void LocalizeTrayMenu()
+    {
+        var loc = _app.Loc;
+        TrayIcon.ToolTipText = "VoltManager – " + PlanDisplayName(_app.ActivePlan);
+        TrayOpenItem.Header = loc.T("Tray_Open");
+        TrayGamingPlanItem.Header = loc.T("Tray_GamingPlan");
+        TrayChangePlanItem.Header = loc.T("Tray_ChangePlan");
+        TrayPlanSaverItem.Header = loc.T("Tray_PlanSaver");
+        TrayPlanBalancedItem.Header = loc.T("Tray_PlanBalanced");
+        TrayPlanPerfItem.Header = loc.T("Tray_PlanPerformance");
+        TrayPlanSaver1h.Header = loc.T("Tray_Duration1h");
+        TrayPlanSaver10h.Header = loc.T("Tray_Duration10h");
+        TrayPlanSaver12h.Header = loc.T("Tray_Duration12h");
+        TrayPlanSaverForever.Header = loc.T("Tray_DurationForever");
+        TrayBalanced1h.Header = loc.T("Tray_Duration1h");
+        TrayBalanced10h.Header = loc.T("Tray_Duration10h");
+        TrayBalanced12h.Header = loc.T("Tray_Duration12h");
+        TrayBalancedForever.Header = loc.T("Tray_DurationForever");
+        TrayPerf1h.Header = loc.T("Tray_Duration1h");
+        TrayPerf10h.Header = loc.T("Tray_Duration10h");
+        TrayPerf12h.Header = loc.T("Tray_Duration12h");
+        TrayPerfForever.Header = loc.T("Tray_DurationForever");
+        TrayKeepAwakeItem.Header = loc.T("Tray_KeepAwake");
+        TrayClearOverrideItem.Header = loc.T("Tray_ClearOverride");
+        TrayAutomationItem.Header = loc.T("Tray_Automation");
+        TrayExitItem.Header = loc.T("Tray_Exit");
+    }
+
     private void TrayIcon_LeftClick(object sender, RoutedEventArgs e) => ShowFromTray();
     private void TrayOpen_Click(object sender, RoutedEventArgs e) => ShowFromTray();
 
-    private static string PlanDisplayName(Models.PowerPlan? plan) => plan?.PlanId switch
+    private string PlanDisplayName(Models.PowerPlan? plan) => plan?.PlanId switch
     {
-        PlanId.PowerSaver => "Risparmio energia",
-        PlanId.Balanced => "Bilanciato",
-        PlanId.Performance => "Prestazioni",
-        _ => string.IsNullOrEmpty(plan?.Name) ? "Sconosciuto" : plan.Name,
+        PlanId.PowerSaver => _app.Loc.T("Plan_Saver"),
+        PlanId.Balanced => _app.Loc.T("Plan_Balanced"),
+        PlanId.Performance => _app.Loc.T("Plan_Performance"),
+        _ => string.IsNullOrEmpty(plan?.Name) ? _app.Loc.T("Plan_Unknown") : plan.Name,
     };
 
     private void TrayMenu_Opened(object sender, RoutedEventArgs e)
     {
-        TrayActivePlanItem.Header = "Piano attivo: " + PlanDisplayName(_app.ActivePlan);
+        TrayActivePlanItem.Header = _app.Loc.T("Tray_ActivePlan", PlanDisplayName(_app.ActivePlan));
         TrayGamingPlanItem.IsChecked = IsGamingModeActive();
         TrayKeepAwakeItem.IsChecked = _app.Awake.GetState().Enabled;
         TrayAutomationItem.IsChecked = _app.Settings.Current.MasterAutomationEnabled;
@@ -542,8 +578,8 @@ public partial class MainWindow : Window
         if (applied || !enable) return;
 
         MessageBox.Show(
-            "Non sono riuscito ad attivare il piano gaming. Verifica che il piano Prestazioni sia disponibile e riprova.",
-            "Piano gaming",
+            _app.Loc.T("Dialog_GamingActivationFailed"),
+            _app.Loc.T("Dialog_GamingModeTitle"),
             MessageBoxButton.OK,
             MessageBoxImage.Warning);
     }

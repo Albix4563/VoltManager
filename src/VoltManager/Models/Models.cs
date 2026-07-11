@@ -268,6 +268,7 @@ public class AppSettings
     [JsonPropertyName("override")] public ManualOverride? Override { get; set; }
     [JsonPropertyName("welcomeCompleted")] public bool WelcomeCompleted { get; set; } = false;
     [JsonPropertyName("tourCompleted")] public bool TourCompleted { get; set; } = false;
+    [JsonPropertyName("language")] public string Language { get; set; } = "";
 
     public static List<AutomationRule> DefaultRules() => new()
     {

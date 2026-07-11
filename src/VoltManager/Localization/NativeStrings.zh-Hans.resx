@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="Tray_Open" xml:space="preserve"><value>打开 VoltManager</value></data>
+  <data name="Tray_ActivePlan" xml:space="preserve"><value>当前计划：{0}</value></data>
+  <data name="Tray_GamingPlan" xml:space="preserve"><value>游戏模式</value></data>
+  <data name="Tray_ChangePlan" xml:space="preserve"><value>切换计划</value></data>
+  <data name="Tray_PlanSaver" xml:space="preserve"><value>节能</value></data>
+  <data name="Tray_PlanBalanced" xml:space="preserve"><value>平衡</value></data>
+  <data name="Tray_PlanPerformance" xml:space="preserve"><value>高性能</value></data>
+  <data name="Tray_Duration1h" xml:space="preserve"><value>1 小时</value></data>
+  <data name="Tray_Duration10h" xml:space="preserve"><value>10 小时</value></data>
+  <data name="Tray_Duration12h" xml:space="preserve"><value>12 小时</value></data>
+  <data name="Tray_DurationForever" xml:space="preserve"><value>永久</value></data>
+  <data name="Tray_KeepAwake" xml:space="preserve"><value>保持电脑唤醒（禁止睡眠）</value></data>
+  <data name="Tray_ClearOverride" xml:space="preserve"><value>解锁计划（恢复自动化）</value></data>
+  <data name="Tray_Automation" xml:space="preserve"><value>计划自动化</value></data>
+  <data name="Tray_Exit" xml:space="preserve"><value>退出</value></data>
+  <data name="Dialog_WebView2Missing" xml:space="preserve"><value>未找到 WebView2 运行时。请安装 "Microsoft Edge WebView2 Runtime" 并重新启动 VoltManager。\n\n详细信息：{0}</value></data>
+  <data name="Dialog_WebView2SetupFailed" xml:space="preserve"><value>无法初始化 VoltManager 界面。\n\n详细信息：{0}</value></data>
+  <data name="Dialog_StartupFailed" xml:space="preserve"><value>VoltManager 启动失败。\n\n详细信息已保存到日志：\n{0}\n\n错误：{1}</value></data>
+  <data name="Dialog_UnexpectedError" xml:space="preserve"><value>发生意外错误。VoltManager 仍处于活动状态，但上次操作可能未完成。\n\n详细信息已保存到日志：\n{0}\n\n错误：{1}</value></data>
+  <data name="Dialog_UpdateDownloadFailed" xml:space="preserve"><value>更新下载失败：{0}</value></data>
+  <data name="Dialog_GamingActivationFailed" xml:space="preserve"><value>无法激活游戏模式。请确认高性能计划可用后重试。</value></data>
+  <data name="Dialog_GamingReminder" xml:space="preserve"><value>游戏模式已启用，但 CPU 似乎处于空闲状态 ({0:0.0}%) 已有几分钟。\n\n是否禁用游戏模式并恢复自动电源计划？</value></data>
+  <data name="Dialog_GamingTitle" xml:space="preserve"><value>游戏模式已启用</value></data>
+  <data name="Dialog_VoltManagerTitle" xml:space="preserve"><value>VoltManager</value></data>
+  <data name="Dialog_GamingModeTitle" xml:space="preserve"><value>游戏模式</value></data>
+  <data name="JumpList_PlanSaver" xml:space="preserve"><value>节能</value></data>
+  <data name="JumpList_PlanBalanced" xml:space="preserve"><value>平衡</value></data>
+  <data name="JumpList_PlanPerformance" xml:space="preserve"><value>高性能</value></data>
+  <data name="JumpList_Automatic" xml:space="preserve"><value>自动</value></data>
+  <data name="JumpList_KeepAwakeOn" xml:space="preserve"><value>保持电脑唤醒</value></data>
+  <data name="JumpList_KeepAwakeOff" xml:space="preserve"><value>恢复睡眠</value></data>
+  <data name="JumpList_PlanSaverDesc" xml:space="preserve"><value>锁定节能计划</value></data>
+  <data name="JumpList_PlanBalancedDesc" xml:space="preserve"><value>锁定平衡计划</value></data>
+  <data name="JumpList_PlanPerformanceDesc" xml:space="preserve"><value>锁定高性能计划</value></data>
+  <data name="JumpList_AutomaticDesc" xml:space="preserve"><value>让 VoltManager 选择计划</value></data>
+  <data name="JumpList_KeepAwakeOnDesc" xml:space="preserve"><value>在 VoltManager 活动期间阻止自动睡眠</value></data>
+  <data name="JumpList_KeepAwakeOffDesc" xml:space="preserve"><value>恢复电源计划的睡眠规则</value></data>
+  <data name="JumpList_CategoryPlan" xml:space="preserve"><value>电源计划</value></data>
+  <data name="JumpList_CategorySystem" xml:space="preserve"><value>系统</value></data>
+  <data name="UpdatePrompt_Title" xml:space="preserve"><value>VoltManager 更新</value></data>
+  <data name="UpdatePrompt_Available" xml:space="preserve"><value>有可用更新</value></data>
+  <data name="UpdatePrompt_VersionMsg" xml:space="preserve"><value>有新版本的 VoltManager 可用。当前版本：{0}。新版本：{1}。</value></data>
+  <data name="UpdatePrompt_SnoozeLabel" xml:space="preserve"><value>推迟：</value></data>
+  <data name="UpdatePrompt_15min" xml:space="preserve"><value>15 分钟</value></data>
+  <data name="UpdatePrompt_30min" xml:space="preserve"><value>30 分钟</value></data>
+  <data name="UpdatePrompt_1hour" xml:space="preserve"><value>1 小时</value></data>
+  <data name="UpdatePrompt_2hours" xml:space="preserve"><value>2 小时</value></data>
+  <data name="UpdatePrompt_Skip" xml:space="preserve"><value>跳过此版本</value></data>
+  <data name="UpdatePrompt_Snooze" xml:space="preserve"><value>推迟</value></data>
+  <data name="UpdatePrompt_Install" xml:space="preserve"><value>安装更新</value></data>
+  <data name="UpdatePrompt_ND" xml:space="preserve"><value>N/D</value></data>
+  <data name="FilePicker_ExportTitle" xml:space="preserve"><value>导出 VoltManager 设置</value></data>
+  <data name="FilePicker_ImportTitle" xml:space="preserve"><value>导入 VoltManager 设置</value></data>
+  <data name="FilePicker_AppProfileTitle" xml:space="preserve"><value>为电源配置文件选择应用程序</value></data>
+  <data name="FilePicker_AppProfileFilter" xml:space="preserve"><value>应用程序 (*.exe)|*.exe</value></data>
+  <data name="FilePicker_JsonFilter" xml:space="preserve"><value>JSON (*.json)|*.json</value></data>
+  <data name="Plan_Saver" xml:space="preserve"><value>节能</value></data>
+  <data name="Plan_Balanced" xml:space="preserve"><value>平衡</value></data>
+  <data name="Plan_Performance" xml:space="preserve"><value>高性能</value></data>
+  <data name="Plan_Unknown" xml:space="preserve"><value>未知</value></data>
+  <data name="Error_UnknownMethod" xml:space="preserve"><value>未知方法：{0}</value></data>
+  <data name="Error_UnknownPlan" xml:space="preserve"><value>未知电源计划：{0}</value></data>
+  <data name="Error_InvalidSettings" xml:space="preserve"><value>无效设置</value></data>
+  <data name="Error_GamingControlUnavailable" xml:space="preserve"><value>游戏模式控件不可用</value></data>
+  <data name="Error_MissingPath" xml:space="preserve"><value>路径缺失</value></data>
+  <data name="Error_MissingUpdateVersion" xml:space="preserve"><value>更新版本缺失</value></data>
+  <data name="Error_UnknownWidget" xml:space="preserve"><value>未知小部件：{0}</value></data>
+  <data name="Error_MissingId" xml:space="preserve"><value>ID 缺失</value></data>
+  <data name="Error_MissingPlanGuid" xml:space="preserve"><value>planGuid 缺失</value></data>
+  <data name="Error_MissingSettingKey" xml:space="preserve"><value>settingKey 缺失</value></data>
+  <data name="Error_InvalidBackupFile" xml:space="preserve"><value>无效的备份文件</value></data>
+  <data name="Common_OK" xml:space="preserve"><value>确定</value></data>
+  <data name="Common_Yes" xml:space="preserve"><value>是</value></data>
+  <data name="Common_No" xml:space="preserve"><value>否</value></data>
+  <data name="Common_Cancel" xml:space="preserve"><value>取消</value></data>
+</root>

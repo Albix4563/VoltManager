@@ -71,6 +71,58 @@
             plan_balanced: 'Bilanciato',
             plan_performance: 'Prestazioni elevate'
         },
+        es: {
+            appProfileTitle: 'Planes de energía por aplicación',
+            appProfileSub: 'Elige un archivo .exe y VoltManager aplicará el plan de energía seleccionado mientras esa app esté abierta.',
+            appProfileToggle: 'Activar perfiles por aplicación',
+            appProfileToggleSub: 'Las reglas solo funcionan cuando la automatización en segundo plano está activa.',
+            appProfileAdd: 'Añadir aplicación',
+            appProfileEmpty: 'Ninguna aplicación configurada.',
+            appProfileStatusIdle: 'En escucha',
+            appProfileStatusDisabled: 'Desactivado',
+            appProfileStatusActive: 'Perfil de aplicación activo',
+            appProfileDetected: 'Activas',
+            appProfileMissing: 'Archivo no encontrado',
+            appProfileRemove: 'Eliminar',
+            heavyTitle: 'Detección de juegos y apps pesadas',
+            heavySub: 'Cuando VoltManager detecta un juego o carga pesada, aplica automáticamente el plan elegido sin crear listas infinitas de aplicaciones.',
+            heavyToggle: 'Activar detección automática',
+            heavyToggleSub: 'Usa las Preferencias gráficas de Windows y heurísticas locales genéricas.',
+            heavyTarget: 'Plan a usar',
+            heavyTargetSub: 'Predeterminado: Alto rendimiento.',
+            heavyWindows: 'Preferencias gráficas de Windows',
+            heavyWindowsSub: 'Detecta apps marcadas como "Alto rendimiento" en Windows.',
+            heavyGamePaths: 'Rutas de juegos instalados',
+            heavyGamePathsSub: 'Detecta Steam, Epic, GOG, Xbox, Riot, Battle.net y similares sin base de datos de juegos.',
+            heavyResources: 'Cargas pesadas genéricas',
+            heavyResourcesSub: 'Detecta procesos de usuario con memoria elevada cuando no existe una preferencia de Windows.',
+            keepTitle: 'Mantener el PC activo',
+            keepSub: 'Bloquea la suspensión automática sin modificar permanentemente los tiempos de espera de los planes de energía.',
+            keepToggle: 'Impedir suspensión automática',
+            keepToggleSub: 'Útil para descargas nocturnas, renderizado, entrenamiento de IA y tareas largas.',
+            keepStatusActive: 'Activo: el PC no entrará en suspensión automática.',
+            keepStatusIdle: 'Inactivo: se aplican las reglas normales del plan de energía.',
+            keepBadgeActive: 'Sin suspensión',
+            keepBadgeIdle: 'Suspensión normal',
+            keepNote: 'La pantalla sigue las configuraciones de Windows; solo se bloquea la suspensión del sistema.',
+            statusIdle: 'En escucha',
+            statusDisabled: 'Desactivado',
+            statusActive: 'Modo de app pesada activo',
+            detected: 'Detectadas',
+            noneDetected: 'Ninguna app pesada detectada.',
+            refresh: 'Actualizar estado',
+            reason_windowsGpuPreference: 'Preferencia GPU de Windows',
+            reason_gameInstallPath: 'Ruta de juego',
+            reason_resourceHeuristic: 'Carga de recursos',
+            planConflictTitle: 'Plan de energía restaurado',
+            planConflictExternal: 'Cambio de plan externo detectado',
+            planConflictKnown: 'Proceso detectado',
+            planConflictProbable: 'Proceso probable',
+            planConflictExpected: 'Plan correcto',
+            plan_powerSaver: 'Ahorro de energía',
+            plan_balanced: 'Equilibrado',
+            plan_performance: 'Alto rendimiento'
+        },
         en: {
             appProfileTitle: 'Per-app power plans',
             appProfileSub: 'Choose an .exe file and VoltManager will apply the selected power plan while that app is open.',
@@ -183,7 +235,7 @@
 
     function tt(key) {
         const l = lang();
-        return (text[l] && text[l][key]) || text.it[key] || key;
+        return (text[l] && text[l][key]) || (text.en && text.en[key]) || key;
     }
 
     function esc(value) {

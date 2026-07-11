@@ -66,4 +66,32 @@ public class SetupArgsTests
         var a = SetupArgs.Parse(null!);
         Assert.Equal(SetupMode.Wizard, a.Mode);
     }
+
+    [Theory]
+    [InlineData("es")]
+    [InlineData("ES")]
+    [InlineData("en")]
+    [InlineData("zh")]
+    public void LangFlag_ParsesCorrectly(string lang)
+    {
+        var a = SetupArgs.Parse(["--lang", lang]);
+        Assert.Equal(lang, a.Language);
+    }
+
+    [Fact]
+    public void NoLang_LanguageIsEmpty()
+    {
+        var a = SetupArgs.Parse([]);
+        Assert.Equal("", a.Language);
+    }
+
+    [Fact]
+    public void UpdateWithLang_ParsesAll()
+    {
+        var a = SetupArgs.Parse(["/update", "--pid", "42", "--target", "C:\\VM", "--lang", "es"]);
+        Assert.Equal(SetupMode.Update, a.Mode);
+        Assert.Equal(42, a.WaitPid);
+        Assert.Equal("C:\\VM", a.TargetDir);
+        Assert.Equal("es", a.Language);
+    }
 }

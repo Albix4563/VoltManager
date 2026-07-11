@@ -17,13 +17,22 @@
             if (msg.event) {
                 const handlers = listeners.get(msg.event) || [];
                 handlers.forEach(h => { try { h(msg.data); } catch (err) { console.error(err); } });
+                // Also dispatch as DOM event for i18n/theme cross-cutting concerns.
+                try {
+                    document.dispatchEvent(new CustomEvent(msg.event, { detail: msg.data }));
+                } catch (_) {}
                 return;
             }
             if (msg.id && pending.has(msg.id)) {
                 const { resolve, reject } = pending.get(msg.id);
                 pending.delete(msg.id);
                 if (msg.ok) resolve(msg.result);
-                else reject(new Error(msg.error || 'Errore bridge'));
+                else {
+                    var err = new Error(msg.error || 'Bridge error');
+                    err.code = msg.code || 'unknown';
+                    err.detail = msg.error || '';
+                    reject(err);
+                }
             }
         });
     }

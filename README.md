@@ -11,7 +11,7 @@ Un solo posto per far andare il computer più veloce quando serve, più silenzio
 ![.NET](https://img.shields.io/badge/.NET-8-512BD4?logo=dotnet&logoColor=white)
 ![UI](https://img.shields.io/badge/UI-WPF%20%2B%20WebView2-2C8EBB)
 ![Offline](https://img.shields.io/badge/100%25-Offline-2ea44f)
-![Lingue](https://img.shields.io/badge/Lingue-IT%20%2F%20EN%20%2F%20ZH-orange)
+![Lingue](https://img.shields.io/badge/Lingue-IT%20%2F%20EN%20%2F%20ES%20%2F%20ZH-orange)
 
 </div>
 
@@ -59,7 +59,7 @@ Pensato per **tutta la famiglia**: chi vuole solo «meno rumore e più batteria�
 - 🔄 **Auto in base alla corrente** — prestazioni quando è collegato, risparmio quando è a batteria. Automatico.
 - 🎮 **Modalità gaming** — blocca le Prestazioni mentre giochi e ti avvisa quando la CPU torna tranquilla, così non resti in alto consumo per sbaglio.
 - ☕ **Tieni il PC sveglio** — niente sospensione durante film, download o presentazioni, senza stravolgere i timeout di Windows.
-- 🌍 **In italiano, inglese e cinese.**
+- 🌍 **In italiano, inglese, spagnolo e cinese.**
 
 ### Per chi vuole di più
 - ⚙️ **Regole automatiche sulla CPU** — es. «se la CPU sta sotto al 15% per 5 minuti, passa a Risparmio». Media mobile anti-falsi-allarmi e cooldown anti-rimbalzo.

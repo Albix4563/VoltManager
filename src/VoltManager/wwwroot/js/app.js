@@ -49,6 +49,20 @@
             on: '开', off: '关', active: '启用', inactive: '禁用', switchHint: '动画开关', source: '来源', command: '路径',
             added: '应用已添加到启动项。', removed: '应用已从启动项移除。', toggled: '应用状态已更新。',
             loadErr: '加载启动应用时出错：', addErr: '添加应用时出错：', removeErr: '移除应用时出错：', toggleErr: '修改应用状态时出错：'
+        },
+        es: {
+            nav: 'Programación de energía', title: 'Programación de energía', sub: 'Programa apagado, reinicio y suspensión del PC, y mantenlo activo cuando sea necesario.',
+            scheduleTitle: 'Acción automática del PC', scheduleSub: 'Elige qué debe hacer el equipo a una hora concreta, si está encendido.',
+            enable: 'Activar programación', action: 'Acción', shutdown: 'Apagar', restart: 'Reiniciar', sleep: 'Suspender', time: 'Hora',
+            note: 'Apagar y reiniciar no fuerzan el guardado del trabajo abierto. La suspensión usa el estado de suspensión de Windows.',
+            keepAwakeTitle: 'Mantener el PC activo', keepAwakeSub: 'Impide que el PC entre en suspensión automática mientras está activo.',
+            startupTitle: 'Aplicaciones de inicio', startupSub: 'Revisa las aplicaciones que se inician o están desactivadas al arrancar Windows.',
+            addTitle: 'Añadir app personalizada', addSub: 'Selecciona un archivo .exe, .lnk, .bat o .cmd. Se registrará como entrada gestionada por VoltManager.',
+            add: 'Añadir', refresh: 'Actualizar', enabled: 'Inicio activo', disabled: 'Inicio desactivado', loading: 'Cargando…', empty: 'No se encontraron aplicaciones.',
+            managed: 'VoltManager', remove: 'Eliminar', enableStartup: 'Activar', disableStartup: 'Desactivar', unknown: 'App desconocida',
+            on: 'ON', off: 'OFF', active: 'Activo', inactive: 'Desactivado', switchHint: 'Interruptor animado', source: 'Origen', command: 'Ruta',
+            added: 'Aplicación añadida al inicio.', removed: 'Aplicación eliminada del inicio.', toggled: 'Estado de la aplicación actualizado.',
+            loadErr: 'Error al cargar apps de inicio: ', addErr: 'Error al añadir app: ', removeErr: 'Error al eliminar app: ', toggleErr: 'Error al cambiar estado de la app: '
         }
     };
 
@@ -84,7 +98,7 @@
 
     function t(key) {
         const lang = window.I18n && I18n.getLang ? I18n.getLang() : 'it';
-        return (labels[lang] && labels[lang][key]) || labels.it[key] || key;
+        return (labels[lang] && labels[lang][key]) || (labels.en && labels.en[key]) || key;
     }
 
     function esc(s) {

@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Win32;
 using Microsoft.Web.WebView2.Wpf;
+using VoltManager.Localization;
 using VoltManager.Models;
 using VoltManager.Services;
 
@@ -42,6 +43,7 @@ public class HostBridge
     private readonly PowerFlowService _powerFlow = new();
     private readonly MonitorService _monitor;
     private readonly App _app;
+    private readonly LocalizationService _loc;
     private readonly bool _subscribeGlobalEvents;
 
     public event Action? ExitRequested;
@@ -65,7 +67,10 @@ public class HostBridge
         _monitor = monitor;
         _planParams = new PowerPlanParameterService(power);
         _memoryOptimizer = new MemoryOptimizerService();
+        _batteryHealth = new BatteryHealthService();
+        _powerFlow = new PowerFlowService();
         _app = app;
+        _loc = app.Loc;
         _subscribeGlobalEvents = subscribeGlobalEvents;
     }
 
@@ -235,7 +240,7 @@ public class HostBridge
             {
                 var planStr = payload.GetProperty("plan").GetString() ?? "";
                 if (!Enum.TryParse<PlanId>(planStr, true, out var plan))
-                    throw new ArgumentException($"Piano sconosciuto: {planStr}");
+                    throw new ArgumentException(_loc.T("Error_UnknownPlan", planStr));
                 bool okSet = await Task.Run(() => _power.SetActivePlan(plan));
                 return new { success = okSet };
             }
@@ -244,7 +249,7 @@ public class HostBridge
             {
                 var planStr = payload.GetProperty("plan").GetString() ?? "";
                 if (!Enum.TryParse<PlanId>(planStr, true, out var plan))
-                    throw new ArgumentException($"Piano sconosciuto: {planStr}");
+                    throw new ArgumentException(_loc.T("Error_UnknownPlan", planStr));
 
                 TimeSpan? duration = null;
                 if (payload.TryGetProperty("hours", out var hoursEl) &&
@@ -268,7 +273,7 @@ public class HostBridge
             {
                 bool enabled = payload.GetProperty("enabled").GetBoolean();
                 if (GamingModeRequested == null)
-                    throw new InvalidOperationException("Controllo modalità gaming non disponibile");
+                    throw new InvalidOperationException(_loc.T("Error_GamingControlUnavailable"));
                 return await GamingModeRequested(enabled);
             }
 
@@ -278,18 +283,34 @@ public class HostBridge
                     settings = _settings.Current,
                     startWithWindows = _startup.IsEnabled(),
                     resolvedTheme = _app.Theme.ResolvedTheme,
+                    resolvedLanguage = _loc.CurrentLanguage,
+                    resolvedLocale = _loc.CurrentCulture.Name,
                 };
 
             case "saveSettings":
             {
                 var settings = payload.Deserialize<AppSettings>(JsonOpts)
-                    ?? throw new ArgumentException("Impostazioni non valide");
+                    ?? throw new ArgumentException(_loc.T("Error_InvalidSettings"));
                 // Preserve machine-local/runtime-owned settings: UI never edits them.
                 PreserveRuntimeOwnedSettings(settings, _settings.Current);
                 _settings.Update(settings);
                 _app.RefreshAppPowerProfiles();
                 _app.RefreshHeavyAppDetection();
                 return new { success = true };
+            }
+
+            case "setLanguage":
+            {
+                string lang = payload.GetProperty("language").GetString() ?? "";
+                if (!LanguageResolver.IsSupported(lang))
+                    throw new ArgumentException(_loc.T("Error_UnknownPlan", lang));
+                var normalized = LanguageResolver.Normalize(lang);
+                _settings.Current.Language = normalized;
+                _settings.Save();
+                _loc.SetLanguage(normalized);
+                // Rebuild jump list with new language.
+                try { _app.Dispatcher.Invoke(() => _app.SetupJumpListPublic()); } catch { }
+                return new { success = true, language = normalized, locale = _loc.CurrentCulture.Name };
             }
 
             case "setStartWithWindows":
@@ -363,7 +384,7 @@ public class HostBridge
                 string version = payload.GetProperty("version").GetString() ?? "";
                 version = version.Trim().TrimStart('v', 'V');
                 if (version.Length == 0)
-                    throw new ArgumentException("Versione aggiornamento mancante");
+                    throw new ArgumentException(_loc.T("Error_MissingUpdateVersion"));
                 _settings.Current.AutoUpdates ??= new AutoUpdateSettings();
                 _settings.Current.AutoUpdates.SkippedVersion = version;
                 _settings.Current.AutoUpdates.SnoozedUntilUtc = null;
@@ -419,7 +440,7 @@ public class HostBridge
             case "addStartupApp":
             {
                 string path = payload.GetProperty("path").GetString()
-                    ?? throw new ArgumentException("Percorso mancante");
+                    ?? throw new ArgumentException(_loc.T("Error_MissingPath"));
                 var entry = await Task.Run(() => _startupApps.AddManagedStartupApp(path));
                 return new { success = true, entry };
             }
@@ -427,7 +448,7 @@ public class HostBridge
             case "setStartupAppEnabled":
             {
                 string id = payload.GetProperty("id").GetString()
-                    ?? throw new ArgumentException("ID mancante");
+                    ?? throw new ArgumentException(_loc.T("Error_MissingId"));
                 bool enabled = payload.GetProperty("enabled").GetBoolean();
                 bool changed = await Task.Run(() => _startupApps.SetStartupAppEnabled(id, enabled));
                 return new { success = changed };
@@ -436,7 +457,7 @@ public class HostBridge
             case "removeStartupApp":
             {
                 string id = payload.GetProperty("id").GetString()
-                    ?? throw new ArgumentException("ID mancante");
+                    ?? throw new ArgumentException(_loc.T("Error_MissingId"));
                 bool removed = await Task.Run(() => _startupApps.RemoveManagedStartupApp(id));
                 return new { success = removed };
             }
@@ -453,7 +474,7 @@ public class HostBridge
                     ?? throw new ArgumentException("URL mancante");
                 string path = await _updates.DownloadUpdateAsync(url);
                 Process.Start(new ProcessStartInfo(path,
-                    $"/update --pid {Environment.ProcessId}") { UseShellExecute = true });
+                    $"/update --pid {Environment.ProcessId} --lang {_loc.CurrentLanguage}") { UseShellExecute = true });
                 ExitRequested?.Invoke();
                 return new { success = true };
             }
@@ -494,9 +515,9 @@ public class HostBridge
             case "setPlanParameter":
             {
                 string planGuid = payload.GetProperty("planGuid").GetString()
-                    ?? throw new ArgumentException("planGuid mancante");
+                    ?? throw new ArgumentException(_loc.T("Error_MissingPlanGuid"));
                 string settingKey = payload.GetProperty("settingKey").GetString()
-                    ?? throw new ArgumentException("settingKey mancante");
+                    ?? throw new ArgumentException(_loc.T("Error_MissingSettingKey"));
                 int acValue = payload.GetProperty("acValue").GetInt32();
                 int dcValue = payload.GetProperty("dcValue").GetInt32();
                 bool ok = await Task.Run(() => _planParams.SetPlanParameter(planGuid, settingKey, acValue, dcValue));
@@ -530,8 +551,8 @@ public class HostBridge
                 {
                     var dialog = new SaveFileDialog
                     {
-                        Title = "Esporta impostazioni VoltManager",
-                        Filter = "JSON (*.json)|*.json",
+                        Title = _loc.T("FilePicker_ExportTitle"),
+                        Filter = _loc.T("FilePicker_JsonFilter"),
                         FileName = $"voltmanager-settings-{DateTime.Now:yyyyMMdd}.json",
                     };
                     return dialog.ShowDialog() == true ? dialog.FileName : null;
@@ -548,8 +569,8 @@ public class HostBridge
                 {
                     var dialog = new OpenFileDialog
                     {
-                        Title = "Importa impostazioni VoltManager",
-                        Filter = "JSON (*.json)|*.json",
+                        Title = _loc.T("FilePicker_ImportTitle"),
+                        Filter = _loc.T("FilePicker_JsonFilter"),
                         CheckFileExists = true,
                     };
                     return dialog.ShowDialog() == true ? dialog.FileName : null;
@@ -557,7 +578,7 @@ public class HostBridge
                 if (path == null) return new { success = false, cancelled = true };
                 var json = await Task.Run(() => System.IO.File.ReadAllText(path));
                 var imported = JsonSerializer.Deserialize<AppSettings>(json, BackupJsonOpts)
-                    ?? throw new ArgumentException("File di backup non valido");
+                    ?? throw new ArgumentException(_loc.T("Error_InvalidBackupFile"));
                 // Machine-local/runtime state must survive an import from another PC.
                 PreserveRuntimeOwnedSettings(imported, _settings.Current);
                 _settings.Update(imported);
@@ -567,7 +588,7 @@ public class HostBridge
             }
 
             default:
-                throw new ArgumentException($"Metodo sconosciuto: {method}");
+                throw new ArgumentException(_loc.T("Error_UnknownMethod", method));
         }
     }
 
@@ -600,12 +621,12 @@ public class HostBridge
         return settingsService.Current.StandbyAutoCleaner;
     }
 
-    private static string? PickAppPowerProfileExecutable()
+    private string? PickAppPowerProfileExecutable()
     {
         var dialog = new OpenFileDialog
         {
-            Title = "Seleziona applicazione per profilo energetico",
-            Filter = "Applicazioni (*.exe)|*.exe",
+            Title = _loc.T("FilePicker_AppProfileTitle"),
+            Filter = _loc.T("FilePicker_AppProfileFilter"),
             CheckFileExists = true,
             Multiselect = false,
         };

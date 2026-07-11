@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="Tray_Open" xml:space="preserve"><value>Apri VoltManager</value></data>
+  <data name="Tray_ActivePlan" xml:space="preserve"><value>Piano attivo: {0}</value></data>
+  <data name="Tray_GamingPlan" xml:space="preserve"><value>Piano gaming</value></data>
+  <data name="Tray_ChangePlan" xml:space="preserve"><value>Cambia piano</value></data>
+  <data name="Tray_PlanSaver" xml:space="preserve"><value>Risparmio energia</value></data>
+  <data name="Tray_PlanBalanced" xml:space="preserve"><value>Bilanciato</value></data>
+  <data name="Tray_PlanPerformance" xml:space="preserve"><value>Prestazioni</value></data>
+  <data name="Tray_Duration1h" xml:space="preserve"><value>1 ora</value></data>
+  <data name="Tray_Duration10h" xml:space="preserve"><value>10 ore</value></data>
+  <data name="Tray_Duration12h" xml:space="preserve"><value>12 ore</value></data>
+  <data name="Tray_DurationForever" xml:space="preserve"><value>Sempre</value></data>
+  <data name="Tray_KeepAwake" xml:space="preserve"><value>Tieni PC attivo (no sospensione)</value></data>
+  <data name="Tray_ClearOverride" xml:space="preserve"><value>Sblocca piano (riprendi automazione)</value></data>
+  <data name="Tray_Automation" xml:space="preserve"><value>Automazione piano</value></data>
+  <data name="Tray_Exit" xml:space="preserve"><value>Esci</value></data>
+  <data name="Dialog_WebView2Missing" xml:space="preserve"><value>Runtime WebView2 non trovato. Installa "Microsoft Edge WebView2 Runtime" e riavvia VoltManager.\n\nDettagli: {0}</value></data>
+  <data name="Dialog_WebView2SetupFailed" xml:space="preserve"><value>Impossibile inizializzare l'interfaccia di VoltManager.\n\nDettagli: {0}</value></data>
+  <data name="Dialog_StartupFailed" xml:space="preserve"><value>VoltManager non è riuscito ad avviarsi.\n\nDettagli salvati nel log:\n{0}\n\nErrore: {1}</value></data>
+  <data name="Dialog_UnexpectedError" xml:space="preserve"><value>Si è verificato un errore imprevisto. VoltManager resta attivo, ma l'ultima operazione potrebbe non essere riuscita.\n\nDettagli salvati nel log:\n{0}\n\nErrore: {1}</value></data>
+  <data name="Dialog_UpdateDownloadFailed" xml:space="preserve"><value>Download aggiornamento fallito: {0}</value></data>
+  <data name="Dialog_GamingActivationFailed" xml:space="preserve"><value>Non sono riuscito ad attivare il piano gaming. Verifica che il piano Prestazioni sia disponibile e riprova.</value></data>
+  <data name="Dialog_GamingReminder" xml:space="preserve"><value>Hai il piano gaming attivo, ma la CPU risulta a riposo ({0:0.0}%) da diversi minuti.\n\nVuoi disattivare il piano gaming e riprendere il piano energetico automatico?</value></data>
+  <data name="Dialog_GamingTitle" xml:space="preserve"><value>Piano gaming attivo</value></data>
+  <data name="Dialog_VoltManagerTitle" xml:space="preserve"><value>VoltManager</value></data>
+  <data name="Dialog_GamingModeTitle" xml:space="preserve"><value>Piano gaming</value></data>
+  <data name="JumpList_PlanSaver" xml:space="preserve"><value>Risparmio energia</value></data>
+  <data name="JumpList_PlanBalanced" xml:space="preserve"><value>Bilanciato</value></data>
+  <data name="JumpList_PlanPerformance" xml:space="preserve"><value>Prestazioni</value></data>
+  <data name="JumpList_Automatic" xml:space="preserve"><value>Automatico</value></data>
+  <data name="JumpList_KeepAwakeOn" xml:space="preserve"><value>Tieni PC attivo</value></data>
+  <data name="JumpList_KeepAwakeOff" xml:space="preserve"><value>Riprendi sospensione</value></data>
+  <data name="JumpList_PlanSaverDesc" xml:space="preserve"><value>Blocca il piano Risparmio energia</value></data>
+  <data name="JumpList_PlanBalancedDesc" xml:space="preserve"><value>Blocca il piano Bilanciato</value></data>
+  <data name="JumpList_PlanPerformanceDesc" xml:space="preserve"><value>Blocca il piano Prestazioni</value></data>
+  <data name="JumpList_AutomaticDesc" xml:space="preserve"><value>Lascia scegliere il piano a VoltManager</value></data>
+  <data name="JumpList_KeepAwakeOnDesc" xml:space="preserve"><value>Impedisce la sospensione automatica finché VoltManager è attivo</value></data>
+  <data name="JumpList_KeepAwakeOffDesc" xml:space="preserve"><value>Ripristina le regole di sospensione del piano energetico</value></data>
+  <data name="JumpList_CategoryPlan" xml:space="preserve"><value>Piano energetico</value></data>
+  <data name="JumpList_CategorySystem" xml:space="preserve"><value>Sistema</value></data>
+  <data name="UpdatePrompt_Title" xml:space="preserve"><value>Aggiornamento VoltManager</value></data>
+  <data name="UpdatePrompt_Available" xml:space="preserve"><value>Aggiornamento disponibile</value></data>
+  <data name="UpdatePrompt_VersionMsg" xml:space="preserve"><value>È disponibile una nuova versione di VoltManager. Versione attuale: {0}. Nuova versione: {1}.</value></data>
+  <data name="UpdatePrompt_SnoozeLabel" xml:space="preserve"><value>Rimanda di:</value></data>
+  <data name="UpdatePrompt_15min" xml:space="preserve"><value>15 minuti</value></data>
+  <data name="UpdatePrompt_30min" xml:space="preserve"><value>30 minuti</value></data>
+  <data name="UpdatePrompt_1hour" xml:space="preserve"><value>1 ora</value></data>
+  <data name="UpdatePrompt_2hours" xml:space="preserve"><value>2 ore</value></data>
+  <data name="UpdatePrompt_Skip" xml:space="preserve"><value>Salta versione</value></data>
+  <data name="UpdatePrompt_Snooze" xml:space="preserve"><value>Rimanda</value></data>
+  <data name="UpdatePrompt_Install" xml:space="preserve"><value>Installa aggiornamento</value></data>
+  <data name="UpdatePrompt_ND" xml:space="preserve"><value>N/D</value></data>
+  <data name="FilePicker_ExportTitle" xml:space="preserve"><value>Esporta impostazioni VoltManager</value></data>
+  <data name="FilePicker_ImportTitle" xml:space="preserve"><value>Importa impostazioni VoltManager</value></data>
+  <data name="FilePicker_AppProfileTitle" xml:space="preserve"><value>Seleziona applicazione per profilo energetico</value></data>
+  <data name="FilePicker_AppProfileFilter" xml:space="preserve"><value>Applicazioni (*.exe)|*.exe</value></data>
+  <data name="FilePicker_JsonFilter" xml:space="preserve"><value>JSON (*.json)|*.json</value></data>
+  <data name="Plan_Saver" xml:space="preserve"><value>Risparmio energia</value></data>
+  <data name="Plan_Balanced" xml:space="preserve"><value>Bilanciato</value></data>
+  <data name="Plan_Performance" xml:space="preserve"><value>Prestazioni</value></data>
+  <data name="Plan_Unknown" xml:space="preserve"><value>Sconosciuto</value></data>
+  <data name="Error_UnknownMethod" xml:space="preserve"><value>Metodo sconosciuto: {0}</value></data>
+  <data name="Error_UnknownPlan" xml:space="preserve"><value>Piano sconosciuto: {0}</value></data>
+  <data name="Error_InvalidSettings" xml:space="preserve"><value>Impostazioni non valide</value></data>
+  <data name="Error_GamingControlUnavailable" xml:space="preserve"><value>Controllo modalità gaming non disponibile</value></data>
+  <data name="Error_MissingPath" xml:space="preserve"><value>Percorso mancante</value></data>
+  <data name="Error_MissingUpdateVersion" xml:space="preserve"><value>Versione aggiornamento mancante</value></data>
+  <data name="Error_UnknownWidget" xml:space="preserve"><value>Widget sconosciuto: {0}</value></data>
+  <data name="Error_MissingId" xml:space="preserve"><value>ID mancante</value></data>
+  <data name="Error_MissingPlanGuid" xml:space="preserve"><value>planGuid mancante</value></data>
+  <data name="Error_MissingSettingKey" xml:space="preserve"><value>settingKey mancante</value></data>
+  <data name="Error_InvalidBackupFile" xml:space="preserve"><value>File di backup non valido</value></data>
+  <data name="Common_OK" xml:space="preserve"><value>OK</value></data>
+  <data name="Common_Yes" xml:space="preserve"><value>Sì</value></data>
+  <data name="Common_No" xml:space="preserve"><value>No</value></data>
+  <data name="Common_Cancel" xml:space="preserve"><value>Annulla</value></data>
+</root>

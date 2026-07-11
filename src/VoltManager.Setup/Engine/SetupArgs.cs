@@ -10,13 +10,15 @@ namespace VoltManager.Setup.Engine
         public int WaitPid { get; }
         public string TargetDir { get; }
         public bool SilentUninstall { get; }
+        public string Language { get; }
 
-        public SetupArgs(SetupMode mode, int waitPid = 0, string targetDir = "", bool silentUninstall = false)
+        public SetupArgs(SetupMode mode, int waitPid = 0, string targetDir = "", bool silentUninstall = false, string language = "")
         {
             Mode = mode;
             WaitPid = waitPid;
             TargetDir = targetDir ?? "";
             SilentUninstall = silentUninstall;
+            Language = language ?? "";
         }
 
         public static SetupArgs Parse(string[] args)
@@ -26,22 +28,23 @@ namespace VoltManager.Setup.Engine
             bool silent = HasFlag(args, "/SILENT", "/VERYSILENT", "/silent", "/verysilent");
             bool update = HasFlag(args, "/update");
             bool uninstall = HasFlag(args, "/uninstall");
+            string lang = GetParam(args, "--lang");
 
             if (update)
             {
                 int pid = GetIntParam(args, "--pid");
                 string target = GetParam(args, "--target");
-                return new SetupArgs(SetupMode.Update, pid, target);
+                return new SetupArgs(SetupMode.Update, pid, target, false, lang);
             }
 
             if (uninstall)
             {
                 string target = GetParam(args, "--target");
-                return new SetupArgs(SetupMode.Uninstall, 0, target, silent);
+                return new SetupArgs(SetupMode.Uninstall, 0, target, silent, lang);
             }
 
-            if (silent) return new SetupArgs(SetupMode.Silent);
-            return new SetupArgs(SetupMode.Wizard);
+            if (silent) return new SetupArgs(SetupMode.Silent, language: lang);
+            return new SetupArgs(SetupMode.Wizard, language: lang);
         }
 
         private static bool HasFlag(string[] args, params string[] flags)

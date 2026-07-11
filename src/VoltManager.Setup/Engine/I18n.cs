@@ -1,11 +1,14 @@
+using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
+using System.Text.Json;
 
 namespace VoltManager.Setup.Engine
 {
     public static class I18n
     {
-        private static readonly Dictionary<string, string> It = new Dictionary<string, string>
+        private static readonly Dictionary<string, string> It = new()
         {
             ["welcome_title"]       = "Benvenuto",
             ["welcome_subtitle"]    = "VoltManager ottimizza automaticamente il piano energetico del tuo PC in base all'utilizzo CPU, riducendo i consumi senza compromettere le prestazioni.",
@@ -191,16 +194,158 @@ namespace VoltManager.Setup.Engine
             ["status_uninst_reg"]   = "正在从程序列表中移除…",
         };
 
-        private static readonly string _language = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
+        private static readonly Dictionary<string, string> Es = new()
+        {
+            ["welcome_title"]       = "Bienvenido",
+            ["welcome_subtitle"]    = "VoltManager optimiza automáticamente el plan de energía de tu PC según el uso de CPU, reduciendo el consumo sin sacrificar el rendimiento.",
+            ["welcome_info"]        = "Haz clic en Siguiente para configurar la instalación.",
+            ["feat1_t"]             = "Optimización automática",
+            ["feat1_d"]            = "Cambia el plan de energía en tiempo real según la carga de la CPU.",
+            ["feat2_t"]             = "Consumo reducido",
+            ["feat2_d"]            = "Menos energía y menos calor cuando el PC está inactivo.",
+            ["feat3_t"]             = "Rendimiento intacto",
+            ["feat3_d"]            = "Máxima potencia cuando la necesitas, sin compromisos.",
+            ["options_title"]       = "Opciones de instalación",
+            ["options_folder"]      = "Carpeta de instalación",
+            ["options_browse"]      = "Examinar…",
+            ["options_desktop"]     = "Crear acceso directo en el escritorio",
+            ["options_desktop_d"]  = "Añade un icono de inicio en el escritorio.",
+            ["options_startup"]     = "Iniciar con Windows",
+            ["options_startup_d"]  = "VoltManager se inicia automáticamente al iniciar sesión.",
+            ["options_widgets"]     = "Activar widgets de escritorio",
+            ["options_widgets_d"]  = "Muestra los widgets independientes en el escritorio al iniciar la aplicación por primera vez.",
+            ["options_widgets_select"] = "Selecciona los widgets a activar:",
+            ["widget_clock"]       = "Reloj",
+            ["widget_calendar"]    = "Calendario",
+            ["widget_usage"]       = "Uso",
+            ["widget_temps"]       = "Temperaturas",
+            ["widget_power"]       = "Energía",
+            ["options_launch"]      = "Iniciar VoltManager al terminar la instalación",
+            ["options_launch_d"]   = "Abre la aplicación en cuanto se complete la instalación.",
+            ["progress_title"]      = "Instalando…",
+            ["progress_wait"]       = "Espera, no cierres esta ventana.",
+            ["done_title"]          = "Instalación completada",
+            ["done_title_err"]      = "Instalación fallida",
+            ["done_sub"]            = "VoltManager se ha instalado correctamente.",
+            ["done_launch"]         = "Iniciar VoltManager",
+            ["uninst_title"]        = "Desinstalación",
+            ["uninst_confirm"]      = "¿Eliminar VoltManager del equipo?",
+            ["uninst_sub"]          = "Se eliminarán todos los archivos de la aplicación.",
+            ["uninst_item1"]        = "Archivos del programa y accesos directos",
+            ["uninst_item2"]        = "Entrada en Aplicaciones y características",
+            ["uninst_item3"]        = "Plan de energía restaurado al predeterminado",
+            ["uninst_warn"]         = "Esta acción no se puede deshacer. Windows volverá a su plan de energía predeterminado.",
+            ["uninst_progress"]     = "Eliminando…",
+            ["uninst_done"]         = "VoltManager se ha desinstalado.",
+            ["btn_back"]            = "← Atrás",
+            ["btn_next"]            = "Siguiente →",
+            ["btn_install"]         = "Instalar",
+            ["btn_cancel"]          = "Cancelar",
+            ["btn_close"]           = "Cerrar",
+            ["btn_finish"]          = "Finalizar",
+            ["btn_uninstall"]       = "Desinstalar",
+            ["status_kill"]         = "Cerrando VoltManager en ejecución…",
+            ["status_migrate"]      = "Eliminando instalación anterior…",
+            ["status_extract"]      = "Extrayendo archivos…",
+            ["status_webview"]      = "Instalando WebView2 Runtime…",
+            ["status_shortcuts"]    = "Creando accesos directos…",
+            ["status_startup"]      = "Configurando inicio con Windows…",
+            ["status_registry"]     = "Registrando en el sistema…",
+            ["status_uninst_kill"]  = "Cerrando VoltManager…",
+            ["status_uninst_files"] = "Eliminando archivos…",
+            ["status_uninst_reg"]   = "Eliminando de Programas…",
+        };
+
+        private static string _language = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
+
+        public static string Language => _language;
 
         public static string T(string key)
         {
-            var dict = _language.StartsWith("it", System.StringComparison.OrdinalIgnoreCase)
-                ? It
-                : _language.StartsWith("zh", System.StringComparison.OrdinalIgnoreCase)
-                    ? Zh
-                    : En;
+            var dict = ResolveDictionary(_language);
             return dict.TryGetValue(key, out var v) ? v : key;
+        }
+
+        private static Dictionary<string, string> ResolveDictionary(string lang)
+        {
+            if (lang.StartsWith("it", StringComparison.OrdinalIgnoreCase)) return It;
+            if (lang.StartsWith("zh", StringComparison.OrdinalIgnoreCase)) return Zh;
+            if (lang.StartsWith("es", StringComparison.OrdinalIgnoreCase)) return Es;
+            return En;
+        }
+
+        /// <summary>
+        /// Resolves the language with precedence: explicit --lang arg > saved settings > OS culture > English.
+        /// Sets the internal _language field so T() works correctly.
+        /// </summary>
+        public static string Initialize(string? explicitLang = null, string? settingsLang = null)
+        {
+            string resolved;
+            // 1. Explicit --lang argument
+            if (!string.IsNullOrEmpty(explicitLang) && IsSupported(explicitLang))
+            {
+                resolved = Normalize(explicitLang);
+            }
+            // 2. Saved settings language
+            else if (!string.IsNullOrEmpty(settingsLang) && IsSupported(settingsLang))
+            {
+                resolved = Normalize(settingsLang);
+            }
+            // 3. OS culture
+            else
+            {
+                var osName = CultureInfo.CurrentUICulture.Name;
+                if (osName.StartsWith("es", StringComparison.OrdinalIgnoreCase)) resolved = "es";
+                else if (osName.StartsWith("it", StringComparison.OrdinalIgnoreCase)) resolved = "it";
+                else if (osName.StartsWith("zh", StringComparison.OrdinalIgnoreCase)) resolved = "zh";
+                else resolved = "en";
+            }
+
+            // Update the readonly field via reflection (pragmatic for setup tool).
+            typeof(I18n).GetField("_language",
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!
+                .SetValue(null, resolved);
+            return resolved;
+        }
+
+        /// <summary>
+        /// Reads the language from %APPDATA%\VoltManager\settings.json, returns null if not found/unreadable.
+        /// </summary>
+        public static string? TryReadSavedLanguage()
+        {
+            try
+            {
+                var settingsPath = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                    "VoltManager", "settings.json");
+                if (!File.Exists(settingsPath)) return null;
+                var json = File.ReadAllText(settingsPath);
+                using var doc = JsonDocument.Parse(json);
+                if (doc.RootElement.TryGetProperty("language", out var langProp))
+                {
+                    var val = langProp.GetString();
+                    if (!string.IsNullOrEmpty(val)) return val;
+                }
+            }
+            catch { /* best-effort */ }
+            return null;
+        }
+
+        private static bool IsSupported(string code)
+        {
+            var n = Normalize(code);
+            return n == "it" || n == "en" || n == "zh" || n == "es";
+        }
+
+        private static string Normalize(string code)
+        {
+            if (string.IsNullOrWhiteSpace(code)) return "en";
+            var trimmed = code.Trim().Replace('_', '-');
+            if (trimmed.StartsWith("it", StringComparison.OrdinalIgnoreCase)) return "it";
+            if (trimmed.StartsWith("en", StringComparison.OrdinalIgnoreCase)) return "en";
+            if (trimmed.StartsWith("zh", StringComparison.OrdinalIgnoreCase)) return "zh";
+            if (trimmed.StartsWith("es", StringComparison.OrdinalIgnoreCase)) return "es";
+            return "";
         }
     }
 }

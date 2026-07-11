@@ -14,6 +14,8 @@ namespace VoltManager.Setup
             base.OnStartup(e);
             ApplyThemeFromSettings();
             var args = SetupArgs.Parse(e.Args);
+            var savedLang = I18n.TryReadSavedLanguage();
+            I18n.Initialize(args.Language, savedLang);
 
             switch (args.Mode)
             {

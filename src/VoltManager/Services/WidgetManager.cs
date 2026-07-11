@@ -1,5 +1,6 @@
 using System.Windows;
 using Microsoft.Web.WebView2.Core;
+using VoltManager.Localization;
 using VoltManager.Models;
 
 namespace VoltManager.Services;
@@ -45,7 +46,7 @@ public sealed class WidgetManager : IDisposable
     public WidgetSettings SetEnabled(string type, bool enabled)
     {
         if (!WidgetSettings.IsKnownType(type))
-            throw new ArgumentException("Widget sconosciuto: " + type);
+            throw new ArgumentException(_app.Loc.T("Error_UnknownWidget", type));
 
         var widgets = GetState();
         var item = widgets.GetOrAdd(type);
@@ -166,6 +167,13 @@ public sealed class WidgetManager : IDisposable
         var data = new { resolvedTheme = _app.Theme.ResolvedTheme };
         foreach (var window in _windows.Values.ToList())
             window.PushEvent("themeChanged", data);
+    }
+
+    internal void PushLanguage()
+    {
+        var data = new { language = _app.Loc.CurrentLanguage, locale = _app.Loc.CurrentCulture.Name };
+        foreach (var window in _windows.Values.ToList())
+            window.PushEvent("languageChanged", data);
     }
 
     private int EnabledIndex(string type)

@@ -7,6 +7,7 @@ using System.Windows;
 using System.Windows.Shell;
 using System.Windows.Threading;
 using Microsoft.Web.WebView2.Core;
+using VoltManager.Localization;
 using VoltManager.Models;
 using VoltManager.Services;
 
@@ -36,6 +37,7 @@ public partial class App : Application
     public StandbyAutoCleanerService StandbyAutoCleaner { get; private set; } = null!;
     public BatteryHistoryService BatteryHistory { get; private set; } = null!;
     public ThemeService Theme { get; private set; } = null!;
+    public LocalizationService Loc { get; private set; } = null!;
     public WidgetManager Widgets { get; private set; } = null!;
     public Task<CoreWebView2Environment> WebViewEnvironment { get; private set; } = null!;
 
@@ -85,11 +87,14 @@ public partial class App : Application
             Logger.Error("Fatal error during startup", ex);
             try
             {
+                var fallbackLoc = new LocalizationService();
+                try { fallbackLoc.Initialize(new AppSettings()); } catch { }
                 MessageBox.Show(
-                    "VoltManager non è riuscito ad avviarsi.\n\n" +
-                    "Dettagli salvati nel log:\n" + (Logger.LogFilePath ?? "(non disponibile)") +
-                    "\n\nErrore: " + ex.Message,
-                    "VoltManager", MessageBoxButton.OK, MessageBoxImage.Error);
+                    fallbackLoc.T("Dialog_StartupFailed",
+                        Logger.LogFilePath ?? fallbackLoc.T("UpdatePrompt_ND"),
+                        ex.Message),
+                    fallbackLoc.T("Dialog_VoltManagerTitle"),
+                    MessageBoxButton.OK, MessageBoxImage.Error);
             }
             catch { /* never let the dialog mask the original failure */ }
             Shutdown(1);
@@ -126,6 +131,8 @@ public partial class App : Application
 
         Hardware = new HardwareInfoService();
         Settings = new SettingsService();
+        Loc = new LocalizationService();
+        Loc.Initialize(Settings.Current);
         Theme = new ThemeService();
         Theme.SetPreference(Settings.Current.Theme);
         Power = new PowerPlanService(Settings);
@@ -181,6 +188,9 @@ public partial class App : Application
         Logger.Info("Startup complete.");
     }
 
+    /// <summary>Public entry for HostBridge to rebuild jump list after language change.</summary>
+    public void SetupJumpListPublic() => SetupJumpList();
+
     private static Task<CoreWebView2Environment> CreateWebViewEnvironmentAsync()
     {
         var userDataFolder = Path.Combine(
@@ -219,10 +229,11 @@ public partial class App : Application
         try
         {
             MessageBox.Show(
-                "Si è verificato un errore imprevisto. VoltManager resta attivo, ma l'ultima operazione potrebbe non essere riuscita.\n\n" +
-                "Dettagli salvati nel log:\n" + (Logger.LogFilePath ?? "(non disponibile)") +
-                "\n\nErrore: " + e.Exception.Message,
-                "VoltManager", MessageBoxButton.OK, MessageBoxImage.Warning);
+                Loc.T("Dialog_UnexpectedError",
+                    Logger.LogFilePath ?? Loc.T("UpdatePrompt_ND"),
+                    e.Exception.Message),
+                Loc.T("Dialog_VoltManagerTitle"),
+                MessageBoxButton.OK, MessageBoxImage.Warning);
         }
         catch
         {
@@ -240,18 +251,19 @@ public partial class App : Application
             if (!File.Exists(helper)) return;
 
             var jumpList = new JumpList { ShowRecentCategory = false, ShowFrequentCategory = false };
-            AddPlanTask(jumpList, helper, "Risparmio energia", RemoteCommandProtocol.PowerSaverKey,
-                "Blocca il piano Risparmio energia");
-            AddPlanTask(jumpList, helper, "Bilanciato", RemoteCommandProtocol.BalancedKey,
-                "Blocca il piano Bilanciato");
-            AddPlanTask(jumpList, helper, "Prestazioni", RemoteCommandProtocol.PerformanceKey,
-                "Blocca il piano Prestazioni");
-            AddPlanTask(jumpList, helper, "Automatico", RemoteCommandProtocol.AutoKey,
-                "Lascia scegliere il piano a VoltManager");
-            AddCommandTask(jumpList, helper, "Tieni PC attivo", RemoteCommandProtocol.KeepAwakeOnKey,
-                "Impedisce la sospensione automatica finché VoltManager è attivo", "Sistema");
-            AddCommandTask(jumpList, helper, "Riprendi sospensione", RemoteCommandProtocol.KeepAwakeOffKey,
-                "Ripristina le regole di sospensione del piano energetico", "Sistema");
+            var loc = Loc;
+            AddPlanTask(jumpList, helper, loc.T("JumpList_PlanSaver"), RemoteCommandProtocol.PowerSaverKey,
+                loc.T("JumpList_PlanSaverDesc"));
+            AddPlanTask(jumpList, helper, loc.T("JumpList_PlanBalanced"), RemoteCommandProtocol.BalancedKey,
+                loc.T("JumpList_PlanBalancedDesc"));
+            AddPlanTask(jumpList, helper, loc.T("JumpList_PlanPerformance"), RemoteCommandProtocol.PerformanceKey,
+                loc.T("JumpList_PlanPerformanceDesc"));
+            AddPlanTask(jumpList, helper, loc.T("JumpList_Automatic"), RemoteCommandProtocol.AutoKey,
+                loc.T("JumpList_AutomaticDesc"));
+            AddCommandTask(jumpList, helper, loc.T("JumpList_KeepAwakeOn"), RemoteCommandProtocol.KeepAwakeOnKey,
+                loc.T("JumpList_KeepAwakeOnDesc"), loc.T("JumpList_CategorySystem"));
+            AddCommandTask(jumpList, helper, loc.T("JumpList_KeepAwakeOff"), RemoteCommandProtocol.KeepAwakeOffKey,
+                loc.T("JumpList_KeepAwakeOffDesc"), loc.T("JumpList_CategorySystem"));
             JumpList.SetJumpList(this, jumpList);
         }
         catch
@@ -260,8 +272,8 @@ public partial class App : Application
         }
     }
 
-    private static void AddPlanTask(JumpList jumpList, string helper, string title, string key, string description)
-        => AddJumpTask(jumpList, helper, title, RemoteCommandProtocol.PlanArgName + " " + key, description, "Piano energetico");
+    private void AddPlanTask(JumpList jumpList, string helper, string title, string key, string description)
+        => AddJumpTask(jumpList, helper, title, RemoteCommandProtocol.PlanArgName + " " + key, description, Loc.T("JumpList_CategoryPlan"));
 
     private static void AddCommandTask(JumpList jumpList, string helper, string title, string key, string description, string category)
         => AddJumpTask(jumpList, helper, title, RemoteCommandProtocol.CommandArgName + " " + key, description, category);

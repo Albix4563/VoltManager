@@ -1,4 +1,11 @@
 window.I18n = (function() {
+    const metadata = {
+        it: { locale: 'it-IT', label: 'Italiano' },
+        en: { locale: 'en-GB', label: 'English' },
+        zh: { locale: 'zh-CN', label: '简体中文' },
+        es: { locale: 'es-ES', label: 'Español' }
+    };
+
     const translations = {
         en: {
             "app_title": "VoltManager",
@@ -998,44 +1005,651 @@ window.I18n = (function() {
             "tip7_body": "Riduci lo Stato minimo del processore nei Parametri avanzati così la CPU scende di più quando il sistema è inattivo.",
             "tip8_title": "Lascia scegliere il piano all'automazione",
             "tip8_body": "Imposta le soglie nelle regole di automazione CPU e VoltManager passa da solo al piano giusto in base al carico."
+        },
+        es: {
+            // ---- Core App (331+ keys) ----
+            "app_title": "VoltManager",
+            "app_subtitle": "Sistema optimizado",
+            "nav_home": "Inicio",
+            "nav_power": "Gestión de energía",
+            "nav_settings": "Configuración e información",
+            "nav_changelog": "Registro de cambios",
+            "nav_sec_monitor": "Supervisión",
+            "nav_sec_control": "Control",
+            "nav_sec_app": "Aplicación",
+            "nav_monitoring": "Supervisión activa",
+            "nav_monitoring_paused": "Supervisión en pausa",
+            "changelog_title": "Registro de cambios",
+            "changelog_sub": "Historial completo de todas las versiones publicadas.",
+            "changelog_loading": "Cargando…",
+            "changelog_empty": "No hay notas de versión disponibles.",
+            "changelog_error": "No se pudo cargar el registro de cambios.",
+            "changelog_offline": "No se pudo contactar con GitHub. Verifica tu conexión.",
+            "changelog_ratelimited": "Límite de solicitudes de GitHub alcanzado. Inténtalo más tarde.",
+            "changelog_current": "Actual",
+            "changelog_prerelease": "Prepublicación",
+            "changelog_refresh": "Actualizar",
+            "changelog_view_github": "Ver en GitHub",
+            "dash_title": "Panel",
+            "dash_subtitle": "Métricas de rendimiento y carga del hardware en tiempo real.",
+            "dash_task_manager": "Administrador de tareas",
+            "dash_cpu_core": "Núcleo CPU",
+            "dash_gpu_load": "Carga GPU",
+            "dash_memory": "Memoria",
+            "dash_disk": "E/S Disco",
+            "dash_disk_sub": "Actividad total del disco",
+            "dash_detecting_cpu": "Detectando CPU…",
+            "dash_detecting_gpu": "Detectando GPU…",
+            "dash_gpu_unavailable": "Contadores GPU no disponibles",
+            "dash_temps_title": "Temperaturas y ventiladores",
+            "dash_cat_cpu": "CPU",
+            "dash_cat_gpu": "GPU",
+            "dash_cat_storage": "Almacenamiento",
+            "dash_cat_motherboard": "Placa base",
+            "dash_battery_health_title": "Salud de la batería",
+            "dash_battery_health_rating_excellent": "Excelente",
+            "dash_battery_health_rating_good": "Buena",
+            "dash_battery_health_rating_fair": "Aceptable",
+            "dash_battery_health_rating_poor": "Deficiente",
+            "dash_battery_health_wear": "desgaste",
+            "power_flow_title": "Flujo de energía",
+            "power_flow_status_charging": "Cargando",
+            "power_flow_status_discharging": "Descargando",
+            "power_flow_status_idle": "Inactivo",
+            "power_flow_status_full": "Carga completa",
+            "power_flow_status_unknown": "Desconocido",
+            "power_flow_charge_level": "Carga",
+            "power_flow_to_empty": "Hasta vacía",
+            "power_flow_to_full": "Hasta completa",
+            "power_flow_voltage": "Voltaje",
+            "power_flow_plugged": "Conectado (CA)",
+            "power_flow_on_battery": "Con batería",
+            "battery_history_title": "Historial de batería",
+            "battery_history_window": "Últimas {span}",
+            "battery_history_min": "mín",
+            "battery_history_max": "máx",
+            "battery_history_samples": "muestras",
+            "dash_processes_title": "Procesos principales",
+            "dash_proc_name": "Proceso",
+            "dash_proc_loading": "Cargando…",
+            "dash_active_plan": "PLAN DE ENERGÍA ACTIVO",
+            "dash_plan_saver": "Ahorro de energía",
+            "dash_plan_balanced": "Equilibrado",
+            "dash_plan_performance": "Alto rendimiento",
+            "dash_power_source_title": "Auto boost de CA",
+            "dash_power_source_sub": "Alto rendimiento al conectar, restaurar al desconectar",
+            "dash_gaming_title": "Modo de juego",
+            "dash_gaming_sub": "Bloquea Alto rendimiento y avisa cuando la CPU vuelva a estar inactiva",
+            "nav_gaming_mode": "Modo de juego activo",
+            "override_title": "¿Cuánto tiempo debe mantenerse este plan?",
+            "override_1h": "1 hora",
+            "override_10h": "10 horas",
+            "override_12h": "12 horas",
+            "override_forever": "Siempre",
+            "override_forever_warning": "La aplicación ya no cambiará el plan automáticamente hasta que canceles.",
+            "override_confirm": "Confirmar",
+            "override_cancel": "Cancelar",
+            "override_locked_until": "Plan bloqueado — expira en ",
+            "override_locked_forever": "Plan bloqueado permanentemente",
+            "power_title": "Gestión de energía",
+            "power_subtitle": "Configura reglas de automatización para optimizar el rendimiento y el consumo del sistema.",
+            "power_rule_if": "Si CPU &lt;",
+            "power_rule_if_gt": "Si CPU &gt;",
+            "power_rule_for": "% durante",
+            "power_rule_min": "minuto",
+            "power_rule_saver": "Ahorro de energía",
+            "power_rule_balanced": "Equilibrado",
+            "power_rule_performance": "Alto rendimiento",
+            "power_master_title": "Activar automatización en segundo plano",
+            "power_master_sub": "Deja que VoltManager aplique las reglas silenciosamente.",
+            "power_sample_title": "Intervalo de muestreo de CPU",
+            "power_sample_sub": "Elige cada cuántos segundos VoltManager lee el uso de CPU para decidir el plan automático.",
+            "power_sample_seconds": "segundos",
+            "power_group_rules": "Reglas de automatización de CPU",
+            "power_group_app_profiles": "Perfiles de energía por aplicación",
+            "power_group_heavy": "Detección de juegos y apps pesadas",
+            "power_group_keepawake": "Mantener el PC activo",
+            "set_title": "Configuración e información",
+            "set_subtitle": "Gestiona las preferencias de la aplicación, actualizaciones e información del sistema.",
+            "set_updates_title": "Actualizaciones de software",
+            "set_updates_sub": "Mantén VoltManager optimizado con las últimas mejoras de rendimiento.",
+            "set_updates_curr": "Versión actual: ",
+            "set_btn_check": "Buscar actualizaciones en GitHub",
+            "set_btn_download": "Descargar e instalar",
+            "set_channel_label": "Canal de actualización",
+            "set_channel_stable": "Estable",
+            "set_channel_preview": "Vista previa (Beta)",
+            "set_channel_dev": "Desarrollo (Alpha)",
+            "set_changelog_title": "Notas de la versión",
+            "set_changelog_latest": "Más reciente",
+            "set_changelog_empty": "Pulsa \"Buscar actualizaciones\" para cargar las notas de la versión y los últimos commits.",
+            "set_sys_system": "Sistema",
+            "set_pref_title": "Preferencias generales",
+            "set_pref_autostart": "Iniciar con Windows",
+            "set_pref_autostart_sub": "Inicio automático minimizado",
+            "set_startup_title": "Aplicaciones de inicio",
+            "set_startup_sub": "Controla qué aplicaciones se inician con Windows.",
+            "set_startup_refresh": "Actualizar",
+            "set_startup_add": "Añadir app personalizada",
+            "set_startup_enabled": "Inicio activo",
+            "set_startup_disabled": "Inicio desactivado",
+            "set_pref_tray": "Cerrar al área de notificación",
+            "set_pref_tray_sub": "Cerrar oculta la aplicación, automatización activa",
+            "set_pref_power_source_plan": "Auto boost de CA",
+            "set_pref_power_source_plan_sub": "Usa Alto rendimiento al conectar y restaura el plan anterior con batería",
+            "set_pref_autoshutdown": "Apagado automático",
+            "set_pref_autoshutdown_sub": "Apaga el PC a la hora indicada si está encendido",
+            "set_pref_autoshutdown_time": "Hora",
+            "set_pref_autoshutdown_note": "No fuerza el cierre de aplicaciones con trabajo no guardado.",
+            "set_pref_silent_updates": "Actualizaciones automáticas silenciosas",
+            "set_pref_silent_updates_sub": "Instala nuevas versiones automáticamente y avisa al reiniciar.",
+            "set_pref_lang": "Idioma",
+            "set_pref_lang_sub": "Idioma de la interfaz de la aplicación",
+            "set_pref_theme": "Tema",
+            "set_pref_theme_sub": "Tema de la interfaz",
+            "set_theme_dark": "Oscuro",
+            "set_theme_black": "Negro",
+            "set_theme_light": "Claro",
+            "set_theme_auto": "Automático",
+            "widget_settings_title": "Widgets de escritorio",
+            "widget_settings_sub": "Gadgets independientes en el escritorio con chincheta para mantenerlos visibles.",
+            "widget_clock": "Reloj",
+            "widget_clock_sub": "Hora y fecha",
+            "widget_calendar": "Calendario",
+            "widget_calendar_sub": "Mes actual",
+            "widget_usage": "Uso del sistema",
+            "widget_usage_sub": "CPU, GPU, RAM y disco",
+            "widget_temps": "Temperaturas",
+            "widget_temps_sub": "Sensores CPU y GPU",
+            "widget_power": "Energía",
+            "widget_power_sub": "Batería y plan activo",
+            "widget_power_now": "Potencia",
+            "widget_battery": "Batería",
+            "widget_plan": "Plan",
+            "widget_cpu_auto": "Media CPU",
+            "widget_sample_interval": "Muestra",
+            "widget_pin": "Mantener sobre otras ventanas",
+            "widget_pin_btn": "Fijar encima",
+            "widget_unpin_btn": "Quitar fijación",
+            "widget_active": "Widgets activos",
+            "widget_total": "Widgets totales",
+            "widget_disabled": "Widgets desactivados",
+            "widget_master_title": "Categoría de widget",
+            "widget_master_sub": "Activa o desactiva todos los widgets de escritorio.",
+            "widget_empty_enabled": "Ningún widget activo.",
+            "widget_empty_disabled": "Ningún widget desactivado.",
+            "widget_status_active": "Activo",
+            "widget_status_disabled": "Desactivado",
+            "widget_pinned_badge": "Fijado",
+            "widget_detail_size": "Tamaño",
+            "widget_size_selector": "Tamaño del widget",
+            "widget_size_mini": "Mini",
+            "widget_size_medium": "Mediano",
+            "widget_size_large": "Grande",
+            "widget_detail_position": "Posición",
+            "widget_position_auto": "Automática",
+            "widget_reset_pos": "Restablecer posición",
+            "widget_close": "Ocultar widget",
+            "setup_req": "Configuración necesaria",
+            "setup_req_sub": "No se detectaron los planes de energía predeterminados. Es necesario instalarlos para optimizar el rendimiento del sistema.",
+            "setup_btn_exit": "No, salir",
+            "setup_btn_install": "Instalar planes base",
+            "setup_admin": "Esta operación requiere privilegios de administrador.",
+            "msg_check_update": "Buscando actualizaciones…",
+            "msg_check_err": "Error al buscar actualizaciones.",
+            "msg_err": "Error: ",
+            "msg_dl_fail": "Descarga fallida: ",
+            "msg_dl_prog": "Descargando… ",
+            "msg_latest_commits": "Últimos commits (main)",
+            "msg_no_info": "No hay información disponible.",
+            "msg_dl_install": "Descargar e instalar v",
+            "msg_installing": "Instalando planes de energía…",
+            "msg_install_ok": "Planes instalados correctamente.",
+            "msg_install_part": "Instalación parcial: algunos planes no se crearon. Inténtalo de nuevo.",
+            "upd_banner_title": "Actualización disponible: v",
+            "upd_banner_sub": "Una nueva versión de VoltManager está lista para instalar.",
+            "upd_banner_install": "Instalar ahora",
+            "upd_banner_later": "Más tarde",
+            "upd_modal_title": "Actualización disponible",
+            "upd_modal_cur": "Versión actual",
+            "upd_modal_new": "Nueva versión",
+            "upd_modal_btn_install": "Descargar e instalar",
+            "upd_modal_btn_later": "Más tarde",
+            "upd_modal_installing": "Instalando… la aplicación se reiniciará en breve.",
+            "upd_toast_msg": "VoltManager actualizado a",
+            "power_group_advanced": "Parámetros avanzados del plan",
+            "power_group_ramcleaner": "Optimización de memoria (RAM Cleaner)",
+            "adv_title": "Parámetros avanzados del plan de energía",
+            "adv_sub": "Edita directamente los parámetros ocultos de Windows sin usar regedit ni paneles heredados. Los cambios se aplican de inmediato.",
+            "adv_plan_editing": "Editando plan:",
+            "adv_proc_min": "Estado mínimo del procesador",
+            "adv_proc_min_sub": "Frecuencia mínima permitida de la CPU (% del reloj base). Valores más bajos ahorran más energía en reposo.",
+            "adv_proc_max": "Estado máximo del procesador",
+            "adv_proc_max_sub": "Frecuencia máxima permitida de la CPU. Por debajo del 100% limita la velocidad y reduce calor/consumo.",
+            "adv_boost": "Modo Turbo Boost",
+            "adv_boost_sub": "Controla cuándo la CPU puede superar su reloj base. Desactivarlo reduce significativamente las temperaturas.",
+            "adv_boost_0": "Desactivado",
+            "adv_boost_1": "Activado",
+            "adv_boost_2": "Agresivo",
+            "adv_boost_4": "Agresivo eficiente",
+            "adv_pcie": "Estado de enlace PCI Express (ASPM)",
+            "adv_pcie_sub": "Controla la administración de energía activa de los dispositivos PCIe. El ahorro máximo reduce el consumo en reposo de la GPU.",
+            "adv_pcie_0": "Desactivado",
+            "adv_pcie_1": "Ahorro moderado",
+            "adv_pcie_2": "Ahorro máximo",
+            "adv_ac": "CA (conectado)",
+            "adv_dc": "CC (batería)",
+            "adv_show_dc": "Mostrar valores de batería",
+            "adv_save_ok": "Parámetro actualizado.",
+            "adv_save_err": "Error al aplicar el parámetro.",
+            "adv_loading": "Cargando parámetros del plan…",
+            "ram_title": "RAM Cleaner",
+            "ram_sub": "Windows acumula una caché de memoria en espera (visible en el Administrador de tareas). Limpiarla libera memoria antes de lanzar apps pesadas.",
+            "ram_inuse": "En uso",
+            "ram_standby": "En espera",
+            "ram_free": "Libre",
+            "ram_btn_clean": "Limpiar caché en espera",
+            "ram_cleaning": "Limpiando…",
+            "ram_cleaned": "Caché en espera limpiada.",
+            "ram_last_clean": "Última limpieza:",
+            "ram_never": "Nunca",
+            "ram_err": "Error durante la limpieza.",
+            "ram_total": "RAM total:",
+            "ram_auto_title": "Auto Cleaner",
+            "ram_auto_enabled": "Auto: activo",
+            "ram_auto_disabled": "Auto: inactivo",
+            "ram_auto_threshold": "Umbral (GB)",
+            "ram_auto_interval": "Intervalo (min)",
+            "welcome_title": "Bienvenido a VoltManager",
+            "welcome_intro_sub": "Optimiza automáticamente el consumo y el rendimiento de tu PC.",
+            "welcome_features_title": "Qué puedes hacer",
+            "welcome_feat_monitor_title": "Supervisión del hardware",
+            "welcome_feat_monitor_sub": "CPU, GPU, RAM y disco en tiempo real",
+            "welcome_feat_auto_title": "Cambio automático de plan",
+            "welcome_feat_auto_sub": "Planes de energía adaptados a la carga",
+            "welcome_feat_apps_title": "Perfiles por aplicación",
+            "welcome_feat_apps_sub": "Un plan dedicado para cada aplicación",
+            "welcome_feat_ram_title": "RAM Cleaner",
+            "welcome_feat_ram_sub": "Libera memoria en espera al instante",
+            "welcome_prefs_title": "Configura tus preferencias",
+            "welcome_theme_title": "Elige tu tema inicial",
+            "welcome_theme_intro": "Puedes cambiarlo en cualquier momento desde Configuración.",
+            "welcome_theme_dark_title": "Tema oscuro",
+            "welcome_theme_dark_sub": "Una interfaz más cómoda por la noche.",
+            "welcome_theme_black_title": "Tema negro",
+            "welcome_theme_black_sub": "Negro absoluto, ideal para pantallas OLED.",
+            "welcome_theme_light_title": "Tema claro",
+            "welcome_theme_light_sub": "Una interfaz brillante y legible.",
+            "welcome_theme_sub": "Aplicado en tiempo real",
+            "welcome_autoswitch_sub": "Cambio automático de planes de energía",
+            "welcome_widgets_sub": "Muestra gadgets de reloj, calendario y métricas en el escritorio",
+            "welcome_next": "Siguiente",
+            "welcome_back": "Atrás",
+            "welcome_skip": "Saltar",
+            "welcome_start": "Comenzar",
+            "set_show_welcome": "Mostrar bienvenida",
+            "set_show_welcome_sub": "Repetir la presentación inicial",
+            "set_show_welcome_btn": "Abrir",
+            "set_show_tour": "Visita guiada",
+            "set_show_tour_sub": "Reiniciar la visita guiada de la aplicación",
+            "set_show_tour_btn": "Iniciar",
+            "set_backup": "Copia de seguridad",
+            "set_backup_sub": "Guardar o restaurar la configuración desde un archivo",
+            "set_backup_export": "Exportar",
+            "set_backup_import": "Importar",
+            "tour_intro_title": "Visita rápida",
+            "tour_intro_body": "Veamos en 60 segundos dónde está cada cosa. Puedes saltarla cuando quieras.",
+            "tour_nav_title": "Navegación",
+            "tour_nav_body": "Cambia entre Panel, Gestión de energía, Configuración y Registro de cambios desde aquí.",
+            "tour_plan_title": "Plan de energía activo",
+            "tour_plan_body": "Cambia tu plan de energía al instante. VoltManager también puede hacerlo automáticamente por ti.",
+            "tour_metrics_title": "Supervisión en vivo",
+            "tour_metrics_body": "Observa CPU, GPU, RAM y disco en tiempo real. Las temperaturas y la batería aparecen cuando están disponibles.",
+            "tour_monitor_title": "Estado de la automatización",
+            "tour_monitor_body": "Muestra si la automatización en segundo plano está activa. Haz clic para pausarla o reanudarla.",
+            "tour_power_title": "Gestión de energía",
+            "tour_power_body": "Ajusta reglas de CPU, perfiles por aplicación, detección de juegos y limpieza de RAM aquí.",
+            "tour_settings_title": "Configuración e información",
+            "tour_settings_body": "Actualizaciones, tema, idioma y preferencias. Puedes repetir esta visita desde aquí cuando quieras.",
+            "tour_done_title": "¡Todo listo!",
+            "tour_done_body": "Esto es lo esencial. Explora a tu ritmo — VoltManager se encarga del resto.",
+            "tour_next": "Siguiente",
+            "tour_back": "Atrás",
+            "tour_skip": "Saltar",
+            "tour_finish": "Terminar",
+            "tips_btn_title": "Consejos de energía",
+            "tips_modal_title": "Consejos de energía",
+            "tips_modal_sub": "Formas rápidas de consumir menos y durar más.",
+            "tips_prev": "Anterior",
+            "tips_next": "Siguiente",
+            "tips_close": "Entendido",
+            "tip1_title": "Ahorra en reposo",
+            "tip1_body": "Cambia al plan Ahorro de energía para navegar o escribir. Limita el reloj de la CPU y alarga notablemente la batería.",
+            "tip2_title": "Auto boost de CA",
+            "tip2_body": "Activa el Auto boost para que VoltManager use Alto rendimiento al conectar y restaure el plan de ahorro con batería, automáticamente.",
+            "tip3_title": "Reduce el brillo de la pantalla",
+            "tip3_body": "La pantalla es uno de los mayores consumidores. Reducir el brillo ~20% puede añadir varios minutos de autonomía.",
+            "tip4_title": "Reduce las apps de inicio",
+            "tip4_body": "Menos procesos en segundo plano significan una CPU más tranquila y menor consumo. Revisa qué se inicia con Windows en Configuración.",
+            "tip5_title": "Desactiva Turbo Boost con batería",
+            "tip5_body": "Desactiva Turbo Boost en los Parámetros avanzados para reducir calor y consumo cuando uses la batería.",
+            "tip6_title": "Limpia la RAM antes de apps pesadas",
+            "tip6_body": "Limpia la caché en espera con RAM Cleaner antes de lanzar juegos o editores para evitar el intercambio de disco lento y costoso.",
+            "tip7_title": "Reduce el estado mínimo de la CPU",
+            "tip7_body": "Reduce el Estado mínimo del procesador en los Parámetros avanzados para que la CPU baje más cuando el sistema esté inactivo.",
+            "tip8_title": "Deja que la automatización elija el plan",
+            "tip8_body": "Establece umbrales en las reglas de automatización de CPU y VoltManager cambiará al plan adecuado según la carga.",
+
+            // ---- Consolidated from app.js (system/schedule/startup) ----
+            "system_nav": "Programación de energía",
+            "system_title": "Programación de energía",
+            "system_sub": "Programa apagado, reinicio y suspensión del PC, y mantenlo activo cuando sea necesario.",
+            "system_schedule_title": "Acción automática del PC",
+            "system_schedule_sub": "Elige qué debe hacer el equipo a una hora concreta, si está encendido.",
+            "system_enable": "Activar programación",
+            "system_action": "Acción",
+            "system_shutdown": "Apagar",
+            "system_restart": "Reiniciar",
+            "system_sleep": "Suspender",
+            "system_time": "Hora",
+            "system_note": "Apagar y reiniciar no fuerzan el guardado del trabajo abierto. La suspensión usa el estado de suspensión de Windows.",
+            "system_keepawake_title": "Mantener el PC activo",
+            "system_keepawake_sub": "Impide que el PC entre en suspensión automática mientras está activo.",
+
+            // ---- Consolidated from settings.js (update/local) ----
+            "upd_local_autocheck": "Búsqueda automática de actualizaciones",
+            "upd_local_autocheck_sub": "Busca nuevas versiones automáticamente cada 30 minutos",
+            "upd_local_silent": "Actualizaciones automáticas silenciosas",
+            "upd_local_silent_sub": "Descarga e instala nuevas versiones sin pedir confirmación",
+            "upd_local_stable": "Estable",
+            "upd_local_preview": "Vista previa (Beta)",
+            "upd_local_dev": "Desarrollo (Alpha)",
+            "upd_local_badge_stable": "Canal: Estable",
+            "upd_local_badge_preview": "Canal: Vista previa (Beta)",
+            "upd_local_badge_dev": "Canal: Desarrollo (Alpha)",
+            "upd_local_snooze_for": "Posponer",
+            "upd_local_snooze": "Posponer",
+            "upd_local_skip": "Omitir versión",
+            "upd_local_later": "Más tarde",
+            "upd_local_install": "Descargar e instalar",
+            "upd_local_noinfo": "No hay información disponible.",
+            "upd_local_check": "Buscando actualizaciones…",
+            "upd_local_err": "Error: ",
+            "upd_local_checkerr": "No se pudieron buscar actualizaciones.",
+            "upd_local_dlinstall": "Descargar e instalar ",
+            "upd_local_dlprog": "Descargando… ",
+            "upd_local_dlfail": "Descarga fallida: ",
+            "upd_local_installing": "Instalando, la aplicación se reiniciará…",
+            "upd_local_snoozed": "Actualización pospuesta.",
+            "upd_local_skipped": "Esta versión se omitirá.",
+            "upd_local_15min": "15 minutos",
+            "upd_local_30min": "30 minutos",
+            "upd_local_1h": "1 hora",
+            "upd_local_2h": "2 horas",
+            "upd_local_toast_title": "VoltManager se ha actualizado",
+            "upd_local_toast_body": "Hay novedades. Lee el registro de cambios para ver qué ha cambiado.",
+            "upd_local_toast_cta": "Leer registro de cambios",
+
+            // ---- Consolidated from power.js (app profiles, heavy apps, keep-awake) ----
+            "app_profile_title": "Planes de energía por aplicación",
+            "app_profile_sub": "Elige un archivo .exe y VoltManager aplicará el plan de energía seleccionado mientras esa app esté abierta.",
+            "app_profile_toggle": "Activar perfiles por aplicación",
+            "app_profile_toggle_sub": "Las reglas solo funcionan cuando la automatización en segundo plano está activa.",
+            "app_profile_add": "Añadir aplicación",
+            "app_profile_empty": "Ninguna aplicación configurada.",
+            "app_profile_status_idle": "En escucha",
+            "app_profile_status_disabled": "Desactivado",
+            "app_profile_status_active": "Perfil de aplicación activo",
+            "app_profile_detected": "Activas",
+            "app_profile_missing": "Archivo no encontrado",
+            "app_profile_remove": "Eliminar",
+            "heavy_title": "Detección de juegos y apps pesadas",
+            "heavy_sub": "Cuando VoltManager detecta un juego o carga pesada, aplica automáticamente el plan elegido sin crear listas infinitas de aplicaciones.",
+            "heavy_toggle": "Activar detección automática",
+            "heavy_toggle_sub": "Usa las Preferencias gráficas de Windows y heurísticas locales genéricas.",
+            "heavy_target": "Plan a usar",
+            "heavy_target_sub": "Predeterminado: Alto rendimiento.",
+            "heavy_windows": "Preferencias gráficas de Windows",
+            "heavy_windows_sub": "Detecta apps marcadas como \"Alto rendimiento\" en Windows.",
+            "heavy_game_paths": "Rutas de juegos instalados",
+            "heavy_game_paths_sub": "Detecta Steam, Epic, GOG, Xbox, Riot, Battle.net y similares sin base de datos de juegos.",
+            "heavy_resources": "Cargas pesadas genéricas",
+            "heavy_resources_sub": "Detecta procesos de usuario con memoria elevada cuando no existe una preferencia de Windows.",
+            "keep_title": "Mantener el PC activo",
+            "keep_sub": "Bloquea la suspensión automática sin modificar permanentemente los tiempos de espera de los planes de energía.",
+            "keep_toggle": "Impedir suspensión automática",
+            "keep_toggle_sub": "Útil para descargas nocturnas, renderizado, entrenamiento de IA y tareas largas.",
+            "keep_status_active": "Activo: el PC no entrará en suspensión automática.",
+            "keep_status_idle": "Inactivo: se aplican las reglas normales del plan de energía.",
+            "keep_badge_active": "Sin suspensión",
+            "keep_badge_idle": "Suspensión normal",
+            "keep_note": "La pantalla sigue las configuraciones de Windows; solo se bloquea la suspensión del sistema.",
+            "heavy_status_idle": "En escucha",
+            "heavy_status_disabled": "Desactivado",
+            "heavy_status_active": "Modo de app pesada activo",
+            "heavy_detected": "Detectadas",
+            "heavy_none": "Ninguna app pesada detectada.",
+            "heavy_refresh": "Actualizar estado",
+            "heavy_reason_windows": "Preferencia GPU de Windows",
+            "heavy_reason_game": "Ruta de juego",
+            "heavy_reason_resource": "Carga de recursos",
+            "plan_conflict_title": "Plan de energía restaurado",
+            "plan_conflict_external": "Cambio de plan externo detectado",
+            "plan_conflict_known": "Proceso detectado",
+            "plan_conflict_probable": "Proceso probable",
+            "plan_conflict_expected": "Plan correcto",
+            "plan_power_saver": "Ahorro de energía",
+            "plan_balanced": "Equilibrado",
+            "plan_performance": "Alto rendimiento",
+
+            // ---- Startup apps (consolidated from app.js) ----
+            "startup_title": "Aplicaciones de inicio",
+            "startup_sub": "Revisa las aplicaciones que se inician o están desactivadas al arrancar Windows.",
+            "startup_add_title": "Añadir app personalizada",
+            "startup_add_sub": "Selecciona un archivo .exe, .lnk, .bat o .cmd. Se registrará como entrada gestionada por VoltManager.",
+            "startup_add": "Añadir",
+            "startup_refresh": "Actualizar",
+            "startup_enabled": "Inicio activo",
+            "startup_disabled": "Inicio desactivado",
+            "startup_loading": "Cargando…",
+            "startup_empty": "No se encontraron aplicaciones.",
+            "startup_managed": "VoltManager",
+            "startup_remove": "Eliminar",
+            "startup_enable_btn": "Activar",
+            "startup_disable_btn": "Desactivar",
+            "startup_unknown": "App desconocida",
+            "startup_on": "ON",
+            "startup_off": "OFF",
+            "startup_active": "Activo",
+            "startup_inactive": "Desactivado",
+            "startup_switch_hint": "Interruptor animado",
+            "startup_source": "Origen",
+            "startup_command": "Ruta",
+            "startup_added": "Aplicación añadida al inicio.",
+            "startup_removed": "Aplicación eliminada del inicio.",
+            "startup_toggled": "Estado de la aplicación actualizado.",
+            "startup_load_err": "Error al cargar apps de inicio: ",
+            "startup_add_err": "Error al añadir app: ",
+            "startup_remove_err": "Error al eliminar app: ",
+            "startup_toggle_err": "Error al cambiar estado de la app: "
         }
     };
 
     let lang = localStorage.getItem('volt_lang') || 'it';
+    let _bridgeSetLangPending = false;
 
-    function setLang(l) {
-        lang = l;
-        localStorage.setItem('volt_lang', l);
-        apply();
-        document.dispatchEvent(new CustomEvent('langchanged', { detail: l }));
+    // ===== public API =====
+
+    function getMetadata() { return metadata; }
+    function getSupportedCodes() { return Object.keys(metadata); }
+
+    function normalizeLang(code) {
+        if (!code || typeof code !== 'string') return '';
+        var c = code.trim().replace(/_/g, '-');
+        // Direct match
+        if (metadata[c]) return c;
+        // Try two-letter fallback
+        var two = c.substring(0, 2);
+        if (metadata[two]) return two;
+        // Try culture -> code mapping
+        var map = { 'it-it': 'it', 'it-ch': 'it', 'en-gb': 'en', 'en-us': 'en',
+                    'zh-cn': 'zh', 'zh-hans': 'zh', 'zh-hant': 'zh', 'zh-tw': 'zh',
+                    'es-es': 'es', 'es-mx': 'es', 'es-ar': 'es' };
+        var lower = c.toLowerCase();
+        if (map[lower]) return map[lower];
+        return '';
     }
+
+    function isSupported(code) { return normalizeLang(code) !== ''; }
 
     function getLang() { return lang; }
 
+    function getLocale() {
+        var m = metadata[lang];
+        return m ? m.locale : 'it-IT';
+    }
+
+    function getLanguages() {
+        return getSupportedCodes().map(function(c) {
+            return { code: c, locale: metadata[c].locale, label: metadata[c].label };
+        });
+    }
+
     function t(key) {
-        if (translations[lang] && translations[lang][key]) {
+        if (translations[lang] && translations[lang][key] !== undefined && translations[lang][key] !== '') {
             return translations[lang][key];
         }
-        if (translations['en'] && translations['en'][key]) {
+        if (translations['en'] && translations['en'][key] !== undefined && translations['en'][key] !== '') {
             return translations['en'][key];
         }
         return key;
     }
 
+    /** Interpolate: tf("key {0} {1}", [a, b]) */
+    function tf(key, values) {
+        var text = t(key);
+        if (!values || !values.length) return text;
+        return text.replace(/\{(\d+)\}/g, function(_, i) {
+            return values[i] !== undefined ? values[i] : '{' + i + '}';
+        });
+    }
+
     function apply() {
         document.documentElement.lang = lang;
-        document.querySelectorAll('[data-i18n]').forEach(el => {
-            const key = el.getAttribute('data-i18n');
-            if (el.tagName === 'INPUT' && el.type === 'button') {
+        // [data-i18n]
+        document.querySelectorAll('[data-i18n]').forEach(function(el) {
+            var key = el.getAttribute('data-i18n');
+            if (!key) return;
+            if (el.tagName === 'INPUT' && (el.type === 'button' || el.type === 'submit')) {
                 el.value = t(key);
             } else {
                 el.innerHTML = t(key);
             }
         });
+        // [data-i18n-title]
+        document.querySelectorAll('[data-i18n-title]').forEach(function(el) {
+            var key = el.getAttribute('data-i18n-title');
+            if (key) el.title = t(key);
+        });
+        // [data-i18n-placeholder]
+        document.querySelectorAll('[data-i18n-placeholder]').forEach(function(el) {
+            var key = el.getAttribute('data-i18n-placeholder');
+            if (key) el.placeholder = t(key);
+        });
+        // [data-i18n-aria-label]
+        document.querySelectorAll('[data-i18n-aria-label]').forEach(function(el) {
+            var key = el.getAttribute('data-i18n-aria-label');
+            if (key) el.setAttribute('aria-label', t(key));
+        });
+        // [data-i18n-value]
+        document.querySelectorAll('[data-i18n-value]').forEach(function(el) {
+            var key = el.getAttribute('data-i18n-value');
+            if (key) el.value = t(key);
+        });
+    }
+
+    function setLang(l) {
+        var normalized = normalizeLang(l);
+        if (!normalized) { console.warn('[i18n] Unsupported language: ' + l); return; }
+        if (normalized === lang) return;
+        lang = normalized;
+        localStorage.setItem('volt_lang', normalized);
+        apply();
+        document.dispatchEvent(new CustomEvent('langchanged', { detail: normalized }));
+        // Also persist to backend if bridge is available.
+        _persistToBackend(normalized);
+    }
+
+    /** Call setLanguage on the C# backend. Guards against re-entrant loops. */
+    function _persistToBackend(code) {
+        if (!window.Host || !Host.available) return;
+        if (_bridgeSetLangPending) return;
+        _bridgeSetLangPending = true;
+        Host.call('setLanguage', { language: code })
+            .catch(function(err) { console.warn('[i18n] setLanguage bridge error:', err); })
+            .finally(function() { _bridgeSetLangPending = false; });
+    }
+
+    /** Called by bridge when languageChanged event is received from host or widget. */
+    function onHostLanguageChanged(data) {
+        if (!data || !data.language) return;
+        var normalized = normalizeLang(data.language);
+        if (!normalized) return;
+        if (normalized === lang) return;
+        lang = normalized;
+        apply();
+        document.dispatchEvent(new CustomEvent('langchanged', { detail: normalized }));
+    }
+
+    /**
+     * Bootstrap: resolve language from settings, localStorage, OS via bridge.
+     * Called once from getSettings result.
+     */
+    function initFromSettings(settingsResult) {
+        if (!settingsResult) return;
+        var resolved = settingsResult.resolvedLanguage;
+        if (resolved && isSupported(resolved)) {
+            lang = resolved;
+            localStorage.setItem('volt_lang', resolved);
+            apply();
+            document.dispatchEvent(new CustomEvent('langchanged', { detail: resolved }));
+            // Migration: if backend has a resolved language different from localStorage,
+            // we now have the canonical source.
+        }
     }
 
     // Run initially
     document.addEventListener('DOMContentLoaded', apply);
 
-    return { setLang, getLang, t, apply };
+    // Listen for languageChanged from bridge host/widget events.
+    document.addEventListener('languageChanged', function(e) {
+        if (e.detail) onHostLanguageChanged(e.detail);
+    });
+    // storage fallback for separate WebView documents (widgets).
+    window.addEventListener('storage', function(e) {
+        if (e.key === 'volt_lang' && e.newValue) {
+            var normalized = normalizeLang(e.newValue);
+            if (normalized && normalized !== lang) {
+                lang = normalized;
+                apply();
+                document.dispatchEvent(new CustomEvent('langchanged', { detail: normalized }));
+            }
+        }
+    });
+
+    return {
+        metadata: metadata,
+        getSupportedCodes: getSupportedCodes,
+        normalizeLang: normalizeLang,
+        isSupported: isSupported,
+        setLang: setLang,
+        getLang: getLang,
+        getLocale: getLocale,
+        getLanguages: getLanguages,
+        t: t,
+        tf: tf,
+        apply: apply,
+        onHostLanguageChanged: onHostLanguageChanged,
+        initFromSettings: initFromSettings
+    };
 })();

@@ -1,5 +1,6 @@
 using System.IO;
 using System.Text.Json;
+using VoltManager.Localization;
 using VoltManager.Models;
 
 namespace VoltManager.Services;
@@ -67,6 +68,7 @@ public class SettingsService
                     NormalizeStandbyAutoCleanerSettings(loaded.StandbyAutoCleaner);
                     NormalizeWidgetSettings(loaded.Widgets);
                     NormalizeTheme(loaded);
+                    NormalizeLanguage(loaded);
                     // Migrate stale repo name from pre-release installs.
                     if (loaded.UpdateRepo == "Albix4563/VoltManager")
                         loaded.UpdateRepo = "Albix4563/power_efficency";
@@ -109,6 +111,23 @@ public class SettingsService
             "auto" => "auto",
             _ => "dark",
         };
+    }
+
+    private static void NormalizeLanguage(AppSettings settings)
+    {
+        if (string.IsNullOrWhiteSpace(settings.Language))
+        {
+            // Empty = migration state; don't force a default yet.
+            return;
+        }
+        var normalized = LanguageResolver.Normalize(settings.Language);
+        if (string.IsNullOrEmpty(normalized))
+        {
+            Logger.Warn("Unsupported language in settings: '" + settings.Language + "'; clearing for migration.");
+            settings.Language = "";
+            return;
+        }
+        settings.Language = normalized;
     }
 
     private static void NormalizeScheduledPowerAction(AutoShutdownSettings settings)

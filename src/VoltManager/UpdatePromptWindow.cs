@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using VoltManager.Localization;
 using VoltManager.Models;
 
 namespace VoltManager;
@@ -17,14 +18,16 @@ public sealed class UpdatePromptWindow : Window
 {
     private readonly ComboBox _snoozeCombo = new();
     private readonly PromptPalette _palette;
+    private readonly LocalizationService _loc;
 
     public UpdatePromptAction Action { get; private set; } = UpdatePromptAction.Dismiss;
     public int SnoozeMinutes { get; private set; } = 30;
 
-    public UpdatePromptWindow(UpdateInfo info, string? theme = null)
+    public UpdatePromptWindow(UpdateInfo info, LocalizationService loc, string? theme = null)
     {
+        _loc = loc;
         _palette = PromptPalette.For(theme);
-        Title = "Aggiornamento VoltManager";
+        Title = loc.T("UpdatePrompt_Title");
         Width = 520;
         SizeToContent = SizeToContent.Height;
         ResizeMode = ResizeMode.NoResize;
@@ -54,7 +57,7 @@ public sealed class UpdatePromptWindow : Window
 
         stack.Children.Add(new TextBlock
         {
-            Text = "Aggiornamento disponibile",
+            Text = _loc.T("UpdatePrompt_Available"),
             FontSize = 18,
             FontWeight = FontWeights.Bold,
             Margin = new Thickness(0, 0, 0, 8),
@@ -88,16 +91,16 @@ public sealed class UpdatePromptWindow : Window
         };
         snoozeRow.Children.Add(new TextBlock
         {
-            Text = "Rimanda di:",
+            Text = _loc.T("UpdatePrompt_SnoozeLabel"),
             Foreground = _palette.Text,
             VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(0, 0, 10, 0),
         });
 
-        AddSnoozeItem("15 minuti", 15);
-        AddSnoozeItem("30 minuti", 30, selected: true);
-        AddSnoozeItem("1 ora", 60);
-        AddSnoozeItem("2 ore", 120);
+        AddSnoozeItem(_loc.T("UpdatePrompt_15min"), 15);
+        AddSnoozeItem(_loc.T("UpdatePrompt_30min"), 30, selected: true);
+        AddSnoozeItem(_loc.T("UpdatePrompt_1hour"), 60);
+        AddSnoozeItem(_loc.T("UpdatePrompt_2hours"), 120);
         _snoozeCombo.Width = 130;
         _snoozeCombo.SelectionChanged += (_, _) =>
         {
@@ -113,9 +116,9 @@ public sealed class UpdatePromptWindow : Window
             ItemHeight = 36,
         };
 
-        buttons.Children.Add(MakeButton("Salta versione", () => CloseWith(UpdatePromptAction.Skip), subtle: true, _palette));
-        buttons.Children.Add(MakeButton("Rimanda", () => CloseWith(UpdatePromptAction.Snooze), subtle: true, _palette));
-        buttons.Children.Add(MakeButton("Installa aggiornamento", () => CloseWith(UpdatePromptAction.Install), subtle: false, _palette));
+        buttons.Children.Add(MakeButton(_loc.T("UpdatePrompt_Skip"), () => CloseWith(UpdatePromptAction.Skip), subtle: true, _palette));
+        buttons.Children.Add(MakeButton(_loc.T("UpdatePrompt_Snooze"), () => CloseWith(UpdatePromptAction.Snooze), subtle: true, _palette));
+        buttons.Children.Add(MakeButton(_loc.T("UpdatePrompt_Install"), () => CloseWith(UpdatePromptAction.Install), subtle: false, _palette));
         stack.Children.Add(buttons);
 
         return root;
@@ -177,16 +180,16 @@ public sealed class UpdatePromptWindow : Window
         Top = Math.Max(area.Top, area.Bottom - ActualHeight - 24);
     }
 
-    private static string VersionMessage(UpdateInfo info)
+    private string VersionMessage(UpdateInfo info)
     {
         string current = FormatVersion(info.CurrentVersion);
         string latest = FormatVersion(info.LatestVersion);
-        return $"È disponibile una nuova versione di VoltManager. Versione attuale: {current}. Nuova versione: {latest}.";
+        return _loc.T("UpdatePrompt_VersionMsg", current, latest);
     }
 
-    private static string FormatVersion(string? version)
+    private string FormatVersion(string? version)
     {
-        var value = string.IsNullOrWhiteSpace(version) ? "N/D" : version.Trim();
+        var value = string.IsNullOrWhiteSpace(version) ? _loc.T("UpdatePrompt_ND") : version.Trim();
         return value.StartsWith('v') || value.StartsWith('V') ? value : "v" + value;
     }
 

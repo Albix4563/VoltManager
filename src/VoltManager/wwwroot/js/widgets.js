@@ -6,7 +6,7 @@
     const size = SIZES.includes(params.get('s')) ? params.get('s') : 'medium';
     const root = document.getElementById('widget-root');
     let pinned = false;
-    let locale = (window.I18n && I18n.getLang && I18n.getLang()) || 'it';
+    let locale = (window.I18n && I18n.getLocale ? I18n.getLocale() : 'it-IT');
     document.documentElement.dataset.size = size;
 
     const labels = {
@@ -263,7 +263,7 @@
 
     function applySettings(res) {
         if (!res || !res.settings) return;
-        locale = (window.I18n && I18n.getLang && I18n.getLang()) || locale;
+        locale = (window.I18n && I18n.getLocale ? I18n.getLocale() : locale);
         if (res.resolvedTheme && window.VoltTheme) {
             window.__voltResolvedTheme = res.resolvedTheme;
             VoltTheme.apply(res.settings.theme || 'dark', res.resolvedTheme);
@@ -283,6 +283,16 @@
     Host.on('widgetTopmostChanged', (data) => {
         pinned = !!(data && data.topmost);
         reflectPin();
+    });
+    Host.on('languageChanged', (data) => {
+        if (!data || !data.language) return;
+        locale = data.locale || locale;
+        if (window.I18n && I18n.onHostLanguageChanged) I18n.onHostLanguageChanged(data);
+        // Re-render date-dependent widgets
+        switch (type) {
+            case 'clock': startClock(); break;
+            case 'calendar': startCalendar(); break;
+        }
     });
 
     ({ clock: startClock, calendar: startCalendar, usage: startUsage, temps: startTemps, power: startPower }[type] || startClock)();

@@ -43,9 +43,40 @@
             snoozed: 'Aggiornamento rimandato.',
             skipped: 'Questa versione verrà saltata.',
             min15: '15 minuti', min30: '30 minuti', hour1: '1 ora', hours2: '2 ore',
-            updatedToastTitle: 'VoltManager si e aggiornato',
-            updatedToastBody: 'Ci sono novita: leggi il changelog per scoprire cosa e cambiato.',
+            updatedToastTitle: 'VoltManager si è aggiornato',
+            updatedToastBody: 'Ci sono novità: leggi il changelog per scoprire cosa è cambiato.',
             updatedToastCta: 'Leggi changelog'
+        },
+        es: {
+            autoUpdates: 'Búsqueda automática de actualizaciones',
+            autoUpdatesSub: 'Busca nuevas versiones automáticamente cada 30 minutos',
+            silentAutoUpdates: 'Actualizaciones automáticas silenciosas',
+            silentAutoUpdatesSub: 'Descarga e instala nuevas versiones sin pedir confirmación',
+            channelStable: 'Estable',
+            channelPreview: 'Vista previa (Beta)',
+            channelDev: 'Desarrollo (Alpha)',
+            channelBadgeStable: 'Canal: Estable',
+            channelBadgePreview: 'Canal: Vista previa (Beta)',
+            channelBadgeDev: 'Canal: Desarrollo (Alpha)',
+            snoozeFor: 'Posponer',
+            snooze: 'Posponer',
+            skip: 'Omitir versión',
+            later: 'Más tarde',
+            install: 'Descargar e instalar',
+            noInfo: 'No hay información disponible.',
+            check: 'Buscando actualizaciones…',
+            err: 'Error: ',
+            checkErr: 'No se pudieron buscar actualizaciones.',
+            dlInstall: 'Descargar e instalar ',
+            dlProg: 'Descargando… ',
+            dlFail: 'Descarga fallida: ',
+            installing: 'Instalando, la aplicación se reiniciará…',
+            snoozed: 'Actualización pospuesta.',
+            skipped: 'Esta versión se omitirá.',
+            min15: '15 minutos', min30: '30 minutos', hour1: '1 hora', hours2: '2 horas',
+            updatedToastTitle: 'VoltManager se ha actualizado',
+            updatedToastBody: 'Hay novedades. Lee el registro de cambios para ver qué ha cambiado.',
+            updatedToastCta: 'Leer registro de cambios'
         },
         en: {
             autoUpdates: 'Automatic update checks',
@@ -113,7 +144,7 @@
 
     function lt(key) {
         const l = lang();
-        return (localText[l] && localText[l][key]) || localText.it[key] || key;
+        return (localText[l] && localText[l][key]) || (localText.en && localText.en[key]) || key;
     }
 
     function tr(key, fallback) {

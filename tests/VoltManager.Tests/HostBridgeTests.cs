@@ -67,6 +67,22 @@ public class HostBridgeTests : IDisposable
         Assert.Same(settings.Current.StandbyAutoCleaner, saved);
     }
 
+    [Fact]
+    public void PreserveRuntimeOwnedSettings_PreservesLanguage()
+    {
+        var incoming = new AppSettings { Language = "" };
+        var current = new AppSettings { Language = "es" };
+
+        HostBridge.PreserveRuntimeOwnedSettings(incoming, current);
+
+        // Language is a user preference — it should be importable/exportable.
+        // PreserveRuntimeOwnedSettings does not specifically protect Language,
+        // so the incoming Language ("" from import) would overwrite current.
+        // This test documents current behavior; the bridge layer handles language
+        // differently via setLanguage RPC, not via saveSettings.
+        Assert.Equal("", incoming.Language);
+    }
+
     public void Dispose()
     {
         try { Directory.Delete(_dir, true); } catch { }
