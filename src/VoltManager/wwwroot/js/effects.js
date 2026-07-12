@@ -10,7 +10,8 @@
   // into RAM-pressure "lite" mode (data-perf=lite) when memory runs high.
   const reduce = () => !!(
     (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) ||
-    document.documentElement.dataset.perf === 'lite'
+    document.documentElement.dataset.perf === 'lite' ||
+    document.documentElement.dataset.perfTier === 'lite'
   );
   const CIRC = 251.2; // 2*PI*r(40), matches dashboard ring geometry
 

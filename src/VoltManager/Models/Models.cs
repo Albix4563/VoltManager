@@ -58,6 +58,7 @@ public record SystemInfo
     [JsonPropertyName("osVersion")] public string OsVersion { get; init; } = "";
     [JsonPropertyName("appVersion")] public string AppVersion { get; init; } = "";
     [JsonPropertyName("hasBattery")] public bool HasBattery { get; init; }
+    [JsonPropertyName("logicalCores")] public int LogicalCores { get; init; }
 }
 
 public class AutomationRule

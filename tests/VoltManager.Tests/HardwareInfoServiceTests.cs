@@ -15,7 +15,7 @@ public class HardwareInfoServiceTests
         Assert.NotNull(info.GpuName);
         Assert.NotNull(info.OsVersion);
         Assert.NotNull(info.AppVersion);
-        // HasBattery should be a boolean (which it is, value type)
-        // We verify that it doesn't throw and runs correctly.
+        Assert.True(info.LogicalCores == Environment.ProcessorCount);
+        Assert.True(info.LogicalCores >= 1);
     }
 }
