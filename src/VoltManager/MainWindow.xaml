@@ -69,7 +69,6 @@
                             <MenuItem Header="Spegni" Tag="shutdown|240" Click="TraySchedulePreset_Click" />
                             <MenuItem Header="Sospendi" Tag="sleep|240" Click="TraySchedulePreset_Click" />
                         </MenuItem>
-                        <Separator />
                         <MenuItem x:Name="TrayScheduleCustomItem" Header="Tempo personalizzato..." Click="TrayScheduleCustom_Click" />
                     </MenuItem>
                     <MenuItem x:Name="TrayScheduledStateItem" Header="Nessuna azione programmata" IsEnabled="False" />
