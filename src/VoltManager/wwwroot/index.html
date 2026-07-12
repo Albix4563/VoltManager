@@ -96,7 +96,7 @@ html[data-theme=light] .welcome-theme-card .welcome-theme-check{border-color:rgb
       <li>
         <a class="nav-item flex items-center gap-3 text-on-surface-variant font-medium px-4 py-3 opacity-80 hover:bg-white/5 hover:text-secondary-fixed transition-all duration-300 rounded-lg active:scale-[0.98]" data-view="power" href="#">
           <span class="material-symbols-outlined">bolt</span>
-          <span class="text-body-md" data-i18n="nav_power">Power Management</span>
+          <span class="text-body-md" data-i18n="nav_power">Automazione</span>
         </a>
       </li>
       <li class="nav-section-label" aria-hidden="true" data-i18n="nav_sec_app">App</li>
@@ -396,7 +396,7 @@ html[data-theme=light] .welcome-theme-card .welcome-theme-check{border-color:rgb
     <section class="view flex-1 flex-col hidden" id="view-power">
       <div class="max-w-4xl mx-auto space-y-lg relative z-10 w-full">
         <div class="mb-xl">
-          <h2 class="text-headline-lg text-on-surface mb-xs" data-i18n="power_title">Gestione Energetica</h2>
+          <h2 class="text-headline-lg text-on-surface mb-xs" data-i18n="power_title">Gestione energetica</h2>
           <p class="text-body-md text-on-surface-variant" data-i18n="power_subtitle">Configura le regole di automazione per ottimizzare le prestazioni e il consumo del sistema.</p>
         </div>
 
@@ -640,6 +640,91 @@ html[data-theme=light] .welcome-theme-card .welcome-theme-check{border-color:rgb
             </div>
           </div>
 
+          <!-- Preferences Card (main/central column) -->
+          <div class="glass-panel rounded-xl p-lg">
+            <h3 class="text-title-lg text-on-surface mb-md" data-i18n="set_pref_title">General Preferences</h3>
+            <div class="space-y-md">
+              <div class="flex items-center justify-between group cursor-pointer" id="pref-autostart">
+                <div>
+                  <p class="text-body-md text-on-surface group-hover:text-secondary-fixed transition-colors" data-i18n="set_pref_autostart">Start with Windows</p>
+                  <p class="text-label-sm text-on-surface-variant" data-i18n="set_pref_autostart_sub">Avvio automatico ridotto a icona</p>
+                </div>
+                <div class="mini-toggle" data-on="false" id="toggle-autostart">
+                  <div class="mini-toggle-knob"></div>
+                </div>
+              </div>
+              <div class="flex items-center justify-between group cursor-pointer" id="pref-tray">
+                <div>
+                  <p class="text-body-md text-on-surface group-hover:text-secondary-fixed transition-colors" data-i18n="set_pref_tray">Chiudi nell'area di notifica</p>
+                  <p class="text-label-sm text-on-surface-variant" data-i18n="set_pref_tray_sub">La X nasconde l'app, automazione attiva</p>
+                </div>
+                <div class="mini-toggle" data-on="true" id="toggle-tray">
+                  <div class="mini-toggle-knob"></div>
+                </div>
+              </div>
+              <div class="flex items-center justify-between group mt-md" id="pref-theme">
+                <div>
+                  <p class="text-body-md text-on-surface group-hover:text-secondary-fixed transition-colors" data-i18n="set_pref_theme">Tema</p>
+                  <p class="text-label-sm text-on-surface-variant" data-i18n="set_pref_theme_sub">Tema interfaccia</p>
+                </div>
+                <select id="theme-select" class="bg-surface-container-low/50 text-secondary-container font-medium border border-white/10 rounded-lg py-2 px-4 pr-10 text-body-md focus:outline-none focus:border-secondary-container transition-all duration-300 cursor-pointer hover:bg-white/10 shadow-lg backdrop-blur-md" style="-webkit-appearance: none; -moz-appearance: none; appearance: none; background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2300f1fe%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E'); background-repeat: no-repeat; background-position: right 0.75rem center; background-size: 1.2em 1.2em;">
+                  <option value="auto" class="bg-[#0A1128] text-white" data-i18n="set_theme_auto">Automatico</option>
+                  <option value="dark" class="bg-[#0A1128] text-white" data-i18n="set_theme_dark">Scuro</option>
+                  <option value="black" class="bg-[#0A1128] text-white" data-i18n="set_theme_black">Nero</option>
+                  <option value="light" class="bg-[#0A1128] text-white" data-i18n="set_theme_light">Chiaro</option>
+                </select>
+              </div>
+              <div class="flex items-center justify-between group mt-md" id="pref-lang">
+                <div>
+                  <p class="text-body-md text-on-surface group-hover:text-secondary-fixed transition-colors" data-i18n="set_pref_lang">Lingua</p>
+                  <p class="text-label-sm text-on-surface-variant" data-i18n="set_pref_lang_sub">Lingua dell'interfaccia</p>
+                </div>
+                <select id="lang-select" class="bg-surface-container-low/50 text-secondary-container font-medium border border-white/10 rounded-lg py-2 px-4 pr-10 text-body-md focus:outline-none focus:border-secondary-container transition-all duration-300 cursor-pointer hover:bg-white/10 shadow-lg backdrop-blur-md" style="-webkit-appearance: none; -moz-appearance: none; appearance: none; background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2300f1fe%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E'); background-repeat: no-repeat; background-position: right 0.75rem center; background-size: 1.2em 1.2em;">
+                  <option value="it" class="bg-[#0A1128] text-white">Italiano</option>
+                  <option value="en" class="bg-[#0A1128] text-white">English</option>
+                  <option value="es" class="bg-[#0A1128] text-white">Español</option>
+                  <option value="zh" class="bg-[#0A1128] text-white">简体中文</option>
+                </select>
+              </div>
+              <div class="flex items-center justify-between group mt-md" id="pref-show-welcome">
+                <div>
+                  <p class="text-body-md text-on-surface group-hover:text-secondary-fixed transition-colors" data-i18n="set_show_welcome">Mostra benvenuto</p>
+                  <p class="text-label-sm text-on-surface-variant" data-i18n="set_show_welcome_sub">Ripeti la presentazione iniziale</p>
+                </div>
+                <button class="btn-ghost rounded-lg py-2 px-4 text-label-md flex items-center gap-xs" id="btn-show-welcome" type="button">
+                  <span class="material-symbols-outlined text-[18px]">play_arrow</span>
+                  <span data-i18n="set_show_welcome_btn">Apri</span>
+                </button>
+              </div>
+              <div class="flex items-center justify-between group mt-md" id="pref-show-tour">
+                <div>
+                  <p class="text-body-md text-on-surface group-hover:text-secondary-fixed transition-colors" data-i18n="set_show_tour">Tour guidato</p>
+                  <p class="text-label-sm text-on-surface-variant" data-i18n="set_show_tour_sub">Riavvia la visita guidata dell'app</p>
+                </div>
+                <button class="btn-ghost rounded-lg py-2 px-4 text-label-md flex items-center gap-xs" id="btn-show-tour" type="button">
+                  <span class="material-symbols-outlined text-[18px]">tour</span>
+                  <span data-i18n="set_show_tour_btn">Avvia</span>
+                </button>
+              </div>
+              <div class="flex items-center justify-between group mt-md" id="pref-backup">
+                <div>
+                  <p class="text-body-md text-on-surface group-hover:text-secondary-fixed transition-colors" data-i18n="set_backup">Backup impostazioni</p>
+                  <p class="text-label-sm text-on-surface-variant" data-i18n="set_backup_sub">Salva o ripristina la configurazione da file</p>
+                </div>
+                <div class="flex items-center gap-xs">
+                  <button class="btn-ghost rounded-lg py-2 px-4 text-label-md flex items-center gap-xs" id="btn-export-settings" type="button">
+                    <span class="material-symbols-outlined text-[18px]">file_download</span>
+                    <span data-i18n="set_backup_export">Esporta</span>
+                  </button>
+                  <button class="btn-ghost rounded-lg py-2 px-4 text-label-md flex items-center gap-xs" id="btn-import-settings" type="button">
+                    <span class="material-symbols-outlined text-[18px]">file_upload</span>
+                    <span data-i18n="set_backup_import">Importa</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
         </div>
 
         <!-- Right Column -->
@@ -668,95 +753,6 @@ html[data-theme=light] .welcome-theme-card .welcome-theme-check{border-color:rgb
             <div class="flex justify-between w-full text-body-md mt-sm">
               <span class="text-on-surface-variant" data-i18n="set_sys_system">Sistema</span>
               <span class="text-on-surface text-right ml-4 truncate" id="info-os">--</span>
-            </div>
-          </div>
-
-          <!-- Preferences Card -->
-          <div class="glass-panel rounded-xl p-lg">
-            <h3 class="text-title-lg text-on-surface mb-md" data-i18n="set_pref_title">General Preferences</h3>
-            <div class="space-y-md">
-              <div class="flex items-center justify-between group cursor-pointer" id="pref-autostart">
-                <div>
-                  <p class="text-body-md text-on-surface group-hover:text-secondary-fixed transition-colors" data-i18n="set_pref_autostart">Start with Windows</p>
-                  <p class="text-label-sm text-on-surface-variant" data-i18n="set_pref_autostart_sub">Avvio automatico ridotto a icona</p>
-                </div>
-                <div class="mini-toggle" data-on="false" id="toggle-autostart">
-                  <div class="mini-toggle-knob"></div>
-                </div>
-              </div>
-              <div class="flex items-center justify-between group cursor-pointer" id="pref-tray">
-                <div>
-                  <p class="text-body-md text-on-surface group-hover:text-secondary-fixed transition-colors" data-i18n="set_pref_tray">Chiudi nell'area di notifica</p>
-                  <p class="text-label-sm text-on-surface-variant" data-i18n="set_pref_tray_sub">La X nasconde l'app, automazione attiva</p>
-                </div>
-                <div class="mini-toggle" data-on="true" id="toggle-tray">
-                  <div class="mini-toggle-knob"></div>
-                </div>
-              </div>
-              <!-- NEW LANG PREF -->
-              <div class="flex items-center justify-between group mt-md" id="pref-theme">
-                <div>
-                  <p class="text-body-md text-on-surface group-hover:text-secondary-fixed transition-colors" data-i18n="set_pref_theme">Tema</p>
-                  <p class="text-label-sm text-on-surface-variant" data-i18n="set_pref_theme_sub">Tema interfaccia</p>
-                </div>
-                <select id="theme-select" class="bg-surface-container-low/50 text-secondary-container font-medium border border-white/10 rounded-lg py-2 px-4 pr-10 text-body-md focus:outline-none focus:border-secondary-container transition-all duration-300 cursor-pointer hover:bg-white/10 shadow-lg backdrop-blur-md" style="-webkit-appearance: none; -moz-appearance: none; appearance: none; background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2300f1fe%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E'); background-repeat: no-repeat; background-position: right 0.75rem center; background-size: 1.2em 1.2em;">
-                  <option value="auto" class="bg-[#0A1128] text-white" data-i18n="set_theme_auto">Automatico</option>
-                  <option value="dark" class="bg-[#0A1128] text-white" data-i18n="set_theme_dark">Scuro</option>
-                  <option value="black" class="bg-[#0A1128] text-white" data-i18n="set_theme_black">Nero</option>
-                  <option value="light" class="bg-[#0A1128] text-white" data-i18n="set_theme_light">Chiaro</option>
-                </select>
-              </div>
-              <div class="flex items-center justify-between group mt-md" id="pref-lang">
-                <div>
-                  <p class="text-body-md text-on-surface group-hover:text-secondary-fixed transition-colors" data-i18n="set_pref_lang">Lingua</p>
-                  <p class="text-label-sm text-on-surface-variant" data-i18n="set_pref_lang_sub">Lingua dell'interfaccia</p>
-                </div>
-                <select id="lang-select" class="bg-surface-container-low/50 text-secondary-container font-medium border border-white/10 rounded-lg py-2 px-4 pr-10 text-body-md focus:outline-none focus:border-secondary-container transition-all duration-300 cursor-pointer hover:bg-white/10 shadow-lg backdrop-blur-md" style="-webkit-appearance: none; -moz-appearance: none; appearance: none; background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2300f1fe%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E'); background-repeat: no-repeat; background-position: right 0.75rem center; background-size: 1.2em 1.2em;">
-                  <option value="it" class="bg-[#0A1128] text-white">Italiano</option>
-                  <option value="en" class="bg-[#0A1128] text-white">English</option>
-                  <option value="es" class="bg-[#0A1128] text-white">Español</option>
-                  <option value="zh" class="bg-[#0A1128] text-white">简体中文</option>
-                </select>
-              </div>
-              <!-- Show welcome onboarding button -->
-              <div class="flex items-center justify-between group mt-md" id="pref-show-welcome">
-                <div>
-                  <p class="text-body-md text-on-surface group-hover:text-secondary-fixed transition-colors" data-i18n="set_show_welcome">Mostra benvenuto</p>
-                  <p class="text-label-sm text-on-surface-variant" data-i18n="set_show_welcome_sub">Ripeti la presentazione iniziale</p>
-                </div>
-                <button class="btn-ghost rounded-lg py-2 px-4 text-label-md flex items-center gap-xs" id="btn-show-welcome" type="button">
-                  <span class="material-symbols-outlined text-[18px]">play_arrow</span>
-                  <span data-i18n="set_show_welcome_btn">Apri</span>
-                </button>
-              </div>
-              <!-- Replay guided tour button -->
-              <div class="flex items-center justify-between group mt-md" id="pref-show-tour">
-                <div>
-                  <p class="text-body-md text-on-surface group-hover:text-secondary-fixed transition-colors" data-i18n="set_show_tour">Tour guidato</p>
-                  <p class="text-label-sm text-on-surface-variant" data-i18n="set_show_tour_sub">Riavvia la visita guidata dell'app</p>
-                </div>
-                <button class="btn-ghost rounded-lg py-2 px-4 text-label-md flex items-center gap-xs" id="btn-show-tour" type="button">
-                  <span class="material-symbols-outlined text-[18px]">tour</span>
-                  <span data-i18n="set_show_tour_btn">Avvia</span>
-                </button>
-              </div>
-              <!-- Settings backup: export/import -->
-              <div class="flex items-center justify-between group mt-md" id="pref-backup">
-                <div>
-                  <p class="text-body-md text-on-surface group-hover:text-secondary-fixed transition-colors" data-i18n="set_backup">Backup impostazioni</p>
-                  <p class="text-label-sm text-on-surface-variant" data-i18n="set_backup_sub">Salva o ripristina la configurazione da file</p>
-                </div>
-                <div class="flex items-center gap-xs">
-                  <button class="btn-ghost rounded-lg py-2 px-4 text-label-md flex items-center gap-xs" id="btn-export-settings" type="button">
-                    <span class="material-symbols-outlined text-[18px]">file_download</span>
-                    <span data-i18n="set_backup_export">Esporta</span>
-                  </button>
-                  <button class="btn-ghost rounded-lg py-2 px-4 text-label-md flex items-center gap-xs" id="btn-import-settings" type="button">
-                    <span class="material-symbols-outlined text-[18px]">file_upload</span>
-                    <span data-i18n="set_backup_import">Importa</span>
-                  </button>
-                </div>
-              </div>
             </div>
           </div>
 
