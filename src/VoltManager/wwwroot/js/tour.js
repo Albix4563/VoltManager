@@ -27,6 +27,7 @@
         { view: 'home', el: '#dash-taskmanager',   title: 'tour_metrics_title',  body: 'tour_metrics_body' },
         { el: '#btn-monitoring-toggle',   title: 'tour_monitor_title',  body: 'tour_monitor_body',  placement: 'right' },
         { view: 'power', el: '#pm-subnav',         title: 'tour_power_title',    body: 'tour_power_body' },
+        { view: 'widgets', el: '#widgets-card',   title: 'tour_widgets_title',  body: 'tour_widgets_body' },
         { view: 'settings', el: '#pref-show-tour', title: 'tour_settings_title', body: 'tour_settings_body' },
         { el: null,                       title: 'tour_done_title',     body: 'tour_done_body' },
     ];

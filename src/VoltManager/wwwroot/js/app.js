@@ -390,7 +390,23 @@
             '<div class="glass-panel rounded-xl p-lg space-y-md"><h3 class="text-title-lg text-on-surface flex items-center gap-xs"><span class="material-symbols-outlined text-secondary-container">bedtime_off</span><span class="system-keepawake-title"></span></h3><p class="text-body-md text-on-surface-variant system-keepawake-sub"></p>' +
             '<div id="keep-awake-mount"></div>' +
             '</div>' +
-            '</div></div></div>';
+            '</div>' +
+            // Startup apps panel
+            '<div class="col-span-12">' +
+            '<div class="glass-panel rounded-xl p-lg">' +
+            '<div class="flex items-start justify-between gap-md mb-md">' +
+            '<div><h3 class="text-title-lg text-on-surface flex items-center gap-xs"><span class="material-symbols-outlined text-secondary-container">apps</span><span class="system-startup-title"></span></h3><p class="text-body-md text-on-surface-variant mt-1 system-startup-sub"></p></div>' +
+            '<button class="btn-ghost rounded-lg py-2 px-4 text-label-md flex items-center gap-xs" id="btn-refresh-startup-apps" type="button"><span class="material-symbols-outlined text-[18px]">refresh</span><span class="system-startup-refresh"></span></button>' +
+            '</div>' +
+            '<div class="grid grid-cols-2 gap-sm mb-md">' +
+            '<div class="startup-summary-card" data-tone="on"><div class="startup-summary-icon"><span class="material-symbols-outlined text-[20px]">rocket_launch</span></div><div><p class="text-title-lg text-on-surface" id="startup-enabled-count">--</p><p class="text-label-sm text-on-surface-variant system-startup-enabled"></p></div></div>' +
+            '<div class="startup-summary-card" data-tone="off"><div class="startup-summary-icon"><span class="material-symbols-outlined text-[20px]">pause_circle</span></div><div><p class="text-title-lg text-on-surface" id="startup-disabled-count">--</p><p class="text-label-sm text-on-surface-variant system-startup-disabled"></p></div></div>' +
+            '</div>' +
+            '<button class="btn-glow w-full bg-secondary-container text-on-secondary-container text-label-md font-bold px-5 py-3 rounded-lg flex items-center justify-center gap-sm" id="btn-add-startup-app" type="button"><span class="material-symbols-outlined text-[18px]">add</span><span class="system-startup-add"></span></button>' +
+            '<div class="space-y-lg mt-md">' +
+            '<div><h4 class="text-label-md uppercase tracking-wider text-secondary-container mb-sm system-startup-enabled"></h4><div class="space-y-sm" id="startup-enabled-list"></div></div>' +
+            '<div><h4 class="text-label-md uppercase tracking-wider text-on-surface-variant mb-sm system-startup-disabled"></h4><div class="space-y-sm" id="startup-disabled-list"></div></div>' +
+            '</div></div></div></div></div>';
     }
 
     function refreshSystemLabels() {
@@ -404,7 +420,10 @@
             ['.system-active-title','activeTitle'],
             ['.schedule-mode-relative','relative'], ['.schedule-mode-daily','daily'],
             ['.system-switch-on','on'], ['.system-switch-off','off'],
-            ['.schedule-hours','hours'], ['.schedule-minutes','minutes']
+            ['.schedule-hours','hours'], ['.schedule-minutes','minutes'],
+            ['.system-startup-title','startupTitle'], ['.system-startup-sub','startupSub'],
+            ['.system-startup-refresh','refresh'], ['.system-startup-add','add'],
+            ['.system-startup-enabled','enabled'], ['.system-startup-disabled','disabled']
         ];
         pairs.forEach(([sel, key]) => document.querySelectorAll(sel).forEach(el => el.textContent = t(key)));
         const opts = { '.sys-opt-shutdown': 'shutdown', '.sys-opt-restart': 'restart', '.sys-opt-sleep': 'sleep' };
@@ -950,9 +969,6 @@
     document.addEventListener('viewchange', (e) => {
         if (e.detail && e.detail.view === 'system') {
             mountSystemTab();
-        }
-        // Startup apps now live in Settings & Info.
-        if (e.detail && e.detail.view === 'settings') {
             ensureSystemStyles();
             loadStartupApps(false);
         }

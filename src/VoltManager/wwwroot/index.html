@@ -85,6 +85,13 @@ html[data-theme=light] .welcome-theme-card .welcome-theme-check{border-color:rgb
           <span class="text-body-md font-medium" data-i18n="nav_home">Home</span>
         </a>
       </li>
+      <li class="nav-section-label" aria-hidden="true" data-i18n="nav_sec_desktop">Desktop</li>
+      <li>
+        <a class="nav-item flex items-center gap-3 text-on-surface-variant font-medium px-4 py-3 opacity-80 hover:bg-white/5 hover:text-secondary-fixed transition-all duration-300 rounded-lg active:scale-[0.98]" data-view="widgets" href="#">
+          <span class="material-symbols-outlined">widgets</span>
+          <span class="text-body-md" data-i18n="nav_widgets">Widgets</span>
+        </a>
+      </li>
       <li class="nav-section-label" aria-hidden="true" data-i18n="nav_sec_control">Control</li>
       <li>
         <a class="nav-item flex items-center gap-3 text-on-surface-variant font-medium px-4 py-3 opacity-80 hover:bg-white/5 hover:text-secondary-fixed transition-all duration-300 rounded-lg active:scale-[0.98]" data-view="power" href="#">
@@ -633,53 +640,6 @@ html[data-theme=light] .welcome-theme-card .welcome-theme-check{border-color:rgb
             </div>
           </div>
 
-          <!-- Startup Apps Card -->
-          <div class="glass-panel rounded-xl p-lg">
-            <div class="flex items-start justify-between gap-md mb-md">
-              <div>
-                <h3 class="text-title-lg text-on-surface flex items-center gap-xs">
-                  <span class="material-symbols-outlined text-secondary-container">apps</span>
-                  <span data-i18n="set_startup_title">Applicazioni di avvio</span>
-                </h3>
-                <p class="text-body-md text-on-surface-variant mt-1" data-i18n="set_startup_sub">Controlla le app che partono con Windows.</p>
-              </div>
-              <button class="btn-ghost rounded-lg py-2 px-4 text-label-md flex items-center gap-xs" id="btn-refresh-startup-apps">
-                <span class="material-symbols-outlined text-[18px]">refresh</span>
-                <span data-i18n="set_startup_refresh">Aggiorna</span>
-              </button>
-            </div>
-            <div class="grid grid-cols-2 gap-sm mb-md">
-              <div class="startup-summary-card" data-tone="on">
-                <div class="startup-summary-icon"><span class="material-symbols-outlined text-[20px]">rocket_launch</span></div>
-                <div>
-                  <p class="text-title-lg text-on-surface" id="startup-enabled-count">--</p>
-                  <p class="text-label-sm text-on-surface-variant" data-i18n="set_startup_enabled">Avvio attivo</p>
-                </div>
-              </div>
-              <div class="startup-summary-card" data-tone="off">
-                <div class="startup-summary-icon"><span class="material-symbols-outlined text-[20px]">pause_circle</span></div>
-                <div>
-                  <p class="text-title-lg text-on-surface" id="startup-disabled-count">--</p>
-                  <p class="text-label-sm text-on-surface-variant" data-i18n="set_startup_disabled">Avvio disattivato</p>
-                </div>
-              </div>
-            </div>
-            <button class="btn-glow w-full bg-secondary-container text-on-secondary-container text-label-md font-bold px-5 py-3 rounded-lg flex items-center justify-center gap-sm" id="btn-add-startup-app">
-              <span class="material-symbols-outlined text-[18px]">add</span>
-              <span data-i18n="set_startup_add">Aggiungi app personalizzata</span>
-            </button>
-            <p class="text-label-md text-on-surface-variant hidden mt-md" id="system-status"></p>
-            <div class="space-y-lg mt-md">
-              <div>
-                <h4 class="text-label-md uppercase tracking-wider text-secondary-container mb-sm" data-i18n="set_startup_enabled">Avvio attivo</h4>
-                <div class="space-y-sm" id="startup-enabled-list"></div>
-              </div>
-              <div>
-                <h4 class="text-label-md uppercase tracking-wider text-on-surface-variant mb-sm" data-i18n="set_startup_disabled">Avvio disattivato</h4>
-                <div class="space-y-sm" id="startup-disabled-list"></div>
-              </div>
-            </div>
-          </div>
         </div>
 
         <!-- Right Column -->
@@ -730,15 +690,6 @@ html[data-theme=light] .welcome-theme-card .welcome-theme-check{border-color:rgb
                   <p class="text-label-sm text-on-surface-variant" data-i18n="set_pref_tray_sub">La X nasconde l'app, automazione attiva</p>
                 </div>
                 <div class="mini-toggle" data-on="true" id="toggle-tray">
-                  <div class="mini-toggle-knob"></div>
-                </div>
-              </div>
-              <div class="flex items-center justify-between group cursor-pointer mt-md" id="pref-power-source-plan">
-                <div>
-                  <p class="text-body-md text-on-surface group-hover:text-secondary-fixed transition-colors" data-i18n="set_pref_power_source_plan">Auto boost corrente</p>
-                  <p class="text-label-sm text-on-surface-variant" data-i18n="set_pref_power_source_plan_sub">Collegato alla corrente usa Prestazioni, a batteria ripristina il piano precedente</p>
-                </div>
-                <div class="mini-toggle" data-on="true" id="toggle-power-source-plan">
                   <div class="mini-toggle-knob"></div>
                 </div>
               </div>
@@ -811,56 +762,61 @@ html[data-theme=light] .welcome-theme-card .welcome-theme-check{border-color:rgb
 
         </div>
 
-        <!-- Desktop widgets category -->
-        <div class="col-span-12">
-          <div class="glass-panel rounded-xl p-lg widgets-category-card" id="widgets-card">
-            <div class="flex flex-col lg:flex-row lg:items-start justify-between gap-lg mb-lg">
-              <div class="max-w-3xl">
-                <h3 class="text-title-lg text-on-surface flex items-center gap-xs">
-                  <span class="material-symbols-outlined text-secondary-container">widgets</span>
-                  <span data-i18n="widget_settings_title">Widget desktop</span>
-                </h3>
-                <p class="text-body-md text-on-surface-variant mt-1" data-i18n="widget_settings_sub">Gadget separati sul desktop, con puntina per tenerli sopra.</p>
-              </div>
-              <div class="widgets-master-control">
-                <div>
-                  <p class="text-body-md text-on-surface" data-i18n="widget_master_title">Categoria widget</p>
-                  <p class="text-label-sm text-on-surface-variant" data-i18n="widget_master_sub">Attiva o disattiva tutti i widget desktop.</p>
-                </div>
-                <div class="mini-toggle flex-shrink-0" data-on="false" id="toggle-widgets-master">
-                  <div class="mini-toggle-knob"></div>
-                </div>
-              </div>
+      </div>
+    </section>
+
+    <!-- ============ VIEW: WIDGETS ============ -->
+    <section class="view flex-1 flex-col hidden" id="view-widgets">
+      <div class="mb-xl">
+        <h2 class="text-headline-lg text-on-surface" data-i18n="widget_settings_title">Widget desktop</h2>
+        <p class="text-body-lg text-on-surface-variant mt-xs" data-i18n="widget_settings_sub">Gadget separati sul desktop, con puntina per tenerli sopra.</p>
+      </div>
+      <div class="glass-panel rounded-xl p-lg widgets-category-card" id="widgets-card">
+        <div class="flex flex-col lg:flex-row lg:items-start justify-between gap-lg mb-lg">
+          <div class="max-w-3xl">
+            <h3 class="text-title-lg text-on-surface flex items-center gap-xs">
+              <span class="material-symbols-outlined text-secondary-container">widgets</span>
+              <span data-i18n="widget_master_title">Categoria widget</span>
+            </h3>
+            <p class="text-body-md text-on-surface-variant mt-1" data-i18n="widget_master_sub">Attiva o disattiva tutti i widget desktop.</p>
+          </div>
+          <div class="widgets-master-control">
+            <div>
+              <p class="text-body-md text-on-surface" data-i18n="widget_master_title">Categoria widget</p>
+              <p class="text-label-sm text-on-surface-variant" data-i18n="widget_master_sub">Attiva o disattiva tutti i widget desktop.</p>
             </div>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-sm mb-lg">
-              <div class="startup-summary-card" data-tone="on">
-                <div class="startup-summary-icon"><span class="material-symbols-outlined text-[20px]">check_circle</span></div>
-                <div>
-                  <p class="text-title-lg text-on-surface" id="widgets-active-count">--</p>
-                  <p class="text-label-sm text-on-surface-variant" data-i18n="widget_active">Widget attivi</p>
-                </div>
-              </div>
-              <div class="startup-summary-card" data-tone="off">
-                <div class="startup-summary-icon"><span class="material-symbols-outlined text-[20px]">widgets</span></div>
-                <div>
-                  <p class="text-title-lg text-on-surface" id="widgets-total-count">--</p>
-                  <p class="text-label-sm text-on-surface-variant" data-i18n="widget_total">Widget totali</p>
-                </div>
-              </div>
+            <div class="mini-toggle flex-shrink-0" data-on="false" id="toggle-widgets-master">
+              <div class="mini-toggle-knob"></div>
             </div>
-            <div class="grid grid-cols-1 xl:grid-cols-2 gap-gutter" id="widgets-groups">
-              <section>
-                <h4 class="text-label-md uppercase tracking-wider text-secondary-container mb-sm" data-i18n="widget_active">Widget attivi</h4>
-                <div class="space-y-sm" id="widgets-enabled-list"></div>
-              </section>
-              <section>
-                <h4 class="text-label-md uppercase tracking-wider text-on-surface-variant mb-sm" data-i18n="widget_disabled">Widget disattivati</h4>
-                <div class="space-y-sm" id="widgets-disabled-list"></div>
-              </section>
-            </div>
-            <div class="space-y-sm hidden" id="widgets-list" aria-hidden="true"></div>
           </div>
         </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-sm mb-lg">
+          <div class="startup-summary-card" data-tone="on">
+            <div class="startup-summary-icon"><span class="material-symbols-outlined text-[20px]">check_circle</span></div>
+            <div>
+              <p class="text-title-lg text-on-surface" id="widgets-active-count">--</p>
+              <p class="text-label-sm text-on-surface-variant" data-i18n="widget_active">Widget attivi</p>
+            </div>
+          </div>
+          <div class="startup-summary-card" data-tone="off">
+            <div class="startup-summary-icon"><span class="material-symbols-outlined text-[20px]">widgets</span></div>
+            <div>
+              <p class="text-title-lg text-on-surface" id="widgets-total-count">--</p>
+              <p class="text-label-sm text-on-surface-variant" data-i18n="widget_total">Widget totali</p>
+            </div>
+          </div>
+        </div>
+        <div class="grid grid-cols-1 xl:grid-cols-2 gap-gutter" id="widgets-groups">
+          <section>
+            <h4 class="text-label-md uppercase tracking-wider text-secondary-container mb-sm" data-i18n="widget_active">Widget attivi</h4>
+            <div class="space-y-sm" id="widgets-enabled-list"></div>
+          </section>
+          <section>
+            <h4 class="text-label-md uppercase tracking-wider text-on-surface-variant mb-sm" data-i18n="widget_disabled">Widget disattivati</h4>
+            <div class="space-y-sm" id="widgets-disabled-list"></div>
+          </section>
+        </div>
+        <div class="space-y-sm hidden" id="widgets-list" aria-hidden="true"></div>
       </div>
     </section>
 
@@ -1219,15 +1175,15 @@ html[data-theme=light] .welcome-theme-card .welcome-theme-check{border-color:rgb
 </div>
 
 <script src="js/bridge.js?v=errlog1"></script>
-<script src="js/i18n.js?v=widget-placement1"></script>
-<script src="js/app.js?v=sidebar-collapse1"></script>
+<script src="js/i18n.js?v=nav-reorg1"></script>
+<script src="js/app.js?v=nav-reorg1"></script>
 <script src="js/effects.js?v=perfguard1"></script>
 <script src="js/perf-guard.js?v=perfguard1"></script>
 <script src="js/dashboard.js?v=chase1"></script>
 <script src="js/power.js?v=reorg2"></script>
-<script src="js/settings.js?v=widget-placement1"></script>
+<script src="js/settings.js?v=nav-reorg1"></script>
 <script src="js/welcome.js?v=silentupdate1"></script>
-<script src="js/tour.js?v=tour1"></script>
+<script src="js/tour.js?v=nav-reorg1"></script>
 <script src="js/tips.js?v=tips1"></script>
 <script src="js/changelog.js?v=temps1"></script>
 <script src="js/setup.js?v=temps1"></script>

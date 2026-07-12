@@ -570,7 +570,6 @@
 
     const toggleAutostart = document.getElementById('toggle-autostart');
     const toggleTray = document.getElementById('toggle-tray');
-    const togglePowerSourcePlan = document.getElementById('toggle-power-source-plan');
     const toggleWidgetsMaster = document.getElementById('toggle-widgets-master');
     const widgetsCard = document.getElementById('widgets-card');
     const widgetsList = document.getElementById('widgets-list');
@@ -1166,12 +1165,7 @@
         }
     }
 
-    function applyBatteryPresence(hasBattery) {
-        const prefPowerSourcePlan = document.getElementById('pref-power-source-plan');
-        if (prefPowerSourcePlan) {
-            prefPowerSourcePlan.classList.toggle('hidden', hasBattery === false);
-        }
-    }
+    function applyBatteryPresence() { /* power-source plan lives on Home only */ }
 
     document.addEventListener('settingsloaded', () => {
         const s = window.__voltSettings;
@@ -1179,7 +1173,6 @@
         const settings = s.get ? s.get() : s;
         setToggle(toggleAutostart, s.startWithWindows);
         setToggle(toggleTray, settings.closeToTray);
-        setToggle(togglePowerSourcePlan, normalizePowerSourcePlan(settings).enabled);
 
         checkBatteryPresence();
 
@@ -1274,23 +1267,6 @@
         }
     });
 
-    document.getElementById('pref-power-source-plan')?.addEventListener('click', async () => {
-        if (!window.__voltSettings) return;
-        const settings = window.__voltSettings.get ? window.__voltSettings.get() : window.__voltSettings;
-        const cfg = normalizePowerSourcePlan(settings);
-        const enable = togglePowerSourcePlan?.dataset.on !== 'true';
-        setToggle(togglePowerSourcePlan, enable);
-        cfg.enabled = enable;
-        try {
-            const state = await Host.call('setPowerSourcePlanSwitch', { enabled: enable });
-            cfg.enabled = !!state.enabled;
-            setToggle(togglePowerSourcePlan, cfg.enabled);
-        } catch {
-            cfg.enabled = !enable;
-            setToggle(togglePowerSourcePlan, !enable);
-        }
-    });
-
     document.getElementById('btn-export-settings')?.addEventListener('click', async () => {
         try { await Host.call('exportSettings'); } catch (e) { console.error('exportSettings failed', e); }
     });
@@ -1304,11 +1280,8 @@
     });
 
     Host.on('powerSourcePlanChanged', (state) => {
-        if (!state) return;
-        setToggle(togglePowerSourcePlan, !!state.enabled);
-        if (window.__voltSettings) {
-            const settings = window.__voltSettings.get ? window.__voltSettings.get() : window.__voltSettings;
-            normalizePowerSourcePlan(settings).enabled = !!state.enabled;
-        }
+        if (!state || !window.__voltSettings) return;
+        const settings = window.__voltSettings.get ? window.__voltSettings.get() : window.__voltSettings;
+        normalizePowerSourcePlan(settings).enabled = !!state.enabled;
     });
 })();
