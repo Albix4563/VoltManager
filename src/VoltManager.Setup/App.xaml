@@ -319,25 +319,38 @@
         </Style>
 
         <!-- ══════════════════════════════════════════════════════════
-             TEXTBOX
+             TEXTBOX  (high-contrast path field; text must stay readable)
              ══════════════════════════════════════════════════════════ -->
         <Style TargetType="TextBox">
             <Setter Property="Background"      Value="#101D38"/>
-            <Setter Property="Foreground"      Value="{DynamicResource TextStrongBrush}"/>
+            <!-- Explicit light foreground so the default install path is never invisible -->
+            <Setter Property="Foreground"      Value="#F4F8FF"/>
             <Setter Property="CaretBrush"      Value="{DynamicResource AccentBrush}"/>
+            <Setter Property="SelectionBrush"  Value="#4000F1FE"/>
             <Setter Property="BorderBrush"     Value="{DynamicResource BorderBrush2}"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Padding"         Value="12,9"/>
+            <Setter Property="Padding"         Value="14,0"/>
             <Setter Property="FontSize"        Value="13"/>
+            <Setter Property="FontWeight"      Value="SemiBold"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+            <Setter Property="SnapsToDevicePixels" Value="True"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="TextBox">
                         <Border x:Name="bd" Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="10">
-                            <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}"/>
+                                CornerRadius="10"
+                                SnapsToDevicePixels="True">
+                            <!-- Padding on Border (not Margin on host) so text never clips to zero height -->
+                            <ScrollViewer x:Name="PART_ContentHost"
+                                          Margin="{TemplateBinding Padding}"
+                                          VerticalAlignment="Center"
+                                          HorizontalScrollBarVisibility="Hidden"
+                                          VerticalScrollBarVisibility="Disabled"
+                                          Focusable="False"
+                                          TextElement.Foreground="{TemplateBinding Foreground}"/>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsKeyboardFocused" Value="True">

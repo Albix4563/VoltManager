@@ -284,7 +284,8 @@ namespace VoltManager.Setup.Windows
             string? errMsg = null;
             try
             {
-                _opts.InstallDir = _options?.GetInstallDir() ?? _opts.InstallDir;
+                _opts.InstallDir = InstallOptions.NormalizeInstallDir(
+                    _options?.GetInstallDir() ?? _opts.InstallDir);
                 _opts.CreateDesktopShortcut = _options?.DesktopShortcut ?? true;
                 _opts.StartWithWindows = _options?.StartWithWindows ?? false;
                 _opts.EnableWidgets = _options?.EnableWidgets ?? false;

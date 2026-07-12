@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Controls;
@@ -12,7 +13,9 @@ namespace VoltManager.Setup.Pages
         public bool StartWithWindows => ChkStartup.IsChecked == true;
         public bool EnableWidgets => ChkWidgets.IsChecked == true;
         public bool LaunchAfterInstall => ChkLaunch.IsChecked == true;
-        public string GetInstallDir() => TxtDir.Text.Trim();
+
+        /// <summary>Install directory from the UI; never empty (falls back to default).</summary>
+        public string GetInstallDir() => InstallOptions.NormalizeInstallDir(TxtDir.Text);
 
         public OptionsPage(InstallOptions opts)
         {
@@ -36,18 +39,35 @@ namespace VoltManager.Setup.Pages
             ChkWTemps.Content    = I18n.T("widget_temps");
             ChkWPower.Content    = I18n.T("widget_power");
 
-            TxtDir.Text            = opts.InstallDir;
+            // Always show a concrete default path (never leave the field blank).
+            ApplyInstallDir(opts.InstallDir);
             ChkDesktop.IsChecked   = opts.CreateDesktopShortcut;
             ChkStartup.IsChecked   = opts.StartWithWindows;
             ChkWidgets.IsChecked   = opts.EnableWidgets;
 
             // stato iniziale del picker basato su opts (nessun widget pre-selezionato)
             WidgetPicker.Visibility = opts.EnableWidgets ? Visibility.Visible : Visibility.Collapsed;
-            var selected = opts.EnabledWidgetTypes ?? new HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
+            var selected = opts.EnabledWidgetTypes ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (var t in new[] { ("clock",ChkWClock),("calendar",ChkWCalendar),
                                        ("usage",ChkWUsage),("temps",ChkWTemps),("power",ChkWPower) })
                 t.Item2.IsChecked = selected.Contains(t.Item1);
             ChkLaunch.IsChecked    = opts.LaunchAfterInstall;
+
+            // Re-apply after layout in case a style/template reset the visual Text.
+            Loaded += (_, __) =>
+            {
+                if (string.IsNullOrWhiteSpace(TxtDir.Text))
+                    ApplyInstallDir(null);
+            };
+        }
+
+        private void ApplyInstallDir(string? preferred)
+        {
+            string path = InstallOptions.NormalizeInstallDir(preferred);
+            TxtDir.Text = path;
+            // Ensure the caret is at the start so long paths show the drive letter first.
+            TxtDir.CaretIndex = 0;
+            TxtDir.ScrollToHome();
         }
 
         private void BtnBrowse_Click(object sender, RoutedEventArgs e)
@@ -55,10 +75,12 @@ namespace VoltManager.Setup.Pages
             using var dlg = new WinForms.FolderBrowserDialog
             {
                 Description = I18n.T("options_folder"),
-                SelectedPath = TxtDir.Text,
+                SelectedPath = string.IsNullOrWhiteSpace(TxtDir.Text)
+                    ? InstallOptions.GetDefaultInstallDir()
+                    : TxtDir.Text,
             };
             if (dlg.ShowDialog() == WinForms.DialogResult.OK)
-                TxtDir.Text = dlg.SelectedPath;
+                ApplyInstallDir(dlg.SelectedPath);
         }
 
         private void ChkWidgets_Changed(object sender, RoutedEventArgs e)

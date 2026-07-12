@@ -20,7 +20,7 @@ namespace VoltManager.Setup
             switch (args.Mode)
             {
                 case SetupMode.Silent:
-                    RunSilent();
+                    RunSilent(args);
                     break;
 
                 case SetupMode.Update:
@@ -48,10 +48,14 @@ namespace VoltManager.Setup
             }
         }
 
-        private async void RunSilent()
+        private async void RunSilent(SetupArgs args)
         {
             var engine = new InstallEngine();
-            var opts   = new InstallOptions();
+            var opts   = new InstallOptions
+            {
+                InstallDir = InstallOptions.NormalizeInstallDir(
+                    string.IsNullOrWhiteSpace(args.TargetDir) ? null : args.TargetDir),
+            };
             try
             {
                 await engine.InstallAsync(opts, GetVersion());
@@ -101,7 +105,9 @@ namespace VoltManager.Setup
             Resources["SurfaceBrush"] = Brush(light ? "#FFFFFF" : "#1E2A4A");
             Resources["PillBrush"] = Brush(light ? "#EEF5F8" : "#0D1C38");
             Resources["TextBrush"] = Brush(light ? "#102033" : "#E2E8F0");
+            Resources["TextStrongBrush"] = Brush(light ? "#0B1A2C" : "#F4F8FF");
             Resources["MutedBrush"] = Brush(light ? "#52677D" : "#94A3B8");
+            Resources["FaintBrush"] = Brush(light ? "#7A8FA3" : "#6B7C99");
             Resources["BorderBrush2"] = Brush(light ? "#C2D2DE" : "#2D3D5A");
             Resources["AccentBrush"] = Brush(light ? "#00AEBB" : "#00F1FE");
             Resources["AccentTextBrush"] = Brush(light ? "#003F46" : "#0A1128");

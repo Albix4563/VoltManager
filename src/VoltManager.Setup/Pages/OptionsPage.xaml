@@ -23,7 +23,10 @@
                 <Path Style="{StaticResource Icon}" Data="{StaticResource Icon.Folder}"
                       Width="20" Height="20" HorizontalAlignment="Center" VerticalAlignment="Center"/>
             </Border>
-            <TextBox Grid.Column="1" x:Name="TxtDir" Margin="0,0,10,0" FontSize="12.5" Height="42"/>
+            <TextBox Grid.Column="1" x:Name="TxtDir" Margin="0,0,10,0" FontSize="12.5"
+                     MinHeight="42" Height="42" VerticalContentAlignment="Center"
+                     ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"
+                     AutomationProperties.Name="Install folder"/>
             <Button Grid.Column="2" x:Name="BtnBrowse" Style="{StaticResource GhostBtn}"
                     Padding="18,0" Height="42" FontSize="12.5" Click="BtnBrowse_Click"/>
         </Grid>

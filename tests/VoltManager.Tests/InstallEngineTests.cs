@@ -6,6 +6,45 @@ namespace VoltManager.Tests;
 public class InstallEngineTests
 {
     [Fact]
+    public void GetDefaultInstallDir_IsUnderProgramFiles_AndNamedVoltManager()
+    {
+        string dir = InstallOptions.GetDefaultInstallDir();
+
+        Assert.False(string.IsNullOrWhiteSpace(dir));
+        Assert.Equal("VoltManager", Path.GetFileName(dir));
+        Assert.True(Path.IsPathRooted(dir));
+
+        string pf = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
+        Assert.StartsWith(Path.GetFullPath(pf).TrimEnd(Path.DirectorySeparatorChar),
+            Path.GetFullPath(dir), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void InstallOptions_DefaultInstallDir_IsPopulated()
+    {
+        var opts = new InstallOptions();
+        Assert.False(string.IsNullOrWhiteSpace(opts.InstallDir));
+        Assert.Equal(InstallOptions.GetDefaultInstallDir(), opts.InstallDir);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void NormalizeInstallDir_Empty_FallsBackToDefault(string? input)
+    {
+        Assert.Equal(InstallOptions.GetDefaultInstallDir(), InstallOptions.NormalizeInstallDir(input));
+    }
+
+    [Fact]
+    public void NormalizeInstallDir_CustomPath_IsNormalized()
+    {
+        string custom = Path.Combine(Path.GetTempPath(), "VoltManagerCustom");
+        string result = InstallOptions.NormalizeInstallDir(custom + Path.DirectorySeparatorChar);
+        Assert.Equal(Path.GetFullPath(custom), result);
+    }
+
+    [Fact]
     public void ClearInstallDirectory_RemovesChildren_ButKeepsRoot()
     {
         string dir = Path.Combine(Path.GetTempPath(), "VoltManager.Tests." + Guid.NewGuid().ToString("N"));
