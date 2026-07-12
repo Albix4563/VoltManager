@@ -46,7 +46,7 @@ public class SettingsServiceTests : IDisposable
         Assert.Null(svc.Current.StandbyAutoCleaner.LastPurgedUtc);
         Assert.NotNull(svc.Current.Widgets);
         Assert.False(svc.Current.Widgets.Enabled);
-        Assert.Equal(new[] { "clock", "calendar", "usage", "temps", "power" },
+        Assert.Equal(new[] { "clock", "calendar", "usage", "temps", "power", "plans" },
             svc.Current.Widgets.Items.Select(i => i.Type).ToArray());
         Assert.All(svc.Current.Widgets.Items, item => Assert.False(item.Enabled));
         Assert.All(svc.Current.Widgets.Items, item => Assert.Equal("medium", item.Size));
@@ -122,7 +122,7 @@ public class SettingsServiceTests : IDisposable
         Assert.Equal(120, reloaded.Current.StandbyAutoCleaner.IntervalMinutes);
         Assert.Equal(new DateTime(2026, 06, 13, 18, 00, 00, DateTimeKind.Utc), reloaded.Current.StandbyAutoCleaner.LastPurgedUtc);
         Assert.True(reloaded.Current.Widgets.Enabled);
-        Assert.Equal(new[] { "clock", "calendar", "usage", "temps", "power" },
+        Assert.Equal(new[] { "clock", "calendar", "usage", "temps", "power", "plans" },
             reloaded.Current.Widgets.Items.Select(i => i.Type).ToArray());
         Assert.True(reloaded.Current.Widgets.Items[0].Pinned);
         Assert.Equal("large", reloaded.Current.Widgets.Items[0].Size);
@@ -341,7 +341,7 @@ public class SettingsServiceTests : IDisposable
         var svc = new SettingsService(SettingsPath);
         Assert.NotNull(svc.Current.Widgets);
         Assert.False(svc.Current.Widgets.Enabled);
-        Assert.Equal(new[] { "clock", "calendar", "usage", "temps", "power" },
+        Assert.Equal(new[] { "clock", "calendar", "usage", "temps", "power", "plans" },
             svc.Current.Widgets.Items.Select(i => i.Type).ToArray());
         Assert.All(svc.Current.Widgets.Items, item => Assert.Equal("medium", item.Size));
     }
@@ -366,7 +366,7 @@ public class SettingsServiceTests : IDisposable
         var svc = new SettingsService(SettingsPath);
 
         Assert.True(svc.Current.Widgets.Enabled);
-        Assert.Equal(new[] { "clock", "calendar", "usage", "temps", "power" },
+        Assert.Equal(new[] { "clock", "calendar", "usage", "temps", "power", "plans" },
             svc.Current.Widgets.Items.Select(i => i.Type).ToArray());
         var clock = svc.Current.Widgets.Items[0];
         Assert.True(clock.Enabled);

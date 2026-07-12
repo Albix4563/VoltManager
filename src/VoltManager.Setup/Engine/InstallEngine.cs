@@ -600,7 +600,7 @@ namespace VoltManager.Setup.Engine
 
         private static string SetWidgetsState(string json, bool masterEnabled, HashSet<string> enabledTypes)
         {
-            var all = new[] { "clock", "calendar", "usage", "temps", "power" };
+            var all = new[] { "clock", "calendar", "usage", "temps", "power", "plans" };
             // Only explicitly selected types start enabled. Empty selection ⇒ master off.
             var selected = enabledTypes ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             bool any = false;

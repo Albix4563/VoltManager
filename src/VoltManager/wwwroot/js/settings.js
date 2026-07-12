@@ -576,7 +576,7 @@
     const widgetsList = document.getElementById('widgets-list');
     const widgetsEnabledList = document.getElementById('widgets-enabled-list');
     const widgetsDisabledList = document.getElementById('widgets-disabled-list');
-    const WIDGET_TYPES = ['clock', 'calendar', 'usage', 'temps', 'power'];
+    const WIDGET_TYPES = ['clock', 'calendar', 'usage', 'temps', 'power', 'plans'];
     const WIDGET_PRESETS = ['mini', 'medium', 'large'];
 
     function setToggle(el, on) {
@@ -609,6 +609,7 @@
             usage: 'monitor_heart',
             temps: 'device_thermostat',
             power: 'bolt',
+            plans: 'tune',
         }[type] || 'widgets';
     }
 
@@ -623,6 +624,7 @@
         usage: { mini: [220, 118], medium: [300, 220], large: [390, 285] },
         temps: { mini: [210, 110], medium: [280, 180], large: [360, 235] },
         power: { mini: [220, 118], medium: [300, 190], large: [390, 250] },
+        plans: { mini: [280, 108], medium: [340, 150], large: [420, 190] },
     };
 
     function widgetSize(type, size) {

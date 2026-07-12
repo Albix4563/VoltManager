@@ -21,6 +21,9 @@ public class WidgetManagerTests
     [InlineData("power", "mini", 220, 118)]
     [InlineData("power", "medium", 300, 230)]
     [InlineData("power", "large", 390, 300)]
+    [InlineData("plans", "mini", 280, 108)]
+    [InlineData("plans", "medium", 340, 150)]
+    [InlineData("plans", "large", 420, 190)]
     public void GetWidgetSize_ReturnsPresetDimensions(string type, string preset, double width, double height)
     {
         var size = WidgetManager.GetWidgetSize(type, preset);

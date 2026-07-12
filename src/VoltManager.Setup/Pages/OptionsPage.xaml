@@ -92,7 +92,8 @@
                                     <CheckBox x:Name="ChkWCalendar" Style="{StaticResource WidgetPickCheck}" IsChecked="False" Margin="0,0,14,8"/>
                                     <CheckBox x:Name="ChkWUsage"    Style="{StaticResource WidgetPickCheck}" IsChecked="False" Margin="0,0,14,8"/>
                                     <CheckBox x:Name="ChkWTemps"    Style="{StaticResource WidgetPickCheck}" IsChecked="False" Margin="0,0,14,8"/>
-                                    <CheckBox x:Name="ChkWPower"    Style="{StaticResource WidgetPickCheck}" IsChecked="False" Margin="0,0,0,8"/>
+                                    <CheckBox x:Name="ChkWPower"    Style="{StaticResource WidgetPickCheck}" IsChecked="False" Margin="0,0,14,8"/>
+                                    <CheckBox x:Name="ChkWPlans"    Style="{StaticResource WidgetPickCheck}" IsChecked="False" Margin="0,0,0,8"/>
                                 </WrapPanel>
                             </StackPanel>
                         </Border>

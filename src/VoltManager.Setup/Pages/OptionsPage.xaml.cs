@@ -38,6 +38,7 @@ namespace VoltManager.Setup.Pages
             ChkWUsage.Content    = I18n.T("widget_usage");
             ChkWTemps.Content    = I18n.T("widget_temps");
             ChkWPower.Content    = I18n.T("widget_power");
+            ChkWPlans.Content    = I18n.T("widget_plans");
 
             // Always show a concrete default path (never leave the field blank).
             ApplyInstallDir(opts.InstallDir);
@@ -49,7 +50,7 @@ namespace VoltManager.Setup.Pages
             WidgetPicker.Visibility = opts.EnableWidgets ? Visibility.Visible : Visibility.Collapsed;
             var selected = opts.EnabledWidgetTypes ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (var t in new[] { ("clock",ChkWClock),("calendar",ChkWCalendar),
-                                       ("usage",ChkWUsage),("temps",ChkWTemps),("power",ChkWPower) })
+                                       ("usage",ChkWUsage),("temps",ChkWTemps),("power",ChkWPower),("plans",ChkWPlans) })
                 t.Item2.IsChecked = selected.Contains(t.Item1);
             ChkLaunch.IsChecked    = opts.LaunchAfterInstall;
 
@@ -94,6 +95,7 @@ namespace VoltManager.Setup.Pages
             if (ChkWUsage.IsChecked    == true) s.Add("usage");
             if (ChkWTemps.IsChecked    == true) s.Add("temps");
             if (ChkWPower.IsChecked    == true) s.Add("power");
+            if (ChkWPlans.IsChecked    == true) s.Add("plans");
             return s;
         }
     }

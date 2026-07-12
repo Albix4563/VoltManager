@@ -401,3 +401,121 @@ html[data-size=large] .power-row strong {
   font-size: 13px;
   font-weight: 600;
 }
+
+.plan-selector {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0;
+  padding: 4px;
+  border-radius: 14px;
+  background: rgba(255,255,255,.05);
+  border: 1px solid rgba(255,255,255,.08);
+}
+
+html[data-theme=light] .plan-selector {
+  background: rgba(15,34,52,.05);
+  border-color: rgba(15,34,52,.08);
+}
+
+.plan-pill {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 4px;
+  width: calc((100% - 8px) / 3);
+  border-radius: 11px;
+  background: linear-gradient(180deg, rgba(0,241,254,.28), rgba(0,241,254,.12));
+  border: 1px solid rgba(0,241,254,.36);
+  box-shadow: 0 0 18px rgba(0,241,254,.18);
+  transition: transform .22s ease, opacity .18s ease;
+  pointer-events: none;
+  z-index: 0;
+}
+
+html[data-theme=light] .plan-pill {
+  background: linear-gradient(180deg, rgba(0,174,187,.22), rgba(0,174,187,.10));
+  border-color: rgba(0,127,139,.28);
+  box-shadow: 0 0 16px rgba(0,174,187,.18);
+}
+
+.plan-option {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 10px 6px;
+  border: 0;
+  border-radius: 11px;
+  background: transparent;
+  color: rgba(212,228,250,.72);
+  cursor: pointer;
+  transition: color .18s ease, transform .12s ease;
+}
+
+html[data-size=mini] .plan-option {
+  padding: 8px 4px;
+  gap: 2px;
+}
+
+html[data-size=large] .plan-option {
+  padding: 14px 8px;
+  gap: 6px;
+}
+
+.plan-option:hover {
+  color: var(--vm-text, #d4e4fa);
+}
+
+.plan-option:active {
+  transform: scale(.97);
+}
+
+.plan-option.is-active {
+  color: var(--vm-accent, #00f1fe);
+}
+
+html[data-theme=light] .plan-option {
+  color: rgba(15,34,52,.58);
+}
+
+html[data-theme=light] .plan-option:hover,
+html[data-theme=light] .plan-option.is-active {
+  color: #007f8b;
+}
+
+.plan-option .material-symbols-outlined {
+  font-size: 20px;
+  line-height: 1;
+}
+
+html[data-size=mini] .plan-option .material-symbols-outlined {
+  font-size: 18px;
+}
+
+html[data-size=large] .plan-option .material-symbols-outlined {
+  font-size: 24px;
+}
+
+.plan-option-label {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+html[data-size=mini] .plan-option-label {
+  font-size: 10px;
+}
+
+html[data-size=large] .plan-option-label {
+  font-size: 12px;
+}

@@ -1,11 +1,13 @@
 (function () {
-    const TYPES = ['clock', 'calendar', 'usage', 'temps', 'power'];
+    const TYPES = ['clock', 'calendar', 'usage', 'temps', 'power', 'plans'];
     const SIZES = ['mini', 'medium', 'large'];
+    const PLAN_ORDER = ['powerSaver', 'balanced', 'performance'];
     const params = new URLSearchParams(location.search);
     const type = TYPES.includes(params.get('w')) ? params.get('w') : 'clock';
     const size = SIZES.includes(params.get('s')) ? params.get('s') : 'medium';
     const root = document.getElementById('widget-root');
     let pinned = false;
+    let switchingPlan = false;
     let locale = (window.I18n && I18n.getLocale ? I18n.getLocale() : 'it-IT');
     document.documentElement.dataset.size = size;
 
@@ -15,6 +17,7 @@
         usage: ['monitor_heart', 'widget_usage'],
         temps: ['device_thermostat', 'widget_temps'],
         power: ['bolt', 'widget_power'],
+        plans: ['tune', 'widget_plans'],
     };
 
     function t(key, fallback) {
@@ -261,6 +264,75 @@
         }
     }
 
+    function startPlans() {
+        const short = size === 'mini';
+        const options = [
+            { id: 'powerSaver', icon: 'eco', key: 'dash_plan_saver', short: 'Eco' },
+            { id: 'balanced', icon: 'balance', key: 'dash_plan_balanced', short: 'Bal' },
+            { id: 'performance', icon: 'speed', key: 'dash_plan_performance', short: 'Perf' },
+        ];
+        shell(
+            '<div class="plan-selector" role="radiogroup" aria-label="' + t('widget_plans', 'Power plans') + '">' +
+            '<div class="plan-pill" id="plan-pill" aria-hidden="true"></div>' +
+            options.map(function (opt) {
+                const label = short ? opt.short : t(opt.key, opt.id);
+                const i18nAttr = short ? '' : ' data-i18n="' + opt.key + '"';
+                return '<button class="plan-option" type="button" role="radio" aria-checked="false" data-plan="' + opt.id + '">' +
+                    '<span class="material-symbols-outlined">' + opt.icon + '</span>' +
+                    '<span class="plan-option-label"' + i18nAttr + '>' + label + '</span>' +
+                    '</button>';
+            }).join('') +
+            '</div>');
+        if (window.I18n && I18n.apply && !short) I18n.apply();
+        document.querySelectorAll('.plan-option').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                selectPlan(btn.dataset.plan);
+            });
+        });
+        pollPlanSelector();
+        Host.on('activePlanChanged', function (data) {
+            reflectPlanSelector(data && data.plan);
+        });
+    }
+
+    async function pollPlanSelector() {
+        try {
+            const plan = await Host.call('getActivePlan');
+            reflectPlanSelector(plan && plan.planId);
+        } catch { }
+    }
+
+    function reflectPlanSelector(plan) {
+        const index = PLAN_ORDER.indexOf(plan);
+        const pill = document.getElementById('plan-pill');
+        document.querySelectorAll('.plan-option').forEach(function (btn, i) {
+            const on = i === index;
+            btn.classList.toggle('is-active', on);
+            btn.setAttribute('aria-checked', on ? 'true' : 'false');
+        });
+        if (!pill) return;
+        if (index < 0) {
+            pill.style.opacity = '0';
+            return;
+        }
+        pill.style.opacity = '1';
+        pill.style.transform = 'translateX(' + (index * 100) + '%)';
+    }
+
+    async function selectPlan(plan) {
+        if (!plan || switchingPlan) return;
+        switchingPlan = true;
+        reflectPlanSelector(plan);
+        try {
+            const res = await Host.call('setManualOverride', { plan: plan });
+            if (!res || !res.success) await pollPlanSelector();
+        } catch {
+            await pollPlanSelector();
+        } finally {
+            switchingPlan = false;
+        }
+    }
+
     function applySettings(res) {
         if (!res || !res.settings) return;
         locale = (window.I18n && I18n.getLocale ? I18n.getLocale() : locale);
@@ -292,10 +364,11 @@
         switch (type) {
             case 'clock': startClock(); break;
             case 'calendar': startCalendar(); break;
+            case 'plans': startPlans(); break;
         }
     });
 
-    ({ clock: startClock, calendar: startCalendar, usage: startUsage, temps: startTemps, power: startPower }[type] || startClock)();
+    ({ clock: startClock, calendar: startCalendar, usage: startUsage, temps: startTemps, power: startPower, plans: startPlans }[type] || startClock)();
 
     if (Host.available) {
         Host.call('getSettings').then(applySettings).catch(() => {});
