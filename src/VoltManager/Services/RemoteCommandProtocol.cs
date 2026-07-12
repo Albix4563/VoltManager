@@ -17,6 +17,11 @@ public static class RemoteCommandProtocol
     public const string KeepAwakeOnKey = "keepAwakeOn";
     public const string KeepAwakeOffKey = "keepAwakeOff";
     public const string KeepAwakeToggleKey = "keepAwakeToggle";
+    public const string Shutdown30Key = "scheduleShutdown30";
+    public const string Shutdown60Key = "scheduleShutdown60";
+    public const string Sleep30Key = "scheduleSleep30";
+    public const string Sleep60Key = "scheduleSleep60";
+    public const string OpenSchedulerKey = "openScheduler";
 
     public static readonly string[] PlanKeys =
     {
@@ -27,6 +32,7 @@ public static class RemoteCommandProtocol
     {
         PowerSaverKey, BalancedKey, PerformanceKey, AutoKey,
         KeepAwakeOnKey, KeepAwakeOffKey, KeepAwakeToggleKey,
+        Shutdown30Key, Shutdown60Key, Sleep30Key, Sleep60Key, OpenSchedulerKey,
     };
 
     public const string PlanArgName = "--plan";

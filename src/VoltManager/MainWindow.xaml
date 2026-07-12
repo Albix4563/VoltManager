@@ -48,6 +48,33 @@
                     <MenuItem x:Name="TrayAutomationItem" Header="Automazione piano" IsCheckable="True"
                               Click="TrayAutomation_Click" />
                     <Separator />
+                    <MenuItem x:Name="TraySchedulePowerItem" Header="Programma azione PC">
+                        <MenuItem Header="30 minuti" Tag="30">
+                            <MenuItem Header="Spegni" Tag="shutdown|30" Click="TraySchedulePreset_Click" />
+                            <MenuItem Header="Sospendi" Tag="sleep|30" Click="TraySchedulePreset_Click" />
+                        </MenuItem>
+                        <MenuItem Header="45 minuti" Tag="45">
+                            <MenuItem Header="Spegni" Tag="shutdown|45" Click="TraySchedulePreset_Click" />
+                            <MenuItem Header="Sospendi" Tag="sleep|45" Click="TraySchedulePreset_Click" />
+                        </MenuItem>
+                        <MenuItem Header="1 ora">
+                            <MenuItem Header="Spegni" Tag="shutdown|60" Click="TraySchedulePreset_Click" />
+                            <MenuItem Header="Sospendi" Tag="sleep|60" Click="TraySchedulePreset_Click" />
+                        </MenuItem>
+                        <MenuItem Header="2 ore">
+                            <MenuItem Header="Spegni" Tag="shutdown|120" Click="TraySchedulePreset_Click" />
+                            <MenuItem Header="Sospendi" Tag="sleep|120" Click="TraySchedulePreset_Click" />
+                        </MenuItem>
+                        <MenuItem Header="4 ore">
+                            <MenuItem Header="Spegni" Tag="shutdown|240" Click="TraySchedulePreset_Click" />
+                            <MenuItem Header="Sospendi" Tag="sleep|240" Click="TraySchedulePreset_Click" />
+                        </MenuItem>
+                        <Separator />
+                        <MenuItem x:Name="TrayScheduleCustomItem" Header="Tempo personalizzato..." Click="TrayScheduleCustom_Click" />
+                    </MenuItem>
+                    <MenuItem x:Name="TrayScheduledStateItem" Header="Nessuna azione programmata" IsEnabled="False" />
+                    <MenuItem x:Name="TrayCancelScheduledItem" Header="Annulla azione programmata" Visibility="Collapsed" Click="TrayCancelScheduled_Click" />
+                    <Separator />
                     <MenuItem x:Name="TrayExitItem" Header="Esci" Click="TrayExit_Click" />
                 </ContextMenu>
             </tb:TaskbarIcon.ContextMenu>

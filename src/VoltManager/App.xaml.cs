@@ -1,7 +1,5 @@
 using System.Diagnostics;
-using System.Globalization;
 using System.IO;
-using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows;
 using System.Windows.Shell;
@@ -39,12 +37,12 @@ public partial class App : Application
     public ThemeService Theme { get; private set; } = null!;
     public LocalizationService Loc { get; private set; } = null!;
     public WidgetManager Widgets { get; private set; } = null!;
+    public ScheduledPowerActionService ScheduledPowerActions { get; private set; } = null!;
     public Task<CoreWebView2Environment> WebViewEnvironment { get; private set; } = null!;
 
     private PowerFlowService _powerFlow = null!;
     private int _automationTickRunning;
     private TimeSpan _currentSamplingInterval = TimeSpan.FromSeconds(1);
-    private System.Threading.Timer? _scheduledPowerActionTimer;
     private System.Threading.Timer? _planPollTimer;
     private System.Threading.Timer? _batteryHistoryTimer;
     private MainWindow? _mainWindow;
@@ -66,9 +64,6 @@ public partial class App : Application
     public event Action<ManualOverride?>? ManualOverrideChanged;
     public event Action<CpuAutomationState>? CpuAutomationStateChanged;
     public event Action<PowerPlanConflictNotification>? PowerPlanConflictDetected;
-
-    [DllImport("powrprof.dll", SetLastError = true)]
-    private static extern bool SetSuspendState(bool hibernate, bool forceCritical, bool disableWakeEvent);
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -161,7 +156,8 @@ public partial class App : Application
         AppProfiles.Start();
         StandbyAutoCleaner.Start();
         StartPlanPoll();
-        StartScheduledPowerActionLoop();
+        ScheduledPowerActions = new ScheduledPowerActionService(Settings, new PowerActionExecutor(), new SystemClock());
+        ScheduledPowerActions.Start();
         StartBatteryHistoryLoop();
 
         _remoteCommands = new RemoteCommandService();
@@ -264,6 +260,16 @@ public partial class App : Application
                 loc.T("JumpList_KeepAwakeOnDesc"), loc.T("JumpList_CategorySystem"));
             AddCommandTask(jumpList, helper, loc.T("JumpList_KeepAwakeOff"), RemoteCommandProtocol.KeepAwakeOffKey,
                 loc.T("JumpList_KeepAwakeOffDesc"), loc.T("JumpList_CategorySystem"));
+            AddCommandTask(jumpList, helper, loc.T("JumpList_Shutdown30"), RemoteCommandProtocol.Shutdown30Key,
+                loc.T("JumpList_Shutdown30Desc"), loc.T("JumpList_CategorySchedule"));
+            AddCommandTask(jumpList, helper, loc.T("JumpList_Shutdown60"), RemoteCommandProtocol.Shutdown60Key,
+                loc.T("JumpList_Shutdown60Desc"), loc.T("JumpList_CategorySchedule"));
+            AddCommandTask(jumpList, helper, loc.T("JumpList_Sleep30"), RemoteCommandProtocol.Sleep30Key,
+                loc.T("JumpList_Sleep30Desc"), loc.T("JumpList_CategorySchedule"));
+            AddCommandTask(jumpList, helper, loc.T("JumpList_Sleep60"), RemoteCommandProtocol.Sleep60Key,
+                loc.T("JumpList_Sleep60Desc"), loc.T("JumpList_CategorySchedule"));
+            AddCommandTask(jumpList, helper, loc.T("JumpList_OpenScheduler"), RemoteCommandProtocol.OpenSchedulerKey,
+                loc.T("JumpList_OpenSchedulerDesc"), loc.T("JumpList_CategorySchedule"));
             JumpList.SetJumpList(this, jumpList);
         }
         catch
@@ -307,6 +313,26 @@ public partial class App : Application
                 case RemoteCommandProtocol.KeepAwakeOffKey: SetKeepAwake(false); break;
                 case RemoteCommandProtocol.KeepAwakeToggleKey:
                     SetKeepAwake(!(Settings.Current.KeepAwake?.Enabled == true));
+                    break;
+                case RemoteCommandProtocol.Shutdown30Key:
+                    ScheduledPowerActions.ScheduleAfter(TimeSpan.FromMinutes(30), ScheduledPowerActionType.Shutdown);
+                    break;
+                case RemoteCommandProtocol.Shutdown60Key:
+                    ScheduledPowerActions.ScheduleAfter(TimeSpan.FromMinutes(60), ScheduledPowerActionType.Shutdown);
+                    break;
+                case RemoteCommandProtocol.Sleep30Key:
+                    ScheduledPowerActions.ScheduleAfter(TimeSpan.FromMinutes(30), ScheduledPowerActionType.Sleep);
+                    break;
+                case RemoteCommandProtocol.Sleep60Key:
+                    ScheduledPowerActions.ScheduleAfter(TimeSpan.FromMinutes(60), ScheduledPowerActionType.Sleep);
+                    break;
+                case RemoteCommandProtocol.OpenSchedulerKey:
+                    Dispatcher.Invoke(() =>
+                    {
+                        _mainWindow?.ShowFromTray();
+                        // Navigate to system view after showing.
+                        _mainWindow?.NavigateToSystemView();
+                    });
                     break;
             }
         }
@@ -612,71 +638,6 @@ public partial class App : Application
         }, null, TimeSpan.FromSeconds(20), TimeSpan.FromSeconds(60));
     }
 
-    private void StartScheduledPowerActionLoop()
-    {
-        _scheduledPowerActionTimer = new System.Threading.Timer(_ =>
-        {
-            try
-            {
-                var scheduled = Settings.Current.AutoShutdown;
-                if (scheduled is not { Enabled: true }) return;
-                if (!TryParseScheduledPowerTime(scheduled.Time, out var scheduledTime)) return;
-
-                var now = DateTime.Now;
-                if (now.Hour != scheduledTime.Hour || now.Minute != scheduledTime.Minute) return;
-
-                string today = now.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
-                if (string.Equals(scheduled.LastTriggeredLocalDate, today, StringComparison.Ordinal)) return;
-
-                scheduled.LastTriggeredLocalDate = today;
-                Settings.Save();
-                ExecuteScheduledPowerAction(scheduled.Action);
-            }
-            catch (Exception ex)
-            {
-                // Scheduled power actions must never crash the app.
-                Logger.Error("Scheduled power action check failed", ex);
-            }
-        }, null, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(15));
-    }
-
-    private static bool TryParseScheduledPowerTime(string? value, out TimeOnly time)
-        => TimeOnly.TryParseExact(value, "HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.None, out time);
-
-    private static void ExecuteScheduledPowerAction(string? action)
-    {
-        switch (NormalizeScheduledPowerAction(action))
-        {
-            case "restart":
-                StartShutdownCommand("/r /t 0");
-                break;
-            case "sleep":
-                SetSuspendState(hibernate: false, forceCritical: false, disableWakeEvent: false);
-                break;
-            default:
-                StartShutdownCommand("/s /t 0");
-                break;
-        }
-    }
-
-    private static string NormalizeScheduledPowerAction(string? action) => action switch
-    {
-        "restart" => "restart",
-        "sleep" => "sleep",
-        _ => "shutdown",
-    };
-
-    private static void StartShutdownCommand(string arguments)
-    {
-        using var process = Process.Start(new ProcessStartInfo
-        {
-            FileName = "shutdown",
-            Arguments = arguments,
-            UseShellExecute = false,
-            CreateNoWindow = true,
-        });
-    }
-
     public KeepAwakeState SetKeepAwake(bool enabled) => Awake.SetEnabled(enabled);
 
     public bool SetManualOverride(PlanId plan, TimeSpan? duration)
@@ -773,8 +734,8 @@ public partial class App : Application
     {
         // Each step is independent: one failing teardown must not skip the
         // rest, and above all must not prevent Shutdown().
+        SafeCleanup("scheduled power action service", ScheduledPowerActions.Dispose);
         SafeCleanup("metrics handler", () => Monitor.MetricsUpdated -= OnMetricsSampled);
-        SafeCleanup("scheduled action timer", () => _scheduledPowerActionTimer?.Dispose());
         SafeCleanup("plan poll timer", () => _planPollTimer?.Dispose());
         SafeCleanup("battery history timer", () => _batteryHistoryTimer?.Dispose());
         SafeCleanup("monitor", Monitor.Dispose);

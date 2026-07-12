@@ -79,4 +79,48 @@
   <data name="Common_Yes" xml:space="preserve"><value>Sì</value></data>
   <data name="Common_No" xml:space="preserve"><value>No</value></data>
   <data name="Common_Cancel" xml:space="preserve"><value>Annulla</value></data>
+  <data name="Tray_Schedule" xml:space="preserve"><value>Programma azione PC</value></data>
+  <data name="Tray_ScheduleShutdown" xml:space="preserve"><value>Spegni</value></data>
+  <data name="Tray_ScheduleSleep" xml:space="preserve"><value>Sospendi</value></data>
+  <data name="Tray_ScheduleCustom" xml:space="preserve"><value>Tempo personalizzato...</value></data>
+  <data name="Tray_NoScheduledAction" xml:space="preserve"><value>Nessuna azione programmata</value></data>
+  <data name="Tray_CancelScheduled" xml:space="preserve"><value>Annulla azione programmata</value></data>
+  <data name="Tray_ScheduledIn" xml:space="preserve"><value>tra</value></data>
+  <data name="Tray_ScheduledAt" xml:space="preserve"><value>alle</value></data>
+  <data name="Tray_30min" xml:space="preserve"><value>30 minuti</value></data>
+  <data name="Tray_45min" xml:space="preserve"><value>45 minuti</value></data>
+  <data name="Tray_1hour" xml:space="preserve"><value>1 ora</value></data>
+  <data name="Tray_2hours" xml:space="preserve"><value>2 ore</value></data>
+  <data name="Tray_4hours" xml:space="preserve"><value>4 ore</value></data>
+  <data name="Schedule_Shutdown" xml:space="preserve"><value>Spegnimento</value></data>
+  <data name="Schedule_Sleep" xml:space="preserve"><value>Sospensione</value></data>
+  <data name="Schedule_Restart" xml:space="preserve"><value>Riavvio</value></data>
+  <data name="Schedule_CustomTitle" xml:space="preserve"><value>Tempo personalizzato</value></data>
+  <data name="Schedule_Hours" xml:space="preserve"><value>Ore</value></data>
+  <data name="Schedule_Minutes" xml:space="preserve"><value>Minuti</value></data>
+  <data name="Schedule_Action" xml:space="preserve"><value>Azione</value></data>
+  <data name="Schedule_Confirm" xml:space="preserve"><value>Conferma</value></data>
+  <data name="Schedule_SummaryWaiting" xml:space="preserve"><value>Inserisci la durata qui sopra</value></data>
+  <data name="Schedule_InvalidHours" xml:space="preserve"><value>Inserisci un numero valido di ore (0 o più).</value></data>
+  <data name="Schedule_InvalidMinutes" xml:space="preserve"><value>Inserisci minuti tra 0 e 59.</value></data>
+  <data name="Schedule_MinDelay" xml:space="preserve"><value>La durata deve essere di almeno {0} minuti.</value></data>
+  <data name="Schedule_MaxDelay" xml:space="preserve"><value>La durata non può superare {0} giorni.</value></data>
+  <data name="Schedule_ScheduledAt" xml:space="preserve"><value>programmato alle</value></data>
+  <data name="Schedule_ExecutionAt" xml:space="preserve"><value>{0} programmato alle {1}</value></data>
+  <data name="Dialog_ScheduleExitWarning" xml:space="preserve"><value>È presente un'azione programmata.\n\nUscendo da VoltManager la pianificazione verrà annullata.\n\nVuoi uscire comunque?</value></data>
+  <data name="Dialog_ReplaceScheduledAction" xml:space="preserve"><value>Hai già una pianificazione attiva. Sostituirla con la nuova?</value></data>
+  <data name="Error_InvalidPowerAction" xml:space="preserve"><value>Azione non valida.</value></data>
+  <data name="Error_InvalidPowerTime" xml:space="preserve"><value>Formato orario non valido. Usa HH:mm.</value></data>
+  <data name="Error_InvalidScheduleMode" xml:space="preserve"><value>Modalità di pianificazione non valida. Usa 'relative' o 'daily'.</value></data>
+  <data name="JumpList_Shutdown30" xml:space="preserve"><value>Spegni tra 30 minuti</value></data>
+  <data name="JumpList_Shutdown60" xml:space="preserve"><value>Spegni tra 1 ora</value></data>
+  <data name="JumpList_Sleep30" xml:space="preserve"><value>Sospendi tra 30 minuti</value></data>
+  <data name="JumpList_Sleep60" xml:space="preserve"><value>Sospendi tra 1 ora</value></data>
+  <data name="JumpList_OpenScheduler" xml:space="preserve"><value>Apri pianificazione</value></data>
+  <data name="JumpList_Shutdown30Desc" xml:space="preserve"><value>Programma lo spegnimento tra 30 minuti</value></data>
+  <data name="JumpList_Shutdown60Desc" xml:space="preserve"><value>Programma lo spegnimento tra 1 ora</value></data>
+  <data name="JumpList_Sleep30Desc" xml:space="preserve"><value>Programma la sospensione tra 30 minuti</value></data>
+  <data name="JumpList_Sleep60Desc" xml:space="preserve"><value>Programma la sospensione tra 1 ora</value></data>
+  <data name="JumpList_OpenSchedulerDesc" xml:space="preserve"><value>Apri la finestra di pianificazione</value></data>
+  <data name="JumpList_CategorySchedule" xml:space="preserve"><value>Timer PC</value></data>
 </root>

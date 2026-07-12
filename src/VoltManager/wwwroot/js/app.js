@@ -20,7 +20,14 @@
             managed: 'Miliano\'s App', remove: 'Rimuovi', enableStartup: 'Attiva', disableStartup: 'Disattiva', unknown: 'App sconosciuta',
             on: 'ON', off: 'OFF', active: 'Attivo', inactive: 'Disattivato', switchHint: 'Switch animato', source: 'Origine', command: 'Percorso',
             added: 'Applicazione aggiunta all\'avvio.', removed: 'Applicazione rimossa dall\'avvio.', toggled: 'Stato applicazione aggiornato.',
-            loadErr: 'Errore caricamento app di avvio: ', addErr: 'Errore aggiunta app: ', removeErr: 'Errore rimozione app: ', toggleErr: 'Errore modifica stato app: '
+            loadErr: 'Errore caricamento app di avvio: ', addErr: 'Errore aggiunta app: ', removeErr: 'Errore rimozione app: ', toggleErr: 'Errore modifica stato app: ',
+            confirm: 'Programma azione', cancel: 'Annulla', activeTitle: 'Azione programmata',
+            relative: 'Tra un intervallo', daily: 'A un orario',
+            preset30: '30 minuti', preset45: '45 minuti', preset1h: '1 ora', preset2h: '2 ore', preset4h: '4 ore', custom: 'Personalizzato',
+            hours: 'Ore', minutes: 'Minuti',
+            remaining: 'Tra', at: 'Esecuzione prevista:',
+            scheduled: 'Azione programmata.', cancelled: 'Pianificazione annullata.',
+            invalidDuration: 'Durata minima: 1 minuto.', invalidTime: 'Orario non valido (usa HH:mm).'
         },
         en: {
             nav: 'Power Schedule', title: 'Power Schedule', sub: 'Schedule PC shutdown, restart and sleep, and keep it awake when needed.',
@@ -34,7 +41,14 @@
             managed: 'Miliano\'s App', remove: 'Remove', enableStartup: 'Enable', disableStartup: 'Disable', unknown: 'Unknown app',
             on: 'ON', off: 'OFF', active: 'Active', inactive: 'Disabled', switchHint: 'Animated switch', source: 'Source', command: 'Path',
             added: 'Application added to startup.', removed: 'Application removed from startup.', toggled: 'Application state updated.',
-            loadErr: 'Error loading startup apps: ', addErr: 'Error adding app: ', removeErr: 'Error removing app: ', toggleErr: 'Error changing app state: '
+            loadErr: 'Error loading startup apps: ', addErr: 'Error adding app: ', removeErr: 'Error removing app: ', toggleErr: 'Error changing app state: ',
+            confirm: 'Schedule action', cancel: 'Cancel', activeTitle: 'Scheduled action',
+            relative: 'After an interval', daily: 'At a time',
+            preset30: '30 minutes', preset45: '45 minutes', preset1h: '1 hour', preset2h: '2 hours', preset4h: '4 hours', custom: 'Custom',
+            hours: 'Hours', minutes: 'Minutes',
+            remaining: 'In', at: 'Expected execution:',
+            scheduled: 'Action scheduled.', cancelled: 'Schedule cancelled.',
+            invalidDuration: 'Minimum duration: 1 minute.', invalidTime: 'Invalid time (use HH:mm).'
         },
         zh: {
             nav: '电源计划', title: '电源计划', sub: '计划电脑的关机、重启和睡眠，并在需要时保持唤醒。',
@@ -48,7 +62,14 @@
             managed: 'Miliano\'s App', remove: '移除', enableStartup: '启用', disableStartup: '禁用', unknown: '未知应用',
             on: '开', off: '关', active: '启用', inactive: '禁用', switchHint: '动画开关', source: '来源', command: '路径',
             added: '应用已添加到启动项。', removed: '应用已从启动项移除。', toggled: '应用状态已更新。',
-            loadErr: '加载启动应用时出错：', addErr: '添加应用时出错：', removeErr: '移除应用时出错：', toggleErr: '修改应用状态时出错：'
+            loadErr: '加载启动应用时出错：', addErr: '添加应用时出错：', removeErr: '移除应用时出错：', toggleErr: '修改应用状态时出错：',
+            confirm: '安排操作', cancel: '取消', activeTitle: '已安排的操作',
+            relative: '间隔时间', daily: '指定时间',
+            preset30: '30 分钟', preset45: '45 分钟', preset1h: '1 小时', preset2h: '2 小时', preset4h: '4 小时', custom: '自定义',
+            hours: '小时', minutes: '分钟',
+            remaining: '剩余', at: '预计执行：',
+            scheduled: '操作已安排。', cancelled: '计划已取消。',
+            invalidDuration: '持续时间至少 1 分钟。', invalidTime: '时间格式无效（请使用 HH:mm）。'
         },
         es: {
             nav: 'Programación de energía', title: 'Programación de energía', sub: 'Programa apagado, reinicio y suspensión del PC, y mantenlo activo cuando sea necesario.',
@@ -62,7 +83,14 @@
             managed: 'VoltManager', remove: 'Eliminar', enableStartup: 'Activar', disableStartup: 'Desactivar', unknown: 'App desconocida',
             on: 'ON', off: 'OFF', active: 'Activo', inactive: 'Desactivado', switchHint: 'Interruptor animado', source: 'Origen', command: 'Ruta',
             added: 'Aplicación añadida al inicio.', removed: 'Aplicación eliminada del inicio.', toggled: 'Estado de la aplicación actualizado.',
-            loadErr: 'Error al cargar apps de inicio: ', addErr: 'Error al añadir app: ', removeErr: 'Error al eliminar app: ', toggleErr: 'Error al cambiar estado de la app: '
+            loadErr: 'Error al cargar apps de inicio: ', addErr: 'Error al añadir app: ', removeErr: 'Error al eliminar app: ', toggleErr: 'Error al cambiar estado de la app: ',
+            confirm: 'Programar acción', cancel: 'Cancelar', activeTitle: 'Acción programada',
+            relative: 'Tras un intervalo', daily: 'A una hora',
+            preset30: '30 minutos', preset45: '45 minutos', preset1h: '1 hora', preset2h: '2 horas', preset4h: '4 horas', custom: 'Personalizado',
+            hours: 'Horas', minutes: 'Minutos',
+            remaining: 'En', at: 'Ejecución prevista:',
+            scheduled: 'Acción programada.', cancelled: 'Planificación cancelada.',
+            invalidDuration: 'Duración mínima: 1 minuto.', invalidTime: 'Hora no válida (usa HH:mm).'
         }
     };
 
@@ -330,16 +358,34 @@
         return '<div class="max-w-4xl mx-auto space-y-lg relative z-10 w-full">' +
             '<div class="mb-xl"><h2 class="text-headline-lg text-on-surface mb-xs system-title"></h2><p class="text-body-md text-on-surface-variant system-sub"></p></div>' +
             '<div class="grid grid-cols-12 gap-gutter">' +
-            // Schedule panel
+            // Schedule panel — new: relative + daily dual-mode
             '<div class="col-span-12 lg:col-span-6 flex flex-col gap-gutter">' +
-            '<div class="glass-panel rounded-xl p-lg space-y-md"><h3 class="text-title-lg text-on-surface flex items-center gap-xs"><span class="material-symbols-outlined text-secondary-container">schedule</span><span class="system-schedule-title"></span></h3><p class="text-body-md text-on-surface-variant system-schedule-sub"></p>' +
-            '<div class="flex items-center justify-between group pt-sm gap-md"><div><p class="text-body-md text-on-surface system-enable"></p><p class="text-label-sm text-on-surface-variant system-note"></p></div>' + switchHtml('toggle-scheduled-power', false, 'system-power-switch cursor-pointer') + '</div>' +
-            '<label class="flex items-center justify-between gap-md"><span class="text-label-sm text-on-surface-variant system-action"></span><select id="scheduled-power-action" class="bg-surface-container-low/50 text-secondary-container font-medium border border-white/10 rounded-lg py-2 px-3 text-body-md focus:outline-none focus:border-secondary-container"><option value="shutdown" class="sys-opt-shutdown"></option><option value="restart" class="sys-opt-restart"></option><option value="sleep" class="sys-opt-sleep"></option></select></label>' +
-            '<label class="flex items-center justify-between gap-md"><span class="text-label-sm text-on-surface-variant system-time"></span><input id="scheduled-power-time" type="time" class="bg-surface-container-low/50 text-secondary-container font-medium border border-white/10 rounded-lg py-2 px-3 text-body-md focus:outline-none focus:border-secondary-container" /></label>' +
+            '<div class="glass-panel rounded-xl p-lg space-y-md" id="schedule-panel"><h3 class="text-title-lg text-on-surface flex items-center gap-xs"><span class="material-symbols-outlined text-secondary-container">schedule</span><span class="system-schedule-title"></span></h3><p class="text-body-md text-on-surface-variant system-schedule-sub"></p>' +
+            // Mode tabs
+            '<div class="flex rounded-lg bg-surface-container-low/30 p-1" id="schedule-mode-tabs">' +
+            '<button class="flex-1 py-2 px-3 rounded-md text-label-md font-medium transition-colors schedule-mode-relative" data-mode="relative"></button>' +
+            '<button class="flex-1 py-2 px-3 rounded-md text-label-md font-medium transition-colors schedule-mode-daily" data-mode="daily"></button>' +
+            '</div>' +
+            // Relative mode content
+            '<div id="schedule-relative-content">' +
+            '<div class="flex flex-wrap gap-xs pt-sm" id="schedule-presets"></div>' +
+            '<div id="schedule-custom-fields" class="hidden flex items-center gap-sm pt-sm"><input id="schedule-custom-hours" type="number" min="0" max="168" value="0" class="bg-surface-container-low/50 text-secondary-container font-medium border border-white/10 rounded-lg py-2 px-3 w-20 text-body-md focus:outline-none focus:border-secondary-container" placeholder="h" /> <span class="text-label-sm text-on-surface-variant schedule-hours"></span> <input id="schedule-custom-minutes" type="number" min="0" max="59" value="30" class="bg-surface-container-low/50 text-secondary-container font-medium border border-white/10 rounded-lg py-2 px-3 w-20 text-body-md focus:outline-none focus:border-secondary-container" placeholder="min" /> <span class="text-label-sm text-on-surface-variant schedule-minutes"></span></div>' +
+            '<div class="flex items-center gap-sm pt-sm"><span class="text-label-sm text-on-surface-variant system-action"></span><select id="scheduled-power-action" class="bg-surface-container-low/50 text-secondary-container font-medium border border-white/10 rounded-lg py-2 px-3 text-body-md focus:outline-none focus:border-secondary-container"><option value="shutdown" class="sys-opt-shutdown"></option><option value="sleep" class="sys-opt-sleep"></option></select></div>' +
+            '<p id="schedule-summary" class="text-label-md text-on-surface-variant hidden pt-xs"></p>' +
+            '<button id="btn-schedule-action" class="w-full mt-md py-2.5 px-4 rounded-lg font-medium text-body-md bg-secondary-container/20 text-secondary-container border border-secondary-container/30 hover:bg-secondary-container/30 transition-colors system-confirm"></button>' +
+            '</div>' +
+            // Daily mode content
+            '<div id="schedule-daily-content" class="hidden">' +
+            '<label class="flex items-center justify-between gap-md pt-sm"><span class="text-label-sm text-on-surface-variant system-time"></span><input id="scheduled-power-time" type="time" class="bg-surface-container-low/50 text-secondary-container font-medium border border-white/10 rounded-lg py-2 px-3 text-body-md focus:outline-none focus:border-secondary-container" /></label>' +
+            '<label class="flex items-center justify-between gap-md pt-sm"><span class="text-label-sm text-on-surface-variant system-action"></span><select id="scheduled-daily-action" class="bg-surface-container-low/50 text-secondary-container font-medium border border-white/10 rounded-lg py-2 px-3 text-body-md focus:outline-none focus:border-secondary-container"><option value="shutdown" class="sys-opt-shutdown"></option><option value="restart" class="sys-opt-restart"></option><option value="sleep" class="sys-opt-sleep"></option></select></label>' +
+            '<p id="schedule-daily-status" class="text-label-md text-on-surface-variant hidden pt-xs"></p>' +
+            '<button id="btn-schedule-daily" class="w-full mt-md py-2.5 px-4 rounded-lg font-medium text-body-md bg-secondary-container/20 text-secondary-container border border-secondary-container/30 hover:bg-secondary-container/30 transition-colors system-confirm"></button>' +
+            '</div>' +
+            // Active schedule display
+            '<div id="schedule-active" class="hidden pt-md border-t border-white/10"><p class="text-label-sm text-on-surface-variant system-active-title"></p><div class="flex items-center gap-sm pt-xs"><div class="flex-1"><p id="schedule-active-text" class="text-body-md text-on-surface font-medium"></p><p id="schedule-active-countdown" class="text-label-md text-secondary-container"></p></div><button id="btn-cancel-schedule" class="py-1.5 px-3 rounded-lg text-label-md font-medium text-error border border-error/30 hover:bg-error/10 transition-colors system-cancel"></button></div></div>' +
             '<p class="text-label-md text-on-surface-variant hidden" id="system-status"></p></div>' +
             '</div>' +
-            // Keep-awake panel (relocated from Power Management). The mount is
-            // populated by power.js mountKeepAwakeUi(); id must stay keep-awake-mount.
+            // Keep-awake panel
             '<div class="col-span-12 lg:col-span-6">' +
             '<div class="glass-panel rounded-xl p-lg space-y-md"><h3 class="text-title-lg text-on-surface flex items-center gap-xs"><span class="material-symbols-outlined text-secondary-container">bedtime_off</span><span class="system-keepawake-title"></span></h3><p class="text-body-md text-on-surface-variant system-keepawake-sub"></p>' +
             '<div id="keep-awake-mount"></div>' +
@@ -350,86 +396,244 @@
     function refreshSystemLabels() {
         document.querySelectorAll('.system-nav-label').forEach(el => el.textContent = t('nav'));
         const pairs = [
-            ['.system-title','title'], ['.system-sub','sub'], ['.system-schedule-title','scheduleTitle'], ['.system-schedule-sub','scheduleSub'],
-            ['.system-enable','enable'], ['.system-note','note'], ['.system-action','action'], ['.system-time','time'],
+            ['.system-title','title'], ['.system-sub','sub'],
+            ['.system-schedule-title','scheduleTitle'], ['.system-schedule-sub','scheduleSub'],
+            ['.system-action','action'], ['.system-time','time'],
             ['.system-keepawake-title','keepAwakeTitle'], ['.system-keepawake-sub','keepAwakeSub'],
-            ['.system-switch-on','on'], ['.system-switch-off','off']
+            ['.system-confirm','confirm'], ['.system-cancel','cancel'],
+            ['.system-active-title','activeTitle'],
+            ['.schedule-mode-relative','relative'], ['.schedule-mode-daily','daily'],
+            ['.system-switch-on','on'], ['.system-switch-off','off'],
+            ['.schedule-hours','hours'], ['.schedule-minutes','minutes']
         ];
         pairs.forEach(([sel, key]) => document.querySelectorAll(sel).forEach(el => el.textContent = t(key)));
         const opts = { '.sys-opt-shutdown': 'shutdown', '.sys-opt-restart': 'restart', '.sys-opt-sleep': 'sleep' };
         Object.entries(opts).forEach(([sel, key]) => document.querySelectorAll(sel).forEach(el => el.textContent = t(key)));
+        // Re-render preset buttons with translated labels
+        renderPresetButtons();
+        // Apply schedule state
+        if (currentScheduleState) applyScheduledPowerActionState(currentScheduleState);
     }
 
-    function normalizeScheduled(settings) {
-        if (!settings.autoShutdown) settings.autoShutdown = { enabled: false, action: 'shutdown', time: '23:00', lastTriggeredLocalDate: null };
-        if (!['shutdown', 'restart', 'sleep'].includes(settings.autoShutdown.action)) settings.autoShutdown.action = 'shutdown';
-        if (!/^\d{2}:\d{2}$/.test(settings.autoShutdown.time || '')) settings.autoShutdown.time = '23:00';
-        return settings.autoShutdown;
+    // -- New schedule state management --
+
+    var currentScheduleState = null;
+    var scheduleCountdownTimer = null;
+    var scheduleMode = 'relative';
+
+    function renderPresetButtons() {
+        var container = document.getElementById('schedule-presets');
+        if (!container) return;
+        var presets = [
+            { mins: 30, key: 'preset30' },
+            { mins: 45, key: 'preset45' },
+            { mins: 60, key: 'preset1h' },
+            { mins: 120, key: 'preset2h' },
+            { mins: 240, key: 'preset4h' },
+            { mins: -1, key: 'custom' }
+        ];
+        container.innerHTML = presets.map(function(p) {
+            var label = t(p.key);
+            var cls = 'py-1.5 px-3 rounded-lg text-label-md font-medium border border-white/10 hover:bg-secondary-container/20 transition-colors cursor-pointer';
+            if (p.mins === -1) cls += ' schedule-preset-custom';
+            else cls += ' schedule-preset-btn';
+            return '<button class="' + cls + '" data-minutes="' + p.mins + '">' + esc(label) + '</button>';
+        }).join('');
     }
 
-    function setMiniToggle(el, enabled) {
-        if (!el) return;
-        el.dataset.on = enabled ? 'true' : 'false';
-        el.dataset.state = enabled ? 'on' : 'off';
-        el.setAttribute('aria-pressed', enabled ? 'true' : 'false');
+    function applyScheduledPowerActionState(state) {
+        currentScheduleState = state;
+        clearInterval(scheduleCountdownTimer);
+        scheduleCountdownTimer = null;
+
+        var activeEl = document.getElementById('schedule-active');
+        var relativeContent = document.getElementById('schedule-relative-content');
+        var dailyContent = document.getElementById('schedule-daily-content');
+        var summary = document.getElementById('schedule-summary');
+        var cancelBtn = document.getElementById('btn-cancel-schedule');
+
+        if (!activeEl) return;
+
+        if (state && state.enabled) {
+            activeEl.classList.remove('hidden');
+            relativeContent.classList.add('hidden');
+            dailyContent.classList.add('hidden');
+            cancelBtn.classList.remove('hidden');
+
+            var actionName = t(state.action === 'Sleep' ? 'sleep' : (state.action === 'Restart' ? 'restart' : 'shutdown'));
+            var activeText = document.getElementById('schedule-active-text');
+            if (activeText) activeText.textContent = actionName;
+
+            if (state.mode === 'Relative' && state.executeAtUtc && state.remainingSeconds > 0) {
+                var countdownEl = document.getElementById('schedule-active-countdown');
+                var updateCountdown = function() {
+                    if (!currentScheduleState || !currentScheduleState.executeAtUtc) return;
+                    var remaining = Math.max(0, Math.floor((new Date(currentScheduleState.executeAtUtc).getTime() - Date.now()) / 1000));
+                    currentScheduleState.remainingSeconds = remaining;
+                    if (countdownEl) {
+                        var h = Math.floor(remaining / 3600);
+                        var m = Math.floor((remaining % 3600) / 60);
+                        var s = remaining % 60;
+                        countdownEl.textContent = t('remaining') + ' ' + h + 'h ' + m + 'm ' + s + 's';
+                    }
+                    if (remaining <= 0 && scheduleCountdownTimer) {
+                        clearInterval(scheduleCountdownTimer);
+                        scheduleCountdownTimer = null;
+                    }
+                };
+                updateCountdown();
+                scheduleCountdownTimer = setInterval(updateCountdown, 1000);
+            } else if (state.mode === 'Daily' && state.dailyTime) {
+                var countdownEl = document.getElementById('schedule-active-countdown');
+                if (countdownEl) countdownEl.textContent = t('at') + ' ' + state.dailyTime;
+            }
+        } else {
+            activeEl.classList.add('hidden');
+            relativeContent.classList.remove('hidden');
+            scheduleMode = 'relative';
+            updateScheduleModeUI();
+        }
     }
 
-    function applyScheduledUi() {
-        if (!window.__voltSettings) return;
-        const scheduled = normalizeScheduled(window.__voltSettings.get());
-        const toggle = document.getElementById('toggle-scheduled-power');
-        const action = document.getElementById('scheduled-power-action');
-        const time = document.getElementById('scheduled-power-time');
-        setMiniToggle(toggle, scheduled.enabled);
-        if (action) { action.value = scheduled.action; action.disabled = !scheduled.enabled; action.classList.toggle('opacity-50', !scheduled.enabled); }
-        if (time) { time.value = scheduled.time; time.disabled = !scheduled.enabled; time.classList.toggle('opacity-50', !scheduled.enabled); }
+    function updateScheduleModeUI() {
+        var relativeContent = document.getElementById('schedule-relative-content');
+        var dailyContent = document.getElementById('schedule-daily-content');
+        var tabs = document.querySelectorAll('#schedule-mode-tabs button');
+
+        if (scheduleMode === 'relative') {
+            relativeContent.classList.remove('hidden');
+            dailyContent.classList.add('hidden');
+        } else {
+            relativeContent.classList.add('hidden');
+            dailyContent.classList.remove('hidden');
+        }
+
+        tabs.forEach(function(btn) {
+            var isActive = btn.dataset.mode === scheduleMode;
+            btn.classList.toggle('bg-secondary-container/40', isActive);
+            btn.classList.toggle('text-on-surface-variant', !isActive);
+            btn.setAttribute('aria-pressed', String(isActive));
+        });
     }
 
     function setSystemStatus(text, isError) {
-        const el = document.getElementById('system-status');
+        var el = document.getElementById('system-status');
         if (!el) return;
         el.textContent = text;
         el.classList.remove('hidden', 'ok', 'err');
         el.classList.add(isError ? 'err' : 'ok');
+        if (text) {
+            setTimeout(function() {
+                if (el.textContent === text) el.classList.add('hidden');
+            }, 4000);
+        }
     }
 
     function wireSystemUi() {
         if (systemWired) return;
-        document.addEventListener('click', async (e) => {
-            const toggle = e.target.closest('#toggle-scheduled-power');
-            if (toggle && window.__voltSettings) {
-                const scheduled = normalizeScheduled(window.__voltSettings.get());
-                scheduled.enabled = toggle.dataset.on !== 'true';
-                applyScheduledUi();
-                window.__voltSettings.save();
+
+        document.addEventListener('click', async function(e) {
+            // Mode tabs
+            var modeBtn = e.target.closest('#schedule-mode-tabs button');
+            if (modeBtn) {
+                scheduleMode = modeBtn.dataset.mode;
+                updateScheduleModeUI();
                 return;
             }
 
-            const refresh = e.target.closest('#btn-refresh-startup-apps');
-            if (refresh) {
-                await loadStartupApps(true);
+            // Preset buttons (relative mode)
+            var preset = e.target.closest('.schedule-preset-btn');
+            if (preset && Host.available) {
+                var minutes = parseInt(preset.dataset.minutes);
+                if (isNaN(minutes)) return;
+                var actionEl = document.getElementById('scheduled-power-action');
+                var action = actionEl ? actionEl.value : 'shutdown';
+                await scheduleRelativeAction(minutes, action);
                 return;
             }
 
-            const add = e.target.closest('#btn-add-startup-app');
+            // Custom preset
+            var custom = e.target.closest('.schedule-preset-custom');
+            if (custom) {
+                var fields = document.getElementById('schedule-custom-fields');
+                if (fields) fields.classList.toggle('hidden');
+                return;
+            }
+
+            // Schedule button (relative mode)
+            var scheduleBtn = e.target.closest('#btn-schedule-action');
+            if (scheduleBtn && Host.available) {
+                var hoursEl = document.getElementById('schedule-custom-hours');
+                var minsEl = document.getElementById('schedule-custom-minutes');
+                var hours = hoursEl ? parseInt(hoursEl.value) || 0 : 0;
+                var mins = minsEl ? parseInt(minsEl.value) || 0 : 0;
+                var totalMins = hours * 60 + mins;
+
+                // Check if custom fields are visible, otherwise check if a preset was selected
+                var customFields = document.getElementById('schedule-custom-fields');
+                if (!customFields || customFields.classList.contains('hidden')) {
+                    // Use default of 30 if no preset active
+                    var activePreset = document.querySelector('.schedule-preset-btn.bg-secondary-container\\/40');
+                    totalMins = activePreset ? parseInt(activePreset.dataset.minutes) : 30;
+                }
+
+                var actionEl = document.getElementById('scheduled-power-action');
+                var action = actionEl ? actionEl.value : 'shutdown';
+                if (totalMins < 1) { setSystemStatus(t('invalidDuration'), true); return; }
+                await scheduleRelativeAction(totalMins, action);
+                return;
+            }
+
+            // Schedule button (daily mode)
+            var dailyBtn = e.target.closest('#btn-schedule-daily');
+            if (dailyBtn && Host.available) {
+                var timeEl = document.getElementById('scheduled-power-time');
+                var dailyActionEl = document.getElementById('scheduled-daily-action');
+                var time = timeEl ? timeEl.value : '23:00';
+                var action = dailyActionEl ? dailyActionEl.value : 'shutdown';
+                if (!/^\d{2}:\d{2}$/.test(time)) { setSystemStatus(t('invalidTime'), true); return; }
+                try {
+                    var result = await Host.call('schedulePowerAction', { mode: 'daily', action: action, time: time });
+                    applyScheduledPowerActionState(result);
+                    setSystemStatus(t('scheduled'), false);
+                } catch (err) {
+                    setSystemStatus(err.message, true);
+                }
+                return;
+            }
+
+            // Cancel button
+            var cancelBtn = e.target.closest('#btn-cancel-schedule');
+            if (cancelBtn && Host.available) {
+                try {
+                    var result = await Host.call('cancelScheduledPowerAction');
+                    applyScheduledPowerActionState(result);
+                    setSystemStatus(t('cancelled'), false);
+                } catch (err) {
+                    setSystemStatus(err.message, true);
+                }
+                return;
+            }
+
+            var refresh = e.target.closest('#btn-refresh-startup-apps');
+            if (refresh) { await loadStartupApps(true); return; }
+
+            var add = e.target.closest('#btn-add-startup-app');
             if (add && Host.available) {
                 add.disabled = true;
                 try {
-                    const picked = await Host.call('pickStartupExecutable');
+                    var picked = await Host.call('pickStartupExecutable');
                     if (picked && picked.path) {
                         await Host.call('addStartupApp', { path: picked.path });
                         setSystemStatus(t('added'), false);
                         await loadStartupApps(true);
                     }
-                } catch (err) {
-                    setSystemStatus(t('addErr') + err.message, true);
-                } finally {
-                    add.disabled = false;
-                }
+                } catch (err) { setSystemStatus(t('addErr') + err.message, true); }
+                finally { add.disabled = false; }
                 return;
             }
 
-            const startupToggle = e.target.closest('[data-toggle-startup-id]');
+            var startupToggle = e.target.closest('[data-toggle-startup-id]');
             if (startupToggle && Host.available) {
                 startupToggle.disabled = true;
                 try {
@@ -439,47 +643,34 @@
                     });
                     setSystemStatus(t('toggled'), false);
                     await loadStartupApps(true);
-                } catch (err) {
-                    setSystemStatus(t('toggleErr') + err.message, true);
-                } finally {
-                    startupToggle.disabled = false;
-                }
+                } catch (err) { setSystemStatus(t('toggleErr') + err.message, true); }
+                finally { startupToggle.disabled = false; }
                 return;
             }
 
-            const remove = e.target.closest('[data-remove-startup-id]');
+            var remove = e.target.closest('[data-remove-startup-id]');
             if (remove && Host.available) {
                 remove.disabled = true;
                 try {
                     await Host.call('removeStartupApp', { id: remove.dataset.removeStartupId });
                     setSystemStatus(t('removed'), false);
                     await loadStartupApps(true);
-                } catch (err) {
-                    setSystemStatus(t('removeErr') + err.message, true);
-                } finally {
-                    remove.disabled = false;
-                }
-            }
-        });
-
-        document.addEventListener('change', (e) => {
-            if (!window.__voltSettings) return;
-            const settings = window.__voltSettings.get();
-            const scheduled = normalizeScheduled(settings);
-            if (e.target && e.target.id === 'scheduled-power-action') {
-                scheduled.action = e.target.value;
-                applyScheduledUi();
-                window.__voltSettings.save();
-            }
-            if (e.target && e.target.id === 'scheduled-power-time') {
-                if (!/^\d{2}:\d{2}$/.test(e.target.value)) return;
-                scheduled.time = e.target.value;
-                applyScheduledUi();
-                window.__voltSettings.save();
+                } catch (err) { setSystemStatus(t('removeErr') + err.message, true); }
+                finally { remove.disabled = false; }
             }
         });
 
         systemWired = true;
+    }
+
+    async function scheduleRelativeAction(minutes, action) {
+        try {
+            var result = await Host.call('schedulePowerAction', { mode: 'relative', action: action, delayMinutes: minutes });
+            applyScheduledPowerActionState(result);
+            setSystemStatus(t('scheduled'), false);
+        } catch (err) {
+            setSystemStatus(err.message, true);
+        }
     }
 
     async function loadStartupApps(force) {
@@ -721,6 +912,14 @@
         Host.on('gamingModeChanged', applyGamingModeState);
         Host.call('getGamingMode').then(applyGamingModeState).catch(() => {});
 
+        Host.on('scheduledPowerActionChanged', function(state) {
+            applyScheduledPowerActionState(state);
+        });
+        // Load initial schedule state
+        Host.call('getScheduledPowerAction').then(function(state) {
+            applyScheduledPowerActionState(state);
+        }).catch(function() {});
+
         Host.on('automationStateChanged', () => {
             // Re-fetch settings since they changed
             Host.call('getSettings').then(res => {
@@ -744,7 +943,6 @@
 
     document.addEventListener('settingsloaded', () => {
         mountSystemTab();
-        applyScheduledUi();
         renderMonitoringState();
         setTimeout(removeLegacyAutoShutdownPanel, 0);
     });
@@ -752,7 +950,6 @@
     document.addEventListener('viewchange', (e) => {
         if (e.detail && e.detail.view === 'system') {
             mountSystemTab();
-            applyScheduledUi();
         }
         // Startup apps now live in Settings & Info.
         if (e.detail && e.detail.view === 'settings') {

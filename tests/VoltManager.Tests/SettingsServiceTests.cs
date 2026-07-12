@@ -19,7 +19,7 @@ public class SettingsServiceTests : IDisposable
         Assert.Equal("Albix4563/power_efficency", svc.Current.UpdateRepo);
         Assert.NotNull(svc.Current.AutoShutdown);
         Assert.False(svc.Current.AutoShutdown.Enabled);
-        Assert.Equal("shutdown", svc.Current.AutoShutdown.Action);
+        Assert.Equal(ScheduledPowerActionType.Shutdown, svc.Current.AutoShutdown.Action);
         Assert.Equal("23:00", svc.Current.AutoShutdown.Time);
         Assert.NotNull(svc.Current.AutoUpdates);
         Assert.True(svc.Current.AutoUpdates.Enabled);
@@ -61,7 +61,7 @@ public class SettingsServiceTests : IDisposable
         svc.Current.Rules[0].ThresholdPct = 15;
         svc.Current.PlanGuidMap["Performance"] = "11111111-2222-3333-4444-555555555555";
         svc.Current.AutoShutdown.Enabled = true;
-        svc.Current.AutoShutdown.Action = "restart";
+        svc.Current.AutoShutdown.Action = ScheduledPowerActionType.Restart;
         svc.Current.AutoShutdown.Time = "22:30";
         svc.Current.AutoShutdown.LastTriggeredLocalDate = "2026-06-13";
         svc.Current.AutoUpdates.Enabled = false;
@@ -103,7 +103,7 @@ public class SettingsServiceTests : IDisposable
         Assert.Equal(15, reloaded.Current.Rules[0].ThresholdPct);
         Assert.Equal("11111111-2222-3333-4444-555555555555", reloaded.Current.PlanGuidMap["Performance"]);
         Assert.True(reloaded.Current.AutoShutdown.Enabled);
-        Assert.Equal("restart", reloaded.Current.AutoShutdown.Action);
+        Assert.Equal(ScheduledPowerActionType.Restart, reloaded.Current.AutoShutdown.Action);
         Assert.Equal("22:30", reloaded.Current.AutoShutdown.Time);
         Assert.Equal("2026-06-13", reloaded.Current.AutoShutdown.LastTriggeredLocalDate);
         Assert.False(reloaded.Current.AutoUpdates.Enabled);
@@ -176,7 +176,7 @@ public class SettingsServiceTests : IDisposable
         var svc = new SettingsService(SettingsPath);
         Assert.NotNull(svc.Current.AutoShutdown);
         Assert.False(svc.Current.AutoShutdown.Enabled);
-        Assert.Equal("shutdown", svc.Current.AutoShutdown.Action);
+        Assert.Equal(ScheduledPowerActionType.Shutdown, svc.Current.AutoShutdown.Action);
         Assert.Equal("23:00", svc.Current.AutoShutdown.Time);
     }
 
@@ -284,10 +284,10 @@ public class SettingsServiceTests : IDisposable
     public void InvalidScheduledAction_RestoredToShutdown()
     {
         Directory.CreateDirectory(_dir);
-        File.WriteAllText(SettingsPath, "{\"autoShutdown\":{\"enabled\":true,\"action\":\"hibernate\",\"time\":\"21:15\"}}");
+        File.WriteAllText(SettingsPath, "{\"autoShutdown\":{\"enabled\":true,\"actionLegacy\":\"hibernate\",\"time\":\"21:15\"}}");
         var svc = new SettingsService(SettingsPath);
         Assert.True(svc.Current.AutoShutdown.Enabled);
-        Assert.Equal("shutdown", svc.Current.AutoShutdown.Action);
+        Assert.Equal(ScheduledPowerActionType.Shutdown, svc.Current.AutoShutdown.Action);
         Assert.Equal("21:15", svc.Current.AutoShutdown.Time);
     }
 

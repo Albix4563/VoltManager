@@ -150,6 +150,11 @@ public partial class MainWindow : Window
             _app.Awake.StateChanged += s => _bridge?.PushEvent("keepAwakeChanged", s);
             _app.PowerSourcePlans.StateChanged += s => _bridge?.PushEvent("powerSourcePlanChanged", s);
             _app.Widgets.StateChanged += s => _bridge?.PushEvent("widgetsStateChanged", s);
+            _app.ScheduledPowerActions.StateChanged += state =>
+            {
+                _bridge?.PushEvent("scheduledPowerActionChanged", state);
+                Dispatcher.Invoke(() => RefreshScheduledPowerTrayState(state));
+            };
             StartAutoUpdateLoop();
             _hostEventsWired = true;
         }
@@ -582,6 +587,28 @@ public partial class MainWindow : Window
         TrayKeepAwakeItem.Header = loc.T("Tray_KeepAwake");
         TrayClearOverrideItem.Header = loc.T("Tray_ClearOverride");
         TrayAutomationItem.Header = loc.T("Tray_Automation");
+        TraySchedulePowerItem.Header = loc.T("Tray_Schedule");
+        TrayScheduleCustomItem.Header = loc.T("Tray_ScheduleCustom");
+        TrayScheduledStateItem.Header = loc.T("Tray_NoScheduledAction");
+        TrayCancelScheduledItem.Header = loc.T("Tray_CancelScheduled");
+        // Localize preset duration sub-menu headers inside TraySchedulePowerItem.
+        var presetDurations = new[] { ("30 minuti", "Tray_30min"), ("45 minuti", "Tray_45min"), ("1 ora", "Tray_1hour"), ("2 ore", "Tray_2hours"), ("4 ore", "Tray_4hours") };
+        foreach (System.Windows.Controls.MenuItem item in TraySchedulePowerItem.Items)
+        {
+            if (item is System.Windows.Controls.MenuItem menuItem)
+            {
+                foreach (var (def, key) in presetDurations)
+                {
+                    if ((string)menuItem.Header == def) { menuItem.Header = loc.T(key); break; }
+                }
+                // Localize sub-items (Spegni/Sospendi)
+                foreach (System.Windows.Controls.MenuItem sub in menuItem.Items)
+                {
+                    if ((string)sub.Header == "Spegni") sub.Header = loc.T("Tray_ScheduleShutdown");
+                    else if ((string)sub.Header == "Sospendi") sub.Header = loc.T("Tray_ScheduleSleep");
+                }
+            }
+        }
         TrayExitItem.Header = loc.T("Tray_Exit");
     }
 
@@ -605,6 +632,7 @@ public partial class MainWindow : Window
         TrayClearOverrideItem.Visibility = _app.Settings.Current.Override != null
             ? Visibility.Visible
             : Visibility.Collapsed;
+        RefreshScheduledPowerTrayState(_app.ScheduledPowerActions.GetState());
     }
 
     private async void TrayGamingPlan_Click(object sender, RoutedEventArgs e)
@@ -662,7 +690,125 @@ public partial class MainWindow : Window
 
     private void TrayExit_Click(object sender, RoutedEventArgs e)
     {
+        // Warn if a relative schedule is active; closing exits the process so the timer dies.
+        var state = _app.ScheduledPowerActions.GetState();
+        if (state.Enabled && state.Mode == ScheduledPowerMode.Relative)
+        {
+            var result = MessageBox.Show(
+                _app.Loc.T("Dialog_ScheduleExitWarning"),
+                _app.Loc.T("Dialog_VoltManagerTitle"),
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning);
+            if (result != MessageBoxResult.Yes)
+                return;
+            _app.ScheduledPowerActions.Cancel();
+        }
         _exiting = true;
         _app.ExitApp();
+    }
+
+    // -- Tray schedule menu (dynamic, built in XAML generation or code) --
+
+    private static readonly int[] SchedulePresetMinutes = { 30, 45, 60, 120, 240 };
+
+    private void TraySchedulePreset_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not System.Windows.Controls.MenuItem { Tag: string tag })
+            return;
+
+        string[] parts = tag.Split('|');
+        if (parts.Length != 2 || !int.TryParse(parts[1], out int minutes))
+            return;
+
+        if (!Enum.TryParse<ScheduledPowerActionType>(parts[0], ignoreCase: true, out var action))
+            return;
+
+        if (!ConfirmScheduleReplacement())
+            return;
+
+        _ = Task.Run(() => _app.ScheduledPowerActions.ScheduleAfter(TimeSpan.FromMinutes(minutes), action));
+    }
+
+    private void TrayScheduleCustom_Click(object sender, RoutedEventArgs e)
+    {
+        if (!ConfirmScheduleReplacement())
+            return;
+
+        var dialog = new SchedulePowerActionWindow(_app.Loc);
+        dialog.Owner = this;
+        dialog.Icon = Icon;
+        if (dialog.ShowDialog() != true)
+            return;
+
+        _ = Task.Run(() => _app.ScheduledPowerActions.ScheduleAfter(dialog.SelectedDelay, dialog.SelectedAction));
+    }
+
+    private void TrayCancelScheduled_Click(object sender, RoutedEventArgs e)
+    {
+        _ = Task.Run(() => _app.ScheduledPowerActions.Cancel());
+    }
+
+    private bool ConfirmScheduleReplacement()
+    {
+        var current = _app.ScheduledPowerActions.GetState();
+        if (!current.Enabled)
+            return true;
+
+        return MessageBox.Show(
+            _app.Loc.T("Dialog_ReplaceScheduledAction"),
+            _app.Loc.T("Dialog_VoltManagerTitle"),
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Question) == MessageBoxResult.Yes;
+    }
+
+    private void RefreshScheduledPowerTrayState(ScheduledPowerActionState state)
+    {
+        TrayCancelScheduledItem.Visibility = state.Enabled
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+
+        if (!state.Enabled)
+        {
+            TrayScheduledStateItem.Header = _app.Loc.T("Tray_NoScheduledAction");
+            return;
+        }
+
+        TrayScheduledStateItem.Header = BuildScheduledActionTrayText(state);
+    }
+
+    private string BuildScheduledActionTrayText(ScheduledPowerActionState state)
+    {
+        string actionName = state.Action switch
+        {
+            ScheduledPowerActionType.Shutdown => _app.Loc.T("Schedule_Shutdown"),
+            ScheduledPowerActionType.Sleep => _app.Loc.T("Schedule_Sleep"),
+            ScheduledPowerActionType.Restart => _app.Loc.T("Schedule_Restart"),
+            _ => state.Action.ToString(),
+        };
+
+        if (state.Mode == ScheduledPowerMode.Relative && state.RemainingSeconds > 0)
+        {
+            var remaining = TimeSpan.FromSeconds(state.RemainingSeconds);
+            string timeText = remaining.TotalHours >= 1
+                ? $"{(int)remaining.TotalHours}h {remaining.Minutes}min"
+                : $"{remaining.Minutes}min";
+            return $"{actionName} {_app.Loc.T("Tray_ScheduledIn")} {timeText}";
+        }
+
+        if (state.Mode == ScheduledPowerMode.Daily && state.DailyTime != null)
+            return $"{actionName} {_app.Loc.T("Tray_ScheduledAt")} {state.DailyTime}";
+
+        return actionName;
+    }
+
+    /// <summary>Navigate WebView to the system/schedule section.</summary>
+    public void NavigateToSystemView()
+    {
+        try
+        {
+            WebView.CoreWebView2?.ExecuteScriptAsync(
+                "document.querySelector('[data-view=\"system\"]')?.click()");
+        }
+        catch { /* WebView may not be ready */ }
     }
 }

@@ -135,12 +135,43 @@ public class SettingsService
         if (string.IsNullOrWhiteSpace(settings.Time))
             settings.Time = "23:00";
 
-        settings.Action = settings.Action switch
+        // Migrate legacy string action to enum (backwards compat).
+        if (!string.IsNullOrWhiteSpace(settings.ActionLegacy))
         {
-            "shutdown" or "restart" or "sleep" => settings.Action,
-            _ => "shutdown",
-        };
+            settings.Action = NormalizePowerActionEnum(settings.ActionLegacy);
+            settings.ActionLegacy = null;
+        }
+
+        // Legacy Action property used string values; normalize.
+        if (!Enum.IsDefined(settings.Action))
+        {
+            // If Action deserialized as 0=Shutdown but was never set, try legacy value.
+            settings.Action = ScheduledPowerActionType.Shutdown;
+        }
+
+        // Sanity: disable invalid relative schedules.
+        if (settings.Mode == ScheduledPowerMode.Relative)
+        {
+            if (settings.ExecuteAtUtc == null)
+            {
+                settings.Mode = ScheduledPowerMode.Daily;
+                settings.Enabled = false;
+                settings.ExecuteAtUtc = null;
+                settings.DelayMinutes = null;
+                settings.CreatedAtUtc = null;
+            }
+        }
+
+        if (settings.DelayMinutes.HasValue)
+            settings.DelayMinutes = Math.Max(1, settings.DelayMinutes.Value);
     }
+
+    internal static ScheduledPowerActionType NormalizePowerActionEnum(string? action) => action switch
+    {
+        "restart" => ScheduledPowerActionType.Restart,
+        "sleep" => ScheduledPowerActionType.Sleep,
+        _ => ScheduledPowerActionType.Shutdown,
+    };
 
     private static void NormalizeAutoUpdateSettings(AutoUpdateSettings settings)
     {

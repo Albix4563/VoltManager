@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Diagnostics;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -503,6 +504,37 @@ public class HostBridge
                 MinimizeToTrayRequested?.Invoke();
                 return new { success = true };
 
+            case "getScheduledPowerAction":
+                return _app.ScheduledPowerActions.GetState();
+
+            case "schedulePowerAction":
+            {
+                string modeText = payload.GetProperty("mode").GetString() ?? "";
+                string actionText = payload.GetProperty("action").GetString() ?? "";
+
+                if (!Enum.TryParse<ScheduledPowerActionType>(actionText, ignoreCase: true, out var action))
+                    throw new ArgumentException(_loc.T("Error_InvalidPowerAction"));
+
+                if (string.Equals(modeText, "relative", StringComparison.OrdinalIgnoreCase))
+                {
+                    int delayMinutes = payload.GetProperty("delayMinutes").GetInt32();
+                    return _app.ScheduledPowerActions.ScheduleAfter(TimeSpan.FromMinutes(delayMinutes), action);
+                }
+
+                if (string.Equals(modeText, "daily", StringComparison.OrdinalIgnoreCase))
+                {
+                    string timeText = payload.GetProperty("time").GetString() ?? "";
+                    if (!TimeOnly.TryParseExact(timeText, "HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.None, out var time))
+                        throw new ArgumentException(_loc.T("Error_InvalidPowerTime"));
+                    return _app.ScheduledPowerActions.ScheduleDaily(time, action);
+                }
+
+                throw new ArgumentException(_loc.T("Error_InvalidScheduleMode"));
+            }
+
+            case "cancelScheduledPowerAction":
+                return _app.ScheduledPowerActions.Cancel();
+
             case "getPlanParameters":
             {
                 string? guid = payload.TryGetProperty("planGuid", out var guidEl)
@@ -605,7 +637,7 @@ public class HostBridge
         current.Widgets ??= new WidgetSettings();
         current.Widgets.Normalize();
         settings.Widgets = current.Widgets;
-        settings.AutoShutdown.LastTriggeredLocalDate = current.AutoShutdown.LastTriggeredLocalDate;
+        settings.AutoShutdown = current.AutoShutdown;
         settings.AutoUpdates.SnoozedUntilUtc = current.AutoUpdates.SnoozedUntilUtc;
         settings.AutoUpdates.SkippedVersion = current.AutoUpdates.SkippedVersion;
         // UI saveSettings often omits language; never wipe a previously chosen locale.

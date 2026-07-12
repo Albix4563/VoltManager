@@ -79,4 +79,48 @@
   <data name="Common_Yes" xml:space="preserve"><value>Yes</value></data>
   <data name="Common_No" xml:space="preserve"><value>No</value></data>
   <data name="Common_Cancel" xml:space="preserve"><value>Cancel</value></data>
+  <data name="Tray_Schedule" xml:space="preserve"><value>Schedule PC action</value></data>
+  <data name="Tray_ScheduleShutdown" xml:space="preserve"><value>Shut down</value></data>
+  <data name="Tray_ScheduleSleep" xml:space="preserve"><value>Sleep</value></data>
+  <data name="Tray_ScheduleCustom" xml:space="preserve"><value>Custom time...</value></data>
+  <data name="Tray_NoScheduledAction" xml:space="preserve"><value>No scheduled action</value></data>
+  <data name="Tray_CancelScheduled" xml:space="preserve"><value>Cancel scheduled action</value></data>
+  <data name="Tray_ScheduledIn" xml:space="preserve"><value>in</value></data>
+  <data name="Tray_ScheduledAt" xml:space="preserve"><value>at</value></data>
+  <data name="Tray_30min" xml:space="preserve"><value>30 minutes</value></data>
+  <data name="Tray_45min" xml:space="preserve"><value>45 minutes</value></data>
+  <data name="Tray_1hour" xml:space="preserve"><value>1 hour</value></data>
+  <data name="Tray_2hours" xml:space="preserve"><value>2 hours</value></data>
+  <data name="Tray_4hours" xml:space="preserve"><value>4 hours</value></data>
+  <data name="Schedule_Shutdown" xml:space="preserve"><value>Shut down</value></data>
+  <data name="Schedule_Sleep" xml:space="preserve"><value>Sleep</value></data>
+  <data name="Schedule_Restart" xml:space="preserve"><value>Restart</value></data>
+  <data name="Schedule_CustomTitle" xml:space="preserve"><value>Custom time</value></data>
+  <data name="Schedule_Hours" xml:space="preserve"><value>Hours</value></data>
+  <data name="Schedule_Minutes" xml:space="preserve"><value>Minutes</value></data>
+  <data name="Schedule_Action" xml:space="preserve"><value>Action</value></data>
+  <data name="Schedule_Confirm" xml:space="preserve"><value>Confirm</value></data>
+  <data name="Schedule_SummaryWaiting" xml:space="preserve"><value>Enter the duration above</value></data>
+  <data name="Schedule_InvalidHours" xml:space="preserve"><value>Enter a valid number of hours (0 or more).</value></data>
+  <data name="Schedule_InvalidMinutes" xml:space="preserve"><value>Enter minutes between 0 and 59.</value></data>
+  <data name="Schedule_MinDelay" xml:space="preserve"><value>Duration must be at least {0} minutes.</value></data>
+  <data name="Schedule_MaxDelay" xml:space="preserve"><value>Duration cannot exceed {0} days.</value></data>
+  <data name="Schedule_ScheduledAt" xml:space="preserve"><value>scheduled at</value></data>
+  <data name="Schedule_ExecutionAt" xml:space="preserve"><value>{0} scheduled at {1}</value></data>
+  <data name="Dialog_ScheduleExitWarning" xml:space="preserve"><value>A scheduled action is active.\n\nExiting VoltManager will cancel the schedule.\n\nExit anyway?</value></data>
+  <data name="Dialog_ReplaceScheduledAction" xml:space="preserve"><value>A schedule is already active. Replace it with the new one?</value></data>
+  <data name="Error_InvalidPowerAction" xml:space="preserve"><value>Invalid power action.</value></data>
+  <data name="Error_InvalidPowerTime" xml:space="preserve"><value>Invalid time format. Use HH:mm.</value></data>
+  <data name="Error_InvalidScheduleMode" xml:space="preserve"><value>Invalid schedule mode. Use 'relative' or 'daily'.</value></data>
+  <data name="JumpList_Shutdown30" xml:space="preserve"><value>Shutdown in 30 min</value></data>
+  <data name="JumpList_Shutdown60" xml:space="preserve"><value>Shutdown in 1h</value></data>
+  <data name="JumpList_Sleep30" xml:space="preserve"><value>Sleep in 30 min</value></data>
+  <data name="JumpList_Sleep60" xml:space="preserve"><value>Sleep in 1h</value></data>
+  <data name="JumpList_OpenScheduler" xml:space="preserve"><value>Open scheduler</value></data>
+  <data name="JumpList_Shutdown30Desc" xml:space="preserve"><value>Schedule shutdown in 30 minutes</value></data>
+  <data name="JumpList_Shutdown60Desc" xml:space="preserve"><value>Schedule shutdown in 1 hour</value></data>
+  <data name="JumpList_Sleep30Desc" xml:space="preserve"><value>Schedule sleep in 30 minutes</value></data>
+  <data name="JumpList_Sleep60Desc" xml:space="preserve"><value>Schedule sleep in 1 hour</value></data>
+  <data name="JumpList_OpenSchedulerDesc" xml:space="preserve"><value>Open the scheduler window</value></data>
+  <data name="JumpList_CategorySchedule" xml:space="preserve"><value>Timer PC</value></data>
 </root>

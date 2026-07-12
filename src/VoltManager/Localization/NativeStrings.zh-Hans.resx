@@ -79,4 +79,48 @@
   <data name="Common_Yes" xml:space="preserve"><value>是</value></data>
   <data name="Common_No" xml:space="preserve"><value>否</value></data>
   <data name="Common_Cancel" xml:space="preserve"><value>取消</value></data>
+  <data name="Tray_Schedule" xml:space="preserve"><value>计划电脑操作</value></data>
+  <data name="Tray_ScheduleShutdown" xml:space="preserve"><value>关机</value></data>
+  <data name="Tray_ScheduleSleep" xml:space="preserve"><value>睡眠</value></data>
+  <data name="Tray_ScheduleCustom" xml:space="preserve"><value>自定义时间...</value></data>
+  <data name="Tray_NoScheduledAction" xml:space="preserve"><value>没有计划的操作</value></data>
+  <data name="Tray_CancelScheduled" xml:space="preserve"><value>取消计划的操作</value></data>
+  <data name="Tray_ScheduledIn" xml:space="preserve"><value>在</value></data>
+  <data name="Tray_ScheduledAt" xml:space="preserve"><value>于</value></data>
+  <data name="Tray_30min" xml:space="preserve"><value>30 分钟</value></data>
+  <data name="Tray_45min" xml:space="preserve"><value>45 分钟</value></data>
+  <data name="Tray_1hour" xml:space="preserve"><value>1 小时</value></data>
+  <data name="Tray_2hours" xml:space="preserve"><value>2 小时</value></data>
+  <data name="Tray_4hours" xml:space="preserve"><value>4 小时</value></data>
+  <data name="Schedule_Shutdown" xml:space="preserve"><value>关机</value></data>
+  <data name="Schedule_Sleep" xml:space="preserve"><value>睡眠</value></data>
+  <data name="Schedule_Restart" xml:space="preserve"><value>重启</value></data>
+  <data name="Schedule_CustomTitle" xml:space="preserve"><value>自定义时间</value></data>
+  <data name="Schedule_Hours" xml:space="preserve"><value>小时</value></data>
+  <data name="Schedule_Minutes" xml:space="preserve"><value>分钟</value></data>
+  <data name="Schedule_Action" xml:space="preserve"><value>操作</value></data>
+  <data name="Schedule_Confirm" xml:space="preserve"><value>确认</value></data>
+  <data name="Schedule_SummaryWaiting" xml:space="preserve"><value>请输入以上时长</value></data>
+  <data name="Schedule_InvalidHours" xml:space="preserve"><value>请输入有效的小时数（0 或以上）。</value></data>
+  <data name="Schedule_InvalidMinutes" xml:space="preserve"><value>请输入 0 到 59 之间的分钟数。</value></data>
+  <data name="Schedule_MinDelay" xml:space="preserve"><value>持续时间不能少于 {0} 分钟。</value></data>
+  <data name="Schedule_MaxDelay" xml:space="preserve"><value>持续时间不能超过 {0} 天。</value></data>
+  <data name="Schedule_ScheduledAt" xml:space="preserve"><value>计划于</value></data>
+  <data name="Schedule_ExecutionAt" xml:space="preserve"><value>{0} 计划于 {1}</value></data>
+  <data name="Dialog_ScheduleExitWarning" xml:space="preserve"><value>有一个计划中的操作。\n\n退出 VoltManager 将取消该计划。\n\n仍然退出？</value></data>
+  <data name="Dialog_ReplaceScheduledAction" xml:space="preserve"><value>已有一个活动计划。替换成新的吗？</value></data>
+  <data name="Error_InvalidPowerAction" xml:space="preserve"><value>不支持的电源操作。</value></data>
+  <data name="Error_InvalidPowerTime" xml:space="preserve"><value>时间格式无效。请使用 HH:mm。</value></data>
+  <data name="Error_InvalidScheduleMode" xml:space="preserve"><value>计划模式无效。请使用 'relative' 或 'daily'。</value></data>
+  <data name="JumpList_Shutdown30" xml:space="preserve"><value>30 分钟后关机</value></data>
+  <data name="JumpList_Shutdown60" xml:space="preserve"><value>1 小时后关机</value></data>
+  <data name="JumpList_Sleep30" xml:space="preserve"><value>30 分钟后睡眠</value></data>
+  <data name="JumpList_Sleep60" xml:space="preserve"><value>1 小时后睡眠</value></data>
+  <data name="JumpList_OpenScheduler" xml:space="preserve"><value>打开计划器</value></data>
+  <data name="JumpList_Shutdown30Desc" xml:space="preserve"><value>在 30 分钟后计划关机</value></data>
+  <data name="JumpList_Shutdown60Desc" xml:space="preserve"><value>在 1 小时后计划关机</value></data>
+  <data name="JumpList_Sleep30Desc" xml:space="preserve"><value>在 30 分钟后计划睡眠</value></data>
+  <data name="JumpList_Sleep60Desc" xml:space="preserve"><value>在 1 小时后计划睡眠</value></data>
+  <data name="JumpList_OpenSchedulerDesc" xml:space="preserve"><value>打开计划窗口</value></data>
+  <data name="JumpList_CategorySchedule" xml:space="preserve"><value>定时电脑</value></data>
 </root>
