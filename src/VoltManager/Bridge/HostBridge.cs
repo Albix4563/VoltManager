@@ -185,7 +185,7 @@ public class HostBridge
                 return new { success = true };
 
             case "getWidgetsState":
-                return _app.Widgets.GetState();
+                return _app.Widgets.GetSnapshot();
 
             case "setWidgetEnabled":
             {
@@ -212,6 +212,14 @@ public class HostBridge
                 string type = payload.GetProperty("type").GetString() ?? "";
                 string size = payload.GetProperty("size").GetString() ?? "medium";
                 return _app.Widgets.SetSize(type, size);
+            }
+
+            case "setWidgetPlacement":
+            {
+                string type = payload.GetProperty("type").GetString() ?? "";
+                string monitorId = payload.GetProperty("monitorId").GetString() ?? "";
+                string anchor = payload.GetProperty("anchor").GetString() ?? "";
+                return _app.Widgets.SetPlacement(type, monitorId, anchor);
             }
 
             case "resetWidgetPosition":

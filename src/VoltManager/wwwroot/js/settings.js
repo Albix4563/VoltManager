@@ -583,15 +583,31 @@
         if (el) el.dataset.on = on ? 'true' : 'false';
     }
 
+    const WIDGET_ANCHORS = [
+        'topLeft', 'topCenter', 'topRight',
+        'middleLeft', 'center', 'middleRight',
+        'bottomLeft', 'bottomCenter', 'bottomRight',
+    ];
+
     function normalizeWidgetsState(state) {
-        state = state || { enabled: false, items: [] };
+        state = state || { enabled: false, items: [], monitors: [] };
         if (!Array.isArray(state.items)) state.items = [];
+        if (!Array.isArray(state.monitors)) state.monitors = [];
         const byType = {};
         state.items.forEach(item => {
             if (item && WIDGET_TYPES.includes(item.type)) byType[item.type] = item;
         });
-        state.items = WIDGET_TYPES.map(type => byType[type] || { type, enabled: false, pinned: false, x: null, y: null });
-        state.items.forEach(item => { item.size = normalizeWidgetSize(item.size); });
+        state.items = WIDGET_TYPES.map(type => {
+            const item = byType[type] || { type, enabled: false, pinned: false, size: 'medium' };
+            item.size = normalizeWidgetSize(item.size);
+            item.anchor = WIDGET_ANCHORS.includes(item.anchor) ? item.anchor : 'topRight';
+            item.offsetX = Number.isFinite(item.offsetX) ? item.offsetX : 0;
+            item.offsetY = Number.isFinite(item.offsetY) ? item.offsetY : 0;
+            item.width = Number.isFinite(item.width) ? item.width : 260;
+            item.height = Number.isFinite(item.height) ? item.height : 150;
+            item.usesFallbackDisplay = item.usesFallbackDisplay === true;
+            return item;
+        });
         state.enabled = state.enabled === true;
         return state;
     }
@@ -599,7 +615,25 @@
     function syncLocalWidgets(state) {
         if (!window.__voltSettings) return;
         const settings = window.__voltSettings.get ? window.__voltSettings.get() : window.__voltSettings;
-        settings.widgets = normalizeWidgetsState(state);
+        settings.widgets = {
+            enabled: state.enabled === true,
+            items: (state.items || []).map(function (item) {
+                return {
+                    type: item.type,
+                    enabled: item.enabled === true,
+                    pinned: item.pinned === true,
+                    size: normalizeWidgetSize(item.size),
+                    x: item.x,
+                    y: item.y,
+                    monitorId: item.monitorId || null,
+                    monitorName: item.monitorName || null,
+                    monitorNumber: item.monitorNumber || null,
+                    anchor: item.anchor || null,
+                    offsetX: Number.isFinite(item.offsetX) ? item.offsetX : 0,
+                    offsetY: Number.isFinite(item.offsetY) ? item.offsetY : 0,
+                };
+            }),
+        };
     }
 
     function widgetIcon(type) {
@@ -617,28 +651,85 @@
         return WIDGET_PRESETS.includes(size) ? size : 'medium';
     }
 
-    // ponytail: mirror di WidgetManager.GetWidgetSize; spostare nel payload se diverge
-    var WIDGET_SIZE = {
-        clock: { mini: [180, 96], medium: [260, 150], large: [340, 200] },
-        calendar: { mini: [190, 120], medium: [320, 330], large: [420, 430] },
-        usage: { mini: [220, 118], medium: [300, 220], large: [390, 285] },
-        temps: { mini: [210, 110], medium: [280, 180], large: [360, 235] },
-        power: { mini: [220, 118], medium: [300, 190], large: [390, 250] },
-        plans: { mini: [280, 108], medium: [340, 150], large: [420, 190] },
-    };
-
-    function widgetSize(type, size) {
-        return (WIDGET_SIZE[type] && WIDGET_SIZE[type][normalizeWidgetSize(size)]) || WIDGET_SIZE.clock.medium;
-    }
-
     function widgetSizeLabel(size) {
         size = normalizeWidgetSize(size);
         return tr('widget_size_' + size, size);
     }
 
-    function widgetPositionLabel(item) {
-        if (item.x == null || item.y == null) return null;
-        return Math.round(item.x) + ', ' + Math.round(item.y);
+    function widgetAnchorLabel(anchor) {
+        var key = 'widget_position_' + String(anchor || 'topRight')
+            .replace(/([A-Z])/g, '_$1')
+            .toLowerCase()
+            .replace(/^_/, '');
+        // Map camelCase anchors to i18n keys:
+        // topLeft -> widget_position_top_left
+        var map = {
+            topLeft: 'widget_position_top_left',
+            topCenter: 'widget_position_top_center',
+            topRight: 'widget_position_top_right',
+            middleLeft: 'widget_position_middle_left',
+            center: 'widget_position_center',
+            middleRight: 'widget_position_middle_right',
+            bottomLeft: 'widget_position_bottom_left',
+            bottomCenter: 'widget_position_bottom_center',
+            bottomRight: 'widget_position_bottom_right',
+        };
+        return tr(map[anchor] || 'widget_position_top_right', anchor || 'topRight');
+    }
+
+    function widgetMonitorLabel(monitor) {
+        if (!monitor) return tr('widget_monitor_selector', 'Monitor');
+        var label = String(monitor.number) + ' — ' + (monitor.name || monitor.id);
+        if (monitor.isPrimary) label += ' (' + tr('widget_monitor_primary', 'primary') + ')';
+        return label;
+    }
+
+    function widgetPositionSummary(item) {
+        var parts = [];
+        parts.push(widgetAnchorLabel(item.anchor));
+        if (item.monitorNumber != null || item.monitorName) {
+            parts.push((item.monitorNumber != null ? item.monitorNumber + ' — ' : '') + (item.monitorName || item.monitorId || ''));
+        }
+        if (item.usesFallbackDisplay) {
+            parts.push(tr('widget_monitor_fallback', 'temporary primary'));
+        }
+        var ox = Math.round(item.offsetX || 0);
+        var oy = Math.round(item.offsetY || 0);
+        if (ox !== 0 || oy !== 0) {
+            parts.push(tr('widget_offset', 'Offset') + ' ' + ox + ', ' + oy);
+        }
+        return parts.join(' · ');
+    }
+
+    function renderMonitorOptions(item, monitors) {
+        monitors = monitors || [];
+        var html = '';
+        var found = monitors.some(function (m) { return m.id === item.monitorId; });
+        if (item.monitorId && !found) {
+            var disconnected = (item.monitorNumber != null ? item.monitorNumber + ' — ' : '') +
+                (item.monitorName || item.monitorId) +
+                ' (' + tr('widget_monitor_disconnected', 'disconnected') + ')';
+            html += '<option value="' + esc(item.monitorId) + '" selected disabled>' + esc(disconnected) + '</option>';
+        }
+        monitors.forEach(function (m) {
+            var selected = m.id === item.monitorId || (!item.monitorId && m.isPrimary);
+            html += '<option value="' + esc(m.id) + '"' + (selected ? ' selected' : '') + '>' +
+                esc(widgetMonitorLabel(m)) + '</option>';
+        });
+        return html;
+    }
+
+    function renderAnchorGrid(item) {
+        return '<div class="widget-anchor-grid" role="radiogroup" aria-label="' +
+            esc(tr('widget_position_selector', 'Widget position')) + '">' +
+            WIDGET_ANCHORS.map(function (anchor) {
+                var selected = anchor === (item.anchor || 'topRight');
+                return '<button class="widget-anchor-option" type="button" role="radio" aria-checked="' +
+                    (selected ? 'true' : 'false') + '" data-widget-anchor data-widget-type="' +
+                    esc(item.type) + '" data-anchor="' + anchor + '" title="' +
+                    esc(widgetAnchorLabel(anchor)) + '"' + (item.enabled ? '' : ' disabled') + '></button>';
+            }).join('') +
+            '</div>';
     }
 
     function widgetEmptyState(icon, key, fallback) {
@@ -659,11 +750,9 @@
         const hasGroupedLists = widgetsEnabledList && widgetsDisabledList;
         if (!widgetsList && !hasGroupedLists) return;
 
-        function renderWidgetCard(item) {
+        function renderWidgetCard(item, monitors) {
             var stateAttr = item.enabled ? 'on' : 'off';
             var sizeKey = normalizeWidgetSize(item.size);
-            var size = widgetSize(item.type, sizeKey);
-            var posLabel = widgetPositionLabel(item);
             var sizeButtons = WIDGET_PRESETS.map(function (preset) {
                 var selected = preset === sizeKey;
                 return '<button class="widget-size-option" type="button" data-widget-size data-widget-type="' + esc(item.type) + '" data-size="' + preset + '" aria-pressed="' + (selected ? 'true' : 'false') + '">' +
@@ -681,34 +770,44 @@
                 '<span class="startup-switch__track"><span class="startup-switch__label startup-switch__label-on">ON</span><span class="startup-switch__label startup-switch__label-off">OFF</span><span class="startup-switch__knob"><span class="material-symbols-outlined startup-switch__icon startup-switch__icon-on">check</span><span class="material-symbols-outlined startup-switch__icon startup-switch__icon-off">close</span></span></span>' +
                 '</button>';
 
-            // Pin button: active look when pinned; disabled when widget off.
             var pinBtn = '<button class="startup-remove-btn' + (item.pinned ? ' startup-pin-btn--active' : '') + '" type="button" data-widget-pin data-widget-type="' + esc(item.type) + '" data-pinned="' + (item.pinned ? 'true' : 'false') + '"' + (item.enabled ? '' : ' disabled') + ' title="' + esc(item.pinned ? tr('widget_unpin_btn', 'Unpin') : tr('widget_pin_btn', 'Pin on top')) + '"><span class="material-symbols-outlined text-[18px]">push_pin</span></button>';
 
-            // Reset-position button: reuses remove-btn look; disabled when widget off.
-            var resetBtn = '<button class="startup-remove-btn" type="button" data-widget-reset data-widget-type="' + esc(item.type) + '"' + (item.enabled ? '' : ' disabled') + ' title="' + esc(tr('widget_reset_pos', 'Reset position')) + '"><span class="material-symbols-outlined text-[18px]">restart_alt</span></button>';
+            var resetBtn = '<button class="startup-remove-btn" type="button" data-widget-reset data-widget-type="' + esc(item.type) + '"' + (item.enabled ? '' : ' disabled') + ' title="' + esc(tr('widget_reset_pos', 'Clear adjustment')) + '"><span class="material-symbols-outlined text-[18px]">restart_alt</span></button>';
+
+            var width = Math.round(item.width || 0);
+            var height = Math.round(item.height || 0);
 
             return '<article class="startup-card" data-state="' + stateAttr + '" data-widget-row data-widget-type="' + esc(item.type) + '">' +
                 '<div class="startup-card__accent"></div>' +
                 '<div class="startup-card__header"><div class="startup-card__title-wrap"><div class="startup-card__app-icon"><span class="material-symbols-outlined">' + widgetIcon(item.type) + '</span></div><div class="startup-card__meta"><p class="startup-card__name" data-i18n="widget_' + item.type + '">' + esc(item.type) + '</p><div class="startup-card__badges">' + chip + badgePin + '</div></div></div>' +
                 '<div class="startup-actions">' + toggleBtn + pinBtn + resetBtn + '</div></div>' +
                 '<div class="startup-card__details">' +
-                '<div class="widget-size-row"><div><span class="startup-detail-label" data-i18n="widget_detail_size">Dimensione</span><span class="startup-detail-value">' + size[0] + '\u00d7' + size[1] + '</span></div><div class="widget-size-control" role="group" aria-label="' + esc(tr('widget_size_selector', 'Widget size')) + '">' + sizeButtons + '</div></div>' +
-                '<div class="startup-detail-line"><span class="startup-detail-label" data-i18n="widget_detail_position">Posizione</span><span class="startup-detail-value">' + (posLabel ? esc(posLabel) : '<span data-i18n="widget_position_auto">Automatica</span>') + '</span></div>' +
+                '<div class="widget-size-row"><div><span class="startup-detail-label" data-i18n="widget_detail_size">Dimensione</span><span class="startup-detail-value">' + width + '\u00d7' + height + '</span></div><div class="widget-size-control" role="group" aria-label="' + esc(tr('widget_size_selector', 'Widget size')) + '">' + sizeButtons + '</div></div>' +
+                '<div class="widget-placement-row">' +
+                '<label class="widget-monitor-label"><span class="startup-detail-label" data-i18n="widget_monitor_selector">Monitor</span>' +
+                '<select class="widget-monitor-select" data-widget-monitor data-widget-type="' + esc(item.type) + '"' + (item.enabled ? '' : ' disabled') + '>' +
+                renderMonitorOptions(item, monitors) +
+                '</select></label>' +
+                '<div class="widget-anchor-wrap"><span class="startup-detail-label" data-i18n="widget_position_selector">Posizione</span>' +
+                renderAnchorGrid(item) +
+                '</div></div>' +
+                '<div class="startup-detail-line"><span class="startup-detail-label" data-i18n="widget_detail_position">Posizione</span><span class="startup-detail-value">' + esc(widgetPositionSummary(item)) + '</span></div>' +
                 '</div></article>';
         }
 
+        const monitors = state.monitors || [];
         if (hasGroupedLists) {
             const enabledItems = state.items.filter(function (item) { return item.enabled; });
             const disabledItems = state.items.filter(function (item) { return !item.enabled; });
             widgetsEnabledList.innerHTML = enabledItems.length
-                ? enabledItems.map(renderWidgetCard).join('')
+                ? enabledItems.map(function (item) { return renderWidgetCard(item, monitors); }).join('')
                 : widgetEmptyState('visibility_off', 'widget_empty_enabled', 'Nessun widget attivo.');
             widgetsDisabledList.innerHTML = disabledItems.length
-                ? disabledItems.map(renderWidgetCard).join('')
+                ? disabledItems.map(function (item) { return renderWidgetCard(item, monitors); }).join('')
                 : widgetEmptyState('check_circle', 'widget_empty_disabled', 'Nessun widget disattivato.');
             if (widgetsList) widgetsList.innerHTML = '';
         } else if (widgetsList) {
-            widgetsList.innerHTML = state.items.map(renderWidgetCard).join('');
+            widgetsList.innerHTML = state.items.map(function (item) { return renderWidgetCard(item, monitors); }).join('');
         }
 
         [widgetsList, widgetsEnabledList, widgetsDisabledList].filter(Boolean).forEach(function (list) {
@@ -741,6 +840,14 @@
             }
         });
 
+        async function applyPlacement(card, type, monitorId, anchor) {
+            try {
+                renderWidgetsState(await Host.call('setWidgetPlacement', { type, monitorId, anchor }));
+            } catch {
+                try { renderWidgetsState(await Host.call('getWidgetsState')); } catch { /* ignore */ }
+            }
+        }
+
         widgetsClickRoot.addEventListener('click', async (e) => {
             const card = e.target.closest('[data-widget-row]');
             if (!card) return;
@@ -756,7 +863,13 @@
                 return;
             }
 
-            // Big animated switch -> enable/disable widget.
+            const anchorBtn = e.target.closest('[data-widget-anchor]');
+            if (anchorBtn && anchorBtn.dataset.widgetType === type && !anchorBtn.disabled) {
+                const monitor = card.querySelector('[data-widget-monitor]');
+                await applyPlacement(card, type, monitor ? monitor.value : '', anchorBtn.dataset.anchor);
+                return;
+            }
+
             const sw = e.target.closest('[data-widget-toggle]');
             if (sw && sw.dataset.widgetType === type) {
                 const current = sw.dataset.state === 'on';
@@ -770,7 +883,6 @@
                 return;
             }
 
-            // Pin button -> toggle topmost.
             const pinBtn = e.target.closest('[data-widget-pin]');
             if (pinBtn && pinBtn.dataset.widgetType === type && !pinBtn.disabled) {
                 const pinned = pinBtn.dataset.pinned === 'true';
@@ -780,7 +892,6 @@
                 return;
             }
 
-            // Reset-position button -> recascade.
             const resetBtn = e.target.closest('[data-widget-reset]');
             if (resetBtn && resetBtn.dataset.widgetType === type && !resetBtn.disabled) {
                 try {
@@ -788,6 +899,17 @@
                 } catch { /* re-render restores state */ }
                 return;
             }
+        });
+
+        widgetsClickRoot.addEventListener('change', async (e) => {
+            const select = e.target.closest('[data-widget-monitor]');
+            if (!select) return;
+            const card = select.closest('[data-widget-row]');
+            if (!card) return;
+            const type = card.dataset.widgetType;
+            const selected = card.querySelector('[data-widget-anchor][aria-checked="true"]');
+            const anchor = selected ? selected.dataset.anchor : 'topRight';
+            await applyPlacement(card, type, select.value, anchor);
         });
 
         Host.on('widgetsStateChanged', renderWidgetsState);

@@ -50,6 +50,73 @@ public class SettingsServiceTests : IDisposable
             svc.Current.Widgets.Items.Select(i => i.Type).ToArray());
         Assert.All(svc.Current.Widgets.Items, item => Assert.False(item.Enabled));
         Assert.All(svc.Current.Widgets.Items, item => Assert.Equal("medium", item.Size));
+        Assert.All(svc.Current.Widgets.Items, item =>
+        {
+            Assert.Null(item.Anchor);
+            Assert.Null(item.MonitorId);
+            Assert.Equal(0, item.OffsetX);
+            Assert.Equal(0, item.OffsetY);
+        });
+    }
+
+    [Fact]
+    public void WidgetPlacement_DefaultsRemainLegacyUntilDisplayMigration()
+    {
+        var svc = new SettingsService(SettingsPath);
+        Assert.All(svc.Current.Widgets.Items, item =>
+        {
+            Assert.Null(item.Anchor);
+            Assert.Null(item.MonitorId);
+            Assert.Equal(0, item.OffsetX);
+            Assert.Equal(0, item.OffsetY);
+        });
+    }
+
+    [Fact]
+    public void WidgetPlacement_RoundTrips()
+    {
+        var svc = new SettingsService(SettingsPath);
+        var item = svc.Current.Widgets.Items[0];
+        item.MonitorId = @"\\?\DISPLAY#DEL40A9#stable";
+        item.MonitorName = "Dell U2723QE";
+        item.MonitorNumber = 2;
+        item.Anchor = "bottomRight";
+        item.OffsetX = -18.5;
+        item.OffsetY = 9.25;
+        svc.Save();
+
+        var actual = new SettingsService(SettingsPath).Current.Widgets.Items[0];
+        Assert.Equal(item.MonitorId, actual.MonitorId);
+        Assert.Equal("Dell U2723QE", actual.MonitorName);
+        Assert.Equal(2, actual.MonitorNumber);
+        Assert.Equal("bottomRight", actual.Anchor);
+        Assert.Equal(-18.5, actual.OffsetX);
+        Assert.Equal(9.25, actual.OffsetY);
+    }
+
+    [Fact]
+    public void WidgetPlacement_NormalizesInvalidFiniteState()
+    {
+        var settings = new WidgetSettings
+        {
+            Items =
+            [
+                new WidgetItem
+                {
+                    Type = "clock",
+                    Anchor = "sideways",
+                    OffsetX = double.NaN,
+                    OffsetY = double.PositiveInfinity,
+                },
+            ],
+        };
+
+        settings.Normalize();
+
+        var item = settings.Items[0];
+        Assert.Equal("topRight", item.Anchor);
+        Assert.Equal(0, item.OffsetX);
+        Assert.Equal(0, item.OffsetY);
     }
 
     [Fact]
@@ -128,6 +195,9 @@ public class SettingsServiceTests : IDisposable
         Assert.Equal("large", reloaded.Current.Widgets.Items[0].Size);
         Assert.Equal(100, reloaded.Current.Widgets.Items[0].X);
         Assert.Equal(120, reloaded.Current.Widgets.Items[0].Y);
+        Assert.Null(reloaded.Current.Widgets.Items[0].Anchor);
+        Assert.Equal(0, reloaded.Current.Widgets.Items[0].OffsetX);
+        Assert.Equal(0, reloaded.Current.Widgets.Items[0].OffsetY);
         Assert.False(reloaded.Current.Widgets.Items[2].Enabled);
         Assert.Equal("mini", reloaded.Current.Widgets.Items[2].Size);
         Assert.True(reloaded.Current.AppPowerProfiles.Enabled);

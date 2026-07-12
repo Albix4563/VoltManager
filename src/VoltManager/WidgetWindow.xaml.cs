@@ -2,7 +2,6 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Interop;
-using System.Windows.Threading;
 using Drawing = System.Drawing;
 using Microsoft.Web.WebView2.Core;
 using VoltManager.Bridge;
@@ -14,23 +13,27 @@ namespace VoltManager;
 public partial class WidgetWindow : Window
 {
     private const int WmNcLButtonDown = 0xA1;
+    private const int WmExitSizeMove = 0x0232;
     private static readonly IntPtr HtCaption = new(0x2);
 
     // WS_EX_TOOLWINDOW excludes this window from the Alt+Tab switcher and taskbar
     // (in combination with WindowStyle=None + ShowInTaskbar=False in XAML).
     private const int GWL_EXSTYLE = -20;
     private const int WS_EX_TOOLWINDOW = 0x00000080;
+    private const uint SwpNoActivate = 0x0010;
+    private const uint SwpNoZOrder = 0x0004;
 
     private readonly App _app;
     private readonly WidgetManager _manager;
     private readonly Task<CoreWebView2Environment> _envTask;
     private readonly string _type;
-    private readonly DispatcherTimer _saveLocationTimer;
     private HostBridge? _bridge;
     private string _size;
+    private HwndSource? _hwndSource;
+    private bool _applyingPlacement;
 
     public WidgetWindow(App app, WidgetManager manager, WidgetItem item,
-        Task<CoreWebView2Environment> envTask, Size size)
+        Task<CoreWebView2Environment> envTask, Size size, WidgetPlacement placement)
     {
         _app = app;
         _manager = manager;
@@ -42,29 +45,23 @@ public partial class WidgetWindow : Window
 
         Width = size.Width;
         Height = size.Height;
-        Left = item.X ?? 80;
-        Top = item.Y ?? 80;
+        // Temporary DIP position; ApplyPlacement will set physical coords once HWND exists.
+        Left = placement.FinalBounds.X;
+        Top = placement.FinalBounds.Y;
         Topmost = item.Pinned;
-
-        _saveLocationTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
-        _saveLocationTimer.Tick += (_, _) =>
-        {
-            _saveLocationTimer.Stop();
-            _manager.SavePosition(_type, Left, Top);
-        };
 
         Loaded += async (_, _) => await InitWebViewAsync();
         SourceInitialized += (_, _) =>
         {
             ApplyToolWindowStyle();
+            HookWndProc();
+            ApplyPlacement(placement, item.Size);
             ApplyRoundedRegion();
         };
-        DpiChanged += (_, _) => ApplyRoundedRegion();
-        LocationChanged += (_, _) =>
+        DpiChanged += (_, _) =>
         {
-            if (!IsLoaded) return;
-            _saveLocationTimer.Stop();
-            _saveLocationTimer.Start();
+            ApplyRoundedRegion();
+            _manager.RequestRelayout();
         };
     }
 
@@ -126,16 +123,38 @@ public partial class WidgetWindow : Window
 
     public void PushEvent(string name, object data) => _bridge?.PushEvent(name, data);
 
-    public void ApplyPresetSize(Size size, string sizeKey)
+    public void ApplyPlacement(WidgetPlacement placement, string sizeKey)
     {
-        _size = WidgetSettings.NormalizeSize(sizeKey);
-        Width = size.Width;
-        Height = size.Height;
-        var p = WidgetManager.ClampPosition(SystemParameters.WorkArea, Left, Top, size);
-        Left = p.X;
-        Top = p.Y;
-        ApplyRoundedRegion();
-        WebView.CoreWebView2?.Navigate(WidgetUrl());
+        string normalized = WidgetSettings.NormalizeSize(sizeKey);
+        bool sizeChanged = !string.Equals(_size, normalized, StringComparison.OrdinalIgnoreCase);
+        _size = normalized;
+
+        var hwnd = new WindowInteropHelper(this).Handle;
+        if (hwnd == IntPtr.Zero)
+        {
+            Width = placement.FinalBounds.Width;
+            Height = placement.FinalBounds.Height;
+            Left = placement.FinalBounds.X;
+            Top = placement.FinalBounds.Y;
+            return;
+        }
+
+        _applyingPlacement = true;
+        try
+        {
+            int x = (int)Math.Round(placement.FinalBounds.X);
+            int y = (int)Math.Round(placement.FinalBounds.Y);
+            int w = (int)Math.Round(placement.FinalBounds.Width);
+            int h = (int)Math.Round(placement.FinalBounds.Height);
+            SetWindowPos(hwnd, IntPtr.Zero, x, y, w, h, SwpNoActivate | SwpNoZOrder);
+            ApplyRoundedRegion();
+            if (sizeChanged)
+                WebView.CoreWebView2?.Navigate(WidgetUrl());
+        }
+        finally
+        {
+            _applyingPlacement = false;
+        }
     }
 
     private string WidgetUrl() =>
@@ -166,6 +185,22 @@ public partial class WidgetWindow : Window
         SendMessage(hwnd, WmNcLButtonDown, HtCaption, IntPtr.Zero);
     }
 
+    private void HookWndProc()
+    {
+        _hwndSource = PresentationSource.FromVisual(this) as HwndSource;
+        _hwndSource?.AddHook(WndProc);
+    }
+
+    private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+    {
+        if (msg == WmExitSizeMove && !_applyingPlacement && GetWindowRect(hwnd, out var rect))
+        {
+            _manager.SaveDragOffset(_type,
+                new PixelRect(rect.Left, rect.Top, rect.Right - rect.Left, rect.Bottom - rect.Top));
+        }
+        return IntPtr.Zero;
+    }
+
     // Rounded window corners without per-pixel transparency: WebView2 renders black
     // under a layered (AllowsTransparency) window, so we keep the window opaque and
     // clip it to a rounded region that matches the card's 18px CSS border-radius.
@@ -175,8 +210,9 @@ public partial class WidgetWindow : Window
             return;
 
         var m = source.CompositionTarget.TransformToDevice;
-        int w = (int)Math.Round(Width * m.M11);
-        int h = (int)Math.Round(Height * m.M22);
+        int w = (int)Math.Round(ActualWidth > 0 ? ActualWidth * m.M11 : Width * m.M11);
+        int h = (int)Math.Round(ActualHeight > 0 ? ActualHeight * m.M22 : Height * m.M22);
+        if (w <= 0 || h <= 0) return;
         int d = (int)Math.Round(18 * 2 * m.M11); // diameter = 2 × 18px radius
         SetWindowRgn(source.Handle, CreateRoundRectRgn(0, 0, w + 1, h + 1, d, d), true);
     }
@@ -192,8 +228,8 @@ public partial class WidgetWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
-        _saveLocationTimer.Stop();
-        _manager.SavePosition(_type, Left, Top);
+        _hwndSource?.RemoveHook(WndProc);
+        _hwndSource = null;
         _app.Monitor.MetricsUpdated -= OnMetricsUpdated;
         _app.ActivePlanChanged -= OnActivePlanChanged;
         _app.CpuAutomationStateChanged -= OnCpuAutomationStateChanged;
@@ -212,10 +248,22 @@ public partial class WidgetWindow : Window
     [DllImport("user32.dll")]
     private static extern int SetWindowRgn(IntPtr hWnd, IntPtr hRgn, bool bRedraw);
 
-    // Used to set WS_EX_TOOLWINDOW so widgets do not appear in Alt+Tab.
     [DllImport("user32.dll")]
     private static extern int GetWindowLong(IntPtr hWnd, int nIndex);
 
     [DllImport("user32.dll")]
     private static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
+
+    [DllImport("user32.dll")]
+    private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter,
+        int x, int y, int cx, int cy, uint uFlags);
+
+    [DllImport("user32.dll")]
+    private static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct RECT
+    {
+        public int Left, Top, Right, Bottom;
+    }
 }
