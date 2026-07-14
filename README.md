@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="docs/assets/logo.png" alt="VOLT CORE" width="140" />
+<img src="docs/assets/logo.png" alt="VOLT MANAGER" width="140" />
 
-# VOLT CORE
+# VOLT MANAGER
 
 **Il telecomando della batteria e delle prestazioni del tuo PC Windows.**
 Un solo posto per far andare il computer più veloce quando serve, più silenzioso e parco quando no — senza smanettare nelle impostazioni nascoste di Windows.
@@ -32,22 +32,6 @@ Windows le nasconde in menù poco intuitivi e raramente le cambia da solo al mom
 Pensato per **tutta la famiglia**: chi vuole solo «meno rumore e più batteria» usa i tre pulsanti e basta; chi ama smanettare trova regole, soglie e automazioni avanzate.
 
 > 🛡️ **Sicuro e privato.** Funziona **100% offline**: nessun account, nessuna pubblicità, nessun dato che esce dal PC. Cambia solo i piani energetici ufficiali di Windows, niente trucchi rischiosi.
-
----
-
-## Schermate
-
-> Le immagini si trovano in [`docs/screenshots/`](docs/screenshots). Se i riquadri qui sotto sono vuoti, aggiungi i PNG con i nomi indicati in quella cartella.
-
-<div align="center">
-
-| Dashboard in tempo reale | Gestione Energetica |
-|:---:|:---:|
-| ![Dashboard di VoltManager con piano attivo e carico CPU/GPU/RAM](docs/screenshots/dashboard.png) | ![Pannello di gestione energetica con regole automatiche](docs/screenshots/power-management.png) |
-| **Settings & Info** | **Accesso rapido dalla taskbar** |
-| ![Impostazioni, aggiornamenti e info di sistema](docs/screenshots/settings.png) | ![Jump list della taskbar con cambio piano rapido](docs/screenshots/tray-jumplist.png) |
-
-</div>
 
 ---
 

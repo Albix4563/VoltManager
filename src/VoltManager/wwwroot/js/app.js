@@ -849,7 +849,7 @@
             document.getElementById('info-ram').textContent = info.ramTotalGb + ' GB';
             document.getElementById('info-os').textContent = info.osVersion;
             document.getElementById('info-version').textContent = 'v' + info.appVersion;
-            document.getElementById('sidebar-version').textContent = 'VOLT CORE v' + info.appVersion;
+            document.getElementById('sidebar-version').textContent = 'VOLT MANAGER v' + info.appVersion;
             document.getElementById('version-badge').textContent = I18n.t('set_updates_curr') + 'v' + info.appVersion;
         } catch (err) {
             console.error('getSystemInfo failed', err);

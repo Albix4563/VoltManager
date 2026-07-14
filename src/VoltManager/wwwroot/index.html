@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>VOLT CORE</title>
+<title>VOLT MANAGER</title>
 <link href="css/app.css?v=widget-placement1" rel="stylesheet"/>
 <link href="css/redesign.css?v=sidebar-scrim1" rel="stylesheet"/>
 <link href="css/polish.css?v=polish1" rel="stylesheet"/>
@@ -64,10 +64,10 @@ html[data-theme=light] .welcome-theme-card .welcome-theme-check{border-color:rgb
   <!-- Header -->
   <div class="side-nav__header px-lg mb-8 flex items-center gap-3">
     <div class="side-nav__logo w-10 h-10 rounded-full overflow-hidden border border-secondary-container/30 transition-transform duration-300 hover:scale-110 hover:shadow-[0_0_15px_rgba(0,241,254,0.3)] flex-shrink-0">
-      <img src="images/project_logo.png" alt="VOLT CORE" class="w-full h-full object-cover" />
+      <img src="images/project_logo.png" alt="VOLT MANAGER" class="w-full h-full object-cover" />
     </div>
     <div class="side-nav__brand min-w-0">
-      <h1 class="text-headline-md font-bold text-secondary-container" data-i18n="app_title">VOLT CORE</h1>
+      <h1 class="text-headline-md font-bold text-secondary-container" data-i18n="app_title">VOLT MANAGER</h1>
       <p class="text-label-md text-on-surface-variant" data-i18n="app_subtitle">POWER UNLEASHED</p>
     </div>
     <button type="button" id="btn-sidebar-toggle" class="side-nav__toggle ml-auto w-9 h-9 rounded-full flex items-center justify-center text-on-surface-variant hover:text-secondary-container hover:bg-white/5 transition-all duration-300 flex-shrink-0" title="Comprimi barra laterale" aria-label="Comprimi barra laterale" aria-expanded="true" aria-controls="side-nav">
@@ -119,9 +119,9 @@ html[data-theme=light] .welcome-theme-card .welcome-theme-check{border-color:rgb
       <div id="monitoring-dot" class="w-2 h-2 rounded-full bg-secondary-container animate-pulse shadow-[0_0_8px_#00f1fe]"></div>
       <span id="monitoring-label" class="text-label-md text-on-surface" data-i18n="nav_monitoring">Monitoring Active</span>
     </div>
-    <p class="text-label-sm text-on-surface-variant opacity-60 mt-3 px-1" id="sidebar-version">VOLT CORE v1.0.0</p>
+    <p class="text-label-sm text-on-surface-variant opacity-60 mt-3 px-1" id="sidebar-version">VOLT MANAGER v1.0.0</p>
     <div class="mt-sm px-1 flex items-center gap-2 opacity-70 hover:opacity-100 transition-opacity duration-300">
-      <img src="images/sponsor_logo.png" alt="VOLT CORE" class="h-6 w-auto rounded" style="max-width: 160px; object-fit: contain;" />
+      <img src="images/sponsor_logo.png" alt="VOLT MANAGER" class="h-6 w-auto rounded" style="max-width: 160px; object-fit: contain;" />
     </div>
   </div>
 </nav>
@@ -423,7 +423,7 @@ html[data-theme=light] .welcome-theme-card .welcome-theme-check{border-color:rgb
             <div class="flex flex-col sm:flex-row items-center justify-between gap-md bg-surface-container-low/50 p-lg rounded-2xl backdrop-blur-md mb-md">
               <div>
                 <h3 class="text-headline-md text-on-surface" data-i18n="power_master_title">Attiva Gestione Automatica in Background</h3>
-                <p class="text-body-md text-on-surface-variant mt-1" data-i18n="power_master_sub">Lascia che VOLT CORE applichi le regole in modo silenzioso.</p>
+                <p class="text-body-md text-on-surface-variant mt-1" data-i18n="power_master_sub">Lascia che VOLT MANAGER applichi le regole in modo silenzioso.</p>
               </div>
               <div class="relative inline-block w-16 h-8 align-middle select-none transition duration-200 ease-in flex-shrink-0">
                 <input checked class="toggle-large" id="master-toggle" type="checkbox"/>
@@ -441,7 +441,7 @@ html[data-theme=light] .welcome-theme-card .welcome-theme-check{border-color:rgb
                   </div>
                   <div>
                     <h3 class="text-title-md text-on-surface" data-i18n="power_sample_title">Intervallo campionamento CPU</h3>
-                    <p class="text-body-sm text-on-surface-variant mt-1" data-i18n="power_sample_sub">Scegli ogni quanti secondi VOLT CORE legge l'uso CPU per decidere il piano energetico automatico.</p>
+                    <p class="text-body-sm text-on-surface-variant mt-1" data-i18n="power_sample_sub">Scegli ogni quanti secondi VOLT MANAGER legge l'uso CPU per decidere il piano energetico automatico.</p>
                   </div>
                 </div>
                 <div class="flex items-center gap-xs shrink-0">
@@ -605,7 +605,7 @@ html[data-theme=light] .welcome-theme-card .welcome-theme-check{border-color:rgb
                   <span class="material-symbols-outlined text-secondary-container">update</span>
                   <span data-i18n="set_updates_title">Software Updates</span>
                 </h3>
-                <p class="text-body-md text-on-surface-variant mt-1" data-i18n="set_updates_sub">Keep VOLT CORE optimized with the latest performance enhancements.</p>
+                <p class="text-body-md text-on-surface-variant mt-1" data-i18n="set_updates_sub">Keep VOLT MANAGER optimized with the latest performance enhancements.</p>
                 <div class="mt-sm flex flex-wrap items-center gap-xs">
                   <div class="inline-flex items-center gap-xs px-3 py-1 rounded-full bg-surface-container-high border border-white/5">
                     <span class="w-2 h-2 rounded-full bg-secondary-container animate-pulse shadow-[0_0_8px_rgba(0,241,254,0.6)]"></span>
@@ -733,9 +733,9 @@ html[data-theme=light] .welcome-theme-card .welcome-theme-check{border-color:rgb
           <div class="glass-panel rounded-xl p-lg text-center flex flex-col items-center justify-center border-t-2 border-t-secondary-container/30">
             <div class="w-20 h-20 rounded-2xl bg-gradient-to-br from-surface-container-high to-surface flex items-center justify-center mb-md shadow-lg border border-white/5 relative overflow-hidden">
               <div class="absolute inset-0 bg-secondary-container/20 blur-xl rounded-full scale-150"></div>
-              <img src="images/project_logo.png" alt="VOLT CORE" class="w-16 h-16 object-cover rounded-xl relative z-10" />
+              <img src="images/project_logo.png" alt="VOLT MANAGER" class="w-16 h-16 object-cover rounded-xl relative z-10" />
             </div>
-            <h3 class="text-headline-md text-on-surface">VOLT CORE</h3>
+            <h3 class="text-headline-md text-on-surface">VOLT MANAGER</h3>
             <p class="text-body-md text-secondary-fixed-dim mt-1" id="info-version">v1.0.0</p>
             <div class="w-full h-px bg-white/10 my-md"></div>
             <div class="flex justify-between w-full text-body-md">
@@ -924,9 +924,9 @@ html[data-theme=light] .welcome-theme-card .welcome-theme-check{border-color:rgb
       <section class="welcome-step flex flex-col items-center text-center" data-step="0">
         <div class="w-20 h-20 rounded-full bg-surface-container-high flex items-center justify-center mb-lg border border-white/5 relative overflow-hidden">
           <div class="absolute inset-0 rounded-full shadow-[0_0_20px_rgba(0,242,255,0.2)]"></div>
-          <img src="images/project_logo.png" alt="VOLT CORE" class="w-16 h-16 object-cover rounded-full relative z-10" />
+          <img src="images/project_logo.png" alt="VOLT MANAGER" class="w-16 h-16 object-cover rounded-full relative z-10" />
         </div>
-        <h1 class="text-headline-md text-on-surface mb-sm" data-i18n="welcome_title">Benvenuto in VOLT CORE</h1>
+        <h1 class="text-headline-md text-on-surface mb-sm" data-i18n="welcome_title">Benvenuto in VOLT MANAGER</h1>
         <p class="text-body-md text-on-surface-variant mb-xl max-w-[320px]" data-i18n="welcome_intro_sub">Domina l'energia. Sblocca la potenza.</p>
       </section>
 
@@ -1103,7 +1103,7 @@ html[data-theme=light] .welcome-theme-card .welcome-theme-check{border-color:rgb
     <div class="glass-modal rounded-3xl p-xl flex flex-col items-center text-center" id="setup-modal">
       <div class="w-20 h-20 rounded-full bg-surface-container-high flex items-center justify-center mb-lg border border-white/5 relative overflow-hidden">
         <div class="absolute inset-0 rounded-full shadow-[0_0_20px_rgba(0,242,255,0.2)]"></div>
-        <img src="images/project_logo.png" alt="VOLT CORE" class="w-16 h-16 object-cover rounded-full relative z-10" />
+        <img src="images/project_logo.png" alt="VOLT MANAGER" class="w-16 h-16 object-cover rounded-full relative z-10" />
       </div>
       <h1 class="text-headline-md text-on-surface mb-sm" data-i18n="setup_req">Setup Richiesto</h1>
       <p class="text-body-md text-on-surface-variant mb-xl max-w-[280px]" id="setup-message" data-i18n="setup_req_sub">

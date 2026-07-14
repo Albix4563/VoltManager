@@ -8,7 +8,7 @@ window.I18n = (function() {
 
     const translations = {
         en: {
-            "app_title": "VOLT CORE",
+            "app_title": "VOLT MANAGER",
             "app_subtitle": "POWER UNLEASHED",
             "nav_home": "Home",
             "nav_power": "Automation",
@@ -279,7 +279,7 @@ window.I18n = (function() {
             "ram_auto_disabled": "Auto: inactive",
             "ram_auto_threshold": "Threshold (GB)",
             "ram_auto_interval": "Interval (min)",
-            "welcome_title": "Welcome to VOLT CORE",
+            "welcome_title": "Welcome to VOLT MANAGER",
             "welcome_intro_sub": "Dominate power. Unleash performance.",
             "welcome_features_title": "What you can do",
             "welcome_feat_monitor_title": "Hardware monitoring",
@@ -418,7 +418,7 @@ window.I18n = (function() {
             "widget_position_bottom_right": "右下",
             "widget_offset": "偏移",
             "widget_close": "Hide widget",
-            "app_title": "VOLT CORE",
+            "app_title": "VOLT MANAGER",
             "app_subtitle": "能源释放",
             "nav_home": "主页",
             "nav_power": "自动化",
@@ -633,7 +633,7 @@ window.I18n = (function() {
             "ram_auto_disabled": "自动：未启用",
             "ram_auto_threshold": "阈值（GB）",
             "ram_auto_interval": "间隔（分钟）",
-            "welcome_title": "欢迎使用 VOLT CORE",
+            "welcome_title": "欢迎使用 VOLT MANAGER",
             "welcome_intro_sub": "掌控能源。释放性能。",
             "welcome_features_title": "你可以做什么",
             "welcome_feat_monitor_title": "硬件监控",
@@ -716,7 +716,7 @@ window.I18n = (function() {
             "tip8_body": "在 CPU 自动化规则中设置阈值，VoltManager 会根据负载自动切换到合适的计划。"
         },
         it: {
-            "app_title": "VOLT CORE",
+            "app_title": "VOLT MANAGER",
             "app_subtitle": "POWER UNLEASHED",
             "nav_home": "Home",
             "nav_power": "Automazione",
@@ -987,7 +987,7 @@ window.I18n = (function() {
             "ram_auto_disabled": "Auto: non attivo",
             "ram_auto_threshold": "Soglia (GB)",
             "ram_auto_interval": "Intervallo (min)",
-            "welcome_title": "Benvenuto in VOLT CORE",
+            "welcome_title": "Benvenuto in VOLT MANAGER",
             "welcome_intro_sub": "Domina l'energia. Sblocca la potenza.",
             "welcome_features_title": "Cosa puoi fare",
             "welcome_feat_monitor_title": "Monitoraggio hardware",
@@ -1071,7 +1071,7 @@ window.I18n = (function() {
         },
         es: {
             // ---- Core App (331+ keys) ----
-            "app_title": "VOLT CORE",
+            "app_title": "VOLT MANAGER",
             "app_subtitle": "ENERGÍA DESATADA",
             "nav_home": "Inicio",
             "nav_power": "Automatización",
@@ -1342,7 +1342,7 @@ window.I18n = (function() {
             "ram_auto_disabled": "Auto: inactivo",
             "ram_auto_threshold": "Umbral (GB)",
             "ram_auto_interval": "Intervalo (min)",
-            "welcome_title": "Bienvenido a VOLT CORE",
+            "welcome_title": "Bienvenido a VOLT MANAGER",
             "welcome_intro_sub": "Domina la energía. Libera el poder.",
             "welcome_features_title": "Qué puedes hacer",
             "welcome_feat_monitor_title": "Supervisión del hardware",
