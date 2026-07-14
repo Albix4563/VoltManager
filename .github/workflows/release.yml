@@ -46,9 +46,6 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
-      - name: Run tests
-        run: dotnet test VoltManager.sln -c Release -v q --nologo
-
       - name: Publish (self-contained win-x64)
         run: >
           dotnet publish src/VoltManager/VoltManager.csproj

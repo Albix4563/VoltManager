@@ -11,8 +11,6 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Microsoft.Win32;
 
-[assembly: InternalsVisibleTo("VoltManager.Tests")]
-
 namespace VoltManager.Setup.Engine
 {
     public sealed class UninstallResult
