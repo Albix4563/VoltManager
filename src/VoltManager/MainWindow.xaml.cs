@@ -29,6 +29,7 @@ public partial class MainWindow : Window
     private int _rendererReloadCount;
     private bool _hostEventsWired;
     private bool _webViewRecovering;
+    private volatile bool _webViewVisible;
 
     public MainWindow(App app, bool startMinimized, bool justUpdated = false,
         Task<CoreWebView2Environment>? webViewEnvironment = null)
@@ -39,6 +40,8 @@ public partial class MainWindow : Window
         InitializeComponent();
         ApplyHostTheme(_app.Theme.ResolvedTheme);
         Loaded += async (_, _) => await InitWebViewAsync();
+        IsVisibleChanged += (_, _) => UpdateWebViewVisibility();
+        StateChanged += (_, _) => UpdateWebViewVisibility();
         Closing += OnClosingToTray;
         Closed += (_, _) => _autoUpdateTimer?.Dispose();
         // Fires from timer threads; tooltip lives on the UI thread.
@@ -222,9 +225,13 @@ public partial class MainWindow : Window
         });
     }
 
+    private void UpdateWebViewVisibility()
+        => _webViewVisible = IsVisible && WindowState != WindowState.Minimized;
+
     private void OnMetricsUpdated(MetricsSnapshot metrics)
     {
-        _bridge?.PushEvent("metrics", metrics);
+        if (_webViewVisible)
+            _bridge?.PushEvent("metrics", metrics);
 
         if (_gamingReminder.ObserveCpu(metrics.Cpu, DateTime.UtcNow) != GamingModeReminderDecision.Prompt)
             return;

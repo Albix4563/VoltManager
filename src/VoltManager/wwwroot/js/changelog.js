@@ -173,7 +173,7 @@
         const link = document.createElement('link');
         link.id = 'vm-ui-reorganization-style';
         link.rel = 'stylesheet';
-        link.href = 'css/ui-reorganization.css?v=nav-reorg1';
+        link.href = 'css/ui-reorganization.css?v=responsive2';
         document.head.appendChild(link);
     }
 

@@ -334,3 +334,43 @@ html[data-perf-tier="balanced"] .pm-subnav{
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
+
+/* Balanced/lite: avoid permanent compositor layers and all decorative loops. */
+html[data-perf-tier="balanced"] .glass-card,
+html[data-perf-tier="balanced"] .glass-panel,
+html[data-perf-tier="lite"] .glass-card,
+html[data-perf-tier="lite"] .glass-panel,
+html[data-perf="lite"] .glass-card,
+html[data-perf="lite"] .glass-panel{
+  transform: none;
+  backface-visibility: visible;
+}
+html[data-perf-tier="balanced"] #cpu-ring,
+html[data-perf-tier="balanced"] #gpu-ring,
+html[data-perf-tier="balanced"] #ram-bar,
+html[data-perf-tier="balanced"] #disk-bar,
+html[data-perf-tier="lite"] #cpu-ring,
+html[data-perf-tier="lite"] #gpu-ring,
+html[data-perf-tier="lite"] #ram-bar,
+html[data-perf-tier="lite"] #disk-bar,
+html[data-perf="lite"] #cpu-ring,
+html[data-perf="lite"] #gpu-ring,
+html[data-perf="lite"] #ram-bar,
+html[data-perf="lite"] #disk-bar{ will-change: auto !important; }
+html[data-perf-tier="balanced"] .fx-title,
+html[data-perf-tier="balanced"] .nav-indicator,
+html[data-perf-tier="balanced"] #monitoring-dot.animate-pulse::after,
+html[data-perf-tier="lite"] .fx-title,
+html[data-perf-tier="lite"] .nav-indicator,
+html[data-perf-tier="lite"] #monitoring-dot.animate-pulse::after,
+html[data-perf="lite"] .fx-title,
+html[data-perf="lite"] .nav-indicator,
+html[data-perf="lite"] #monitoring-dot.animate-pulse::after{
+  animation: none !important;
+}
+html[data-perf-tier="balanced"] .fx-title,
+html[data-perf-tier="lite"] .fx-title,
+html[data-perf="lite"] .fx-title{
+  color: var(--vm-text,#d4e4fa);
+  -webkit-text-fill-color: currentColor;
+}

@@ -640,6 +640,22 @@ html[data-theme="black"] .vm-quick-action {
     }
 }
 
+@media (max-width: 900px) {
+    .vm-reorg-view { gap: 18px; }
+
+    .vm-status-grid,
+    .vm-compact-metrics,
+    .vm-automation-summary {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .vm-overview-grid,
+    #vm-monitoring-battery,
+    #widgets-groups.vm-widget-groups {
+        grid-template-columns: 1fr;
+    }
+}
+
 @media (max-width: 780px) {
     .vm-view-heading {
         align-items: flex-start;
@@ -665,6 +681,17 @@ html[data-theme="black"] .vm-quick-action {
 
     .vm-top-chip strong {
         max-width: 82px;
+    }
+}
+
+@media (max-width: 700px) {
+    .vm-view-heading { flex-direction: column; }
+    .vm-section-card { padding: 16px !important; }
+    .vm-status-grid,
+    .vm-quick-grid,
+    .vm-compact-metrics,
+    .vm-automation-summary {
+        grid-template-columns: 1fr;
     }
 }
 

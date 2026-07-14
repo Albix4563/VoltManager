@@ -144,7 +144,9 @@ html[data-theme=black] .vm-scrim{
   html[data-theme=light] .vm-scrim{ background: rgba(240, 246, 252, .9) !important; }
   html[data-theme=black] .vm-scrim{ background: rgba(0, 0, 0, .88) !important; }
 }
-html[data-perf="lite"] .vm-scrim{
+html[data-perf="lite"] .vm-scrim,
+html[data-perf-tier="lite"] .vm-scrim,
+html[data-perf-tier="balanced"] .vm-scrim{
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
   background: rgba(10, 17, 40, .82) !important;
@@ -246,6 +248,32 @@ body.sidebar-collapsed .side-nav .mt-auto{
 }
 body.sidebar-collapsed #btn-sidebar-expand{ display: inline-flex !important; }
 body:not(.sidebar-collapsed) #btn-sidebar-expand{ display: none !important; }
+
+@media (max-width: 900px){
+  :root{ --side-nav-w: 84px; }
+  .side-nav{ align-items: center; }
+  .side-nav__header{ padding-inline: 12px; margin-bottom: 12px; justify-content: center; }
+  .side-nav__brand,
+  .side-nav__toggle,
+  .side-nav .nav-section-label,
+  .side-nav #monitoring-label,
+  .side-nav #sidebar-version,
+  .side-nav .mt-sm{ display: none !important; }
+  .side-nav #nav-list{ padding-inline: 10px; align-items: center; }
+  .side-nav .nav-item{ justify-content: center; gap: 0; width: 52px; min-height: 48px; padding-inline: 0; }
+  .side-nav .nav-item span:not(.material-symbols-outlined){
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+  }
+  .side-nav #btn-monitoring-toggle{ justify-content: center; width: 52px; padding: 12px; }
+  #main-content{ padding-inline: 16px !important; }
+}
+
+@media (max-width: 700px){
+  header{ padding-inline: 16px !important; }
+  #main-content{ padding-inline: 12px !important; }
+  .glass-card, .glass-panel{ border-radius: 16px; }
+}
 
 @media (prefers-reduced-motion: reduce){
   .side-nav, .app-main, .side-nav__brand{ transition: none !important; }

@@ -6,12 +6,12 @@
  * under prefers-reduced-motion.
  */
 (function () {
-  // Motion is killed by the OS setting OR by perf-guard.js flipping the page
-  // into RAM-pressure "lite" mode (data-perf=lite) when memory runs high.
+  const motionQuery = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)');
   const reduce = () => !!(
-    (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) ||
+    (motionQuery && motionQuery.matches) ||
+    document.hidden ||
     document.documentElement.dataset.perf === 'lite' ||
-    document.documentElement.dataset.perfTier === 'lite'
+    document.documentElement.dataset.perfTier !== 'full'
   );
   const CIRC = 251.2; // 2*PI*r(40), matches dashboard ring geometry
 
@@ -129,7 +129,9 @@
   // ---- Aurora background ----
   function mountAurora() {
     const main = document.querySelector('main.flex-1') || document.querySelector('main');
-    if (!main || main.querySelector('.vm-aurora')) return;
+    if (!main) return;
+    const mounted = main.querySelector('.vm-aurora');
+    if (mounted) { mounted.classList.remove('hidden'); return; }
     const aurora = document.createElement('div');
     aurora.className = 'vm-aurora';
     aurora.setAttribute('aria-hidden', 'true');
@@ -195,15 +197,41 @@
     document.querySelectorAll('.text-headline-lg').forEach((el) => el.classList.add('fx-title'));
   }
 
-  function init() {
+  let richEffectsMounted = false;
+
+  function mountRichEffects() {
+    if (richEffectsMounted) return;
+    richEffectsMounted = true;
     mountAurora();
-    decorateTitles();
     document.addEventListener('pointermove', onPointerMove, { passive: true });
     document.addEventListener('pointerdown', onRipple, { passive: true });
-    // Re-decorate dynamically-mounted views (e.g. System tab) and re-attach
-    // the aurora if the main element is ever rebuilt.
+  }
+
+  function unmountRichEffects() {
+    if (!richEffectsMounted) return;
+    richEffectsMounted = false;
+    document.removeEventListener('pointermove', onPointerMove);
+    document.removeEventListener('pointerdown', onRipple);
+    if (spotEl) spotEl.classList.remove('fx-spot');
+    spotEl = null;
+    document.querySelector('.vm-aurora')?.classList.add('hidden');
+    VoltFx.stopMotion();
+  }
+
+  function syncRichEffects() {
+    if (reduce()) unmountRichEffects();
+    else mountRichEffects();
+  }
+
+  function init() {
+    decorateTitles();
+    syncRichEffects();
     document.addEventListener('viewchange', decorateTitles);
     document.addEventListener('navmounted', decorateTitles);
+    document.addEventListener('perftierchange', syncRichEffects);
+    document.addEventListener('perfmodechange', syncRichEffects);
+    document.addEventListener('visibilitychange', syncRichEffects);
+    if (motionQuery) motionQuery.addEventListener('change', syncRichEffects);
   }
 
   if (document.readyState === 'loading') {

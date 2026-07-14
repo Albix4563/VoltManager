@@ -4,7 +4,7 @@
         xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
         xmlns:tb="clr-namespace:H.NotifyIcon;assembly=H.NotifyIcon.Wpf"
         Title="VoltManager" Height="800" Width="1280"
-        MinHeight="600" MinWidth="1000"
+        MinHeight="480" MinWidth="640"
         WindowStartupLocation="CenterScreen"
         Icon="pack://application:,,,/Assets/voltmanager.ico"
         Background="#0a1128">

@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Management;
+using System.Runtime.InteropServices;
 using VoltManager.Models;
 
 namespace VoltManager.Services;
@@ -12,11 +13,16 @@ public class MonitorService : IDisposable
     private readonly GpuCounterProvider _gpu;
     private readonly HardwareSensorProvider _sensors;
     private readonly double _ramTotalGb;
+    private readonly int _processScanEveryTicks;
     private System.Threading.Timer? _timer;
     private int _tickRunning; // reentrancy guard: skip a tick if the prior one is still in WMI
     private bool _tickFaulted; // throttles error logging to once per failure streak
-    private bool _ramFaulted;  // same throttle for the per-tick RAM WMI query
+    private bool _ramFaulted;  // same throttle for the native RAM query
     private bool _clockFaulted; // and for the CPU-clock WMI fallback
+    private double? _cachedCpuClock;
+    private DateTime _nextCpuClockRefreshUtc;
+
+    private static readonly TimeSpan CpuClockRefreshInterval = TimeSpan.FromSeconds(10);
 
     // Above this system-RAM %, skip the full Process.GetProcesses() scan — it is the
     // loop's heaviest allocator, and on a saturated machine that churn is exactly what
@@ -35,7 +41,11 @@ public class MonitorService : IDisposable
 
     public MonitorService(HardwareInfoService hw)
     {
-        _ramTotalGb = hw.GetSystemInfo().RamTotalGb;
+        var systemInfo = hw.GetSystemInfo();
+        _ramTotalGb = systemInfo.RamTotalGb;
+        _processScanEveryTicks = systemInfo.RamTotalGb < 8 || systemInfo.LogicalCores <= 2
+            ? 10
+            : systemInfo.RamTotalGb < 16 || systemInfo.LogicalCores <= 4 ? 6 : 3;
         _gpu = new GpuCounterProvider();
         _sensors = new HardwareSensorProvider();
         _cpuCounter = TryCreate("Processor", "% Processor Time", "_Total");
@@ -107,7 +117,7 @@ public class MonitorService : IDisposable
             };
             MetricsUpdated?.Invoke(Latest);
 
-            if (++_processTickCounter >= 3)
+            if (++_processTickCounter >= _processScanEveryTicks)
             {
                 _processTickCounter = 0;
                 if (pct < ProcessScanRamCutoffPct) UpdateProcesses();
@@ -145,37 +155,60 @@ public class MonitorService : IDisposable
     {
         try
         {
-            using var searcher = new ManagementObjectSearcher(
-                "SELECT FreePhysicalMemory, TotalVisibleMemorySize FROM Win32_OperatingSystem");
-            foreach (var mo in searcher.Get())
-            {
-                double freeKb = Convert.ToDouble(mo["FreePhysicalMemory"]);
-                double totalKb = Convert.ToDouble(mo["TotalVisibleMemorySize"]);
-                double usedKb = totalKb - freeKb;
-                _ramFaulted = false;
-                return (usedKb / (1024.0 * 1024), totalKb > 0 ? usedKb / totalKb * 100 : 0);
-            }
+            var status = new MemoryStatusEx { Length = (uint)Marshal.SizeOf<MemoryStatusEx>() };
+            if (!GlobalMemoryStatusEx(ref status))
+                throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
+
+            double total = status.TotalPhysical;
+            double used = total - status.AvailablePhysical;
+            _ramFaulted = false;
+            return (used / (1024.0 * 1024 * 1024), total > 0 ? used / total * 100 : 0);
         }
-        catch (Exception ex) { _ramFaulted = Logger.WarnOnce(_ramFaulted, "RAM usage WMI query failed", ex); }
-        return (0, 0);
+        catch (Exception ex) { _ramFaulted = Logger.WarnOnce(_ramFaulted, "Native RAM query failed", ex); }
+        return (Latest.RamUsedGb, Latest.RamPct);
     }
 
     private double? ReadCpuClockWmi()
     {
+        var now = DateTime.UtcNow;
+        if (now < _nextCpuClockRefreshUtc) return _cachedCpuClock;
+        _nextCpuClockRefreshUtc = now + CpuClockRefreshInterval;
+
         try
         {
             using var searcher = new ManagementObjectSearcher("SELECT CurrentClockSpeed FROM Win32_Processor");
-            foreach (var mo in searcher.Get())
+            using var results = searcher.Get();
+            foreach (ManagementObject mo in results)
             {
-                if (mo["CurrentClockSpeed"] != null)
+                using (mo)
                 {
+                    if (mo["CurrentClockSpeed"] == null) continue;
                     _clockFaulted = false;
-                    return Convert.ToDouble(mo["CurrentClockSpeed"]);
+                    _cachedCpuClock = Convert.ToDouble(mo["CurrentClockSpeed"]);
+                    return _cachedCpuClock;
                 }
             }
         }
         catch (Exception ex) { _clockFaulted = Logger.WarnOnce(_clockFaulted, "CPU-clock WMI query failed", ex); }
-        return null;
+        return _cachedCpuClock;
+    }
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GlobalMemoryStatusEx(ref MemoryStatusEx buffer);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct MemoryStatusEx
+    {
+        public uint Length;
+        public uint MemoryLoad;
+        public ulong TotalPhysical;
+        public ulong AvailablePhysical;
+        public ulong TotalPageFile;
+        public ulong AvailablePageFile;
+        public ulong TotalVirtual;
+        public ulong AvailableVirtual;
+        public ulong AvailableExtendedVirtual;
     }
 
     public List<ProcessInfo> GetTopProcesses(int count = 8)

@@ -85,6 +85,19 @@ L'installer include il runtime WebView2 per i PC che non ce l'hanno (es. Windows
 - **UI**: WPF (.NET 8) + WebView2, SPA offline in `src/VoltManager/wwwroot` (Tailwind compilato, font vendorizzati — nessuna connessione richiesta).
 - **Privilegi**: l'app richiede amministratore (manifest `requireAdministrator`) perché cambia i piani energetici in modo continuo.
 
+### Requisiti minimi
+
+- Windows 10 64 bit 1809 o successivo / Windows 11.
+- CPU x64 dual-core; 4 core raccomandati per il monitoraggio completo.
+- 4 GB RAM; 8 GB raccomandati.
+- Display 640×480; 1280×720 raccomandato.
+- 250 MB di spazio libero.
+- Microsoft Edge WebView2 Runtime.
+- .NET 8 Desktop Runtime per la versione portable; incluso nella build self-contained dell'installer.
+- Privilegi amministratore per modificare i piani energetici.
+
+Su sistemi con meno di 8 GB RAM o fino a 2 core logici, VoltManager disattiva automaticamente gli effetti più costosi. Tra 8–16 GB o fino a 4 core usa il profilo visuale bilanciato. Automazioni e monitoraggio restano disponibili.
+
 ### Build
 
 Prerequisiti: .NET 8 SDK (l'installer è un progetto WPF net48, nessun tool esterno richiesto).

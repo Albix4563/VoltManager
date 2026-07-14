@@ -160,6 +160,10 @@
     // ----- Power flow (live battery charge/discharge wattage) -----
     let lastPowerFlow = null;
     let powerFlowTimer = null;
+    let powerFlowPolling = false;
+    let hasBattery = null;
+    let activeOverride = null;
+    let overrideTimer = null;
 
     const POWER_FLOW_ICON = {
         charging: 'battery_charging_full',
@@ -221,19 +225,28 @@
     }
 
     async function pollPowerFlow() {
-        if (!Host.available) return;
+        if (document.hidden) return;
+        if (!Host.available || powerFlowPolling) return;
+        powerFlowPolling = true;
         try {
             const state = await Host.call('getBatteryPower');
             renderPowerFlow(state);
         } catch (err) {
             console.error('getBatteryPower failed', err);
+        } finally {
+            powerFlowPolling = false;
         }
     }
 
     function startPowerFlowPolling() {
-        if (powerFlowTimer) return;
+        if (powerFlowTimer || hasBattery !== true || document.hidden) return;
         pollPowerFlow();
         powerFlowTimer = setInterval(pollPowerFlow, 5000);
+    }
+
+    function stopPowerFlowPolling() {
+        clearInterval(powerFlowTimer);
+        powerFlowTimer = null;
     }
 
     document.addEventListener('langchanged', () => {
@@ -249,6 +262,7 @@
     const batteryHistoryArea = document.getElementById('battery-history-area');
     let lastBatteryHistory = null;
     let batteryHistoryTimer = null;
+    let batteryHistoryPolling = false;
 
     function formatHistorySpan(seconds) {
         const h = Math.floor(seconds / 3600);
@@ -295,19 +309,28 @@
     }
 
     async function pollBatteryHistory() {
-        if (!Host.available) return;
+        if (document.hidden) return;
+        if (!Host.available || batteryHistoryPolling) return;
+        batteryHistoryPolling = true;
         try {
             const payload = await Host.call('getBatteryHistory');
             renderBatteryHistory(payload);
         } catch (err) {
             console.error('getBatteryHistory failed', err);
+        } finally {
+            batteryHistoryPolling = false;
         }
     }
 
     function startBatteryHistoryPolling() {
-        if (batteryHistoryTimer) return;
+        if (batteryHistoryTimer || hasBattery !== true || document.hidden) return;
         pollBatteryHistory();
         batteryHistoryTimer = setInterval(pollBatteryHistory, 60000);
+    }
+
+    function stopBatteryHistoryPolling() {
+        clearInterval(batteryHistoryTimer);
+        batteryHistoryTimer = null;
     }
 
     document.addEventListener('langchanged', () => {
@@ -351,6 +374,7 @@
     const PROC_COUNT = 8;
     let procRows = [];
     let processesTimer = null;
+    let processesPolling = false;
     let procBuilt = false;
 
     function clampPercent(value) {
@@ -500,20 +524,61 @@
         }
     }
 
-    function pollProcesses() {
-        if (!Host.available) return;
-        Host.call('getTopProcesses', { count: PROC_COUNT }).then(renderProcesses).catch(function(err) {
+    async function pollProcesses() {
+        if (document.hidden) return;
+        if (!Host.available || processesPolling) return;
+        processesPolling = true;
+        try {
+            renderProcesses(await Host.call('getTopProcesses', { count: PROC_COUNT }));
+        } catch (err) {
             console.error('getTopProcesses failed', err);
-        });
+        } finally {
+            processesPolling = false;
+        }
+    }
+
+    function processPollInterval() {
+        const tier = document.documentElement.dataset.perfTier;
+        return tier === 'lite' ? 10000 : tier === 'balanced' ? 6000 : 3000;
     }
 
     function startProcessPolling() {
-        if (processesTimer) return;
+        if (processesTimer || document.hidden) return;
         pollProcesses();
-        processesTimer = setInterval(pollProcesses, 3000);
+        processesTimer = setInterval(pollProcesses, processPollInterval());
     }
 
-    if (Host.available) startProcessPolling();
+    function stopProcessPolling() {
+        clearInterval(processesTimer);
+        processesTimer = null;
+    }
+
+    function stopDashboardPolling() {
+        stopProcessPolling();
+        stopPowerFlowPolling();
+        stopBatteryHistoryPolling();
+    }
+
+    function syncDashboardPolling() {
+        if (document.hidden) {
+            stopDashboardPolling();
+            if (overrideTimer) {
+                clearInterval(overrideTimer);
+                overrideTimer = null;
+            }
+            return;
+        }
+        startProcessPolling();
+        startPowerFlowPolling();
+        startBatteryHistoryPolling();
+        renderOverrideStatus(activeOverride);
+    }
+
+    document.addEventListener('visibilitychange', syncDashboardPolling);
+    document.addEventListener('perftierchange', () => {
+        stopProcessPolling();
+        startProcessPolling();
+    });
 
     document.addEventListener('langchanged', () => {
         procBuilt = false;
@@ -542,8 +607,6 @@
     let pendingPlan = null;
     let pendingForever = false;
     let pendingHours = null;
-    let activeOverride = null;
-    let overrideTimer = null;
 
     function reflectPlan(plan) {
         const index = planOrder.indexOf(plan);
@@ -606,7 +669,7 @@
         };
 
         update();
-        if (activeOverride.expiresAtUtc) overrideTimer = setInterval(update, 30000);
+        if (activeOverride.expiresAtUtc && !document.hidden) overrideTimer = setInterval(update, 30000);
     }
 
     function setMiniToggle(el, on) {
@@ -796,15 +859,18 @@
         }
     }
 
-    function applyBatteryPresence(hasBattery) {
+    function applyBatteryPresence(present) {
+        hasBattery = present;
         if (powerSourcePlanHome) {
-            powerSourcePlanHome.classList.toggle('hidden', hasBattery === false);
+            powerSourcePlanHome.classList.toggle('hidden', present === false);
         }
         // No battery -> never poll the firmware power flow (section stays hidden).
-        if (hasBattery !== false) {
+        if (present !== false) {
             startPowerFlowPolling();
             startBatteryHistoryPolling();
         } else {
+            stopPowerFlowPolling();
+            stopBatteryHistoryPolling();
             powerFlowSection.classList.add('hidden');
             batteryHistorySection.classList.add('hidden');
         }
@@ -825,5 +891,6 @@
         Host.call('getPowerSourcePlanState').then(renderPowerSourcePlanState).catch(() => {});
         Host.call('getGamingMode').then(renderGamingModeState).catch(() => {});
         Host.call('getBatteryHealth').then(renderBatteryHealth).catch(() => {});
+        syncDashboardPolling();
     }
 })();
