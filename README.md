@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="docs/assets/logo.png" alt="VoltManager" width="140" />
+<img src="docs/assets/logo.png" alt="VOLT CORE" width="140" />
 
-# VoltManager
+# VOLT CORE
 
 **Il telecomando della batteria e delle prestazioni del tuo PC Windows.**
 Un solo posto per far andare il computer più veloce quando serve, più silenzioso e parco quando no — senza smanettare nelle impostazioni nascoste di Windows.
