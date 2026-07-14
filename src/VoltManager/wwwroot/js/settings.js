@@ -536,22 +536,17 @@
         toast.id = 'updated-toast';
         toast.style.cssText =
             'position:fixed;bottom:24px;right:24px;z-index:2000;' +
-            'background:#1E2A4A;border:1px solid rgba(0,241,254,0.4);border-radius:12px;' +
-            'padding:14px 18px;box-shadow:0 8px 32px rgba(0,0,0,0.6);color:#e2e8f0;' +
+            'border-radius:12px;padding:14px 18px;' +
             'font-size:13px;display:flex;align-items:flex-start;gap:12px;max-width:min(420px,calc(100vw - 48px));' +
             'overflow-wrap:anywhere;animation:slideInRight 0.3s ease;';
         toast.innerHTML =
-            '<span style="color:#00f1fe;font-size:18px;">✓</span>' +
-            '<span>' + esc(tr('upd_toast_msg', lt('updatedToast'))) + (ver ? ' v' + esc(ver) : '') + '</span>' +
-            '<button onclick="this.parentElement.remove()" style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:16px;margin-left:4px;">×</button>';
-        toast.innerHTML =
-            '<span class="material-symbols-outlined" style="color:#00f1fe;font-size:20px;margin-top:1px;">new_releases</span>' +
+            '<span class="material-symbols-outlined toast-icon" style="font-size:20px;margin-top:1px;">new_releases</span>' +
             '<span style="display:flex;flex-direction:column;gap:6px;min-width:0;">' +
-            '  <strong style="color:#f8fbff;font-size:13px;">' + esc(lt('updatedToastTitle')) + (ver ? ' v' + esc(ver) : '') + '</strong>' +
-            '  <span style="color:#cbd5e1;line-height:1.35;">' + esc(lt('updatedToastBody')) + '</span>' +
-            '  <button id="updated-toast-changelog" type="button" style="align-self:flex-start;background:rgba(0,241,254,.12);border:1px solid rgba(0,241,254,.32);color:#9ffbff;border-radius:8px;padding:6px 10px;cursor:pointer;font-weight:700;font-size:12px;">' + esc(lt('updatedToastCta')) + '</button>' +
+            '  <strong class="toast-title" style="font-size:13px;">' + esc(lt('updatedToastTitle')) + (ver ? ' v' + esc(ver) : '') + '</strong>' +
+            '  <span class="toast-body" style="line-height:1.35;">' + esc(lt('updatedToastBody')) + '</span>' +
+            '  <button id="updated-toast-changelog" type="button" style="align-self:flex-start;border-radius:8px;padding:6px 10px;cursor:pointer;font-weight:700;font-size:12px;">' + esc(lt('updatedToastCta')) + '</button>' +
             '</span>' +
-            '<button id="updated-toast-close" type="button" style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:18px;margin-left:4px;line-height:1;">x</button>';
+            '<button id="updated-toast-close" type="button" style="background:none;border:none;cursor:pointer;font-size:18px;margin-left:4px;line-height:1;">x</button>';
         document.body.appendChild(toast);
         document.getElementById('updated-toast-close')?.addEventListener('click', () => toast.remove());
         document.getElementById('updated-toast-changelog')?.addEventListener('click', () => {
