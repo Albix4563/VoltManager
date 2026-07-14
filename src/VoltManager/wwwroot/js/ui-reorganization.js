@@ -15,7 +15,8 @@
             'system-tools': 'scheduled',
             settings: 'general'
         },
-        widgetFilter: 'all'
+        widgetFilter: 'all',
+        hasBattery: null
     };
     const legacy = {
         overview: 'home',
@@ -58,6 +59,82 @@
         }));
     }
 
+    function setBatteryOnlyVisible(node, visible) {
+        if (!node) return;
+        node.classList.toggle('hidden', !visible);
+        node.style.display = visible ? '' : 'none';
+        node.setAttribute('aria-hidden', visible ? 'false' : 'true');
+        if (node.matches('button, a, input, select, textarea, [role="tab"], [tabindex]')) {
+            node.tabIndex = visible ? 0 : -1;
+        }
+    }
+
+    function hasReadableBatteryPercent() {
+        const value = $('power-flow-percent')?.textContent.trim() || '';
+        return value !== '' && value !== '--' && value !== '--%';
+    }
+
+    function syncBatteryCapabilityUi() {
+        const hasBattery = state.hasBattery === true;
+        const batteryTab = document.querySelector(
+            '[data-vm-subnav-group="monitoring"][data-vm-subnav-target="battery"]');
+        setBatteryOnlyVisible(batteryTab, hasBattery);
+        setBatteryOnlyVisible($('pref-power-source-plan-home'), hasBattery);
+
+        if (!hasBattery && state.subviews.monitoring === 'battery') {
+            api.activateSubview('monitoring', 'hardware');
+        }
+
+        const batteryChip = $('vm-top-battery-chip');
+        const showBatteryChip = hasBattery && hasReadableBatteryPercent();
+        setBatteryOnlyVisible(batteryChip, showBatteryChip);
+    }
+
+    function applySystemInfo(info) {
+        if (!info || typeof info.hasBattery !== 'boolean') return;
+        state.hasBattery = info.hasBattery;
+        syncBatteryCapabilityUi();
+        document.dispatchEvent(new CustomEvent('voltbatteryavailabilitychanged', {
+            detail: { hasBattery: state.hasBattery }
+        }));
+    }
+
+    function installBatteryCapabilityDetection() {
+        // Battery-only controls default to hidden until the hardware capability
+        // is explicitly confirmed. This prevents desktop-only systems from
+        // briefly exposing stale battery UI during startup.
+        syncBatteryCapabilityUi();
+        if (window.VoltSystemInfo) applySystemInfo(window.VoltSystemInfo);
+
+        document.addEventListener('systeminfoloaded', event => {
+            applySystemInfo(event.detail);
+        });
+
+        const percent = $('power-flow-percent');
+        if (percent) {
+            new MutationObserver(syncBatteryCapabilityUi).observe(percent, {
+                childList: true,
+                subtree: true,
+                characterData: true
+            });
+        }
+
+        if (state.hasBattery == null && window.Host?.available) {
+            Host.call('getSystemInfo').then(info => {
+                if (!window.VoltSystemInfo) window.VoltSystemInfo = info;
+                applySystemInfo(info);
+            }).catch(error =>
+                console.error('getSystemInfo failed while resolving battery capability', error));
+        } else {
+            syncBatteryCapabilityUi();
+        }
+    }
+
+    function activateLegacyPowerPanel(name) {
+        const segment = document.querySelector(`#view-power .pm-seg[data-pm="${name}"]`);
+        if (segment) setTimeout(() => click(segment), 0);
+    }
+
     function relocate() {
         move($('dash-taskmanager'), $('vm-monitoring-hardware'));
         move($('processes-section'), $('vm-monitoring-processes'));
@@ -69,7 +146,7 @@
         const oldPlanCard = plan && plan.closest('section');
         move(plan, $('vm-power-active'));
         move($('manual-override-chip'), $('vm-power-active'), true);
-        move($('pref-power-source-plan-home'), $('vm-power-source'));
+        move($('pref-power-source-plan-home'), $('vm-power-source'), true);
         move($('keep-awake-mount'), $('vm-keep-awake'));
         move($('advanced-params-mount'), $('vm-power-advanced'));
 
@@ -167,10 +244,17 @@
         dispatchView(name);
         if (legacy[name]) setTimeout(() => dispatchView(legacy[name]), 0);
         if (name === 'settings' && state.subviews.settings === 'updates') loadChangelog();
+        if (name === 'power-plans' && state.subviews['power-plans'] === 'advanced') {
+            activateLegacyPowerPanel('advanced');
+        }
+        if (name === 'system-tools' && state.subviews['system-tools'] === 'memory') {
+            activateLegacyPowerPanel('ram');
+        }
         document.dispatchEvent(new CustomEvent('voltuiviewchanged', { detail: { view: name } }));
     };
 
     api.activateSubview = function (group, name) {
+        const previous = state.subviews[group];
         state.subviews[group] = name;
         document.querySelectorAll(`[data-vm-subnav-group="${group}"]`).forEach(button => {
             const active = button.dataset.vmSubnavTarget === name;
@@ -184,6 +268,15 @@
         });
         if (group === 'settings' && name === 'updates') loadChangelog();
         if (group === 'system-tools' && name === 'startup') dispatchView('system');
+
+        if (group === 'power-plans' && name === 'advanced') {
+            activateLegacyPowerPanel('advanced');
+        }
+        if (group === 'system-tools') {
+            if (name === 'memory') activateLegacyPowerPanel('ram');
+            else if (previous === 'memory') activateLegacyPowerPanel('rules');
+        }
+
         document.dispatchEvent(new CustomEvent('voltuisubviewchanged', {
             detail: { group, view: name }
         }));
@@ -329,6 +422,7 @@
         wireInteractions();
         suppressLegacySystemItem();
         applyLanguage();
+        installBatteryCapabilityDetection();
 
         document.addEventListener('langchanged', applyLanguage);
         window.addEventListener('resize', () => {
