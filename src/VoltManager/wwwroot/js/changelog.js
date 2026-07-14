@@ -116,7 +116,6 @@
                 : '<p class="text-body-md text-on-surface-variant opacity-70">' + esc(I18n.t('changelog_empty')) + '</p>';
             return;
         }
-        // offline | ratelimited | error
         const msg = errorMessage(data);
         setStatus(msg, true);
         listEl.innerHTML = '<p class="text-body-md text-on-surface-variant opacity-70">' + esc(msg) + '</p>';
@@ -160,4 +159,55 @@
     document.addEventListener('langchanged', () => {
         if (loaded && lastData) render(lastData);
     });
+})();
+
+/**
+ * Load the navigation reorganization after all existing feature modules have
+ * mounted. This preserves their current IDs, listeners and Host bridge calls.
+ */
+(function () {
+    'use strict';
+
+    function addStyle() {
+        if (document.getElementById('vm-ui-reorganization-style')) return;
+        const link = document.createElement('link');
+        link.id = 'vm-ui-reorganization-style';
+        link.rel = 'stylesheet';
+        link.href = 'css/ui-reorganization.css?v=nav-reorg1';
+        document.head.appendChild(link);
+    }
+
+    function loadScript(src) {
+        return new Promise((resolve, reject) => {
+            if (document.querySelector('script[data-vm-reorg-src="' + src + '"]')) {
+                resolve();
+                return;
+            }
+            const script = document.createElement('script');
+            script.src = src;
+            script.async = false;
+            script.dataset.vmReorgSrc = src;
+            script.onload = resolve;
+            script.onerror = () => reject(new Error('Unable to load ' + src));
+            document.body.appendChild(script);
+        });
+    }
+
+    async function loadReorganization() {
+        if (window.__voltUiReorganizationLoading) return;
+        window.__voltUiReorganizationLoading = true;
+        addStyle();
+        try {
+            await loadScript('js/ui-reorganization.i18n.js?v=nav-reorg1');
+            await loadScript('js/ui-reorganization.layout.js?v=nav-reorg1');
+            await loadScript('js/ui-reorganization.js?v=nav-reorg1');
+            await loadScript('js/ui-reorganization.status.js?v=nav-reorg1');
+        } catch (error) {
+            window.__voltUiReorganizationLoading = false;
+            console.error('VoltManager UI reorganization failed to load', error);
+        }
+    }
+
+    if (document.readyState === 'complete') loadReorganization();
+    else window.addEventListener('load', loadReorganization, { once: true });
 })();
