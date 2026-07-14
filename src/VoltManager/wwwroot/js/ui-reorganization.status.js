@@ -183,3 +183,86 @@
     if (api.ready) observe();
     else document.addEventListener('voltuiready', observe, { once: true });
 })();
+
+/**
+ * Compatibility bridge for modules that navigate using the former route names,
+ * especially the guided tour and the update/changelog shortcuts.
+ */
+(function () {
+    'use strict';
+
+    const api = window.VoltUiReorg = window.VoltUiReorg || {};
+    const routeAliases = {
+        home: { view: 'power-plans', subview: ['power-plans', 'active'] },
+        power: { view: 'automations', subview: ['automations', 'rules'] },
+        system: { view: 'system-tools', subview: ['system-tools', 'scheduled'] },
+        changelog: { view: 'settings', subview: ['settings', 'updates'] }
+    };
+
+    function addLegacyLinks() {
+        const nav = document.getElementById('nav-list');
+        if (!nav) return;
+        Object.keys(routeAliases).forEach(name => {
+            if (nav.querySelector(`a[data-view="${name}"]`)) return;
+            const item = document.createElement('li');
+            item.className = 'hidden';
+            item.setAttribute('aria-hidden', 'true');
+            item.innerHTML = `<a data-view="${name}" href="#${name}" tabindex="-1"></a>`;
+            nav.appendChild(item);
+        });
+    }
+
+    function exposeTourSubnav() {
+        const old = document.getElementById('pm-subnav');
+        if (old && !old.closest('.vm-reorg-view')) old.id = 'pm-subnav-legacy';
+        const current = document.querySelector('[data-vm-subnav="automations"]');
+        if (current) current.id = 'pm-subnav';
+    }
+
+    function adaptTourStep() {
+        const root = document.getElementById('vm-tour-root');
+        if (!root || root.hidden) return;
+        const counter = root.querySelector('.vm-tour-counter')?.textContent || '';
+        const step = Number.parseInt(counter, 10);
+        const targets = {
+            3: ['power-plans', 'power-plans', 'active'],
+            4: ['monitoring', 'monitoring', 'hardware'],
+            6: ['automations', 'automations', 'rules'],
+            7: ['widgets'],
+            8: ['settings', 'settings', 'general']
+        };
+        const target = targets[step];
+        if (!target) return;
+        api.activateView(target[0], false);
+        if (target[1]) api.activateSubview(target[1], target[2]);
+    }
+
+    function observeTour() {
+        const observer = new MutationObserver(adaptTourStep);
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true,
+            characterData: true,
+            attributes: true,
+            attributeFilter: ['hidden']
+        });
+    }
+
+    function install() {
+        if (api.__legacyRoutesInstalled || !api.activateView) return;
+        api.__legacyRoutesInstalled = true;
+        const activateView = api.activateView.bind(api);
+        api.activateView = function (name, updateHash) {
+            const alias = routeAliases[name];
+            const target = alias ? alias.view : name;
+            activateView(target, updateHash);
+            if (alias?.subview) api.activateSubview(alias.subview[0], alias.subview[1]);
+        };
+        addLegacyLinks();
+        exposeTourSubnav();
+        observeTour();
+    }
+
+    if (api.ready) install();
+    else document.addEventListener('voltuiready', install, { once: true });
+})();
