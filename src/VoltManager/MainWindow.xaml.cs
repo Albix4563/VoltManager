@@ -574,6 +574,7 @@ public partial class MainWindow : Window
         var loc = _app.Loc;
         TrayIcon.ToolTipText = "VoltManager – " + PlanDisplayName(_app.ActivePlan);
         TrayOpenItem.Header = loc.T("Tray_Open");
+        TrayPowerPlanCategoryItem.Header = loc.T("Tray_PowerPlanCategory");
         TrayGamingPlanItem.Header = loc.T("Tray_GamingPlan");
         TrayChangePlanItem.Header = loc.T("Tray_ChangePlan");
         TrayPlanSaverItem.Header = loc.T("Tray_PlanSaver");
@@ -591,32 +592,30 @@ public partial class MainWindow : Window
         TrayPerf10h.Header = loc.T("Tray_Duration10h");
         TrayPerf12h.Header = loc.T("Tray_Duration12h");
         TrayPerfForever.Header = loc.T("Tray_DurationForever");
-        TrayKeepAwakeItem.Header = loc.T("Tray_KeepAwake");
-        TrayClearOverrideItem.Header = loc.T("Tray_ClearOverride");
         TrayAutomationItem.Header = loc.T("Tray_Automation");
+        TrayClearOverrideItem.Header = loc.T("Tray_ClearOverride");
+        TrayPcControlsCategoryItem.Header = loc.T("Tray_PcControlsCategory");
+        TrayKeepAwakeItem.Header = loc.T("Tray_KeepAwake");
         TraySchedulePowerItem.Header = loc.T("Tray_Schedule");
+        TraySchedule30mItem.Header = loc.T("Tray_30min");
+        TraySchedule45mItem.Header = loc.T("Tray_45min");
+        TraySchedule1hItem.Header = loc.T("Tray_1hour");
+        TraySchedule2hItem.Header = loc.T("Tray_2hours");
+        TraySchedule4hItem.Header = loc.T("Tray_4hours");
+        TraySchedule30mShutdownItem.Header = loc.T("Tray_ScheduleShutdown");
+        TraySchedule45mShutdownItem.Header = loc.T("Tray_ScheduleShutdown");
+        TraySchedule1hShutdownItem.Header = loc.T("Tray_ScheduleShutdown");
+        TraySchedule2hShutdownItem.Header = loc.T("Tray_ScheduleShutdown");
+        TraySchedule4hShutdownItem.Header = loc.T("Tray_ScheduleShutdown");
+        TraySchedule30mSleepItem.Header = loc.T("Tray_ScheduleSleep");
+        TraySchedule45mSleepItem.Header = loc.T("Tray_ScheduleSleep");
+        TraySchedule1hSleepItem.Header = loc.T("Tray_ScheduleSleep");
+        TraySchedule2hSleepItem.Header = loc.T("Tray_ScheduleSleep");
+        TraySchedule4hSleepItem.Header = loc.T("Tray_ScheduleSleep");
         TrayScheduleCustomItem.Header = loc.T("Tray_ScheduleCustom");
-        TrayScheduledStateItem.Header = loc.T("Tray_NoScheduledAction");
         TrayCancelScheduledItem.Header = loc.T("Tray_CancelScheduled");
-        // Localize preset duration sub-menu headers inside TraySchedulePowerItem.
-        var presetDurations = new[] { ("30 minuti", "Tray_30min"), ("45 minuti", "Tray_45min"), ("1 ora", "Tray_1hour"), ("2 ore", "Tray_2hours"), ("4 ore", "Tray_4hours") };
-        foreach (System.Windows.Controls.MenuItem item in TraySchedulePowerItem.Items)
-        {
-            if (item is System.Windows.Controls.MenuItem menuItem)
-            {
-                foreach (var (def, key) in presetDurations)
-                {
-                    if ((string)menuItem.Header == def) { menuItem.Header = loc.T(key); break; }
-                }
-                // Localize sub-items (Spegni/Sospendi)
-                foreach (System.Windows.Controls.MenuItem sub in menuItem.Items)
-                {
-                    if ((string)sub.Header == "Spegni") sub.Header = loc.T("Tray_ScheduleShutdown");
-                    else if ((string)sub.Header == "Sospendi") sub.Header = loc.T("Tray_ScheduleSleep");
-                }
-            }
-        }
         TrayExitItem.Header = loc.T("Tray_Exit");
+        RefreshScheduledPowerTrayState(_app.ScheduledPowerActions.GetState());
     }
 
     private void TrayIcon_LeftClick(object sender, RoutedEventArgs e) => ShowFromTray();

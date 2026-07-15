@@ -5,6 +5,8 @@
   <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
   <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
   <data name="Tray_Open" xml:space="preserve"><value>Apri VoltManager</value></data>
+  <data name="Tray_PowerPlanCategory" xml:space="preserve"><value>Piano energetico</value></data>
+  <data name="Tray_PcControlsCategory" xml:space="preserve"><value>Controlli PC</value></data>
   <data name="Tray_ActivePlan" xml:space="preserve"><value>Piano attivo: {0}</value></data>
   <data name="Tray_GamingPlan" xml:space="preserve"><value>Piano gaming</value></data>
   <data name="Tray_ChangePlan" xml:space="preserve"><value>Cambia piano</value></data>
