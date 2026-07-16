@@ -352,9 +352,9 @@ public class AppSettings
 
     public static List<AutomationRule> DefaultRules() => new()
     {
-        new AutomationRule { Id = "saver",       Comparison = "lt", ThresholdPct = 10, DurationMinutes = 1, TargetPlan = PlanId.PowerSaver },
-        new AutomationRule { Id = "balanced",    Comparison = "gt", ThresholdPct = 10, DurationMinutes = 1, TargetPlan = PlanId.Balanced },
-        new AutomationRule { Id = "performance", Comparison = "gt", ThresholdPct = 50, DurationMinutes = 1, TargetPlan = PlanId.Performance },
+        new AutomationRule { Id = "saver",       Comparison = "lt", ThresholdPct = 20, DurationMinutes = 2, TargetPlan = PlanId.PowerSaver },
+        new AutomationRule { Id = "balanced",    Comparison = "gt", ThresholdPct = 30, DurationMinutes = 2, TargetPlan = PlanId.Balanced },
+        new AutomationRule { Id = "performance", Comparison = "gt", ThresholdPct = 70, DurationMinutes = 2, TargetPlan = PlanId.Performance },
     };
 }
 

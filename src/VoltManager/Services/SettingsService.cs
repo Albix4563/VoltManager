@@ -40,6 +40,9 @@ public class SettingsService
                 {
                     if (loaded.Rules == null || loaded.Rules.Count == 0)
                         loaded.Rules = AppSettings.DefaultRules();
+                    else if (IsOldDefaultRules(loaded.Rules))
+                        loaded.Rules = AppSettings.DefaultRules();
+
                     if (loaded.AutoShutdown == null)
                         loaded.AutoShutdown = new AutoShutdownSettings();
                     if (loaded.AutoUpdates == null)
@@ -291,6 +294,33 @@ public class SettingsService
         // already written at this point.
         try { SettingsChanged?.Invoke(Current); }
         catch (Exception ex) { Logger.Error("SettingsChanged subscriber failed", ex); }
+    }
+
+    private static bool IsOldDefaultRules(List<AutomationRule>? rules)
+    {
+        if (rules == null || rules.Count != 3) return false;
+
+        AutomationRule? saver = null;
+        AutomationRule? balanced = null;
+        AutomationRule? performance = null;
+
+        foreach (var r in rules)
+        {
+            if (r.Id == "saver") saver = r;
+            else if (r.Id == "balanced") balanced = r;
+            else if (r.Id == "performance") performance = r;
+        }
+
+        if (saver == null || !saver.Enabled || saver.Comparison != "lt" || saver.ThresholdPct != 10 || saver.DurationMinutes != 1 || saver.TargetPlan != PlanId.PowerSaver)
+            return false;
+
+        if (balanced == null || !balanced.Enabled || balanced.Comparison != "gt" || balanced.ThresholdPct != 10 || balanced.DurationMinutes != 1 || balanced.TargetPlan != PlanId.Balanced)
+            return false;
+
+        if (performance == null || !performance.Enabled || performance.Comparison != "gt" || performance.ThresholdPct != 50 || performance.DurationMinutes != 1 || performance.TargetPlan != PlanId.Performance)
+            return false;
+
+        return true;
     }
 
     public void Update(AppSettings settings)

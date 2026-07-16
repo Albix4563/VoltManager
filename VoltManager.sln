@@ -11,6 +11,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VoltManager.Setup", "src\Vo
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VoltManager.PlanSwitch", "src\VoltManager.PlanSwitch\VoltManager.PlanSwitch.csproj", "{3F8E2B61-9C47-4D05-B2A8-71E64C90D513}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{5B4B746B-0A2C-437B-B399-49B0D4447AEC}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VoltManager.Tests", "tests\VoltManager.Tests\VoltManager.Tests.csproj", "{84D69019-59D5-408E-84E4-FC2BD75DFF0C}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -32,10 +36,15 @@ Global
 		{3F8E2B61-9C47-4D05-B2A8-71E64C90D513}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{3F8E2B61-9C47-4D05-B2A8-71E64C90D513}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{3F8E2B61-9C47-4D05-B2A8-71E64C90D513}.Release|Any CPU.Build.0 = Release|Any CPU
+		{84D69019-59D5-408E-84E4-FC2BD75DFF0C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{84D69019-59D5-408E-84E4-FC2BD75DFF0C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{84D69019-59D5-408E-84E4-FC2BD75DFF0C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{84D69019-59D5-408E-84E4-FC2BD75DFF0C}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{6E4D5FED-CDAF-4302-9AB4-674FE0145851} = {EE329F03-7D3E-4327-9F76-52B6393DBB6E}
 		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890} = {EE329F03-7D3E-4327-9F76-52B6393DBB6E}
 		{3F8E2B61-9C47-4D05-B2A8-71E64C90D513} = {EE329F03-7D3E-4327-9F76-52B6393DBB6E}
+		{84D69019-59D5-408E-84E4-FC2BD75DFF0C} = {5B4B746B-0A2C-437B-B399-49B0D4447AEC}
 	EndGlobalSection
 EndGlobal
