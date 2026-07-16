@@ -210,7 +210,7 @@ public sealed class WidgetManager : IDisposable
         ("power", "mini") => new Size(220, 118),
         ("power", "medium") => new Size(300, 230),
         ("power", "large") => new Size(390, 300),
-        ("plans", "mini") => new Size(280, 108),
+        ("plans", "mini") => new Size(280, 96),
         ("plans", "medium") => new Size(340, 150),
         ("plans", "large") => new Size(420, 190),
         (_, "mini") => new Size(180, 96),

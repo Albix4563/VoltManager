@@ -240,6 +240,15 @@ public class HostBridge
             case "getActivePlan":
                 return await Task.Run(() => _power.GetActivePlan());
 
+            case "getKeepAwakeState":
+                return _app.Awake.GetState();
+
+            case "setKeepAwake":
+            {
+                bool enabled = payload.GetProperty("enabled").GetBoolean();
+                return _app.SetKeepAwake(enabled);
+            }
+
             case "getCpuAutomationState":
                 return _app.CpuAutomationState;
 

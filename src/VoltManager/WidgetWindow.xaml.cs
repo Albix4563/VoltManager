@@ -101,6 +101,7 @@ public partial class WidgetWindow : Window
             _app.Monitor.MetricsUpdated += OnMetricsUpdated;
             _app.ActivePlanChanged += OnActivePlanChanged;
             _app.CpuAutomationStateChanged += OnCpuAutomationStateChanged;
+            _app.Awake.StateChanged += OnKeepAwakeStateChanged;
 
             core.NavigationCompleted += (_, args) =>
             {
@@ -108,6 +109,7 @@ public partial class WidgetWindow : Window
                 _bridge?.PushEvent("metrics", _app.Monitor.Latest);
                 OnActivePlanChanged(_app.ActivePlan);
                 OnCpuAutomationStateChanged(_app.CpuAutomationState);
+                _bridge?.PushEvent("keepAwakeChanged", _app.Awake.GetState());
                 _manager.PushTheme();
                 _manager.PushLanguage();
             };
@@ -169,6 +171,9 @@ public partial class WidgetWindow : Window
 
     private void OnActivePlanChanged(PowerPlan? plan)
         => _bridge?.PushEvent("activePlanChanged", new { plan = plan?.PlanId, guid = plan?.Guid, name = plan?.Name });
+
+    private void OnKeepAwakeStateChanged(KeepAwakeState state)
+        => _bridge?.PushEvent("keepAwakeChanged", state);
 
     private void SetTopmostFromWidget(bool topmost)
     {
@@ -233,6 +238,7 @@ public partial class WidgetWindow : Window
         _app.Monitor.MetricsUpdated -= OnMetricsUpdated;
         _app.ActivePlanChanged -= OnActivePlanChanged;
         _app.CpuAutomationStateChanged -= OnCpuAutomationStateChanged;
+        _app.Awake.StateChanged -= OnKeepAwakeStateChanged;
         base.OnClosed(e);
     }
 

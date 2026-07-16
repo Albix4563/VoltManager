@@ -8,6 +8,8 @@
     const root = document.getElementById('widget-root');
     let pinned = false;
     let switchingPlan = false;
+    let keepAwake = false;
+    let settingKeepAwake = false;
     let locale = (window.I18n && I18n.getLocale ? I18n.getLocale() : 'it-IT');
     document.documentElement.dataset.size = size;
 
@@ -28,11 +30,15 @@
 
     function shell(bodyHtml) {
         const meta = labels[type] || labels.clock;
+        const keepAwakeBtn = type === 'plans'
+            ? '    <button class="widget-action" id="widget-keep-awake" type="button" title="' + t('power_group_keepawake', 'Keep PC awake') + '" aria-label="' + t('power_group_keepawake', 'Keep PC awake') + '" aria-pressed="false"><span class="material-symbols-outlined">bedtime_off</span></button>'
+            : '';
         root.innerHTML =
             '<article class="desktop-widget" data-size="' + size + '">' +
             '  <header class="widget-header" id="widget-drag">' +
             '    <div class="widget-title"><span class="material-symbols-outlined">' + meta[0] + '</span><span data-i18n="' + meta[1] + '">' + t(meta[1], type) + '</span></div>' +
             '    <button class="widget-action" id="widget-pin" type="button" title="' + t('widget_pin', 'Pin') + '" aria-label="' + t('widget_pin', 'Pin') + '"><span class="material-symbols-outlined">push_pin</span></button>' +
+            keepAwakeBtn +
             '    <button class="widget-action" id="widget-close" type="button" title="' + t('widget_close', 'Close') + '" aria-label="' + t('widget_close', 'Close') + '"><span class="material-symbols-outlined">close</span></button>' +
             '  </header>' +
             '  <section class="widget-body">' + bodyHtml + '</section>' +
@@ -54,6 +60,31 @@
                 reflectPin();
             });
         });
+        const kwBtn = document.getElementById('widget-keep-awake');
+        if (kwBtn) {
+            kwBtn.addEventListener('click', () => {
+                if (settingKeepAwake) return;
+                settingKeepAwake = true;
+                const targetState = !keepAwake;
+                keepAwake = targetState;
+                reflectKeepAwake();
+                Host.call('setKeepAwake', { enabled: targetState }).then((state) => {
+                    keepAwake = !!(state && state.enabled);
+                    reflectKeepAwake();
+                }).catch(() => {
+                    keepAwake = !targetState;
+                    reflectKeepAwake();
+                }).finally(() => {
+                    settingKeepAwake = false;
+                });
+            });
+            if (Host.available) {
+                Host.call('getKeepAwakeState').then((state) => {
+                    keepAwake = !!(state && state.enabled);
+                    reflectKeepAwake();
+                }).catch(() => {});
+            }
+        }
         document.getElementById('widget-close')?.addEventListener('click', () => {
             Host.call('closeWidget').catch(() => {});
         });
@@ -64,6 +95,13 @@
         if (!btn) return;
         btn.dataset.on = pinned ? 'true' : 'false';
         btn.setAttribute('aria-pressed', pinned ? 'true' : 'false');
+    }
+
+    function reflectKeepAwake() {
+        const btn = document.getElementById('widget-keep-awake');
+        if (!btn) return;
+        btn.dataset.on = keepAwake ? 'true' : 'false';
+        btn.setAttribute('aria-pressed', keepAwake ? 'true' : 'false');
     }
 
     function pct(value) {
@@ -277,7 +315,7 @@
             options.map(function (opt) {
                 const label = short ? opt.short : t(opt.key, opt.id);
                 const i18nAttr = short ? '' : ' data-i18n="' + opt.key + '"';
-                return '<button class="plan-option" type="button" role="radio" aria-checked="false" data-plan="' + opt.id + '">' +
+                return '<button class="plan-option" type="button" role="radio" aria-checked="false" tabindex="-1" data-plan="' + opt.id + '">' +
                     '<span class="material-symbols-outlined">' + opt.icon + '</span>' +
                     '<span class="plan-option-label"' + i18nAttr + '>' + label + '</span>' +
                     '</button>';
@@ -289,6 +327,31 @@
                 selectPlan(btn.dataset.plan);
             });
         });
+
+        const selector = document.querySelector('.plan-selector');
+        if (selector) {
+            selector.addEventListener('keydown', function (e) {
+                const btns = Array.from(document.querySelectorAll('.plan-option'));
+                const activeIndex = btns.findIndex(btn => btn.getAttribute('aria-checked') === 'true');
+                if (activeIndex < 0) return;
+
+                let nextIndex = activeIndex;
+                if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+                    nextIndex = (activeIndex + 1) % btns.length;
+                    e.preventDefault();
+                } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+                    nextIndex = (activeIndex - 1 + btns.length) % btns.length;
+                    e.preventDefault();
+                }
+
+                if (nextIndex !== activeIndex) {
+                    const targetBtn = btns[nextIndex];
+                    selectPlan(targetBtn.dataset.plan);
+                    targetBtn.focus();
+                }
+            });
+        }
+
         pollPlanSelector();
         Host.on('activePlanChanged', function (data) {
             reflectPlanSelector(data && data.plan);
@@ -305,11 +368,16 @@
     function reflectPlanSelector(plan) {
         const index = PLAN_ORDER.indexOf(plan);
         const pill = document.getElementById('plan-pill');
-        document.querySelectorAll('.plan-option').forEach(function (btn, i) {
+        const btns = document.querySelectorAll('.plan-option');
+        btns.forEach(function (btn, i) {
             const on = i === index;
             btn.classList.toggle('is-active', on);
             btn.setAttribute('aria-checked', on ? 'true' : 'false');
+            btn.setAttribute('tabindex', on ? '0' : '-1');
         });
+        if (index < 0 && btns.length > 0) {
+            btns[0].setAttribute('tabindex', '0');
+        }
         if (!pill) return;
         if (index < 0) {
             pill.style.opacity = '0';
@@ -355,6 +423,10 @@
     Host.on('widgetTopmostChanged', (data) => {
         pinned = !!(data && data.topmost);
         reflectPin();
+    });
+    Host.on('keepAwakeChanged', (state) => {
+        keepAwake = !!(state && state.enabled);
+        reflectKeepAwake();
     });
     Host.on('languageChanged', (data) => {
         if (!data || !data.language) return;

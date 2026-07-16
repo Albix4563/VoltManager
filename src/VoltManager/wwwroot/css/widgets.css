@@ -110,6 +110,30 @@ html[data-theme=light] .widget-title {
   transform: scale(.96);
 }
 
+.widget-action:focus-visible,
+.plan-option:focus-visible {
+  outline: 2px solid var(--vm-accent, #00f1fe);
+  outline-offset: 1px;
+}
+
+html[data-theme=light] .widget-action {
+  color: rgba(15,34,52,.74);
+  border-color: rgba(15,34,52,.12);
+  background: rgba(15,34,52,.045);
+}
+
+html[data-theme=light] .widget-action:hover,
+html[data-theme=light] .widget-action[data-on=true] {
+  color: #007f8b;
+  border-color: rgba(0,127,139,.32);
+  background: rgba(0,127,139,.10);
+}
+
+html[data-theme=light] .widget-action:focus-visible,
+html[data-theme=light] .plan-option:focus-visible {
+  outline-color: #007f8b;
+}
+
 .widget-action .material-symbols-outlined {
   font-size: 18px;
 }
@@ -458,8 +482,9 @@ html[data-theme=light] .plan-pill {
 }
 
 html[data-size=mini] .plan-option {
-  padding: 8px 4px;
-  gap: 2px;
+  flex-direction: row;
+  padding: 6px 4px;
+  gap: 4px;
 }
 
 html[data-size=large] .plan-option {
@@ -518,4 +543,14 @@ html[data-size=mini] .plan-option-label {
 
 html[data-size=large] .plan-option-label {
   font-size: 12px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .widget-action,
+  .plan-pill,
+  .plan-option,
+  .plan-option:active {
+    transition: none !important;
+    transform: none !important;
+  }
 }
