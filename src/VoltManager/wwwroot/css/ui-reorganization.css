@@ -448,6 +448,13 @@
     width: 100%;
 }
 
+#vm-system-scheduled #schedule-panel > h3,
+#vm-system-scheduled #schedule-panel > p.system-schedule-sub,
+#vm-system-startup .system-startup-title,
+#vm-system-startup .system-startup-sub {
+    display: none;
+}
+
 .vm-widget-filters {
     display: inline-flex;
     align-self: flex-start;
