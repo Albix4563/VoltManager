@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{2150E333-7D3E-4327-9F76-52B6393DBB6E}") = "src", "src", "{EE329F03-7D3E-4327-9F76-52B6393DBB6E}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{EE329F03-7D3E-4327-9F76-52B6393DBB6E}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VoltManager", "src\VoltManager\VoltManager.csproj", "{6E4D5FED-CDAF-4302-9AB4-674FE0145851}"
 EndProject
@@ -13,7 +13,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VoltManager.PlanSwitch", "s
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VoltManager.Supervisor", "src\VoltManager.Supervisor\VoltManager.Supervisor.csproj", "{D4CBE8B3-5D0F-4B77-8C88-3D82F409AB72}"
 EndProject
-Project("{2150E333-7D3E-4327-9F76-52B6393DBB6E}") = "tests", "tests", "{5B4B746B-0A2C-437B-B399-49B0D4447AEC}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{5B4B746B-0A2C-437B-B399-49B0D4447AEC}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VoltManager.Tests", "tests\VoltManager.Tests\VoltManager.Tests.csproj", "{84D69019-59D5-408E-84E4-FC2BD75DFF0C}"
 EndProject
