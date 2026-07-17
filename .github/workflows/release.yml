@@ -16,16 +16,28 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Compute version
         id: ver
         shell: pwsh
         run: |
-          $version = "1.0.${{ github.run_number }}"
+          $build = [int]'${{ github.run_number }}'
           $isDev = ('${{ github.ref_name }}' -eq 'Dev')
           $isPreview = ('${{ github.ref_name }}' -eq 'Preview')
           $isPrerelease = $isDev -or $isPreview
-          
+          $suffix = if ($isDev) { '-alpha' } elseif ($isPreview) { '-beta' } else { '' }
+
+          # I numeri delle run possono ricomparire dopo la ricreazione della workflow.
+          # Avanza al primo tag libero, evitando di sovrascrivere una release esistente.
+          while ($true) {
+            git show-ref --tags --verify --quiet "refs/tags/v1.0.$build$suffix"
+            if ($LASTEXITCODE -ne 0) { break }
+            $build++
+          }
+          $version = "1.0.$build"
+
           if ($isDev) {
             $tag = "v$version-alpha"
             $name = "VoltManager v$version-alpha (Dev)"
