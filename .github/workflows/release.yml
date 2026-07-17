@@ -31,9 +31,7 @@ jobs:
 
           # I numeri delle run possono ricomparire dopo la ricreazione della workflow.
           # Avanza al primo tag libero, evitando di sovrascrivere una release esistente.
-          while ($true) {
-            git show-ref --tags --verify --quiet "refs/tags/v1.0.$build$suffix"
-            if ($LASTEXITCODE -ne 0) { break }
+          while ((git tag --list "v1.0.$build$suffix").Count -gt 0) {
             $build++
           }
           $version = "1.0.$build"
