@@ -8,6 +8,7 @@ namespace VoltManager;
 
 public partial class App
 {
+    private static readonly TimeSpan FatalShutdownTimeout = TimeSpan.FromSeconds(8);
     private int _fatalShutdownStarted;
     private int _crashDiagnosticCaptured;
     private System.Threading.Timer? _fatalExitTimer;
@@ -24,7 +25,6 @@ public partial class App
         Startup += AttachReliabilityHandlers;
         Exit += OnReliabilityExit;
         AppDomain.CurrentDomain.UnhandledException += OnReliabilityDomainUnhandledException;
-        TaskScheduler.UnobservedTaskException += OnReliabilityUnobservedTaskException;
     }
 
     private void AttachReliabilityHandlers(object sender, StartupEventArgs e)
@@ -49,13 +49,6 @@ public partial class App
             AppExitCodes.UnhandledUiException);
     }
 
-    private void OnReliabilityUnobservedTaskException(object? sender, UnobservedTaskExceptionEventArgs e)
-    {
-        // This is diagnostic only: an unobserved task is not necessarily process-fatal.
-        // The existing handler records the full exception and marks it observed.
-        CrashDiagnostics.Capture("unobserved_task_exception", e.Exception, AppExitCodes.Success);
-    }
-
     private void OnReliabilityExit(object sender, ExitEventArgs e)
     {
         if (e.ApplicationExitCode != AppExitCodes.Success)
@@ -77,6 +70,19 @@ public partial class App
         if (Interlocked.Exchange(ref _fatalShutdownStarted, 1) != 0)
             return;
 
+        // Arm the hard deadline before any cleanup. This also bounds WPF-affine
+        // teardown that cannot safely be moved to a worker thread.
+        _fatalExitTimer = new System.Threading.Timer(
+            _ => Environment.Exit(exitCode),
+            null,
+            FatalShutdownTimeout,
+            Timeout.InfiniteTimeSpan);
+
+        // Widget windows and the application mutex are dispatcher/thread-affine.
+        // Run them on the owning UI thread; the timer above remains the hard limit.
+        TryInlineCleanup("widgets", () => Widgets?.Dispose());
+        TryInlineCleanup("mutex", ReleaseApplicationMutex);
+
         var steps = new[]
         {
             new CleanupStep("scheduled power action service", () => ScheduledPowerActions?.Dispose()),
@@ -93,16 +99,14 @@ public partial class App
             new CleanupStep("keep awake", () => Awake?.Dispose()),
             new CleanupStep("standby cleaner", () => StandbyAutoCleaner?.Dispose()),
             new CleanupStep("theme", () => Theme?.Dispose()),
-            new CleanupStep("widgets", () => Widgets?.Dispose()),
             new CleanupStep("remote commands", () => _remoteCommands?.Dispose()),
             new CleanupStep("show wait", () => _showWait?.Unregister(null)),
             new CleanupStep("show event", () => _showEvent?.Dispose()),
-            new CleanupStep("mutex", ReleaseApplicationMutex),
         };
 
         IReadOnlyList<CleanupStepResult> results = BoundedCleanup.Run(
             steps,
-            totalTimeout: TimeSpan.FromSeconds(8),
+            totalTimeout: TimeSpan.FromSeconds(6),
             maximumPerStep: TimeSpan.FromSeconds(1));
 
         foreach (CleanupStepResult result in results.Where(result => result.Outcome != CleanupOutcome.Completed))
@@ -110,15 +114,13 @@ public partial class App
             Logger.Warn($"Fatal cleanup {result.Outcome}: {result.Name} ({result.ExceptionType ?? "no exception"})");
         }
 
-        // If a foreground thread or native component prevents WPF shutdown, force the
-        // documented exit code after the graceful window instead of hanging forever.
-        _fatalExitTimer = new System.Threading.Timer(
-            _ => Environment.Exit(exitCode),
-            null,
-            TimeSpan.FromSeconds(5),
-            Timeout.InfiniteTimeSpan);
-
         Shutdown(exitCode);
+    }
+
+    private static void TryInlineCleanup(string name, Action action)
+    {
+        try { action(); }
+        catch (Exception ex) { Logger.Warn($"Fatal cleanup failed: {name} ({ex.GetType().FullName})"); }
     }
 
     private void ReleaseApplicationMutex()
