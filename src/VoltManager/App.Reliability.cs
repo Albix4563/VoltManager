@@ -19,17 +19,11 @@ public partial class App
         if (SupervisorBootstrap.TryDelegate(arguments))
             Environment.Exit(AppExitCodes.Success);
 
-        // App.OnStartup installs the legacy handlers before calling base.OnStartup.
-        // Startup is raised by that base call, so this handler is appended last and
-        // turns an otherwise swallowed Dispatcher exception into a bounded fatal exit.
-        Startup += AttachReliabilityHandlers;
+        // Register before App.OnStartup installs the legacy handlers. The hard-exit
+        // deadline is therefore armed before any legacy modal error dialog can block.
+        DispatcherUnhandledException += OnReliabilityDispatcherUnhandledException;
         Exit += OnReliabilityExit;
         AppDomain.CurrentDomain.UnhandledException += OnReliabilityDomainUnhandledException;
-    }
-
-    private void AttachReliabilityHandlers(object sender, StartupEventArgs e)
-    {
-        DispatcherUnhandledException += OnReliabilityDispatcherUnhandledException;
     }
 
     private void OnReliabilityDispatcherUnhandledException(
