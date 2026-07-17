@@ -206,13 +206,9 @@ La suite reliability usa tempo e processi simulati in modo deterministico per ve
 # Sintassi di tutti i moduli JavaScript
 Get-ChildItem src\VoltManager\wwwroot\js\*.js |
     ForEach-Object { node --check $_.FullName }
-
-# Invarianti delle ottimizzazioni risorse
-node scripts\check-resource-optimizations.mjs
-
-# Benchmark WMI rispetto a GlobalMemoryStatusEx
-powershell -File scripts\benchmark-monitor.ps1
 ```
+
+Non è configurato un linter C# separato: `dotnet build` esegue compilazione e type checking. I vecchi riferimenti a script di benchmark e self-check sono stati rimossi perché tali file non sono presenti nella repository.
 
 ### Distribuzione
 
