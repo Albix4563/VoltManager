@@ -112,31 +112,43 @@ public sealed class FileSupervisorStateStore : ISupervisorStateStore
 
     public void Save(SupervisorState state)
     {
-        string? directory = Path.GetDirectoryName(_path);
-        if (!string.IsNullOrWhiteSpace(directory))
-            Directory.CreateDirectory(directory);
-
         string temporary = _path + ".tmp." + Environment.ProcessId;
-        string backup = _path + ".bak";
-        string json = JsonSerializer.Serialize(state, _jsonOptions);
-
-        File.WriteAllText(temporary, json);
-        if (File.Exists(_path))
+        try
         {
-            try
+            string? directory = Path.GetDirectoryName(_path);
+            if (!string.IsNullOrWhiteSpace(directory))
+                Directory.CreateDirectory(directory);
+
+            string backup = _path + ".bak";
+            string json = JsonSerializer.Serialize(state, _jsonOptions);
+
+            File.WriteAllText(temporary, json);
+            if (File.Exists(_path))
             {
-                File.Replace(temporary, _path, backup, ignoreMetadataErrors: true);
-                TryDelete(backup);
+                try
+                {
+                    File.Replace(temporary, _path, backup, ignoreMetadataErrors: true);
+                    TryDelete(backup);
+                }
+                catch
+                {
+                    File.Copy(temporary, _path, overwrite: true);
+                }
             }
-            catch
+            else
             {
-                File.Copy(temporary, _path, overwrite: true);
-                TryDelete(temporary);
+                File.Move(temporary, _path);
             }
         }
-        else
+        catch (Exception ex)
         {
-            File.Move(temporary, _path);
+            // Keep the in-memory restart budget active. Disk failures must not turn
+            // a child crash into a supervisor crash or an uncontrolled immediate loop.
+            _events.Write("state_save_failed", new { exceptionType = ex.GetType().FullName });
+        }
+        finally
+        {
+            TryDelete(temporary);
         }
     }
 
