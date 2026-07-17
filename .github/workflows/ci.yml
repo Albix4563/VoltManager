@@ -23,7 +23,7 @@ jobs:
       - name: Restore
         run: dotnet restore VoltManager.sln
 
-      - name: Build
+      - name: Build and type check
         shell: pwsh
         run: |
           & dotnet build VoltManager.sln -c Release --no-restore -v:minimal 2>&1 |
@@ -33,6 +33,17 @@ jobs:
 
       - name: Test reliability scenarios
         run: dotnet test tests/VoltManager.Tests/VoltManager.Tests.csproj -c Release --no-build --logger "trx;LogFileName=reliability.trx"
+
+      - name: Check JavaScript syntax
+        shell: pwsh
+        run: |
+          foreach ($file in Get-ChildItem src/VoltManager/wwwroot/js/*.js) {
+            node --check $file.FullName
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+
+      - name: Check resource optimization invariants
+        run: node scripts/check-resource-optimizations.mjs
 
       - name: Package portable smoke test
         shell: pwsh
