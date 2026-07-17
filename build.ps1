@@ -1,5 +1,5 @@
 # VoltManager build script (Windows PowerShell 5.1 compatible)
-# Steps: test -> publish (self-contained win-x64) -> WebView2 bootstrapper -> build WPF setup
+# Steps: test -> publish app + supervisor -> WebView2 bootstrapper -> build WPF setup
 param(
     [switch]$SkipTests,
     [switch]$SkipInstaller,
@@ -7,11 +7,12 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$root       = Split-Path -Parent $MyInvocation.MyCommand.Path
-$publishDir = Join-Path $root 'publish'
-$distDir    = Join-Path $root 'dist'
-$setupDir   = Join-Path $root 'src\VoltManager.Setup'
-$payloadDir = Join-Path $setupDir 'Payload'
+$root                 = Split-Path -Parent $MyInvocation.MyCommand.Path
+$publishDir           = Join-Path $root 'publish'
+$supervisorPublishDir = Join-Path $root 'publish-supervisor'
+$distDir              = Join-Path $root 'dist'
+$setupDir             = Join-Path $root 'src\VoltManager.Setup'
+$payloadDir           = Join-Path $setupDir 'Payload'
 
 Write-Host '=== VoltManager build ===' -ForegroundColor Cyan
 
@@ -25,7 +26,7 @@ if (-not $SkipTests) {
 }
 
 # 2. Publish main app (self-contained single folder)
-Write-Host '[2/4] dotnet publish (self-contained win-x64)' -ForegroundColor Cyan
+Write-Host '[2/4] dotnet publish app (self-contained win-x64)' -ForegroundColor Cyan
 if (Test-Path $publishDir) { Remove-Item -Recurse -Force $publishDir }
 dotnet publish (Join-Path $root 'src\VoltManager\VoltManager.csproj') `
     -c Release -r win-x64 --self-contained true `
@@ -34,8 +35,22 @@ dotnet publish (Join-Path $root 'src\VoltManager\VoltManager.csproj') `
     -p:AssemblyVersion="$Version.0" `
     -p:FileVersion="$Version.0" `
     -o $publishDir
-if ($LASTEXITCODE -ne 0) { throw 'Publish failed.' }
-Write-Host ("Published to: " + $publishDir) -ForegroundColor Green
+if ($LASTEXITCODE -ne 0) { throw 'Application publish failed.' }
+
+# 2a. Publish the external supervisor into the same self-contained folder.
+Write-Host '[2a]  dotnet publish supervisor' -ForegroundColor Cyan
+if (Test-Path $supervisorPublishDir) { Remove-Item -Recurse -Force $supervisorPublishDir }
+dotnet publish (Join-Path $root 'src\VoltManager.Supervisor\VoltManager.Supervisor.csproj') `
+    -c Release -r win-x64 --self-contained true `
+    -p:PublishSingleFile=false `
+    -p:Version=$Version `
+    -p:AssemblyVersion="$Version.0" `
+    -p:FileVersion="$Version.0" `
+    -o $supervisorPublishDir
+if ($LASTEXITCODE -ne 0) { throw 'Supervisor publish failed.' }
+Copy-Item (Join-Path $supervisorPublishDir '*') $publishDir -Recurse -Force
+Remove-Item -Recurse -Force $supervisorPublishDir
+Write-Host ("Published app + supervisor to: " + $publishDir) -ForegroundColor Green
 
 # 2b. Jump-list helper (net48, asInvoker) copied next to the main exe
 Write-Host '[2b]  dotnet build VoltManager.PlanSwitch' -ForegroundColor Cyan
