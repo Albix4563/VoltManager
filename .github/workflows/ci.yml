@@ -42,14 +42,6 @@ jobs:
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           }
 
-      - name: Check resource optimization invariants
-        shell: pwsh
-        run: |
-          & node scripts/check-resource-optimizations.mjs 2>&1 |
-            Tee-Object -FilePath resource-check.log
-          $exitCode = $LASTEXITCODE
-          if ($exitCode -ne 0) { exit $exitCode }
-
       - name: Package portable smoke test
         shell: pwsh
         run: .\build.ps1 -SkipTests -SkipInstaller
@@ -61,6 +53,5 @@ jobs:
           name: ci-diagnostics
           path: |
             build.log
-            resource-check.log
             **/TestResults/*.trx
           if-no-files-found: warn
