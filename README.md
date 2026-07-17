@@ -151,7 +151,11 @@ Alcuni contatori GPU, temperature, ventole o dati batteria non sono esposti da t
 ### File di configurazione e log
 
 - Impostazioni: `%APPDATA%\VoltManager\settings.json`
-- Log: `%APPDATA%\VoltManager\logs\voltmanager.log`
+- Log applicativo: `%APPDATA%\VoltManager\logs\voltmanager.log`
+- Eventi supervisor: `%APPDATA%\VoltManager\logs\supervisor-events.jsonl`
+- Crash report: `%APPDATA%\VoltManager\crashes\crash-*.json`
+
+Per policy di riavvio, crash-loop recovery e rollback operativo, consulta [Automatic crash restart](docs/reliability/automatic-restart.md).
 
 ---
 
@@ -160,9 +164,11 @@ Alcuni contatori GPU, temperature, ventole o dati batteria non sono esposti da t
 ### Stack e struttura
 
 - **App principale:** WPF su .NET 8, WebView2, SPA locale in `src/VoltManager/wwwroot`.
+- **Supervisor:** processo esterno .NET 8 in `src/VoltManager.Supervisor`, responsabile del restart limitato dopo crash.
 - **Installer:** WPF `net48`, progetto `src/VoltManager.Setup`.
 - **Helper jump list:** `net48`, progetto `src/VoltManager.PlanSwitch`, eseguito come utente non elevato.
-- **Soluzione:** `VoltManager.sln` contiene tutti e tre i progetti.
+- **Test:** xUnit in `tests/VoltManager.Tests`.
+- **Soluzione:** `VoltManager.sln` contiene applicazione, supervisor, installer, helper e test.
 
 ### Prerequisiti di sviluppo
 
@@ -179,6 +185,10 @@ Alcuni contatori GPU, temperature, ventole o dati batteria non sono esposti da t
 
 dotnet build VoltManager.sln -c Release
 
+# Test automatici
+
+dotnet test tests\VoltManager.Tests\VoltManager.Tests.csproj -c Release
+
 # Portable self-contained e installer
 .\build.ps1
 
@@ -186,9 +196,9 @@ dotnet build VoltManager.sln -c Release
 .\build.ps1 -SkipInstaller
 ```
 
-`build.ps1` pubblica l’app x64 self-contained in `publish\`, compila `VoltManagerPlanSwitch.exe`, scarica il bootstrapper WebView2 se assente e genera l’installer in `dist\`.
+`build.ps1` esegue i test, pubblica app e supervisor x64 self-contained in `publish\`, compila `VoltManagerPlanSwitch.exe`, scarica il bootstrapper WebView2 se assente e genera l’installer in `dist\`.
 
-La soluzione corrente non include una suite di test unitari dedicata. Prima di distribuire una release, esegui almeno build completa, controlli JavaScript e self-check delle ottimizzazioni.
+La suite reliability usa tempo e processi simulati in modo deterministico per verificare backoff, jitter, crash-loop breaker, reset stabile, istanza singola, cleanup limitato e stato persistente. Il runbook documenta i test manuali Windows ancora necessari.
 
 ### Verifiche disponibili
 
@@ -219,7 +229,8 @@ Ogni release contiene:
 
 ### Note tecniche
 
-- Istanza singola tramite mutex ed eventi nominati.
+- Istanza applicativa singola tramite mutex ed eventi nominati.
+- Supervisor esterno singolo con backoff esponenziale, jitter, budget temporale e crash-loop breaker persistente.
 - Jump list inoltrata tramite `VoltManagerPlanSwitch.exe` senza secondo prompt UAC quando l’app è già aperta.
 - Avvio con Windows tramite attività pianificata `VoltManagerAutostart` con privilegi elevati.
 - Chiusura nell’area di notifica configurabile.
