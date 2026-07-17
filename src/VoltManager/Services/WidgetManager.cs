@@ -52,7 +52,10 @@ public sealed class WidgetManager : IDisposable
         _snapshot = _displays.GetSnapshot();
         _displays.DisplaysChanged += OnDisplaysChanged;
 
-        _app.Settings.SettingsChanged += _ => PushTheme();
+        _app.Settings.SettingsChanged += _ => {
+            PushTheme();
+            PushFont();
+        };
         _app.Theme.ThemeChanged += _ => PushTheme();
     }
 
@@ -192,6 +195,13 @@ public sealed class WidgetManager : IDisposable
         var data = new { language = _app.Loc.CurrentLanguage, locale = _app.Loc.CurrentCulture.Name };
         foreach (var window in _windows.Values.ToList())
             window.PushEvent("languageChanged", data);
+    }
+
+    internal void PushFont()
+    {
+        var data = new { font = _app.Settings.Current.Font };
+        foreach (var window in _windows.Values.ToList())
+            window.PushEvent("fontChanged", data);
     }
 
     public static Size GetWidgetSize(string type, string size = "medium") => (type, WidgetSettings.NormalizeSize(size)) switch

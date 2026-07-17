@@ -1089,6 +1089,36 @@
         if (select) select.value = theme;
     }
 
+    function setFontUi(font) {
+        var normalized = font;
+        if (window.VoltFont && VoltFont.apply) {
+            normalized = VoltFont.apply(font);
+        } else {
+            const stack = {
+                'inter': 'Inter, system-ui, -apple-system, sans-serif',
+                'segoe-ui': '"Segoe UI", system-ui, -apple-system, sans-serif',
+                'arial': 'Arial, Helvetica, sans-serif',
+                'calibri': 'Calibri, Candara, "Segoe UI", sans-serif',
+                'verdana': 'Verdana, Geneva, sans-serif',
+                'tahoma': 'Tahoma, Verdana, sans-serif',
+                'trebuchet-ms': '"Trebuchet MS", Arial, sans-serif',
+                'georgia': 'Georgia, serif',
+                'times-new-roman': '"Times New Roman", Times, serif',
+                'consolas': 'Consolas, "Courier New", monospace'
+            }[font] || 'Inter, system-ui, -apple-system, sans-serif';
+            document.documentElement.style.setProperty('--vm-font-family', stack);
+            normalized = font;
+        }
+
+        const select = document.getElementById('font-select');
+        if (select) select.value = normalized;
+
+        const preview = document.getElementById('font-specimen-preview');
+        if (preview) {
+            preview.style.fontFamily = document.documentElement.style.getPropertyValue('--vm-font-family');
+        }
+    }
+
     function mountAutoShutdownUi() {
         if (document.getElementById('auto-shutdown-panel')) return;
         const prefs = document.getElementById('pref-tray')?.parentElement;
@@ -1204,6 +1234,20 @@
                     const next = v === 'light' ? 'light' : (v === 'black' ? 'black' : (v === 'auto' ? 'auto' : 'dark'));
                     settings.theme = next;
                     setThemeUi(next);
+                    if (window.__voltSettings.save) window.__voltSettings.save();
+                });
+            }
+        }
+
+        const fontSelect = document.getElementById('font-select');
+        if (fontSelect) {
+            setFontUi(settings.font || 'inter');
+            if (fontSelect.dataset.wired !== 'true') {
+                fontSelect.dataset.wired = 'true';
+                fontSelect.addEventListener('change', (e) => {
+                    const v = e.target.value;
+                    settings.font = v;
+                    setFontUi(v);
                     if (window.__voltSettings.save) window.__voltSettings.save();
                 });
             }

@@ -662,7 +662,50 @@ html[data-theme=light] .welcome-theme-card .welcome-theme-check{border-color:rgb
                   <div class="mini-toggle-knob"></div>
                 </div>
               </div>
-              <div class="flex items-center justify-between group mt-md" id="pref-theme">
+              <div class="flex items-center justify-between group mt-md" id="pref-show-welcome">
+                <div>
+                  <p class="text-body-md text-on-surface group-hover:text-secondary-fixed transition-colors" data-i18n="set_show_welcome">Mostra benvenuto</p>
+                  <p class="text-label-sm text-on-surface-variant" data-i18n="set_show_welcome_sub">Ripeti la presentazione iniziale</p>
+                </div>
+                <button class="btn-ghost rounded-lg py-2 px-4 text-label-md flex items-center gap-xs" id="btn-show-welcome" type="button">
+                  <span class="material-symbols-outlined text-[18px]">play_arrow</span>
+                  <span data-i18n="set_show_welcome_btn">Apri</span>
+                </button>
+              </div>
+              <div class="flex items-center justify-between group mt-md" id="pref-show-tour">
+                <div>
+                  <p class="text-body-md text-on-surface group-hover:text-secondary-fixed transition-colors" data-i18n="set_show_tour">Tour guidato</p>
+                  <p class="text-label-sm text-on-surface-variant" data-i18n="set_show_tour_sub">Riavvia la visita guidata dell'app</p>
+                </div>
+                <button class="btn-ghost rounded-lg py-2 px-4 text-label-md flex items-center gap-xs" id="btn-show-tour" type="button">
+                  <span class="material-symbols-outlined text-[18px]">tour</span>
+                  <span data-i18n="set_show_tour_btn">Avvia</span>
+                </button>
+              </div>
+              <div class="flex items-center justify-between group mt-md" id="pref-backup">
+                <div>
+                  <p class="text-body-md text-on-surface group-hover:text-secondary-fixed transition-colors" data-i18n="set_backup">Backup impostazioni</p>
+                  <p class="text-label-sm text-on-surface-variant" data-i18n="set_backup_sub">Salva o ripristina la configurazione da file</p>
+                </div>
+                <div class="flex items-center gap-xs">
+                  <button class="btn-ghost rounded-lg py-2 px-4 text-label-md flex items-center gap-xs" id="btn-export-settings" type="button">
+                    <span class="material-symbols-outlined text-[18px]">file_download</span>
+                    <span data-i18n="set_backup_export">Esporta</span>
+                  </button>
+                  <button class="btn-ghost rounded-lg py-2 px-4 text-label-md flex items-center gap-xs" id="btn-import-settings" type="button">
+                    <span class="material-symbols-outlined text-[18px]">file_upload</span>
+                    <span data-i18n="set_backup_import">Importa</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Customization Card -->
+          <div class="glass-panel rounded-xl p-lg mt-gutter">
+            <h3 class="text-title-lg text-on-surface mb-md" data-i18n="set_customization_title">Personalizzazione</h3>
+            <div class="space-y-md">
+              <div class="flex items-center justify-between group" id="pref-theme">
                 <div>
                   <p class="text-body-md text-on-surface group-hover:text-secondary-fixed transition-colors" data-i18n="set_pref_theme">Tema</p>
                   <p class="text-label-sm text-on-surface-variant" data-i18n="set_pref_theme_sub">Tema interfaccia</p>
@@ -686,27 +729,30 @@ html[data-theme=light] .welcome-theme-card .welcome-theme-check{border-color:rgb
                   <option value="zh" class="bg-[#0A1128] text-white">简体中文</option>
                 </select>
               </div>
-              <div class="flex items-center justify-between group mt-md" id="pref-show-welcome">
+              <div class="flex items-center justify-between group mt-md" id="pref-font">
                 <div>
-                  <p class="text-body-md text-on-surface group-hover:text-secondary-fixed transition-colors" data-i18n="set_show_welcome">Mostra benvenuto</p>
-                  <p class="text-label-sm text-on-surface-variant" data-i18n="set_show_welcome_sub">Ripeti la presentazione iniziale</p>
+                  <label class="text-body-md text-on-surface group-hover:text-secondary-fixed transition-colors block cursor-pointer" for="font-select" data-i18n="set_pref_font">Carattere</label>
+                  <p class="text-label-sm text-on-surface-variant" data-i18n="set_pref_font_sub">Tipo di carattere dell'interfaccia</p>
                 </div>
-                <button class="btn-ghost rounded-lg py-2 px-4 text-label-md flex items-center gap-xs" id="btn-show-welcome" type="button">
-                  <span class="material-symbols-outlined text-[18px]">play_arrow</span>
-                  <span data-i18n="set_show_welcome_btn">Apri</span>
-                </button>
+                <select id="font-select" class="bg-surface-container-low/50 text-secondary-container font-medium border border-white/10 rounded-lg py-2 px-4 pr-10 text-body-md focus:outline-none focus:border-secondary-container transition-all duration-300 cursor-pointer hover:bg-white/10 shadow-lg backdrop-blur-md" style="-webkit-appearance: none; -moz-appearance: none; appearance: none; background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2300f1fe%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E'); background-repeat: no-repeat; background-position: right 0.75rem center; background-size: 1.2em 1.2em;">
+                  <option value="inter" class="bg-[#0A1128] text-white">Inter</option>
+                  <option value="segoe-ui" class="bg-[#0A1128] text-white">Segoe UI</option>
+                  <option value="arial" class="bg-[#0A1128] text-white">Arial</option>
+                  <option value="calibri" class="bg-[#0A1128] text-white">Calibri</option>
+                  <option value="verdana" class="bg-[#0A1128] text-white">Verdana</option>
+                  <option value="tahoma" class="bg-[#0A1128] text-white">Tahoma</option>
+                  <option value="trebuchet-ms" class="bg-[#0A1128] text-white">Trebuchet MS</option>
+                  <option value="georgia" class="bg-[#0A1128] text-white">Georgia</option>
+                  <option value="times-new-roman" class="bg-[#0A1128] text-white">Times New Roman</option>
+                  <option value="consolas" class="bg-[#0A1128] text-white">Consolas</option>
+                </select>
               </div>
-              <div class="flex items-center justify-between group mt-md" id="pref-show-tour">
-                <div>
-                  <p class="text-body-md text-on-surface group-hover:text-secondary-fixed transition-colors" data-i18n="set_show_tour">Tour guidato</p>
-                  <p class="text-label-sm text-on-surface-variant" data-i18n="set_show_tour_sub">Riavvia la visita guidata dell'app</p>
-                </div>
-                <button class="btn-ghost rounded-lg py-2 px-4 text-label-md flex items-center gap-xs" id="btn-show-tour" type="button">
-                  <span class="material-symbols-outlined text-[18px]">tour</span>
-                  <span data-i18n="set_show_tour_btn">Avvia</span>
-                </button>
+              <div class="specimen-preview" id="font-specimen-preview">
+                <span class="specimen-preview-title" data-i18n="specimen_preview_title">Anteprima carattere</span>
+                <span class="specimen-preview-text" data-i18n="specimen_preview_text">Volt Manager · Aa 123</span>
               </div>
-              <div class="flex items-center justify-between group mt-md" id="pref-backup">
+            </div>
+          </div>
                 <div>
                   <p class="text-body-md text-on-surface group-hover:text-secondary-fixed transition-colors" data-i18n="set_backup">Backup impostazioni</p>
                   <p class="text-label-sm text-on-surface-variant" data-i18n="set_backup_sub">Salva o ripristina la configurazione da file</p>
@@ -1171,6 +1217,7 @@ html[data-theme=light] .welcome-theme-card .welcome-theme-check{border-color:rgb
 </div>
 
 <script src="js/bridge.js?v=errlog1"></script>
+<script src="js/font.js"></script>
 <script src="js/i18n.js?v=nav-reorg1"></script>
 <script src="js/app.js?v=nav-reorg1"></script>
 <script src="js/effects.js?v=adaptive2"></script>

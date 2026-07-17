@@ -403,6 +403,9 @@
 
     function applySettings(res) {
         if (!res || !res.settings) return;
+        if (res.settings.font && window.VoltFont) {
+            VoltFont.apply(res.settings.font);
+        }
         locale = (window.I18n && I18n.getLocale ? I18n.getLocale() : locale);
         if (res.resolvedTheme && window.VoltTheme) {
             window.__voltResolvedTheme = res.resolvedTheme;
@@ -419,6 +422,11 @@
         if (!data || !data.resolvedTheme || !window.VoltTheme) return;
         window.__voltResolvedTheme = data.resolvedTheme;
         VoltTheme.apply('auto', data.resolvedTheme);
+    });
+    Host.on('fontChanged', (data) => {
+        if (data && data.font && window.VoltFont) {
+            VoltFont.apply(data.font);
+        }
     });
     Host.on('widgetTopmostChanged', (data) => {
         pinned = !!(data && data.topmost);

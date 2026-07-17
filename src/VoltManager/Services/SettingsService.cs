@@ -72,6 +72,7 @@ public class SettingsService
                     NormalizeWidgetSettings(loaded.Widgets);
                     NormalizeTheme(loaded);
                     NormalizeLanguage(loaded);
+                    NormalizeFont(loaded);
                     // Migrate stale repo name from pre-release installs.
                     if (loaded.UpdateRepo == "Albix4563/VoltManager")
                         loaded.UpdateRepo = "Albix4563/power_efficency";
@@ -113,6 +114,23 @@ public class SettingsService
             "black" => "black",
             "auto" => "auto",
             _ => "dark",
+        };
+    }
+
+    private static void NormalizeFont(AppSettings settings)
+    {
+        settings.Font = settings.Font?.Trim().ToLowerInvariant() switch
+        {
+            "segoe-ui" => "segoe-ui",
+            "arial" => "arial",
+            "calibri" => "calibri",
+            "verdana" => "verdana",
+            "tahoma" => "tahoma",
+            "trebuchet-ms" => "trebuchet-ms",
+            "georgia" => "georgia",
+            "times-new-roman" => "times-new-roman",
+            "consolas" => "consolas",
+            _ => "inter",
         };
     }
 
@@ -282,6 +300,7 @@ public class SettingsService
             NormalizeWidgetSettings(Current.Widgets);
             NormalizeTheme(Current);
             NormalizeLanguage(Current);
+            NormalizeFont(Current);
             var dir = Path.GetDirectoryName(_path)!;
             Directory.CreateDirectory(dir);
             var tmp = _path + ".tmp";

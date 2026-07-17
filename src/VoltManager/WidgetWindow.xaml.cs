@@ -112,6 +112,7 @@ public partial class WidgetWindow : Window
                 _bridge?.PushEvent("keepAwakeChanged", _app.Awake.GetState());
                 _manager.PushTheme();
                 _manager.PushLanguage();
+                _manager.PushFont();
             };
 
             core.Navigate(WidgetUrl());

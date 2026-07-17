@@ -911,6 +911,7 @@
         if (window.I18n && I18n.initFromSettings) I18n.initFromSettings(res);
         if (window.I18n && I18n.getLang && settings) settings.language = I18n.getLang();
         if (window.VoltTheme && VoltTheme.apply) VoltTheme.apply(settings.theme);
+        if (window.VoltFont && VoltFont.apply && settings) VoltFont.apply(settings.font);
         loadIntoUi();
         wireUi();
         window.__voltSettings = {
