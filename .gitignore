@@ -39,7 +39,7 @@ src/VoltManager.Setup/voltmanager.ico
 installer/MicrosoftEdgeWebview2Setup.exe
 installer/Output/
 
-# Test, logs, coverage
+# Test, logs, coverage, and extra files
 TestResults/
 coverage/
 *.coverage
@@ -47,8 +47,11 @@ coverage/
 *.trx
 *.log
 msbuild.log
-scripts/smoke_test_results.txt
 sensordump.txt
+tests/
+docs/
+scripts/
+raw
 
 # User, IDE, AI tools
 *.user
@@ -125,3 +128,4 @@ old/
 archive/
 project_logo.png
 sponsor_logo.png
+VoltManager_logo.png
