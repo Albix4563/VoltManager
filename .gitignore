@@ -2,6 +2,7 @@
 bin/
 obj/
 publish/
+publish-supervisor/
 publish-planswitch/
 dist/
 artifacts/
@@ -39,7 +40,7 @@ src/VoltManager.Setup/voltmanager.ico
 installer/MicrosoftEdgeWebview2Setup.exe
 installer/Output/
 
-# Test, logs, coverage, and extra files
+# Test, logs and coverage output
 TestResults/
 coverage/
 *.coverage
@@ -48,9 +49,6 @@ coverage/
 *.log
 msbuild.log
 sensordump.txt
-tests/
-docs/
-scripts/
 raw
 
 # User, IDE, AI tools
