@@ -15,19 +15,31 @@ window.VoltFont = (function() {
     function normalize(key) {
         if (!key || typeof key !== 'string') return 'inter';
         const k = key.trim().toLowerCase();
-        return fonts[k] ? k : 'inter';
+        return Object.prototype.hasOwnProperty.call(fonts, k) ? k : 'inter';
+    }
+
+    function stackFor(key) {
+        return fonts[normalize(key)];
     }
 
     function apply(key) {
         const norm = normalize(key);
         const stack = fonts[norm];
+        // Set on both html and body so Tailwind's html{font-family:...} never
+        // wins over our runtime choice for elements that inherit from body.
         document.documentElement.style.setProperty('--vm-font-family', stack);
+        if (document.body) {
+            document.body.style.fontFamily = stack;
+        }
+        document.documentElement.style.fontFamily = stack;
         return norm;
     }
 
     return {
         normalize: normalize,
         apply: apply,
-        fonts: fonts
+        stackFor: stackFor,
+        fonts: fonts,
+        keys: Object.keys(fonts)
     };
 })();

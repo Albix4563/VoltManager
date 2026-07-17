@@ -234,13 +234,33 @@ button .material-symbols-outlined,
 }
 
 /* ---------- 8. Customization Card & Specimen Preview ---------- */
+/* gap-gutter exists in app.css; mt-gutter was missing so the Personalizzazione
+   card collapsed against Preferenze and the font select sat under overlays. */
+.mt-gutter{ margin-top: 16px; }
+
+#pref-font,
+#pref-theme,
+#pref-lang{
+  position: relative;
+  z-index: 1;
+  overflow: visible;
+}
+#font-select,
+#theme-select,
+#lang-select{
+  position: relative;
+  z-index: 2;
+  max-width: min(240px, 48vw);
+  min-width: 9.5rem;
+}
+
 .specimen-preview {
   margin-top: 12px;
   padding: 16px;
   border-radius: 8px;
   border: 1px solid rgba(0, 241, 254, 0.2);
   background: rgba(0, 241, 254, 0.04);
-  font-family: var(--vm-font-family, Inter, sans-serif);
+  font-family: var(--vm-font-family, "Inter", sans-serif);
   transition: all 0.2s ease;
   display: flex;
   flex-direction: column;

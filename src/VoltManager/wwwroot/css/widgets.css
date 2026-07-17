@@ -9,7 +9,7 @@ body {
 
 body {
   color: var(--vm-text, #d4e4fa);
-  font-family: var(--vm-font-family, Inter, sans-serif);
+  font-family: var(--vm-font-family, "Inter", sans-serif);
   font-variant-numeric: tabular-nums;
   -webkit-font-smoothing: antialiased;
 }

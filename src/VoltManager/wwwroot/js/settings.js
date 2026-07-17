@@ -1090,11 +1090,15 @@
     }
 
     function setFontUi(font) {
-        var normalized = font;
+        var normalized = 'inter';
+        var stack = 'Inter, system-ui, -apple-system, sans-serif';
         if (window.VoltFont && VoltFont.apply) {
             normalized = VoltFont.apply(font);
+            stack = (VoltFont.stackFor && VoltFont.stackFor(normalized))
+                || document.documentElement.style.getPropertyValue('--vm-font-family')
+                || stack;
         } else {
-            const stack = {
+            const map = {
                 'inter': 'Inter, system-ui, -apple-system, sans-serif',
                 'segoe-ui': '"Segoe UI", system-ui, -apple-system, sans-serif',
                 'arial': 'Arial, Helvetica, sans-serif',
@@ -1105,18 +1109,31 @@
                 'georgia': 'Georgia, serif',
                 'times-new-roman': '"Times New Roman", Times, serif',
                 'consolas': 'Consolas, "Courier New", monospace'
-            }[font] || 'Inter, system-ui, -apple-system, sans-serif';
+            };
+            var key = (font && typeof font === 'string') ? font.trim().toLowerCase() : 'inter';
+            normalized = map[key] ? key : 'inter';
+            stack = map[normalized];
             document.documentElement.style.setProperty('--vm-font-family', stack);
-            normalized = font;
+            document.documentElement.style.fontFamily = stack;
+            if (document.body) document.body.style.fontFamily = stack;
         }
 
         const select = document.getElementById('font-select');
-        if (select) select.value = normalized;
+        if (select) {
+            // Ensure the option exists before assigning (avoids blank select).
+            var hasOption = false;
+            for (var i = 0; i < select.options.length; i++) {
+                if (select.options[i].value === normalized) { hasOption = true; break; }
+            }
+            select.value = hasOption ? normalized : 'inter';
+            if (!hasOption) normalized = 'inter';
+        }
 
         const preview = document.getElementById('font-specimen-preview');
         if (preview) {
-            preview.style.fontFamily = document.documentElement.style.getPropertyValue('--vm-font-family');
+            preview.style.fontFamily = stack;
         }
+        return normalized;
     }
 
     function mountAutoShutdownUi() {
@@ -1241,16 +1258,26 @@
 
         const fontSelect = document.getElementById('font-select');
         if (fontSelect) {
-            setFontUi(settings.font || 'inter');
+            settings.font = setFontUi(settings.font || 'inter');
             if (fontSelect.dataset.wired !== 'true') {
                 fontSelect.dataset.wired = 'true';
                 fontSelect.addEventListener('change', (e) => {
                     const v = e.target.value;
-                    settings.font = v;
-                    setFontUi(v);
+                    settings.font = setFontUi(v);
                     if (window.__voltSettings.save) window.__voltSettings.save();
                 });
             }
+        }
+
+        // Host may push font changes (import, multi-window); keep select + UI in sync.
+        if (!window.__voltFontListenerWired && window.Host && Host.on) {
+            window.__voltFontListenerWired = true;
+            Host.on('fontChanged', (data) => {
+                if (!data || !data.font) return;
+                const s = window.__voltSettings && (window.__voltSettings.get ? window.__voltSettings.get() : window.__voltSettings);
+                const applied = setFontUi(data.font);
+                if (s) s.font = applied;
+            });
         }
 
         // Listen for system theme changes pushed by the host (C# ThemeService)

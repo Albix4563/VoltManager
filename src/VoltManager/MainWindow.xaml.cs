@@ -51,6 +51,8 @@ public partial class MainWindow : Window
         {
             _app.Theme.SetPreference(s.Theme);
             ApplyHostTheme(_app.Theme.ResolvedTheme);
+            // Keep the main WebView font in sync with disk (import/other writers).
+            _bridge?.PushEvent("fontChanged", new { font = s.Font });
         });
         _app.Theme.ThemeChanged += t => Dispatcher.Invoke(() =>
         {

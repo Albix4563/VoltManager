@@ -403,8 +403,8 @@
 
     function applySettings(res) {
         if (!res || !res.settings) return;
-        if (res.settings.font && window.VoltFont) {
-            VoltFont.apply(res.settings.font);
+        if (window.VoltFont && VoltFont.apply) {
+            VoltFont.apply(res.settings.font || 'inter');
         }
         locale = (window.I18n && I18n.getLocale ? I18n.getLocale() : locale);
         if (res.resolvedTheme && window.VoltTheme) {
@@ -424,7 +424,7 @@
         VoltTheme.apply('auto', data.resolvedTheme);
     });
     Host.on('fontChanged', (data) => {
-        if (data && data.font && window.VoltFont) {
+        if (window.VoltFont && VoltFont.apply && data && data.font) {
             VoltFont.apply(data.font);
         }
     });

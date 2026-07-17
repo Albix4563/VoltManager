@@ -21,12 +21,19 @@ body{
 
 /* Promote the heavy glass surfaces to their own compositor layers so the
    backdrop blur + shadows repaint cheaply, and contain their internals so a
-   metric update never reflows the whole document. */
-.glass-card,
-.glass-panel{
+   metric update never reflows the whole document.
+   IMPORTANT: do NOT use contain:paint on .glass-panel — settings cards host
+   native <select> controls (theme/lang/font). paint containment + translateZ
+   clips/orphans the dropdown popup in WebView2, making fonts unselectable. */
+.glass-card{
   transform: translateZ(0);
   backface-visibility: hidden;
   contain: layout paint style;
+}
+.glass-panel{
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  contain: layout style;
 }
 
 /* The live rings repaint every second — isolate them. The fill (dashoffset)
