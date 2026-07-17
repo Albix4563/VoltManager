@@ -113,19 +113,21 @@ public sealed class BatteryHistoryService
 
     private void Persist()
     {
+        string tmp = _path + ".tmp";
         try
         {
             var dir = Path.GetDirectoryName(_path)!;
             Directory.CreateDirectory(dir);
-            var tmp = _path + ".tmp";
             File.WriteAllText(tmp, JsonSerializer.Serialize(_samples, JsonOpts));
-            if (File.Exists(_path)) File.Delete(_path);
-            File.Move(tmp, _path);
+            // Replace in one filesystem operation. Never delete the last valid history
+            // before the replacement is ready, so a crash cannot create an empty gap.
+            File.Move(tmp, _path, overwrite: true);
         }
         catch (Exception ex)
         {
             // Scrittura best-effort: un disco pieno non deve far crashare il loop.
             Logger.Error("Failed to persist battery history to " + _path, ex);
+            try { if (File.Exists(tmp)) File.Delete(tmp); } catch { }
         }
     }
 }
