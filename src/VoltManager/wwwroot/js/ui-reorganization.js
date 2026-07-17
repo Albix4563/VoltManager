@@ -168,7 +168,7 @@
         move(updateButton && updateButton.closest('.glass-panel'), $('vm-settings-updates'));
         ['pref-autostart', 'pref-tray', 'pref-show-welcome', 'pref-show-tour', 'pref-backup']
             .forEach(id => move($(id), $('vm-settings-general')));
-        ['pref-theme', 'pref-lang']
+        ['pref-theme', 'pref-lang', 'pref-font', 'font-specimen-preview']
             .forEach(id => move($(id), $('vm-settings-appearance')));
         const info = $('info-version');
         move(info && info.closest('.glass-panel'), $('vm-settings-info'));
