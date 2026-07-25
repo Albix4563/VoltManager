@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="Tray_Open" xml:space="preserve"><value>Open VoltManager</value></data>
+  <data name="Tray_PowerPlanCategory" xml:space="preserve"><value>Power plan</value></data>
+  <data name="Tray_PcControlsCategory" xml:space="preserve"><value>PC controls</value></data>
+  <data name="Tray_ActivePlan" xml:space="preserve"><value>Active plan: {0}</value></data>
+  <data name="Tray_GamingPlan" xml:space="preserve"><value>Gaming mode</value></data>
+  <data name="Tray_ChangePlan" xml:space="preserve"><value>Switch plan</value></data>
+  <data name="Tray_PlanSaver" xml:space="preserve"><value>Power saver</value></data>
+  <data name="Tray_PlanBalanced" xml:space="preserve"><value>Balanced</value></data>
+  <data name="Tray_PlanPerformance" xml:space="preserve"><value>Performance</value></data>
+  <data name="Tray_Duration1h" xml:space="preserve"><value>1 hour</value></data>
+  <data name="Tray_Duration10h" xml:space="preserve"><value>10 hours</value></data>
+  <data name="Tray_Duration12h" xml:space="preserve"><value>12 hours</value></data>
+  <data name="Tray_DurationForever" xml:space="preserve"><value>Forever</value></data>
+  <data name="Tray_KeepAwake" xml:space="preserve"><value>Keep PC awake (no sleep)</value></data>
+  <data name="Tray_ClearOverride" xml:space="preserve"><value>Unlock plan (resume automation)</value></data>
+  <data name="Tray_Automation" xml:space="preserve"><value>Plan automation</value></data>
+  <data name="Tray_Exit" xml:space="preserve"><value>Exit</value></data>
+  <data name="Dialog_WebView2Missing" xml:space="preserve"><value>WebView2 Runtime not found. Install "Microsoft Edge WebView2 Runtime" and restart VoltManager.\n\nDetails: {0}</value></data>
+  <data name="Dialog_WebView2SetupFailed" xml:space="preserve"><value>Could not initialize VoltManager interface.\n\nDetails: {0}</value></data>
+  <data name="Dialog_StartupFailed" xml:space="preserve"><value>VoltManager failed to start.\n\nDetails saved to log:\n{0}\n\nError: {1}</value></data>
+  <data name="Dialog_UnexpectedError" xml:space="preserve"><value>An unexpected error occurred. VoltManager stays active but the last operation may have failed.\n\nDetails saved to log:\n{0}\n\nError: {1}</value></data>
+  <data name="Dialog_UpdateDownloadFailed" xml:space="preserve"><value>Update download failed: {0}</value></data>
+  <data name="Dialog_GamingActivationFailed" xml:space="preserve"><value>Could not activate gaming mode. Verify the Performance plan is available and try again.</value></data>
+  <data name="Dialog_GamingReminder" xml:space="preserve"><value>Gaming mode is active but the CPU appears idle ({0:0.0}%) for several minutes.\n\nDisable gaming mode and resume automatic power plan?</value></data>
+  <data name="Dialog_GamingTitle" xml:space="preserve"><value>Gaming mode active</value></data>
+  <data name="Dialog_VoltManagerTitle" xml:space="preserve"><value>VoltManager</value></data>
+  <data name="Dialog_GamingModeTitle" xml:space="preserve"><value>Gaming mode</value></data>
+  <data name="JumpList_PlanSaver" xml:space="preserve"><value>Power saver</value></data>
+  <data name="JumpList_PlanBalanced" xml:space="preserve"><value>Balanced</value></data>
+  <data name="JumpList_PlanPerformance" xml:space="preserve"><value>Performance</value></data>
+  <data name="JumpList_Automatic" xml:space="preserve"><value>Automatic</value></data>
+  <data name="JumpList_KeepAwakeOn" xml:space="preserve"><value>Keep PC awake</value></data>
+  <data name="JumpList_KeepAwakeOff" xml:space="preserve"><value>Resume sleep</value></data>
+  <data name="JumpList_PlanSaverDesc" xml:space="preserve"><value>Locks the Power saver plan</value></data>
+  <data name="JumpList_PlanBalancedDesc" xml:space="preserve"><value>Locks the Balanced plan</value></data>
+  <data name="JumpList_PlanPerformanceDesc" xml:space="preserve"><value>Locks the Performance plan</value></data>
+  <data name="JumpList_AutomaticDesc" xml:space="preserve"><value>Let VoltManager choose the plan</value></data>
+  <data name="JumpList_KeepAwakeOnDesc" xml:space="preserve"><value>Prevents automatic sleep while VoltManager is active</value></data>
+  <data name="JumpList_KeepAwakeOffDesc" xml:space="preserve"><value>Restores the power plan sleep rules</value></data>
+  <data name="JumpList_CategoryPlan" xml:space="preserve"><value>Power plan</value></data>
+  <data name="JumpList_CategorySystem" xml:space="preserve"><value>System</value></data>
+  <data name="UpdatePrompt_Title" xml:space="preserve"><value>VoltManager Update</value></data>
+  <data name="UpdatePrompt_Available" xml:space="preserve"><value>Update available</value></data>
+  <data name="UpdatePrompt_VersionMsg" xml:space="preserve"><value>A new version of VoltManager is available. Current version: {0}. New version: {1}.</value></data>
+  <data name="UpdatePrompt_SnoozeLabel" xml:space="preserve"><value>Snooze for:</value></data>
+  <data name="UpdatePrompt_15min" xml:space="preserve"><value>15 minutes</value></data>
+  <data name="UpdatePrompt_30min" xml:space="preserve"><value>30 minutes</value></data>
+  <data name="UpdatePrompt_1hour" xml:space="preserve"><value>1 hour</value></data>
+  <data name="UpdatePrompt_2hours" xml:space="preserve"><value>2 hours</value></data>
+  <data name="UpdatePrompt_Skip" xml:space="preserve"><value>Skip version</value></data>
+  <data name="UpdatePrompt_Snooze" xml:space="preserve"><value>Snooze</value></data>
+  <data name="UpdatePrompt_Install" xml:space="preserve"><value>Install update</value></data>
+  <data name="UpdatePrompt_ND" xml:space="preserve"><value>N/A</value></data>
+  <data name="FilePicker_ExportTitle" xml:space="preserve"><value>Export VoltManager settings</value></data>
+  <data name="FilePicker_ImportTitle" xml:space="preserve"><value>Import VoltManager settings</value></data>
+  <data name="FilePicker_AppProfileTitle" xml:space="preserve"><value>Select application for power profile</value></data>
+  <data name="FilePicker_AppProfileFilter" xml:space="preserve"><value>Applications (*.exe)|*.exe</value></data>
+  <data name="FilePicker_JsonFilter" xml:space="preserve"><value>JSON (*.json)|*.json</value></data>
+  <data name="FilePicker_DiagnosticsTitle" xml:space="preserve"><value>Export VoltManager diagnostics</value></data>
+  <data name="FilePicker_TextFilter" xml:space="preserve"><value>Text (*.txt)|*.txt|All files (*.*)|*.*</value></data>
+  <data name="Plan_Saver" xml:space="preserve"><value>Power saver</value></data>
+  <data name="Plan_Balanced" xml:space="preserve"><value>Balanced</value></data>
+  <data name="Plan_Performance" xml:space="preserve"><value>Performance</value></data>
+  <data name="Plan_Unknown" xml:space="preserve"><value>Unknown</value></data>
+  <data name="Error_UnknownMethod" xml:space="preserve"><value>Unknown method: {0}</value></data>
+  <data name="Error_UnknownPlan" xml:space="preserve"><value>Unknown power plan: {0}</value></data>
+  <data name="Error_InvalidSettings" xml:space="preserve"><value>Invalid settings</value></data>
+  <data name="Error_GamingControlUnavailable" xml:space="preserve"><value>Gaming mode control unavailable</value></data>
+  <data name="Error_MissingPath" xml:space="preserve"><value>Missing path</value></data>
+  <data name="Error_MissingUpdateVersion" xml:space="preserve"><value>Missing update version</value></data>
+  <data name="Error_UnknownWidget" xml:space="preserve"><value>Unknown widget: {0}</value></data>
+  <data name="Error_MissingId" xml:space="preserve"><value>Missing ID</value></data>
+  <data name="Error_MissingPlanGuid" xml:space="preserve"><value>Missing planGuid</value></data>
+  <data name="Error_MissingSettingKey" xml:space="preserve"><value>Missing settingKey</value></data>
+  <data name="Error_InvalidBackupFile" xml:space="preserve"><value>Invalid backup file</value></data>
+  <data name="Common_OK" xml:space="preserve"><value>OK</value></data>
+  <data name="Common_Yes" xml:space="preserve"><value>Yes</value></data>
+  <data name="Common_No" xml:space="preserve"><value>No</value></data>
+  <data name="Common_Cancel" xml:space="preserve"><value>Cancel</value></data>
+  <data name="Tray_Schedule" xml:space="preserve"><value>Schedule PC action</value></data>
+  <data name="Tray_ScheduleShutdown" xml:space="preserve"><value>Shut down</value></data>
+  <data name="Tray_ScheduleSleep" xml:space="preserve"><value>Sleep</value></data>
+  <data name="Tray_ScheduleCustom" xml:space="preserve"><value>Custom time...</value></data>
+  <data name="Tray_NoScheduledAction" xml:space="preserve"><value>No scheduled action</value></data>
+  <data name="Tray_CancelScheduled" xml:space="preserve"><value>Cancel scheduled action</value></data>
+  <data name="Tray_ScheduledIn" xml:space="preserve"><value>in</value></data>
+  <data name="Tray_ScheduledAt" xml:space="preserve"><value>at</value></data>
+  <data name="Tray_30min" xml:space="preserve"><value>30 minutes</value></data>
+  <data name="Tray_45min" xml:space="preserve"><value>45 minutes</value></data>
+  <data name="Tray_1hour" xml:space="preserve"><value>1 hour</value></data>
+  <data name="Tray_2hours" xml:space="preserve"><value>2 hours</value></data>
+  <data name="Tray_4hours" xml:space="preserve"><value>4 hours</value></data>
+  <data name="Schedule_Shutdown" xml:space="preserve"><value>Shut down</value></data>
+  <data name="Schedule_Sleep" xml:space="preserve"><value>Sleep</value></data>
+  <data name="Schedule_Restart" xml:space="preserve"><value>Restart</value></data>
+  <data name="Schedule_CustomTitle" xml:space="preserve"><value>Custom time</value></data>
+  <data name="Schedule_Hours" xml:space="preserve"><value>Hours</value></data>
+  <data name="Schedule_Minutes" xml:space="preserve"><value>Minutes</value></data>
+  <data name="Schedule_Action" xml:space="preserve"><value>Action</value></data>
+  <data name="Schedule_Confirm" xml:space="preserve"><value>Confirm</value></data>
+  <data name="Schedule_SummaryWaiting" xml:space="preserve"><value>Enter the duration above</value></data>
+  <data name="Schedule_InvalidHours" xml:space="preserve"><value>Enter a valid number of hours (0 or more).</value></data>
+  <data name="Schedule_InvalidMinutes" xml:space="preserve"><value>Enter minutes between 0 and 59.</value></data>
+  <data name="Schedule_MinDelay" xml:space="preserve"><value>Duration must be at least {0} minutes.</value></data>
+  <data name="Schedule_MaxDelay" xml:space="preserve"><value>Duration cannot exceed {0} days.</value></data>
+  <data name="Schedule_ScheduledAt" xml:space="preserve"><value>scheduled at</value></data>
+  <data name="Schedule_ExecutionAt" xml:space="preserve"><value>{0} scheduled at {1}</value></data>
+  <data name="Dialog_ScheduleExitWarning" xml:space="preserve"><value>A scheduled action is active.\n\nExiting VoltManager will cancel the schedule.\n\nExit anyway?</value></data>
+  <data name="Dialog_ReplaceScheduledAction" xml:space="preserve"><value>A schedule is already active. Replace it with the new one?</value></data>
+  <data name="Error_InvalidPowerAction" xml:space="preserve"><value>Invalid power action.</value></data>
+  <data name="Error_InvalidPowerTime" xml:space="preserve"><value>Invalid time format. Use HH:mm.</value></data>
+  <data name="Error_InvalidScheduleMode" xml:space="preserve"><value>Invalid schedule mode. Use 'relative' or 'daily'.</value></data>
+  <data name="JumpList_Shutdown30" xml:space="preserve"><value>Shutdown in 30 min</value></data>
+  <data name="JumpList_Shutdown60" xml:space="preserve"><value>Shutdown in 1h</value></data>
+  <data name="JumpList_Sleep30" xml:space="preserve"><value>Sleep in 30 min</value></data>
+  <data name="JumpList_Sleep60" xml:space="preserve"><value>Sleep in 1h</value></data>
+  <data name="JumpList_OpenScheduler" xml:space="preserve"><value>Open scheduler</value></data>
+  <data name="JumpList_Shutdown30Desc" xml:space="preserve"><value>Schedule shutdown in 30 minutes</value></data>
+  <data name="JumpList_Shutdown60Desc" xml:space="preserve"><value>Schedule shutdown in 1 hour</value></data>
+  <data name="JumpList_Sleep30Desc" xml:space="preserve"><value>Schedule sleep in 30 minutes</value></data>
+  <data name="JumpList_Sleep60Desc" xml:space="preserve"><value>Schedule sleep in 1 hour</value></data>
+  <data name="JumpList_OpenSchedulerDesc" xml:space="preserve"><value>Open the scheduler window</value></data>
+  <data name="JumpList_CategorySchedule" xml:space="preserve"><value>Timer PC</value></data>
+</root>

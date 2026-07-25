@@ -1,0 +1,469 @@
+(function () {
+    const TYPES = ['clock', 'calendar', 'usage', 'temps', 'power', 'plans'];
+    const SIZES = ['mini', 'medium', 'large'];
+    const PLAN_ORDER = ['powerSaver', 'balanced', 'performance'];
+    const params = new URLSearchParams(location.search);
+    const type = TYPES.includes(params.get('w')) ? params.get('w') : 'clock';
+    const size = SIZES.includes(params.get('s')) ? params.get('s') : 'medium';
+    const root = document.getElementById('widget-root');
+    let pinned = false;
+    let switchingPlan = false;
+    let keepAwake = false;
+    let settingKeepAwake = false;
+    let locale = (window.I18n && I18n.getLocale ? I18n.getLocale() : 'it-IT');
+    document.documentElement.dataset.size = size;
+
+    const labels = {
+        clock: ['schedule', 'widget_clock'],
+        calendar: ['calendar_month', 'widget_calendar'],
+        usage: ['monitor_heart', 'widget_usage'],
+        temps: ['device_thermostat', 'widget_temps'],
+        power: ['bolt', 'widget_power'],
+        plans: ['tune', 'widget_plans'],
+    };
+
+    function t(key, fallback) {
+        if (!window.I18n || !I18n.t) return fallback || key;
+        const value = I18n.t(key);
+        return value === key ? (fallback || key) : value;
+    }
+
+    function shell(bodyHtml) {
+        const meta = labels[type] || labels.clock;
+        const keepAwakeBtn = type === 'plans'
+            ? '    <button class="widget-action" id="widget-keep-awake" type="button" title="' + t('power_group_keepawake', 'Keep PC awake') + '" aria-label="' + t('power_group_keepawake', 'Keep PC awake') + '" aria-pressed="false"><span class="material-symbols-outlined">bedtime_off</span></button>'
+            : '';
+        root.innerHTML =
+            '<article class="desktop-widget" data-size="' + size + '">' +
+            '  <header class="widget-header" id="widget-drag">' +
+            '    <div class="widget-title"><span class="material-symbols-outlined">' + meta[0] + '</span><span data-i18n="' + meta[1] + '">' + t(meta[1], type) + '</span></div>' +
+            '    <button class="widget-action" id="widget-pin" type="button" title="' + t('widget_pin', 'Pin') + '" aria-label="' + t('widget_pin', 'Pin') + '"><span class="material-symbols-outlined">push_pin</span></button>' +
+            keepAwakeBtn +
+            '    <button class="widget-action" id="widget-close" type="button" title="' + t('widget_close', 'Close') + '" aria-label="' + t('widget_close', 'Close') + '"><span class="material-symbols-outlined">close</span></button>' +
+            '  </header>' +
+            '  <section class="widget-body">' + bodyHtml + '</section>' +
+            '</article>';
+        if (window.I18n && I18n.apply) I18n.apply();
+        wireChrome();
+    }
+
+    function wireChrome() {
+        document.getElementById('widget-drag')?.addEventListener('pointerdown', (e) => {
+            if (e.target.closest('button')) return;
+            Host.call('beginWidgetDrag').catch(() => {});
+        });
+        document.getElementById('widget-pin')?.addEventListener('click', () => {
+            pinned = !pinned;
+            reflectPin();
+            Host.call('setWidgetTopmost', { topmost: pinned }).catch(() => {
+                pinned = !pinned;
+                reflectPin();
+            });
+        });
+        const kwBtn = document.getElementById('widget-keep-awake');
+        if (kwBtn) {
+            kwBtn.addEventListener('click', () => {
+                if (settingKeepAwake) return;
+                settingKeepAwake = true;
+                const targetState = !keepAwake;
+                keepAwake = targetState;
+                reflectKeepAwake();
+                Host.call('setKeepAwake', { enabled: targetState }).then((state) => {
+                    keepAwake = !!(state && state.enabled);
+                    reflectKeepAwake();
+                }).catch(() => {
+                    keepAwake = !targetState;
+                    reflectKeepAwake();
+                }).finally(() => {
+                    settingKeepAwake = false;
+                });
+            });
+            if (Host.available) {
+                Host.call('getKeepAwakeState').then((state) => {
+                    keepAwake = !!(state && state.enabled);
+                    reflectKeepAwake();
+                }).catch(() => {});
+            }
+        }
+        document.getElementById('widget-close')?.addEventListener('click', () => {
+            Host.call('closeWidget').catch(() => {});
+        });
+    }
+
+    function reflectPin() {
+        const btn = document.getElementById('widget-pin');
+        if (!btn) return;
+        btn.dataset.on = pinned ? 'true' : 'false';
+        btn.setAttribute('aria-pressed', pinned ? 'true' : 'false');
+    }
+
+    function reflectKeepAwake() {
+        const btn = document.getElementById('widget-keep-awake');
+        if (!btn) return;
+        btn.dataset.on = keepAwake ? 'true' : 'false';
+        btn.setAttribute('aria-pressed', keepAwake ? 'true' : 'false');
+    }
+
+    function pct(value) {
+        value = Number(value);
+        if (!Number.isFinite(value)) return 0;
+        return Math.max(0, Math.min(100, value));
+    }
+
+    function temp(value) {
+        return value == null ? '--' : Math.round(value) + '\u00b0C';
+    }
+
+    function planName(plan) {
+        const key = {
+            powerSaver: 'dash_plan_saver',
+            balanced: 'dash_plan_balanced',
+            performance: 'dash_plan_performance',
+        }[plan];
+        return key ? t(key, plan) : (plan || '--');
+    }
+
+    function startClock() {
+        shell('<div class="widget-value" id="clock-time">--:--</div>' + (size === 'mini' ? '' : '<div class="widget-muted" id="clock-date">--</div>'));
+        const timeEl = document.getElementById('clock-time');
+        const dateEl = document.getElementById('clock-date');
+        function tick() {
+            const now = new Date();
+            timeEl.textContent = new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit' }).format(now);
+            if (dateEl) dateEl.textContent = new Intl.DateTimeFormat(locale, { weekday: 'long', day: '2-digit', month: 'long' }).format(now);
+        }
+        tick();
+        setInterval(tick, 1000);
+    }
+
+    function startCalendar() {
+        if (size === 'mini') {
+            shell('<div class="calendar-mini"><div class="widget-muted" id="calendar-mini-weekday">--</div><div class="calendar-mini-day" id="calendar-mini-day">--</div><div class="widget-muted" id="calendar-mini-month">--</div></div>');
+            renderCalendarMini();
+            return;
+        }
+        shell('<div class="widget-muted" id="calendar-title" style="margin-bottom:10px"></div><div class="calendar-head" id="calendar-head"></div><div class="calendar-grid" id="calendar-grid"></div>');
+        renderCalendar();
+    }
+
+    function renderCalendarMini() {
+        const now = new Date();
+        document.getElementById('calendar-mini-weekday').textContent = new Intl.DateTimeFormat(locale, { weekday: 'long' }).format(now);
+        document.getElementById('calendar-mini-day').textContent = new Intl.DateTimeFormat(locale, { day: '2-digit' }).format(now);
+        document.getElementById('calendar-mini-month').textContent = new Intl.DateTimeFormat(locale, { month: 'long', year: 'numeric' }).format(now);
+    }
+
+    function renderCalendar() {
+        const now = new Date();
+        const title = document.getElementById('calendar-title');
+        const head = document.getElementById('calendar-head');
+        const grid = document.getElementById('calendar-grid');
+        title.textContent = new Intl.DateTimeFormat(locale, { month: 'long', year: 'numeric' }).format(now);
+
+        const monday = new Date(2026, 0, 5);
+        head.innerHTML = '';
+        for (let i = 0; i < 7; i++) {
+            const d = new Date(monday);
+            d.setDate(monday.getDate() + i);
+            const span = document.createElement('span');
+            span.textContent = new Intl.DateTimeFormat(locale, { weekday: 'short' }).format(d).slice(0, 2);
+            head.appendChild(span);
+        }
+
+        const first = new Date(now.getFullYear(), now.getMonth(), 1);
+        const offset = (first.getDay() + 6) % 7;
+        const start = new Date(first);
+        start.setDate(first.getDate() - offset);
+        grid.innerHTML = '';
+        for (let i = 0; i < 42; i++) {
+            const d = new Date(start);
+            d.setDate(start.getDate() + i);
+            const cell = document.createElement('div');
+            cell.className = 'calendar-day';
+            if (d.getMonth() !== now.getMonth()) cell.classList.add('is-muted');
+            if (d.toDateString() === now.toDateString()) cell.classList.add('is-today');
+            cell.textContent = d.getDate();
+            grid.appendChild(cell);
+        }
+    }
+
+    function startUsage() {
+        shell(
+            '<div class="widget-grid">' +
+            statHtml('CPU', 'usage-cpu') +
+            statHtml('RAM', 'usage-ram') +
+            (size === 'mini' ? '' : statHtml('GPU', 'usage-gpu') + statHtml('Disk', 'usage-disk')) +
+            '</div>');
+        Host.on('metrics', renderUsage);
+    }
+
+    function statHtml(label, id) {
+        return '<div class="widget-stat"><label>' + label + '</label><strong id="' + id + '">--</strong><div class="widget-bar"><span id="' + id + '-bar"></span></div></div>';
+    }
+
+    function renderUsage(m) {
+        setStat('usage-cpu', m.cpu);
+        setStat('usage-gpu', m.gpuAvailable ? m.gpu : null);
+        setStat('usage-ram', m.ramPct);
+        setStat('usage-disk', m.disk);
+    }
+
+    function setStat(id, value) {
+        const valueEl = document.getElementById(id);
+        const bar = document.getElementById(id + '-bar');
+        if (!valueEl || !bar) return;
+        if (value == null) {
+            valueEl.textContent = 'N/D';
+            bar.style.width = '0%';
+            return;
+        }
+        const v = pct(value);
+        valueEl.textContent = Math.round(v) + '%';
+        bar.style.width = v + '%';
+    }
+
+    function startTemps() {
+        shell(
+            '<div class="temp-row"><span class="widget-muted">CPU</span><strong id="temp-cpu">--</strong></div>' +
+            '<div class="temp-row"><span class="widget-muted">GPU</span><strong id="temp-gpu">--</strong></div>');
+        Host.on('metrics', (m) => {
+            document.getElementById('temp-cpu').textContent = temp(m.cpuTemp);
+            document.getElementById('temp-gpu').textContent = temp(m.gpuTemp);
+        });
+    }
+
+    function startPower() {
+        shell(
+            '<div class="power-row"><span class="widget-muted" data-i18n="widget_power_now">Power</span><strong id="power-watts">--</strong></div>' +
+            '<div class="power-row"><span class="widget-muted" data-i18n="widget_battery">Battery</span><strong id="power-battery">--</strong></div>' +
+            (size === 'mini' ? '' :
+                '<div class="power-row"><span class="widget-muted" data-i18n="widget_plan">Plan</span><strong id="power-plan">--</strong></div>' +
+                '<div class="power-row"><span class="widget-muted" data-i18n="widget_cpu_auto">CPU avg</span><strong id="power-auto-cpu">--</strong></div>' +
+                '<div class="power-row"><span class="widget-muted" data-i18n="widget_sample_interval">Sample</span><strong id="power-auto-sample">--</strong></div>'));
+        if (window.I18n && I18n.apply) I18n.apply();
+        pollPower();
+        if (size !== 'mini') {
+            pollPlan();
+            pollCpuAutomation();
+        }
+        setInterval(pollPower, 5000);
+        Host.on('activePlanChanged', (data) => renderPlan(data && data.plan));
+        Host.on('cpuAutomationStateChanged', renderCpuAutomation);
+    }
+
+    async function pollPower() {
+        try {
+            const state = await Host.call('getBatteryPower');
+            renderPower(state);
+        } catch { }
+    }
+
+    async function pollPlan() {
+        try {
+            const plan = await Host.call('getActivePlan');
+            renderPlan(plan && plan.planId);
+        } catch { }
+    }
+
+    async function pollCpuAutomation() {
+        try {
+            const state = await Host.call('getCpuAutomationState');
+            renderCpuAutomation(state);
+        } catch { }
+    }
+
+    function renderPower(state) {
+        const watts = document.getElementById('power-watts');
+        const battery = document.getElementById('power-battery');
+        if (!state || !state.available) {
+            watts.textContent = '--';
+            battery.textContent = 'AC';
+            return;
+        }
+        watts.textContent = state.powerWatts == null ? '--' : (state.powerWatts > 0 ? '+' : '') + Number(state.powerWatts).toFixed(1) + ' W';
+        // Prefer % + short ETA when the host has a stable runtime estimate.
+        if (state.batteryPercent != null) {
+            let label = state.batteryPercent + '%';
+            if ((state.timeKind === 'toEmpty' || state.timeKind === 'toFull') && state.minutesRemaining != null) {
+                const m = state.minutesRemaining;
+                const h = Math.floor(m / 60);
+                const mm = m % 60;
+                label += h > 0 ? ' · ' + h + 'h' + mm + 'm' : ' · ' + mm + 'm';
+            }
+            battery.textContent = label;
+        } else {
+            battery.textContent = '--';
+        }
+    }
+
+    function renderPlan(plan) {
+        const planEl = document.getElementById('power-plan');
+        if (planEl) planEl.textContent = planName(plan);
+    }
+
+    function renderCpuAutomation(state) {
+        const cpuEl = document.getElementById('power-auto-cpu');
+        const sampleEl = document.getElementById('power-auto-sample');
+        if (cpuEl) {
+            const avg = Number(state && state.averageCpu);
+            cpuEl.textContent = Number.isFinite(avg) ? Math.round(avg) + '%' : '--';
+        }
+        if (sampleEl) {
+            const seconds = Number(state && state.sampleIntervalSeconds);
+            sampleEl.textContent = Number.isFinite(seconds) ? Math.round(seconds) + 's' : '--';
+        }
+    }
+
+    function startPlans() {
+        const short = size === 'mini';
+        const options = [
+            { id: 'powerSaver', icon: 'eco', key: 'dash_plan_saver', short: 'Eco' },
+            { id: 'balanced', icon: 'balance', key: 'dash_plan_balanced', short: 'Bal' },
+            { id: 'performance', icon: 'speed', key: 'dash_plan_performance', short: 'Perf' },
+        ];
+        shell(
+            '<div class="plan-selector" role="radiogroup" aria-label="' + t('widget_plans', 'Power plans') + '">' +
+            '<div class="plan-pill" id="plan-pill" aria-hidden="true"></div>' +
+            options.map(function (opt) {
+                const label = short ? opt.short : t(opt.key, opt.id);
+                const i18nAttr = short ? '' : ' data-i18n="' + opt.key + '"';
+                return '<button class="plan-option" type="button" role="radio" aria-checked="false" tabindex="-1" data-plan="' + opt.id + '">' +
+                    '<span class="material-symbols-outlined">' + opt.icon + '</span>' +
+                    '<span class="plan-option-label"' + i18nAttr + '>' + label + '</span>' +
+                    '</button>';
+            }).join('') +
+            '</div>');
+        if (window.I18n && I18n.apply && !short) I18n.apply();
+        document.querySelectorAll('.plan-option').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                selectPlan(btn.dataset.plan);
+            });
+        });
+
+        const selector = document.querySelector('.plan-selector');
+        if (selector) {
+            selector.addEventListener('keydown', function (e) {
+                const btns = Array.from(document.querySelectorAll('.plan-option'));
+                const activeIndex = btns.findIndex(btn => btn.getAttribute('aria-checked') === 'true');
+                if (activeIndex < 0) return;
+
+                let nextIndex = activeIndex;
+                if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+                    nextIndex = (activeIndex + 1) % btns.length;
+                    e.preventDefault();
+                } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+                    nextIndex = (activeIndex - 1 + btns.length) % btns.length;
+                    e.preventDefault();
+                }
+
+                if (nextIndex !== activeIndex) {
+                    const targetBtn = btns[nextIndex];
+                    selectPlan(targetBtn.dataset.plan);
+                    targetBtn.focus();
+                }
+            });
+        }
+
+        pollPlanSelector();
+        Host.on('activePlanChanged', function (data) {
+            reflectPlanSelector(data && data.plan);
+        });
+    }
+
+    async function pollPlanSelector() {
+        try {
+            const plan = await Host.call('getActivePlan');
+            reflectPlanSelector(plan && plan.planId);
+        } catch { }
+    }
+
+    function reflectPlanSelector(plan) {
+        const index = PLAN_ORDER.indexOf(plan);
+        const pill = document.getElementById('plan-pill');
+        const btns = document.querySelectorAll('.plan-option');
+        btns.forEach(function (btn, i) {
+            const on = i === index;
+            btn.classList.toggle('is-active', on);
+            btn.setAttribute('aria-checked', on ? 'true' : 'false');
+            btn.setAttribute('tabindex', on ? '0' : '-1');
+        });
+        if (index < 0 && btns.length > 0) {
+            btns[0].setAttribute('tabindex', '0');
+        }
+        if (!pill) return;
+        if (index < 0) {
+            pill.style.opacity = '0';
+            return;
+        }
+        pill.style.opacity = '1';
+        pill.style.transform = 'translateX(' + (index * 100) + '%)';
+    }
+
+    async function selectPlan(plan) {
+        if (!plan || switchingPlan) return;
+        switchingPlan = true;
+        reflectPlanSelector(plan);
+        try {
+            const res = await Host.call('setManualOverride', { plan: plan });
+            if (!res || !res.success) await pollPlanSelector();
+        } catch {
+            await pollPlanSelector();
+        } finally {
+            switchingPlan = false;
+        }
+    }
+
+    function applySettings(res) {
+        if (!res || !res.settings) return;
+        if (window.VoltFont && VoltFont.apply) {
+            VoltFont.apply(res.settings.font || 'inter');
+        }
+        locale = (window.I18n && I18n.getLocale ? I18n.getLocale() : locale);
+        window.__voltThemeCatalog = res.themeCatalog || {};
+        if (res.theme && window.VoltTheme) {
+            VoltTheme.apply(res.theme.themeColor || res.settings.themeColor, res.theme.palette);
+        }
+        const item = res.settings.widgets && Array.isArray(res.settings.widgets.items)
+            ? res.settings.widgets.items.find(i => i.type === type)
+            : null;
+        pinned = !!(item && item.pinned);
+        reflectPin();
+    }
+
+    Host.on('themeChanged', (data) => {
+        if (!data || !data.themeColor || !data.palette || !window.VoltTheme) return;
+        window.__voltThemeCatalog = window.__voltThemeCatalog || {};
+        window.__voltThemeCatalog[data.themeColor] = data.palette;
+        VoltTheme.apply(data.themeColor, data.palette);
+    });
+    Host.on('fontChanged', (data) => {
+        if (window.VoltFont && VoltFont.apply && data && data.font) {
+            VoltFont.apply(data.font);
+        }
+    });
+    Host.on('widgetTopmostChanged', (data) => {
+        pinned = !!(data && data.topmost);
+        reflectPin();
+    });
+    Host.on('keepAwakeChanged', (state) => {
+        keepAwake = !!(state && state.enabled);
+        reflectKeepAwake();
+    });
+    Host.on('languageChanged', (data) => {
+        if (!data || !data.language) return;
+        locale = data.locale || locale;
+        if (window.I18n && I18n.onHostLanguageChanged) I18n.onHostLanguageChanged(data);
+        // Re-render date-dependent widgets
+        switch (type) {
+            case 'clock': startClock(); break;
+            case 'calendar': startCalendar(); break;
+            case 'plans': startPlans(); break;
+        }
+    });
+
+    ({ clock: startClock, calendar: startCalendar, usage: startUsage, temps: startTemps, power: startPower, plans: startPlans }[type] || startClock)();
+
+    if (Host.available) {
+        Host.call('getSettings').then(applySettings).catch(() => {});
+    }
+})();

@@ -1,0 +1,48 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{EE329F03-7D3E-4327-9F76-52B6393DBB6E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VoltManager", "src\VoltManager\VoltManager.csproj", "{6E4D5FED-CDAF-4302-9AB4-674FE0145851}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VoltManager.Setup", "src\VoltManager.Setup\VoltManager.Setup.csproj", "{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VoltManager.PlanSwitch", "src\VoltManager.PlanSwitch\VoltManager.PlanSwitch.csproj", "{3F8E2B61-9C47-4D05-B2A8-71E64C90D513}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VoltManager.Supervisor", "src\VoltManager.Supervisor\VoltManager.Supervisor.csproj", "{D4CBE8B3-5D0F-4B77-8C88-3D82F409AB72}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{6E4D5FED-CDAF-4302-9AB4-674FE0145851}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6E4D5FED-CDAF-4302-9AB4-674FE0145851}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6E4D5FED-CDAF-4302-9AB4-674FE0145851}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6E4D5FED-CDAF-4302-9AB4-674FE0145851}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3F8E2B61-9C47-4D05-B2A8-71E64C90D513}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3F8E2B61-9C47-4D05-B2A8-71E64C90D513}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3F8E2B61-9C47-4D05-B2A8-71E64C90D513}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3F8E2B61-9C47-4D05-B2A8-71E64C90D513}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D4CBE8B3-5D0F-4B77-8C88-3D82F409AB72}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D4CBE8B3-5D0F-4B77-8C88-3D82F409AB72}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D4CBE8B3-5D0F-4B77-8C88-3D82F409AB72}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D4CBE8B3-5D0F-4B77-8C88-3D82F409AB72}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{6E4D5FED-CDAF-4302-9AB4-674FE0145851} = {EE329F03-7D3E-4327-9F76-52B6393DBB6E}
+		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890} = {EE329F03-7D3E-4327-9F76-52B6393DBB6E}
+		{3F8E2B61-9C47-4D05-B2A8-71E64C90D513} = {EE329F03-7D3E-4327-9F76-52B6393DBB6E}
+		{D4CBE8B3-5D0F-4B77-8C88-3D82F409AB72} = {EE329F03-7D3E-4327-9F76-52B6393DBB6E}
+	EndGlobalSection
+EndGlobal

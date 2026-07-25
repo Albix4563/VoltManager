@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <AssemblyVersion>1.1.1.0</AssemblyVersion>
+    <FileVersion>1.1.1.0</FileVersion>
+    <Version>1.1.1</Version>
+    <PlatformTarget>x64</PlatformTarget>
+    <RootNamespace>VoltManager.Setup</RootNamespace>
+    <AssemblyName>VoltManagerSetup</AssemblyName>
+    <ApplicationIcon>Assets\voltmanager.ico</ApplicationIcon>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\Shared\AppThemeColor.cs" Link="Models\AppThemeColor.cs" />
+    <Compile Include="..\Shared\AppThemeColorPalette.cs" Link="Models\AppThemeColorPalette.cs" />
+  </ItemGroup>
+
+  <!-- Payload files embedded during build (absent at dev time — project still compiles) -->
+  <ItemGroup Condition="Exists('Payload\payload.zip')">
+    <EmbeddedResource Include="Payload\payload.zip" />
+  </ItemGroup>
+  <ItemGroup Condition="Exists('Payload\MicrosoftEdgeWebview2Setup.exe')">
+    <EmbeddedResource Include="Payload\MicrosoftEdgeWebview2Setup.exe" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="System.Windows.Forms" />
+  </ItemGroup>
+
+  <!-- App logo — always bundled so the sidebar logo shows in dev and release builds -->
+  <ItemGroup>
+    <Resource Include="Assets\voltmanager.ico" />
+  </ItemGroup>
+
+</Project>

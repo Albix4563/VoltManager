@@ -1,0 +1,193 @@
+/* Shared material depth. Colors come exclusively from theme-colors.css. */
+.glass-card {
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.08),
+    0 1px 2px rgba(0,0,0,.28),
+    0 16px 34px -18px rgba(0,0,0,.66);
+}
+.glass-card:not(.fx-metric):hover {
+  box-shadow:
+    inset 0 1px 0 rgb(var(--vm-accent-rgb) / .30),
+    0 1px 2px rgba(0,0,0,.28),
+    0 22px 44px -20px rgba(0,0,0,.70),
+    0 0 40px -12px rgb(var(--vm-accent-rgb) / .28);
+}
+.glass-panel {
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.06),
+    0 12px 30px -20px rgba(0,0,0,.62);
+}
+
+/* ---------- 2. Progress tracks — inset depth ----------
+   The .h-3 bar tracks reused the old card colour (#1E2A4A); against
+   the new lighter card they washed out. Sink them so the glowing
+   fill reads. Only the linear bars (h-3) match, not the ring SVGs. */
+.h-3.bg-\[\#1E2A4A\]{
+  box-shadow: inset 0 1px 2px rgba(0,0,0,.38);
+}
+
+/* ---------- 3. Tabular figures on live metrics ----------
+   Animated readouts (effects.js tweens them) shifted width as digits
+   changed. Lock figure advance so the numbers hold still. */
+#cpu-pct, #gpu-pct, #ram-pct, #disk-pct,
+#battery-health-pct, #battery-history-current,
+#power-flow-watts, #power-flow-percent, #power-flow-voltage,
+#power-flow-time, #cpu-temp, #gpu-temp,
+#cpu-clock, #ram-clock, #ram-detail{
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+/* ---------- 4. Primary button — give it presence ----------
+   .btn-primary was a flat fill. Light it from the top with a gradient
+   and a resting glow so the main action carries weight. */
+.btn-primary{
+  background-image: linear-gradient(180deg, var(--vm-accent-dim), var(--vm-accent-hover));
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.45),
+    0 6px 16px -6px rgb(var(--vm-accent-rgb) / .5);
+}
+
+/* ---------- 5. Scrollbar — brand-tinted ---------- */
+::-webkit-scrollbar{ width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb{
+  background: linear-gradient(180deg, rgb(var(--vm-accent-rgb) / .38), rgb(var(--vm-accent-rgb) / .14));
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover{
+  background: linear-gradient(180deg, rgb(var(--vm-accent-rgb) / .58), rgb(var(--vm-accent-rgb) / .3));
+}
+
+/* ---------- 6. Visible keyboard focus (accessibility floor) ----------
+   The app sets focus:outline-none everywhere, leaving keyboard users
+   with no focus indicator. Restore a brand ring on :focus-visible only
+   (mouse/touch focus stays clean). !important is needed to beat the
+   Tailwind .focus:outline-none (higher specificity than a bare pseudo). */
+:focus-visible{
+  outline: 2px solid var(--vm-accent, #3b82f6) !important;
+  outline-offset: 2px;
+}
+/* The real toggles are opacity:0 inputs — surface focus on their track. */
+.toggle-checkbox:focus-visible + .toggle-label,
+.toggle-large:focus-visible + .toggle-label-large{
+  outline: 2px solid var(--vm-accent, #3b82f6);
+  outline-offset: 2px;
+}
+
+/* ---------- 7. Button text containment ----------
+   Keep clickable controls readable with translated labels: icons keep their
+   footprint, text may wrap instead of forcing the button to clip/overflow. */
+button,
+[role="button"],
+.nav-item,
+.pm-seg{
+  min-width: 0;
+}
+
+button .material-symbols-outlined,
+[role="button"] .material-symbols-outlined,
+.nav-item .material-symbols-outlined,
+.pm-seg .material-symbols-outlined,
+.vm-acc-header .material-symbols-outlined,
+.widget-action .material-symbols-outlined{
+  flex: 0 0 auto;
+}
+
+.btn-primary,
+.btn-glow,
+.btn-ghost,
+.pm-seg,
+#plan-control > button{
+  white-space: normal;
+}
+
+.btn-primary > span:not(.material-symbols-outlined),
+.btn-glow > span:not(.material-symbols-outlined),
+.btn-ghost > span:not(.material-symbols-outlined),
+.pm-seg > span:not(.material-symbols-outlined),
+.nav-item > span:not(.material-symbols-outlined),
+#plan-control > button{
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.pm-seg{
+  line-height: 1.25;
+}
+
+#plan-control{
+  align-items: stretch;
+}
+
+#plan-control > button{
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.2;
+}
+
+#btn-energy-tips,
+#btn-minimize-tray{
+  flex: 0 0 2.5rem;
+  aspect-ratio: 1;
+}
+
+#energy-tips-title{
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+}
+
+.app-profile-panel .app-profile-path,
+.heavy-app-panel .heavy-app-path{
+  overflow-wrap: anywhere;
+}
+
+/* ---------- 8. Customization Card & Specimen Preview ---------- */
+/* gap-gutter exists in app.css; mt-gutter was missing so the Personalizzazione
+   card collapsed against Preferenze and the font select sat under overlays. */
+.mt-gutter{ margin-top: 16px; }
+
+#pref-font,
+#pref-theme,
+#pref-lang{
+  position: relative;
+  z-index: 1;
+  overflow: visible;
+}
+#font-select,
+#theme-select,
+#lang-select{
+  position: relative;
+  z-index: 2;
+  max-width: min(240px, 48vw);
+  min-width: 9.5rem;
+}
+
+.specimen-preview {
+  margin-top: 12px;
+  padding: 16px;
+  border-radius: 8px;
+  border: 1px solid rgb(var(--vm-accent-rgb) / .2);
+  background: rgb(var(--vm-accent-rgb) / .04);
+  font-family: var(--vm-font-family, "Inter", sans-serif);
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  min-height: 60px;
+}
+.specimen-preview-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  opacity: 0.6;
+  margin-bottom: 4px;
+}
+.specimen-preview-text {
+  font-size: 18px;
+  font-weight: 600;
+}
+

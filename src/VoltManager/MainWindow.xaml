@@ -1,0 +1,85 @@
+<Window x:Class="VoltManager.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
+        xmlns:tb="clr-namespace:H.NotifyIcon;assembly=H.NotifyIcon.Wpf"
+        Title="VoltManager" Height="720" Width="1100"
+        MinHeight="480" MinWidth="640"
+        WindowStartupLocation="CenterScreen"
+        Icon="pack://application:,,,/Assets/voltmanager.ico"
+        Background="{DynamicResource ThemeBackgroundBrush}">
+    <Grid Background="{DynamicResource ThemeBackgroundBrush}">
+        <wv2:WebView2 x:Name="WebView" DefaultBackgroundColor="#0B1120" />
+        <tb:TaskbarIcon x:Name="TrayIcon"
+                        ToolTipText="VoltManager"
+                        IconSource="pack://application:,,,/Assets/voltmanager.ico"
+                        Visibility="Visible"
+                        TrayLeftMouseUp="TrayIcon_LeftClick">
+            <tb:TaskbarIcon.ContextMenu>
+                <ContextMenu Opened="TrayMenu_Opened">
+                    <MenuItem x:Name="TrayOpenItem" Header="Apri VoltManager" Click="TrayOpen_Click" FontWeight="Bold" />
+                    <Separator />
+                    <MenuItem x:Name="TrayPowerPlanCategoryItem" Header="Piano energetico">
+                        <MenuItem x:Name="TrayActivePlanItem" Header="Piano attivo: —" IsEnabled="False" />
+                        <MenuItem x:Name="TrayGamingPlanItem" Header="Piano gaming" IsCheckable="True" Click="TrayGamingPlan_Click" />
+                        <MenuItem x:Name="TrayChangePlanItem" Header="Cambia piano">
+                            <MenuItem x:Name="TrayPlanSaverItem" Header="Risparmio energia">
+                                <MenuItem x:Name="TrayPlanSaver1h" Header="1 ora" Tag="powerSaver|1" Click="TrayPlanDuration_Click" />
+                                <MenuItem x:Name="TrayPlanSaver10h" Header="10 ore" Tag="powerSaver|10" Click="TrayPlanDuration_Click" />
+                                <MenuItem x:Name="TrayPlanSaver12h" Header="12 ore" Tag="powerSaver|12" Click="TrayPlanDuration_Click" />
+                                <MenuItem x:Name="TrayPlanSaverForever" Header="Sempre" Tag="powerSaver|0" Click="TrayPlanDuration_Click" />
+                            </MenuItem>
+                            <MenuItem x:Name="TrayPlanBalancedItem" Header="Bilanciato">
+                                <MenuItem x:Name="TrayBalanced1h" Header="1 ora" Tag="balanced|1" Click="TrayPlanDuration_Click" />
+                                <MenuItem x:Name="TrayBalanced10h" Header="10 ore" Tag="balanced|10" Click="TrayPlanDuration_Click" />
+                                <MenuItem x:Name="TrayBalanced12h" Header="12 ore" Tag="balanced|12" Click="TrayPlanDuration_Click" />
+                                <MenuItem x:Name="TrayBalancedForever" Header="Sempre" Tag="balanced|0" Click="TrayPlanDuration_Click" />
+                            </MenuItem>
+                            <MenuItem x:Name="TrayPlanPerfItem" Header="Prestazioni">
+                                <MenuItem x:Name="TrayPerf1h" Header="1 ora" Tag="performance|1" Click="TrayPlanDuration_Click" />
+                                <MenuItem x:Name="TrayPerf10h" Header="10 ore" Tag="performance|10" Click="TrayPlanDuration_Click" />
+                                <MenuItem x:Name="TrayPerf12h" Header="12 ore" Tag="performance|12" Click="TrayPlanDuration_Click" />
+                                <MenuItem x:Name="TrayPerfForever" Header="Sempre" Tag="performance|0" Click="TrayPlanDuration_Click" />
+                            </MenuItem>
+                        </MenuItem>
+                        <MenuItem x:Name="TrayAutomationItem" Header="Automazione piano" IsCheckable="True"
+                                  Click="TrayAutomation_Click" />
+                        <MenuItem x:Name="TrayClearOverrideItem" Header="Sblocca piano (riprendi automazione)"
+                                  Visibility="Collapsed" Click="TrayClearOverride_Click" />
+                    </MenuItem>
+                    <MenuItem x:Name="TrayPcControlsCategoryItem" Header="Controlli PC">
+                        <MenuItem x:Name="TrayKeepAwakeItem" Header="Tieni PC attivo (no sospensione)"
+                                  IsCheckable="True" Click="TrayKeepAwake_Click" />
+                        <MenuItem x:Name="TraySchedulePowerItem" Header="Programma azione PC">
+                            <MenuItem x:Name="TraySchedule30mItem" Header="30 minuti" Tag="30">
+                                <MenuItem x:Name="TraySchedule30mShutdownItem" Header="Spegni" Tag="shutdown|30" Click="TraySchedulePreset_Click" />
+                                <MenuItem x:Name="TraySchedule30mSleepItem" Header="Sospendi" Tag="sleep|30" Click="TraySchedulePreset_Click" />
+                            </MenuItem>
+                            <MenuItem x:Name="TraySchedule45mItem" Header="45 minuti" Tag="45">
+                                <MenuItem x:Name="TraySchedule45mShutdownItem" Header="Spegni" Tag="shutdown|45" Click="TraySchedulePreset_Click" />
+                                <MenuItem x:Name="TraySchedule45mSleepItem" Header="Sospendi" Tag="sleep|45" Click="TraySchedulePreset_Click" />
+                            </MenuItem>
+                            <MenuItem x:Name="TraySchedule1hItem" Header="1 ora">
+                                <MenuItem x:Name="TraySchedule1hShutdownItem" Header="Spegni" Tag="shutdown|60" Click="TraySchedulePreset_Click" />
+                                <MenuItem x:Name="TraySchedule1hSleepItem" Header="Sospendi" Tag="sleep|60" Click="TraySchedulePreset_Click" />
+                            </MenuItem>
+                            <MenuItem x:Name="TraySchedule2hItem" Header="2 ore">
+                                <MenuItem x:Name="TraySchedule2hShutdownItem" Header="Spegni" Tag="shutdown|120" Click="TraySchedulePreset_Click" />
+                                <MenuItem x:Name="TraySchedule2hSleepItem" Header="Sospendi" Tag="sleep|120" Click="TraySchedulePreset_Click" />
+                            </MenuItem>
+                            <MenuItem x:Name="TraySchedule4hItem" Header="4 ore">
+                                <MenuItem x:Name="TraySchedule4hShutdownItem" Header="Spegni" Tag="shutdown|240" Click="TraySchedulePreset_Click" />
+                                <MenuItem x:Name="TraySchedule4hSleepItem" Header="Sospendi" Tag="sleep|240" Click="TraySchedulePreset_Click" />
+                            </MenuItem>
+                            <MenuItem x:Name="TrayScheduleCustomItem" Header="Tempo personalizzato..." Click="TrayScheduleCustom_Click" />
+                        </MenuItem>
+                        <MenuItem x:Name="TrayScheduledStateItem" Header="Nessuna azione programmata" IsEnabled="False" />
+                        <MenuItem x:Name="TrayCancelScheduledItem" Header="Annulla azione programmata" Visibility="Collapsed" Click="TrayCancelScheduled_Click" />
+                    </MenuItem>
+                    <Separator />
+                    <MenuItem x:Name="TrayExitItem" Header="Esci" Click="TrayExit_Click" />
+                </ContextMenu>
+            </tb:TaskbarIcon.ContextMenu>
+        </tb:TaskbarIcon>
+    </Grid>
+</Window>

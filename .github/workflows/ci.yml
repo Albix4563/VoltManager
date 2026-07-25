@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main, Preview, Dev]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: windows-latest
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore
+        run: dotnet restore VoltManager.sln
+
+      - name: Build and type check
+        shell: pwsh
+        run: |
+          & dotnet build VoltManager.sln -c Release --no-restore -v:minimal 2>&1 |
+            Tee-Object -FilePath build.log
+          $exitCode = $LASTEXITCODE
+          if ($exitCode -ne 0) { exit $exitCode }
+
+
+      - name: Check JavaScript syntax
+        shell: pwsh
+        run: |
+          foreach ($file in Get-ChildItem src/VoltManager/wwwroot/js/*.js) {
+            node --check $file.FullName
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+
+      - name: Package portable smoke test
+        shell: pwsh
+        run: .\build.ps1 -SkipTests -SkipInstaller
+
+      - name: Upload CI diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-diagnostics
+          path: |
+            build.log
+          if-no-files-found: warn

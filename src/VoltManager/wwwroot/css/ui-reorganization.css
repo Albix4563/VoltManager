@@ -1,0 +1,729 @@
+/*
+ * VoltManager navigation reorganization
+ * Extends the existing glass/accent design without adding a framework.
+ */
+
+.vm-reorg-view {
+    width: 100%;
+    min-width: 0;
+    gap: 24px;
+}
+
+.vm-reorg-view:not(.hidden) {
+    display: flex;
+}
+
+.vm-view-heading {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
+    min-width: 0;
+}
+
+.vm-section-card {
+    min-width: 0;
+}
+
+.vm-section-title,
+.vm-section-title-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.vm-section-title {
+    color: var(--md-sys-color-on-surface, #e7ebf4);
+    font-size: 1.12rem;
+    font-weight: 650;
+    margin: 0 0 16px;
+}
+
+.vm-section-title > .material-symbols-outlined {
+    color: var(--vm-accent);
+}
+
+.vm-section-title-row {
+    justify-content: space-between;
+    margin-bottom: 16px;
+}
+
+.vm-section-title-row .vm-section-title {
+    margin-bottom: 0;
+}
+
+.vm-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 0;
+}
+
+.vm-divider {
+    height: 1px;
+    margin: 20px 0;
+    background: color-mix(in srgb, var(--md-sys-color-on-surface, #fff) 12%, transparent);
+}
+
+.vm-overview-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.25fr) minmax(300px, .75fr);
+    gap: 24px;
+}
+
+.vm-status-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 12px;
+}
+
+.vm-status-card {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 12px;
+    padding: 16px;
+    border: 1px solid color-mix(in srgb, var(--md-sys-color-on-surface, #fff) 10%, transparent);
+    border-radius: 16px;
+    background: color-mix(in srgb, var(--md-sys-color-surface-container-low, #10192c) 74%, transparent);
+}
+
+.vm-status-card__header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+}
+
+.vm-status-card__header > .material-symbols-outlined {
+    flex: 0 0 auto;
+    width: 32px;
+    height: 32px;
+    display: grid;
+    place-items: center;
+    border-radius: 10px;
+    color: var(--vm-accent);
+    background: color-mix(in srgb, var(--vm-accent) 12%, transparent);
+    font-size: 18px;
+}
+
+.vm-status-card__label {
+    color: var(--md-sys-color-on-surface-variant, #aeb8ca);
+    font-size: .75rem;
+    line-height: 1.2;
+    font-weight: 500;
+}
+
+.vm-status-card strong {
+    overflow: hidden;
+    color: var(--md-sys-color-on-surface, #edf2fb);
+    font-size: 1rem;
+    line-height: 1.25;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    width: 100%;
+    font-weight: 600;
+}
+
+.vm-quick-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 10px;
+}
+
+.vm-quick-action {
+    min-width: 0;
+    min-height: 54px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    border: 1px solid color-mix(in srgb, var(--md-sys-color-on-surface, #fff) 10%, transparent);
+    border-radius: 14px;
+    color: var(--md-sys-color-on-surface-variant, #b7c0d0);
+    background: color-mix(in srgb, var(--md-sys-color-surface-container-low, #10192c) 66%, transparent);
+    cursor: pointer;
+    text-align: left;
+    transition: transform .18s ease, border-color .18s ease, background .18s ease, color .18s ease;
+}
+
+.vm-quick-action:hover,
+.vm-quick-action.active {
+    border-color: color-mix(in srgb, var(--vm-accent) 46%, transparent);
+    color: var(--vm-accent);
+    background: color-mix(in srgb, var(--vm-accent) 10%, transparent);
+}
+
+.vm-quick-action:hover {
+    transform: translateY(-1px);
+}
+
+.vm-quick-action .material-symbols-outlined {
+    flex: 0 0 auto;
+}
+
+.vm-quick-action span:last-child {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.vm-compact-metrics {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 14px;
+}
+
+.vm-compact-metric {
+    min-width: 0;
+    padding: 15px;
+    border: 1px solid color-mix(in srgb, var(--md-sys-color-on-surface, #fff) 10%, transparent);
+    border-radius: 16px;
+    background: color-mix(in srgb, var(--md-sys-color-surface-container-low, #10192c) 72%, transparent);
+}
+
+.vm-compact-metric__top {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 9px;
+    color: var(--md-sys-color-on-surface-variant, #b6bfd0);
+    font-size: .8rem;
+}
+
+.vm-compact-metric__top .material-symbols-outlined {
+    color: var(--vm-accent);
+    font-size: 20px;
+}
+
+.vm-compact-metric__top strong {
+    color: var(--md-sys-color-on-surface, #eef3fc);
+    font-size: 1.05rem;
+}
+
+.vm-meter {
+    height: 5px;
+    margin-top: 13px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--md-sys-color-on-surface, #fff) 9%, transparent);
+}
+
+.vm-meter > span {
+    display: block;
+    width: 0;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, var(--vm-accent-hover), var(--vm-accent));
+    box-shadow: 0 0 10px color-mix(in srgb, var(--vm-accent) 45%, transparent);
+    transition: width .45s ease;
+}
+
+.vm-automation-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 12px;
+}
+
+.vm-summary-row {
+    min-width: 0;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 3px 10px;
+    align-items: center;
+    padding: 14px;
+    border-radius: 15px;
+    border: 1px solid color-mix(in srgb, var(--md-sys-color-on-surface, #fff) 9%, transparent);
+    background: color-mix(in srgb, var(--md-sys-color-surface-container-low, #10192c) 68%, transparent);
+}
+
+.vm-summary-row .material-symbols-outlined {
+    grid-row: 1 / span 2;
+    color: var(--vm-accent);
+}
+
+.vm-summary-row > span:not(.material-symbols-outlined) {
+    min-width: 0;
+    color: var(--md-sys-color-on-surface-variant, #b4bece);
+    font-size: .77rem;
+    overflow-wrap: anywhere;
+}
+
+.vm-summary-row strong {
+    min-width: 0;
+    color: var(--md-sys-color-on-surface, #edf2fa);
+    font-size: .9rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.vm-subnav {
+    position: relative;
+    display: flex;
+    align-items: stretch;
+    gap: 6px;
+    max-width: 100%;
+    padding: 5px;
+    overflow-x: auto;
+    border: 1px solid color-mix(in srgb, var(--md-sys-color-on-surface, #fff) 10%, transparent);
+    border-radius: 16px;
+    background: color-mix(in srgb, var(--md-sys-color-surface-container-low, #10192c) 76%, transparent);
+    scrollbar-width: thin;
+}
+
+.vm-subnav__item {
+    flex: 1 0 auto;
+    min-width: max-content;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 44px;
+    padding: 9px 15px;
+    border: 0;
+    border-radius: 12px;
+    color: var(--md-sys-color-on-surface-variant, #aeb8c9);
+    background: transparent;
+    cursor: pointer;
+    font-weight: 600;
+    transition: color .18s ease, background .18s ease, box-shadow .18s ease;
+}
+
+.vm-subnav__item .material-symbols-outlined {
+    font-size: 19px;
+}
+
+.vm-subnav__item:hover {
+    color: var(--md-sys-color-on-surface, #edf2fb);
+    background: color-mix(in srgb, var(--md-sys-color-on-surface, #fff) 5%, transparent);
+}
+
+.vm-subnav__item.active {
+    color: var(--vm-accent);
+    background: color-mix(in srgb, var(--vm-accent) 11%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--vm-accent) 25%, transparent);
+}
+
+.vm-subview-stack,
+.vm-subview {
+    min-width: 0;
+}
+
+.vm-subview.active {
+    animation: vmReorgPanelIn .2s ease both;
+}
+
+@keyframes vmReorgPanelIn {
+    from { opacity: 0; transform: translateY(5px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.vm-subview > :first-child {
+    margin-top: 0;
+}
+
+#vm-monitoring-hardware #dash-taskmanager,
+#vm-monitoring-processes #processes-section,
+#vm-monitoring-temperatures #temp-section,
+#vm-monitoring-battery > section {
+    margin-top: 0;
+}
+
+#vm-monitoring-hardware #dash-taskmanager > h3,
+#vm-monitoring-processes #processes-section > h3,
+#vm-monitoring-temperatures #temp-section > h3,
+#vm-monitoring-battery > section > h3 {
+    margin-bottom: 14px;
+}
+
+#vm-monitoring-battery {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;
+}
+
+#vm-monitoring-battery > section:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+}
+
+#vm-power-active {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+}
+
+#vm-power-active #plan-control {
+    width: min(100%, 620px);
+    max-width: 620px;
+}
+
+#vm-power-source > * {
+    width: 100%;
+    max-width: none;
+    margin-top: 0;
+}
+
+#vm-keep-awake:empty::before,
+#vm-power-advanced:empty::before,
+#vm-system-memory:empty::before {
+    content: '';
+    display: block;
+    min-height: 28px;
+}
+
+.vm-advanced-warning {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 16px;
+    padding: 13px 15px;
+    border: 1px solid color-mix(in srgb, #ffc857 30%, transparent);
+    border-radius: 14px;
+    color: var(--md-sys-color-on-surface-variant, #b7c0cf);
+    background: color-mix(in srgb, #ffc857 8%, transparent);
+}
+
+.vm-advanced-warning .material-symbols-outlined {
+    color: #ffc857;
+}
+
+.vm-advanced-details {
+    border: 1px solid color-mix(in srgb, var(--md-sys-color-on-surface, #fff) 10%, transparent);
+    border-radius: 16px;
+    overflow: clip;
+}
+
+.vm-advanced-details > summary {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 15px 17px;
+    color: var(--md-sys-color-on-surface, #edf2fa);
+    background: color-mix(in srgb, var(--md-sys-color-surface-container-low, #10192c) 72%, transparent);
+    cursor: pointer;
+    font-weight: 650;
+    list-style: none;
+}
+
+.vm-advanced-details > summary::-webkit-details-marker {
+    display: none;
+}
+
+.vm-advanced-details[open] > summary {
+    border-bottom: 1px solid color-mix(in srgb, var(--md-sys-color-on-surface, #fff) 9%, transparent);
+}
+
+#vm-power-advanced {
+    padding: 16px;
+}
+
+.vm-rules-summary {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.vm-rules-summary .material-symbols-outlined {
+    color: var(--vm-accent);
+}
+
+.vm-rules-summary strong {
+    margin-left: auto;
+    color: var(--vm-accent);
+}
+
+#vm-automation-rules .vm-acc-body-inner {
+    display: block;
+    max-height: none !important;
+    opacity: 1 !important;
+    overflow: visible !important;
+}
+
+#vm-automation-profiles > *,
+#vm-automation-gaming > *,
+#vm-system-memory > * {
+    margin-top: 0;
+}
+
+#vm-system-scheduled #schedule-panel,
+#vm-system-startup > .glass-panel,
+#vm-system-memory > * {
+    width: 100%;
+}
+
+#vm-system-scheduled #schedule-panel > h3,
+#vm-system-scheduled #schedule-panel > p.system-schedule-sub,
+#vm-system-startup .system-startup-title,
+#vm-system-startup .system-startup-sub {
+    display: none;
+}
+
+/* Schedule mode tabs: match subnav/widget-filter language */
+.schedule-mode-tabs {
+    display: flex;
+    gap: 6px;
+    padding: 5px;
+    border: 1px solid color-mix(in srgb, var(--md-sys-color-on-surface, #fff) 10%, transparent);
+    border-radius: 14px;
+    background: color-mix(in srgb, var(--md-sys-color-surface-container-low, #10192c) 75%, transparent);
+}
+
+.schedule-mode-tab {
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 9px 14px;
+    border: 0;
+    border-radius: 10px;
+    color: var(--md-sys-color-on-surface-variant, #aeb8c9);
+    background: transparent;
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.875rem;
+    font-weight: 650;
+    line-height: 1.2;
+    text-align: center;
+    transition: color .18s ease, background .18s ease;
+}
+
+.schedule-mode-tab:hover {
+    color: var(--md-sys-color-on-surface, #e8eef8);
+    background: color-mix(in srgb, var(--md-sys-color-on-surface, #fff) 6%, transparent);
+}
+
+.schedule-mode-tab.active {
+    color: var(--vm-accent);
+    background: color-mix(in srgb, var(--vm-accent) 11%, transparent);
+}
+
+.vm-widget-filters {
+    display: inline-flex;
+    align-self: flex-start;
+    gap: 6px;
+    max-width: 100%;
+    padding: 5px;
+    overflow-x: auto;
+    border: 1px solid color-mix(in srgb, var(--md-sys-color-on-surface, #fff) 10%, transparent);
+    border-radius: 14px;
+    background: color-mix(in srgb, var(--md-sys-color-surface-container-low, #10192c) 75%, transparent);
+}
+
+.vm-widget-filter {
+    min-width: max-content;
+    padding: 9px 16px;
+    border: 0;
+    border-radius: 10px;
+    color: var(--md-sys-color-on-surface-variant, #aeb8c9);
+    background: transparent;
+    cursor: pointer;
+    font-weight: 650;
+}
+
+.vm-widget-filter.active {
+    color: var(--vm-accent);
+    background: color-mix(in srgb, var(--vm-accent) 11%, transparent);
+}
+
+#vm-widgets-content,
+#vm-widgets-content #widgets-card {
+    min-width: 0;
+}
+
+#vm-widgets-content #widgets-card {
+    margin: 0;
+}
+
+#widgets-groups.vm-widget-groups {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.vm-settings-list {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.vm-settings-row {
+    min-width: 0;
+    margin: 0 !important;
+    padding: 15px 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--md-sys-color-on-surface, #fff) 9%, transparent);
+}
+
+.vm-settings-row:first-child {
+    padding-top: 0;
+}
+
+.vm-settings-row:last-child {
+    padding-bottom: 0;
+    border-bottom: 0;
+}
+
+#vm-settings-updates > .glass-panel,
+#vm-settings-info > .glass-panel {
+    width: 100%;
+    margin: 0;
+}
+
+#vm-settings-info > .glass-panel {
+    max-width: 720px;
+    margin-inline: auto;
+}
+
+#vm-settings-changelog #changelog-list {
+    max-height: none;
+    overflow: visible;
+}
+
+.vm-topbar {
+    gap: 12px;
+}
+
+.vm-top-status {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 7px;
+    min-width: 0;
+    margin-left: auto;
+}
+
+.vm-top-chip {
+    min-width: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 34px;
+    padding: 0 10px;
+    border: 1px solid color-mix(in srgb, var(--md-sys-color-on-surface, #fff) 9%, transparent);
+    border-radius: 999px;
+    color: var(--md-sys-color-on-surface-variant, #aeb8c9);
+    background: color-mix(in srgb, var(--md-sys-color-surface-container-low, #10192c) 72%, transparent);
+    font-size: .72rem;
+    white-space: nowrap;
+}
+
+.vm-top-chip .material-symbols-outlined {
+    color: var(--vm-accent);
+    font-size: 17px;
+}
+
+.vm-top-chip strong {
+    max-width: 130px;
+    overflow: hidden;
+    color: var(--md-sys-color-on-surface, #edf2fa);
+    text-overflow: ellipsis;
+}
+
+.vm-topbar > .ml-auto {
+    margin-left: 0;
+}
+
+#side-nav[data-collapsed="true"] .nav-section-label {
+    display: none;
+}
+
+#side-nav[data-collapsed="true"] #nav-list {
+    padding-inline: 10px;
+}
+
+#side-nav[data-collapsed="true"] #nav-list .nav-item {
+    justify-content: center;
+}
+
+@media (max-width: 1280px) {
+    .vm-top-chip > span:not(.material-symbols-outlined) {
+        display: none;
+    }
+}
+
+@media (max-width: 1050px) {
+    .vm-overview-grid {
+        grid-template-columns: 1fr;
+    }
+
+    #vm-monitoring-battery {
+        grid-template-columns: 1fr;
+    }
+
+    #vm-monitoring-battery > section:last-child:nth-child(odd) {
+        grid-column: auto;
+    }
+
+    #widgets-groups.vm-widget-groups {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 900px) {
+    .vm-reorg-view { gap: 18px; }
+
+    .vm-overview-grid,
+    #vm-monitoring-battery,
+    #widgets-groups.vm-widget-groups {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 780px) {
+    .vm-view-heading {
+        align-items: flex-start;
+    }
+
+    .vm-subnav__item {
+        flex: 0 0 auto;
+    }
+
+    .vm-top-status {
+        flex: 1 1 auto;
+        justify-content: flex-end;
+        overflow: hidden;
+    }
+
+    .vm-top-chip {
+        padding-inline: 8px;
+    }
+
+    .vm-top-chip strong {
+        max-width: 82px;
+    }
+}
+
+@media (max-width: 700px) {
+    .vm-view-heading { flex-direction: column; }
+    .vm-section-card { padding: 16px !important; }
+}
+
+@media (max-width: 560px) {
+    .vm-section-title-row {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .vm-top-chip:nth-child(3) {
+        display: none;
+    }
+
+    .vm-top-chip strong {
+        max-width: 64px;
+    }
+
+    .vm-subnav {
+        margin-inline: -4px;
+    }
+
+    #vm-power-active #plan-control {
+        overflow-x: auto;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .vm-subview.active,
+    .vm-quick-action,
+    .vm-meter > span {
+        animation: none !important;
+        transition: none !important;
+    }
+}

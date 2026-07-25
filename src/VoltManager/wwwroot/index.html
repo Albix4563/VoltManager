@@ -1,0 +1,1242 @@
+<!DOCTYPE html>
+<html data-theme-color="blue" lang="it">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>VOLT MANAGER</title>
+<link href="css/app.css?v=ram3" rel="stylesheet"/>
+<link href="css/redesign.css?v=ram3" rel="stylesheet"/>
+<link href="css/polish.css?v=fontfix2" rel="stylesheet"/>
+<link href="css/effects.css?v=ram3" rel="stylesheet"/>
+<link href="css/theme-colors.css?v=color1" rel="stylesheet"/>
+<script src="js/theme.js?v=color1"></script>
+<style>
+@keyframes slideInRight{from{transform:translateX(110%);opacity:0}to{transform:translateX(0);opacity:1}}
+.welcome-step{animation:slideInRight .25s ease}
+/* Spacing scale gap-lg (24px) was missing from app.css, leaving welcome
+   preference rows crammed together. Defined here to match the rest of the
+   lg spacing scale (p-lg/mb-lg/mt-lg/px-lg/py-lg = 24px). */
+.gap-lg{gap:24px}
+.welcome-dot{width:8px;height:8px;border-radius:9999px;background:rgba(255,255,255,.18);cursor:pointer;transition:all .2s ease;display:inline-block}
+.welcome-dot[data-active=true]{background:var(--vm-accent);width:24px}
+#welcome-overlay{z-index:120}
+#channel-warn-overlay{z-index:200}
+.welcome-theme-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.welcome-theme-card{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:10px;min-height:58px;padding:10px 12px;border-radius:16px;border:1px solid var(--vm-border);background:rgba(255,255,255,.045);color:var(--vm-text);font-size:14px;font-weight:700;text-align:left;cursor:pointer;transition:transform .2s ease,border-color .2s ease,background .2s ease,box-shadow .2s ease}
+.welcome-theme-card:hover{transform:translateY(-2px);border-color:var(--theme-swatch);background:rgba(255,255,255,.07)}
+.welcome-theme-card:focus-visible{outline:3px solid var(--theme-swatch);outline-offset:2px}
+.welcome-theme-card[data-selected=true]{border-color:var(--theme-swatch);box-shadow:0 0 0 1px var(--theme-swatch),0 0 22px rgb(var(--vm-accent-rgb) / .2)}
+.welcome-theme-swatch{width:28px;height:28px;border-radius:9999px;background:var(--theme-swatch);box-shadow:inset 0 0 0 1px rgba(255,255,255,.28)}
+.welcome-theme-check{width:24px;min-width:24px;height:24px;border-radius:9999px;display:flex;align-items:center;justify-content:center;border:1px solid var(--vm-border);background:rgba(255,255,255,.05);color:transparent;font-size:17px;transition:all .2s ease}
+.welcome-theme-card[data-selected=true] .welcome-theme-check{background:var(--theme-swatch);border-color:var(--theme-swatch);color:var(--vm-on-accent)}
+@media (max-width:760px){.welcome-theme-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:420px){.welcome-theme-grid{grid-template-columns:1fr}}
+.material-symbols-outlined{width:1em;min-width:1em;max-width:1em;overflow:hidden;text-align:center;flex:0 0 auto}
+</style>
+</head>
+<body class="bg-primary-container text-on-surface h-screen flex overflow-hidden selection:bg-secondary-container selection:text-on-secondary">
+
+<!-- SideNavBar -->
+<nav id="side-nav" class="side-nav fixed left-0 top-0 h-full w-[280px] border-r border-white/10 backdrop-blur-[30px] bg-surface-container/70 shadow-xl z-50 flex flex-col py-lg gap-md" data-collapsed="false">
+  <!-- Header -->
+  <div class="side-nav__header px-lg mb-8 flex items-center gap-3">
+    <div class="side-nav__logo w-10 h-10 rounded-full overflow-hidden border border-secondary-container/30 transition-transform duration-300 hover:scale-110 theme-accent-hover-shadow flex-shrink-0">
+      <img src="images/project_logo.png" alt="VOLT MANAGER" class="w-full h-full object-cover" />
+    </div>
+    <div class="side-nav__brand min-w-0">
+      <h1 class="text-headline-md font-bold text-secondary-container" data-i18n="app_title">VOLT MANAGER</h1>
+      <p class="text-label-md text-on-surface-variant" data-i18n="app_subtitle">BY ALBIX4563</p>
+    </div>
+    <button type="button" id="btn-sidebar-toggle" class="side-nav__toggle ml-auto w-9 h-9 rounded-full flex items-center justify-center text-on-surface-variant hover:text-secondary-container hover:bg-white/5 transition-all duration-300 flex-shrink-0" title="Comprimi barra laterale" aria-label="Comprimi barra laterale" aria-expanded="true" aria-controls="side-nav">
+      <span class="material-symbols-outlined text-[20px]" id="sidebar-toggle-icon">left_panel_close</span>
+    </button>
+  </div>
+  <!-- Navigation Links -->
+  <div class="relative w-full">
+    <div class="nav-indicator" id="nav-indicator" style="top: 0px; height: 48px;"></div>
+    <ul class="flex flex-col gap-1 px-4 w-full relative z-20" id="nav-list">
+      <li class="nav-section-label is-first" aria-hidden="true" data-i18n="nav_sec_monitor">Monitor</li>
+      <li>
+        <a class="nav-item flex items-center gap-3 text-secondary-container font-bold bg-surface-container-high/50 px-4 py-3 rounded-lg active:scale-[0.98] transition-all duration-300 hover:bg-white/10" data-view="home" href="#">
+          <span class="material-symbols-outlined icon-fill">home</span>
+          <span class="text-body-md font-medium" data-i18n="nav_home">Home</span>
+        </a>
+      </li>
+      <li class="nav-section-label" aria-hidden="true" data-i18n="nav_sec_desktop">Desktop</li>
+      <li>
+        <a class="nav-item flex items-center gap-3 text-on-surface-variant font-medium px-4 py-3 opacity-80 hover:bg-white/5 hover:text-secondary-fixed transition-all duration-300 rounded-lg active:scale-[0.98]" data-view="widgets" href="#">
+          <span class="material-symbols-outlined">widgets</span>
+          <span class="text-body-md" data-i18n="nav_widgets">Widgets</span>
+        </a>
+      </li>
+      <li class="nav-section-label" aria-hidden="true" data-i18n="nav_sec_control">Control</li>
+      <li>
+        <a class="nav-item flex items-center gap-3 text-on-surface-variant font-medium px-4 py-3 opacity-80 hover:bg-white/5 hover:text-secondary-fixed transition-all duration-300 rounded-lg active:scale-[0.98]" data-view="power" href="#">
+          <span class="material-symbols-outlined">bolt</span>
+          <span class="text-body-md" data-i18n="nav_power">Automazione</span>
+        </a>
+      </li>
+      <li class="nav-section-label" aria-hidden="true" data-i18n="nav_sec_app">App</li>
+      <li>
+        <a class="nav-item flex items-center gap-3 text-on-surface-variant font-medium px-4 py-3 opacity-80 hover:bg-white/5 hover:text-secondary-fixed transition-all duration-300 rounded-lg active:scale-[0.98]" data-view="settings" href="#">
+          <span class="material-symbols-outlined">settings</span>
+          <span class="text-body-md" data-i18n="nav_settings">Settings &amp; Info</span>
+        </a>
+      </li>
+      <li>
+        <a class="nav-item flex items-center gap-3 text-on-surface-variant font-medium px-4 py-3 opacity-80 hover:bg-white/5 hover:text-secondary-fixed transition-all duration-300 rounded-lg active:scale-[0.98]" data-view="changelog" href="#">
+          <span class="material-symbols-outlined">history</span>
+          <span class="text-body-md" data-i18n="nav_changelog">Changelog</span>
+        </a>
+      </li>
+    </ul>
+  </div>
+  <div class="mt-auto px-lg pb-lg">
+    <div id="btn-monitoring-toggle" class="glass-card rounded-lg p-4 flex items-center gap-3 transition-all duration-300 hover:bg-white/10 cursor-pointer active:scale-[0.98]">
+      <div id="monitoring-dot" class="theme-pulse-dot w-2 h-2 rounded-full bg-secondary-container animate-pulse"></div>
+      <span id="monitoring-label" class="text-label-md text-on-surface" data-i18n="nav_monitoring">Monitoring Active</span>
+    </div>
+    <p class="text-label-sm text-on-surface-variant opacity-60 mt-3 px-1" id="sidebar-version">VOLT MANAGER v1.0.0</p>
+    <div class="mt-sm px-1 flex items-center gap-2 opacity-70 hover:opacity-100 transition-opacity duration-300">
+      <img src="images/sponsor_logo.png" alt="VOLT MANAGER" class="h-6 w-auto rounded" style="max-width: 160px; object-fit: contain;" />
+    </div>
+  </div>
+</nav>
+
+<!-- Main Content Area -->
+<main id="app-main" class="app-main flex-1 ml-[280px] h-full flex flex-col relative bg-[#0A1128]">
+  <!-- Ambient wash comes from effects.js (.vm-aurora). Static blur blobs removed: they cost GPU layers in WebView2. -->
+
+  <!-- TopNavBar -->
+  <header class="flex items-center justify-between h-16 px-lg w-full z-40 bg-transparent shrink-0">
+    <button type="button" id="btn-sidebar-expand" class="side-nav-expand-btn hidden w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:text-secondary-container transition-all duration-300 hover:bg-white/5 hover:scale-110 active:opacity-80 theme-accent-hover-shadow" title="Espandi barra laterale" aria-label="Espandi barra laterale">
+      <span class="material-symbols-outlined">left_panel_open</span>
+    </button>
+    <div class="flex items-center gap-4 ml-auto">
+      <button class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:text-secondary-container transition-all duration-300 hover:bg-white/5 hover:scale-110 active:opacity-80 theme-accent-hover-shadow" id="btn-energy-tips" title="Consigli energetici">
+        <span class="material-symbols-outlined">tips_and_updates</span>
+      </button>
+      <button class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:text-secondary-container transition-all duration-300 hover:bg-white/5 hover:scale-110 active:opacity-80 theme-accent-hover-shadow" id="btn-minimize-tray" title="Riduci nell'area di notifica">
+        <span class="material-symbols-outlined">minimize</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Canvas -->
+  <div class="flex-1 overflow-y-auto px-lg pb-xl flex flex-col animate-in relative z-10" id="main-content">
+
+    <!-- ============ VIEW: HOME ============ -->
+    <section class="view flex-1 flex-col gap-8" id="view-home">
+      <div>
+        <h2 class="text-headline-lg text-on-surface mb-2" data-i18n="dash_title">Dashboard</h2>
+        <p class="text-body-lg text-on-surface-variant" data-i18n="dash_subtitle">Real-time hardware stress and performance metrics.</p>
+      </div>
+
+      <!-- Active Power Plan card -->
+      <section class="glass-card rounded-xl p-6 flex flex-col items-center">
+        <h4 class="text-label-md text-on-surface-variant mb-3 uppercase tracking-wider" data-i18n="dash_active_plan">Active Power Plan</h4>
+        <div class="segmented-control-bg p-1 rounded-xl flex items-center relative w-full max-w-md" id="plan-control">
+          <div class="absolute left-1 top-1 bottom-1 w-[32.5%] segmented-pill rounded-lg z-0" id="plan-pill" style="transform: translateX(102%);"></div>
+          <button class="flex-1 py-3 px-4 relative z-10 text-center text-body-md text-on-surface-variant hover:text-on-surface transition-all duration-300 focus:outline-none hover:scale-105" data-plan="powerSaver" data-i18n="dash_plan_saver">
+            Power Efficiency
+          </button>
+          <button class="flex-1 py-3 px-4 relative z-10 text-center text-body-md text-secondary-container font-semibold transition-all duration-300 focus:outline-none hover:scale-105" data-plan="balanced" data-i18n="dash_plan_balanced">
+            Balanced
+          </button>
+          <button class="flex-1 py-3 px-4 relative z-10 text-center text-body-md text-on-surface-variant hover:text-on-surface transition-all duration-300 focus:outline-none hover:scale-105" data-plan="performance" data-i18n="dash_plan_performance">
+            Performance
+          </button>
+        </div>
+        <div class="hidden mt-4 items-center gap-3 px-4 py-3 rounded-lg bg-surface-container-low/50 border border-white/10" id="manual-override-chip">
+          <span class="material-symbols-outlined text-secondary-container text-[18px]">lock</span>
+          <span class="text-body-md text-on-surface" id="manual-override-label">Piano bloccato</span>
+          <button class="btn-ghost rounded-lg py-1 px-3 text-label-md" id="btn-clear-manual-override" type="button" data-i18n="override_cancel">Annulla</button>
+        </div>
+        <div class="mt-4 w-full max-w-md flex items-center justify-between gap-md px-4 py-3 rounded-lg bg-surface-container-low/50 border border-white/10 cursor-pointer group" id="pref-power-source-plan-home">
+          <div class="min-w-0">
+            <p class="text-body-md text-on-surface group-hover:text-secondary-fixed transition-colors" data-i18n="dash_power_source_title">Auto boost corrente</p>
+            <p class="text-label-sm text-on-surface-variant" data-i18n="dash_power_source_sub">Prestazioni quando collegato, ripristino quando staccato</p>
+          </div>
+          <div class="mini-toggle flex-shrink-0" data-on="true" id="toggle-power-source-plan-home">
+            <div class="mini-toggle-knob"></div>
+          </div>
+        </div>
+        <div class="mt-3 w-full max-w-md flex items-center justify-between gap-md px-4 py-3 rounded-lg bg-surface-container-low/50 border border-white/10 cursor-pointer group" id="pref-gaming-mode-home" role="button" tabindex="0">
+          <div class="min-w-0">
+            <p class="text-body-md text-on-surface group-hover:text-secondary-fixed transition-colors" data-i18n="dash_gaming_title">Modalità gaming</p>
+            <p class="text-label-sm text-on-surface-variant" data-i18n="dash_gaming_sub">Blocca Prestazioni e avvisa quando la CPU torna a riposo</p>
+          </div>
+          <div class="mini-toggle flex-shrink-0" data-on="false" id="toggle-gaming-mode-home">
+            <div class="mini-toggle-knob"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="mt-8" id="dash-taskmanager">
+        <h3 class="text-title-lg text-on-surface mb-4 flex items-center gap-2">
+          <span class="material-symbols-outlined text-secondary-container">memory</span>
+          <span data-i18n="dash_task_manager">Task Manager</span>
+        </h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+          <!-- CPU Card (Circular) -->
+          <div class="glass-card fx-metric rounded-xl p-6 flex flex-col items-center justify-center relative overflow-hidden group">
+            <div class="absolute top-4 left-4 flex items-center gap-2">
+              <span class="material-symbols-outlined text-secondary-container text-sm transition-transform duration-300 group-hover:scale-110">developer_board</span>
+              <span class="text-label-md text-on-surface uppercase" data-i18n="dash_cpu_core">CPU Core</span>
+            </div>
+            <div class="absolute top-4 right-4 flex items-center gap-1 text-label-md text-on-surface-variant hidden" id="cpu-temp-badge">
+              <span class="material-symbols-outlined text-secondary-container text-sm">device_thermostat</span>
+              <span id="cpu-temp">--°</span>
+            </div>
+            <div class="w-32 h-32 relative mt-6 transition-transform duration-500 group-hover:scale-105">
+              <svg class="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                <circle cx="50" cy="50" fill="transparent" r="40" stroke="#1E2A4A" stroke-width="8"></circle>
+                <circle class="progress-glow transition-all duration-1000 ease-out" cx="50" cy="50" fill="transparent" id="cpu-ring" r="40" stroke="var(--vm-accent)" stroke-dasharray="251.2" stroke-dashoffset="251.2" stroke-linecap="round" stroke-width="8"></circle>
+              </svg>
+              <div class="absolute inset-0 flex items-center justify-center flex-col">
+                <span class="text-headline-md font-bold text-on-surface" id="cpu-pct">--%</span>
+              </div>
+            </div>
+            <p class="text-label-sm text-on-surface-variant mt-4 text-center" id="cpu-name">Rilevamento CPU…</p>
+            <p class="text-label-sm font-mono text-secondary-fixed-dim mt-1 text-center hidden" id="cpu-clock">-- MHz</p>
+          </div>
+
+          <!-- GPU Card (Circular) -->
+          <div class="glass-card fx-metric rounded-xl p-6 flex flex-col items-center justify-center relative overflow-hidden group">
+            <div class="absolute top-4 left-4 flex items-center gap-2">
+              <span class="material-symbols-outlined text-secondary-container text-sm transition-transform duration-300 group-hover:scale-110">dns</span>
+              <span class="text-label-md text-on-surface uppercase" data-i18n="dash_gpu_load">GPU Load</span>
+            </div>
+            <div class="absolute top-4 right-4 flex items-center gap-1 text-label-md text-on-surface-variant hidden" id="gpu-temp-badge">
+              <span class="material-symbols-outlined text-secondary-container text-sm">device_thermostat</span>
+              <span id="gpu-temp">--°</span>
+            </div>
+            <div class="w-32 h-32 relative mt-6 transition-transform duration-500 group-hover:scale-105">
+              <svg class="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                <circle cx="50" cy="50" fill="transparent" r="40" stroke="#1E2A4A" stroke-width="8"></circle>
+                <circle class="progress-glow transition-all duration-1000 ease-out" cx="50" cy="50" fill="transparent" id="gpu-ring" r="40" stroke="var(--vm-accent)" stroke-dasharray="251.2" stroke-dashoffset="251.2" stroke-linecap="round" stroke-width="8"></circle>
+              </svg>
+              <div class="absolute inset-0 flex items-center justify-center flex-col">
+                <span class="text-headline-md font-bold text-on-surface" id="gpu-pct">--%</span>
+              </div>
+            </div>
+            <p class="text-label-sm text-on-surface-variant mt-4 text-center" id="gpu-name">Rilevamento GPU…</p>
+          </div>
+
+          <!-- RAM Card (Linear) -->
+          <div class="glass-card rounded-xl p-6 flex flex-col justify-between relative overflow-hidden group">
+            <div>
+              <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center gap-2">
+                  <span class="material-symbols-outlined text-secondary-container text-sm transition-transform duration-300 group-hover:scale-110">memory_alt</span>
+                  <span class="text-label-md text-on-surface uppercase" data-i18n="dash_memory">Memory</span>
+                </div>
+                <span class="text-title-lg font-bold text-on-surface transition-colors duration-300 group-hover:text-secondary-container" id="ram-pct">--%</span>
+              </div>
+              <p class="text-label-sm text-on-surface-variant mb-1" id="ram-detail">-- GB / -- GB In Use</p>
+              <p class="text-label-sm font-mono text-secondary-fixed-dim mb-4 hidden" id="ram-clock">-- MHz</p>
+            </div>
+            <div class="w-full h-3 bg-[#1E2A4A] rounded-full overflow-hidden">
+              <div class="theme-progress-fill h-full rounded-full progress-glow transition-all duration-1000 ease-out" id="ram-bar" style="width: 0%"></div>
+            </div>
+          </div>
+
+          <!-- Disk Card (Linear) -->
+          <div class="glass-card rounded-xl p-6 flex flex-col justify-between relative overflow-hidden group">
+            <div>
+              <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center gap-2">
+                  <span class="material-symbols-outlined text-secondary-container text-sm transition-transform duration-300 group-hover:scale-110">hard_drive</span>
+                  <span class="text-label-md text-on-surface uppercase" data-i18n="dash_disk">Disk I/O</span>
+                </div>
+                <span class="text-title-lg font-bold text-on-surface transition-colors duration-300 group-hover:text-secondary-container" id="disk-pct">--%</span>
+              </div>
+              <p class="text-label-sm text-on-surface-variant mb-6" data-i18n="dash_disk_sub">Attività disco totale</p>
+            </div>
+            <div class="w-full h-3 bg-[#1E2A4A] rounded-full overflow-hidden">
+              <div class="theme-progress-fill h-full rounded-full progress-glow transition-all duration-1000 ease-out" id="disk-bar" style="width: 0%"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Top Processes -->
+      <section class="mt-8" id="processes-section">
+        <h3 class="text-title-lg text-on-surface mb-4 flex items-center gap-2">
+          <span class="material-symbols-outlined text-secondary-container">process_chart</span>
+          <span data-i18n="dash_processes_title">Processi principali</span>
+        </h3>
+        <div class="glass-card processes-card rounded-xl p-6">
+          <div id="processes-list">
+            <p class="text-body-md text-on-surface-variant opacity-70" data-i18n="dash_proc_loading">Caricamento…</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Temperatures & Fans (hidden until live sensors exist) -->
+      <section class="mt-8 hidden" id="temp-section">
+        <h3 class="text-title-lg text-on-surface mb-4 flex items-center gap-2">
+          <span class="material-symbols-outlined text-secondary-container">device_thermostat</span>
+          <span data-i18n="dash_temps_title">Temperatures &amp; Fans</span>
+        </h3>
+        <div class="glass-card rounded-xl p-6">
+          <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-x-8 gap-y-6" id="sensor-list"></div>
+        </div>
+      </section>
+
+      <!-- Battery Health (hidden until firmware capacities are readable) -->
+      <section class="mt-8 hidden" id="battery-health-section">
+        <h3 class="text-title-lg text-on-surface mb-4 flex items-center gap-2">
+          <span class="material-symbols-outlined text-secondary-container">battery_horiz_075</span>
+          <span data-i18n="dash_battery_health_title">Battery Health</span>
+        </h3>
+        <div class="glass-card rounded-xl p-6">
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center gap-2">
+              <span class="material-symbols-outlined text-secondary-container text-sm">battery_charging_full</span>
+              <span class="text-label-md text-on-surface uppercase" id="battery-health-rating">--</span>
+            </div>
+            <span class="text-title-lg font-bold text-on-surface" id="battery-health-pct">--%</span>
+          </div>
+          <p class="text-label-sm text-on-surface-variant mb-4" id="battery-health-detail">--</p>
+          <div class="w-full h-3 bg-[#1E2A4A] rounded-full overflow-hidden">
+            <div class="theme-progress-fill h-full rounded-full progress-glow transition-all duration-1000 ease-out" id="battery-health-bar" style="width: 0%"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Power Flow (live battery charge/discharge wattage; hidden until firmware rates are readable) -->
+      <section class="mt-8 hidden" id="power-flow-section">
+        <h3 class="text-title-lg text-on-surface mb-4 flex items-center gap-2">
+          <span class="material-symbols-outlined text-secondary-container" id="power-flow-icon">bolt</span>
+          <span data-i18n="power_flow_title">Power Flow</span>
+        </h3>
+        <div class="glass-card rounded-xl p-6">
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-2">
+              <span class="material-symbols-outlined text-secondary-container text-sm" id="power-flow-status-icon">battery_full</span>
+              <span class="text-label-md text-on-surface uppercase" id="power-flow-status">--</span>
+            </div>
+            <span class="text-title-lg font-bold text-on-surface" id="power-flow-watts">-- W</span>
+          </div>
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+            <div>
+              <p class="text-label-sm text-on-surface-variant" data-i18n="power_flow_charge_level">Charge</p>
+              <p class="text-title-md font-semibold text-on-surface" id="power-flow-percent">--%</p>
+            </div>
+            <div>
+              <p class="text-label-sm text-on-surface-variant" id="power-flow-time-label" data-i18n="power_flow_to_empty">Until empty</p>
+              <p class="text-title-md font-semibold text-on-surface" id="power-flow-time">--</p>
+            </div>
+            <div>
+              <p class="text-label-sm text-on-surface-variant" data-i18n="power_flow_voltage">Voltage</p>
+              <p class="text-title-md font-semibold text-on-surface" id="power-flow-voltage">--</p>
+            </div>
+          </div>
+          <p class="text-label-sm text-on-surface-variant mt-4" id="power-flow-detail">--</p>
+        </div>
+      </section>
+
+      <!-- Battery History (charge % sparkline over time; hidden until ≥2 samples exist) -->
+      <section class="mt-8 hidden" id="battery-history-section">
+        <h3 class="text-title-lg text-on-surface mb-4 flex items-center gap-2">
+          <span class="material-symbols-outlined text-secondary-container">show_chart</span>
+          <span data-i18n="battery_history_title">Battery History</span>
+        </h3>
+        <div class="glass-card rounded-xl p-6">
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-2">
+              <span class="material-symbols-outlined text-secondary-container text-sm">schedule</span>
+              <span class="text-label-md text-on-surface uppercase" id="battery-history-range">--</span>
+            </div>
+            <span class="text-title-lg font-bold text-on-surface" id="battery-history-current">--%</span>
+          </div>
+          <svg id="battery-history-chart" class="w-full" viewBox="0 0 100 32" preserveAspectRatio="none" style="height: 8rem;">
+            <defs>
+              <linearGradient id="battery-history-fill" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#00E5FF" stop-opacity="0.35"></stop>
+                <stop offset="100%" stop-color="#00E5FF" stop-opacity="0"></stop>
+              </linearGradient>
+            </defs>
+            <path id="battery-history-area" fill="url(#battery-history-fill)" stroke="none" d=""></path>
+            <path id="battery-history-line" fill="none" stroke="#00E5FF" stroke-width="1.2" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke" d=""></path>
+          </svg>
+          <p class="text-label-sm text-on-surface-variant mt-4" id="battery-history-stats">--</p>
+        </div>
+      </section>
+
+    </section>
+
+    <!-- ============ VIEW: POWER MANAGEMENT ============ -->
+    <section class="view flex-1 flex-col hidden" id="view-power">
+      <div class="max-w-4xl mx-auto space-y-lg relative z-10 w-full">
+        <div class="mb-xl">
+          <h2 class="text-headline-lg text-on-surface mb-xs" data-i18n="power_title">Gestione energetica</h2>
+          <p class="text-body-md text-on-surface-variant" data-i18n="power_subtitle">Configura le regole di automazione per ottimizzare le prestazioni e il consumo del sistema.</p>
+        </div>
+
+        <div class="pm-subnav" id="pm-subnav" role="tablist">
+          <button class="pm-seg active" type="button" data-pm="rules" role="tab" aria-selected="true"><span class="material-symbols-outlined">tune</span><span data-i18n="power_group_rules">CPU automation rules</span></button>
+          <button class="pm-seg" type="button" data-pm="apps" role="tab" aria-selected="false"><span class="material-symbols-outlined">app_shortcut</span><span data-i18n="power_group_app_profiles">App power profiles</span></button>
+          <button class="pm-seg" type="button" data-pm="games" role="tab" aria-selected="false"><span class="material-symbols-outlined">sports_esports</span><span data-i18n="power_group_heavy">Game &amp; heavy app detection</span></button>
+          <button class="pm-seg" type="button" data-pm="advanced" role="tab" aria-selected="false"><span class="material-symbols-outlined">tune</span><span data-i18n="power_group_advanced">Advanced plan parameters</span></button>
+          <button class="pm-seg" type="button" data-pm="ram" role="tab" aria-selected="false"><span class="material-symbols-outlined">memory</span><span data-i18n="power_group_ramcleaner">Memory Optimization (RAM Cleaner)</span></button>
+        </div>
+
+        <div class="vm-accordion space-y-md">
+
+        <!-- Accordion item 1: CPU automation rules (open by default) -->
+        <div class="vm-acc-item glass-panel rounded-xl pm-active" data-pm="rules" data-open="true">
+          <button class="vm-acc-header" type="button">
+            <span class="material-symbols-outlined text-secondary-container">tune</span>
+            <span class="vm-acc-title text-title-lg text-on-surface" data-i18n="power_group_rules">CPU automation rules</span>
+            <span class="material-symbols-outlined vm-acc-chevron">expand_more</span>
+          </button>
+          <div class="vm-acc-body"><div class="vm-acc-body-inner">
+
+            <!-- Master Toggle (gate for the rules below) -->
+            <div class="flex flex-col sm:flex-row items-center justify-between gap-md bg-surface-container-low/50 p-lg rounded-2xl backdrop-blur-md mb-md">
+              <div>
+                <h3 class="text-headline-md text-on-surface" data-i18n="power_master_title">Attiva Gestione Automatica in Background</h3>
+                <p class="text-body-md text-on-surface-variant mt-1" data-i18n="power_master_sub">Lascia che VOLT MANAGER applichi le regole in modo silenzioso.</p>
+              </div>
+              <div class="relative inline-block w-16 h-8 align-middle select-none transition duration-200 ease-in flex-shrink-0">
+                <input checked class="toggle-large" id="master-toggle" type="checkbox"/>
+                <label class="toggle-label-large cursor-pointer" for="master-toggle">
+                  <span class="sr-only">Attiva Gestione Automatica in Background</span>
+                </label>
+              </div>
+            </div>
+
+            <div class="glass-panel p-lg rounded-xl mb-md">
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-md">
+                <div class="flex items-center gap-md">
+                  <div class="w-12 h-12 rounded-lg bg-surface-container-lowest border border-white/5 flex items-center justify-center shrink-0">
+                    <span class="material-symbols-outlined text-secondary-fixed-dim">schedule</span>
+                  </div>
+                  <div>
+                    <h3 class="text-title-md text-on-surface" data-i18n="power_sample_title">Intervallo campionamento CPU</h3>
+                    <p class="text-body-sm text-on-surface-variant mt-1" data-i18n="power_sample_sub">Scegli ogni quanti secondi VOLT MANAGER legge l'uso CPU per decidere il piano energetico automatico.</p>
+                  </div>
+                </div>
+                <div class="flex items-center gap-xs shrink-0">
+                  <input class="w-16 h-9 bg-surface-container-lowest border-b border-white/20 rounded text-center text-body-md text-secondary-container input-glow transition-all" id="cpu-sample-interval" max="60" min="1" type="number" value="1"/>
+                  <span class="text-body-md text-on-surface-variant" data-i18n="power_sample_seconds">secondi</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="space-y-md">
+          <!-- Rule: Risparmio Energetico -->
+          <div class="glass-panel p-lg rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-md group hover:border-white/20 transition-all duration-300">
+            <div class="flex items-center gap-md flex-1">
+              <div class="w-12 h-12 rounded-lg bg-surface-container-lowest border border-white/5 flex items-center justify-center group-hover:bg-surface-container transition-colors shrink-0">
+                <span class="material-symbols-outlined text-secondary-fixed-dim">battery_saver</span>
+              </div>
+              <div class="flex-1 flex flex-wrap items-center gap-x-xs gap-y-2 text-body-md text-on-surface">
+                <span data-i18n="power_rule_if">Se CPU &lt;</span>
+                <input class="w-12 h-8 bg-surface-container-lowest border-b border-white/20 rounded text-center text-body-md text-secondary-container input-glow transition-all" data-rule="saver" data-field="thresholdPct" id="rule-saver-threshold" max="99" min="1" type="number" value="10"/>
+                <span data-i18n="power_rule_for">% per</span>
+                <input class="w-12 h-8 bg-surface-container-lowest border-b border-white/20 rounded text-center text-body-md text-secondary-container input-glow transition-all" data-rule="saver" data-field="durationMinutes" id="rule-saver-minutes" max="60" min="1" type="number" value="1"/>
+                <span data-i18n="power_rule_min">minuto</span>
+                <span class="mx-2 text-on-surface-variant">→</span>
+                <span class="text-tertiary-fixed font-medium" data-i18n="power_rule_saver">Risparmio Energetico</span>
+              </div>
+            </div>
+            <div class="flex items-center justify-end">
+              <div class="relative inline-block w-12 h-6 align-middle select-none transition duration-200 ease-in">
+                <input checked class="toggle-checkbox" data-rule="saver" id="rule-saver-toggle" type="checkbox"/>
+                <label class="toggle-label cursor-pointer" for="rule-saver-toggle">
+                  <span class="sr-only">Attiva regola risparmio energetico</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- Rule: Balanced -->
+          <div class="glass-panel p-lg rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-md group hover:border-white/20 transition-all duration-300">
+            <div class="flex items-center gap-md flex-1">
+              <div class="w-12 h-12 rounded-lg bg-surface-container-lowest border border-white/5 flex items-center justify-center group-hover:bg-surface-container transition-colors shrink-0">
+                <span class="material-symbols-outlined text-secondary-fixed-dim">balance</span>
+              </div>
+              <div class="flex-1 flex flex-wrap items-center gap-x-xs gap-y-2 text-body-md text-on-surface">
+                <span data-i18n="power_rule_if_gt">Se CPU &gt;</span>
+                <input class="w-12 h-8 bg-surface-container-lowest border-b border-white/20 rounded text-center text-body-md text-secondary-container input-glow transition-all" data-rule="balanced" data-field="thresholdPct" id="rule-balanced-threshold" max="99" min="1" type="number" value="10"/>
+                <span data-i18n="power_rule_for">% per</span>
+                <input class="w-12 h-8 bg-surface-container-lowest border-b border-white/20 rounded text-center text-body-md text-secondary-container input-glow transition-all" data-rule="balanced" data-field="durationMinutes" id="rule-balanced-minutes" max="60" min="1" type="number" value="1"/>
+                <span data-i18n="power_rule_min">minuto</span>
+                <span class="mx-2 text-on-surface-variant">→</span>
+                <span class="text-tertiary-fixed font-medium" data-i18n="power_rule_balanced">Balanced</span>
+              </div>
+            </div>
+            <div class="flex items-center justify-end">
+              <div class="relative inline-block w-12 h-6 align-middle select-none transition duration-200 ease-in">
+                <input checked class="toggle-checkbox" data-rule="balanced" id="rule-balanced-toggle" type="checkbox"/>
+                <label class="toggle-label cursor-pointer" for="rule-balanced-toggle">
+                  <span class="sr-only">Attiva regola balanced</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- Rule: Performance -->
+          <div class="glass-panel p-lg rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-md group hover:border-white/20 transition-all duration-300">
+            <div class="flex items-center gap-md flex-1">
+              <div class="w-12 h-12 rounded-lg bg-surface-container-lowest border border-white/5 flex items-center justify-center group-hover:bg-surface-container transition-colors shrink-0">
+                <span class="material-symbols-outlined text-secondary-fixed-dim">speed</span>
+              </div>
+              <div class="flex-1 flex flex-wrap items-center gap-x-xs gap-y-2 text-body-md text-on-surface">
+                <span data-i18n="power_rule_if_gt">Se CPU &gt;</span>
+                <input class="w-12 h-8 bg-surface-container-lowest border-b border-white/20 rounded text-center text-body-md text-secondary-container input-glow transition-all" data-rule="performance" data-field="thresholdPct" id="rule-performance-threshold" max="99" min="1" type="number" value="50"/>
+                <span data-i18n="power_rule_for">% per</span>
+                <input class="w-12 h-8 bg-surface-container-lowest border-b border-white/20 rounded text-center text-body-md text-secondary-container input-glow transition-all" data-rule="performance" data-field="durationMinutes" id="rule-performance-minutes" max="60" min="1" type="number" value="1"/>
+                <span data-i18n="power_rule_min">minuto</span>
+                <span class="mx-2 text-on-surface-variant">→</span>
+                <span class="text-tertiary-fixed font-medium" data-i18n="power_rule_performance">Performance</span>
+              </div>
+            </div>
+            <div class="flex items-center justify-end">
+              <div class="relative inline-block w-12 h-6 align-middle select-none transition duration-200 ease-in">
+                <input checked class="toggle-checkbox" data-rule="performance" id="rule-performance-toggle" type="checkbox"/>
+                <label class="toggle-label cursor-pointer" for="rule-performance-toggle">
+                  <span class="sr-only">Attiva regola performance</span>
+                </label>
+              </div>
+            </div>
+          </div>
+            </div><!-- end rules .space-y-md -->
+
+          </div></div>
+        </div><!-- end accordion item 1 -->
+
+        <!-- Accordion item 2: Per-app power profiles -->
+        <div class="vm-acc-item glass-panel rounded-xl" data-pm="apps" data-open="false">
+          <button class="vm-acc-header" type="button">
+            <span class="material-symbols-outlined text-secondary-container">app_shortcut</span>
+            <span class="vm-acc-title text-title-lg text-on-surface" data-i18n="power_group_app_profiles">App power profiles</span>
+            <span class="material-symbols-outlined vm-acc-chevron">expand_more</span>
+          </button>
+          <div class="vm-acc-body"><div class="vm-acc-body-inner">
+            <div id="app-power-profile-mount"></div>
+          </div></div>
+        </div>
+
+        <!-- Accordion item 3: Game & heavy app detection -->
+        <div class="vm-acc-item glass-panel rounded-xl" data-pm="games" data-open="false">
+          <button class="vm-acc-header" type="button">
+            <span class="material-symbols-outlined text-secondary-container">sports_esports</span>
+            <span class="vm-acc-title text-title-lg text-on-surface" data-i18n="power_group_heavy">Game &amp; heavy app detection</span>
+            <span class="material-symbols-outlined vm-acc-chevron">expand_more</span>
+          </button>
+          <div class="vm-acc-body"><div class="vm-acc-body-inner">
+            <div id="heavy-app-mount"></div>
+          </div></div>
+        </div>
+
+        <!-- Accordion: thermal guard (hot CPU/GPU → cooler plan) -->
+        <div class="vm-acc-item glass-panel rounded-xl" data-pm="thermal" data-open="false">
+          <button class="vm-acc-header" type="button">
+            <span class="material-symbols-outlined text-secondary-container">device_thermostat</span>
+            <span class="vm-acc-title text-title-lg text-on-surface" data-i18n="power_group_thermal">Thermal guard</span>
+            <span class="material-symbols-outlined vm-acc-chevron">expand_more</span>
+          </button>
+          <div class="vm-acc-body"><div class="vm-acc-body-inner">
+            <div id="thermal-guard-mount"></div>
+          </div></div>
+        </div>
+
+        <!-- Accordion: idle power guard (no input → frugal plan) -->
+        <div class="vm-acc-item glass-panel rounded-xl" data-pm="idle" data-open="false">
+          <button class="vm-acc-header" type="button">
+            <span class="material-symbols-outlined text-secondary-container">hourglass_empty</span>
+            <span class="vm-acc-title text-title-lg text-on-surface" data-i18n="power_group_idle">Idle power guard</span>
+            <span class="material-symbols-outlined vm-acc-chevron">expand_more</span>
+          </button>
+          <div class="vm-acc-body"><div class="vm-acc-body-inner">
+            <div id="idle-power-guard-mount"></div>
+          </div></div>
+        </div>
+
+        <!-- Accordion item: Advanced plan parameters (keep-awake moved to the dedicated energy tab) -->
+        <div class="vm-acc-item glass-panel rounded-xl" data-pm="advanced" data-open="false">
+          <button class="vm-acc-header" type="button">
+            <span class="material-symbols-outlined text-secondary-container">tune</span>
+            <span class="vm-acc-title text-title-lg text-on-surface" data-i18n="power_group_advanced">Advanced plan parameters</span>
+            <span class="material-symbols-outlined vm-acc-chevron">expand_more</span>
+          </button>
+          <div class="vm-acc-body"><div class="vm-acc-body-inner">
+            <div id="advanced-params-mount"></div>
+          </div></div>
+        </div>
+
+        <!-- Accordion item 6: RAM Cleaner -->
+        <div class="vm-acc-item glass-panel rounded-xl" data-pm="ram" data-open="false">
+          <button class="vm-acc-header" type="button">
+            <span class="material-symbols-outlined text-secondary-container">memory</span>
+            <span class="vm-acc-title text-title-lg text-on-surface" data-i18n="power_group_ramcleaner">Memory Optimization (RAM Cleaner)</span>
+            <span class="material-symbols-outlined vm-acc-chevron">expand_more</span>
+          </button>
+          <div class="vm-acc-body"><div class="vm-acc-body-inner">
+            <div id="ram-cleaner-mount"></div>
+          </div></div>
+        </div>
+
+        </div><!-- end .vm-accordion -->
+      </div>
+    </section>
+
+    <!-- ============ VIEW: SETTINGS & INFO ============ -->
+    <section class="view flex-1 flex-col hidden" id="view-settings">
+      <div class="mb-xl">
+        <h2 class="text-headline-lg text-on-surface" data-i18n="set_title">Settings &amp; Info</h2>
+        <p class="text-body-lg text-on-surface-variant mt-xs" data-i18n="set_subtitle">Manage application preferences, updates, and system information.</p>
+      </div>
+
+      <div class="grid grid-cols-12 gap-gutter">
+        <!-- Left Column: Updates & Changelog -->
+        <div class="col-span-12 lg:col-span-8 flex flex-col gap-gutter">
+          <!-- Update Card -->
+          <div class="glass-panel rounded-xl p-lg relative overflow-hidden group">
+            <div class="absolute top-0 left-0 w-32 h-32 bg-white/5 rounded-full blur-2xl -translate-x-1/2 -translate-y-1/2"></div>
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-md relative z-10">
+              <div>
+                <h3 class="text-headline-md text-on-surface flex items-center gap-xs">
+                  <span class="material-symbols-outlined text-secondary-container">update</span>
+                  <span data-i18n="set_updates_title">Software Updates</span>
+                </h3>
+                <p class="text-body-md text-on-surface-variant mt-1" data-i18n="set_updates_sub">Keep VOLT MANAGER optimized with the latest performance enhancements.</p>
+                <div class="mt-sm flex flex-wrap items-center gap-xs">
+                  <div class="inline-flex items-center gap-xs px-3 py-1 rounded-full bg-surface-container-high border border-white/5">
+                    <span class="w-2 h-2 rounded-full bg-secondary-container animate-pulse theme-pulse-dot"></span>
+                    <span class="text-label-md text-on-surface-variant" id="version-badge">Current Version: v1.0.0</span>
+                  </div>
+                  <div class="inline-flex items-center gap-xs px-3 py-1 rounded-full bg-surface-container-high border border-white/5" id="update-channel-badge">
+                    <span class="material-symbols-outlined text-secondary-fixed-dim" style="font-size:14px;">hub</span>
+                    <span class="text-label-md text-on-surface-variant" id="update-channel-badge-text">Canale: Stabile</span>
+                  </div>
+                </div>
+                <p class="text-label-md text-on-surface-variant mt-sm hidden" id="update-status"></p>
+              </div>
+              <div class="flex flex-col gap-sm items-stretch">
+                <div style="display:flex;flex-direction:column;gap:4px;">
+                  <label class="text-label-sm text-on-surface-variant" for="update-channel-select" data-i18n="set_channel_label">Canale aggiornamenti</label>
+                  <select id="update-channel-select" class="text-label-md text-on-surface"
+                          style="width:100%;background:var(--md-sys-color-surface-container-high,#1b2236);color:inherit;font-weight:600;padding:8px 12px;border-radius:8px;border:1px solid rgba(255,255,255,0.12);cursor:pointer;outline:none;">
+                    <option value="stable" data-i18n="set_channel_stable">Stabile</option>
+                    <option value="preview" data-i18n="set_channel_preview">Preview (Beta)</option>
+                    <option value="dev" data-i18n="set_channel_dev">Dev (Alpha)</option>
+                  </select>
+                  <p class="text-label-sm mt-1 hidden" id="update-channel-risk-note" style="color:#ffc857;line-height:1.35;"></p>
+                </div>
+                <button class="btn-glow flex items-center justify-center gap-sm bg-secondary-container text-on-secondary-container text-label-md font-bold px-6 py-3 rounded-lg transition-all duration-200 whitespace-nowrap" id="btn-check-updates">
+                  <span class="material-symbols-outlined text-[18px]">download</span>
+                  <span data-i18n="set_btn_check">Cerca aggiornamenti da GitHub</span>
+                </button>
+                <button class="btn-glow hidden items-center justify-center gap-sm bg-secondary-container text-on-secondary-container text-label-md font-bold px-6 py-3 rounded-lg transition-all duration-200 whitespace-nowrap" id="btn-download-update">
+                  <span class="material-symbols-outlined text-[18px]">system_update_alt</span>
+                  <span id="btn-download-label" data-i18n="set_btn_download">Scarica e installa</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Preferences Card (main/central column) -->
+          <div class="glass-panel rounded-xl p-lg">
+            <h3 class="text-title-lg text-on-surface mb-md" data-i18n="set_pref_title">General Preferences</h3>
+            <div class="space-y-md">
+              <div class="flex items-center justify-between group cursor-pointer" id="pref-autostart">
+                <div>
+                  <p class="text-body-md text-on-surface group-hover:text-secondary-fixed transition-colors" data-i18n="set_pref_autostart">Start with Windows</p>
+                  <p class="text-label-sm text-on-surface-variant" data-i18n="set_pref_autostart_sub">Avvio automatico ridotto a icona</p>
+                </div>
+                <div class="mini-toggle" data-on="false" id="toggle-autostart">
+                  <div class="mini-toggle-knob"></div>
+                </div>
+              </div>
+              <div class="flex items-center justify-between group cursor-pointer" id="pref-tray">
+                <div>
+                  <p class="text-body-md text-on-surface group-hover:text-secondary-fixed transition-colors" data-i18n="set_pref_tray">Chiudi nell'area di notifica</p>
+                  <p class="text-label-sm text-on-surface-variant" data-i18n="set_pref_tray_sub">La X nasconde l'app, automazione attiva</p>
+                </div>
+                <div class="mini-toggle" data-on="true" id="toggle-tray">
+                  <div class="mini-toggle-knob"></div>
+                </div>
+              </div>
+              <div class="flex items-center justify-between group mt-md" id="pref-show-welcome">
+                <div>
+                  <p class="text-body-md text-on-surface group-hover:text-secondary-fixed transition-colors" data-i18n="set_show_welcome">Mostra benvenuto</p>
+                  <p class="text-label-sm text-on-surface-variant" data-i18n="set_show_welcome_sub">Ripeti la presentazione iniziale</p>
+                </div>
+                <button class="btn-ghost rounded-lg py-2 px-4 text-label-md flex items-center gap-xs" id="btn-show-welcome" type="button">
+                  <span class="material-symbols-outlined text-[18px]">play_arrow</span>
+                  <span data-i18n="set_show_welcome_btn">Apri</span>
+                </button>
+              </div>
+              <div class="flex items-center justify-between group mt-md" id="pref-show-tour">
+                <div>
+                  <p class="text-body-md text-on-surface group-hover:text-secondary-fixed transition-colors" data-i18n="set_show_tour">Tour guidato</p>
+                  <p class="text-label-sm text-on-surface-variant" data-i18n="set_show_tour_sub">Riavvia la visita guidata dell'app</p>
+                </div>
+                <button class="btn-ghost rounded-lg py-2 px-4 text-label-md flex items-center gap-xs" id="btn-show-tour" type="button">
+                  <span class="material-symbols-outlined text-[18px]">tour</span>
+                  <span data-i18n="set_show_tour_btn">Avvia</span>
+                </button>
+              </div>
+              <div class="flex items-center justify-between group mt-md" id="pref-backup">
+                <div>
+                  <p class="text-body-md text-on-surface group-hover:text-secondary-fixed transition-colors" data-i18n="set_backup">Backup impostazioni</p>
+                  <p class="text-label-sm text-on-surface-variant" data-i18n="set_backup_sub">Salva o ripristina la configurazione da file</p>
+                </div>
+                <div class="flex items-center gap-xs">
+                  <button class="btn-ghost rounded-lg py-2 px-4 text-label-md flex items-center gap-xs" id="btn-export-settings" type="button">
+                    <span class="material-symbols-outlined text-[18px]">file_download</span>
+                    <span data-i18n="set_backup_export">Esporta</span>
+                  </button>
+                  <button class="btn-ghost rounded-lg py-2 px-4 text-label-md flex items-center gap-xs" id="btn-import-settings" type="button">
+                    <span class="material-symbols-outlined text-[18px]">file_upload</span>
+                    <span data-i18n="set_backup_import">Importa</span>
+                  </button>
+                </div>
+              </div>
+              <div class="flex items-center justify-between group mt-md" id="pref-diagnostics">
+                <div>
+                  <p class="text-body-md text-on-surface group-hover:text-secondary-fixed transition-colors" data-i18n="set_diagnostics">Diagnostica</p>
+                  <p class="text-label-sm text-on-surface-variant" data-i18n="set_diagnostics_sub">Esporta report (sistema, piano, batteria, log) o apri la cartella log</p>
+                </div>
+                <div class="flex items-center gap-xs flex-wrap justify-end">
+                  <button class="btn-ghost rounded-lg py-2 px-4 text-label-md flex items-center gap-xs" id="btn-export-diagnostics" type="button">
+                    <span class="material-symbols-outlined text-[18px]">bug_report</span>
+                    <span data-i18n="set_diagnostics_export">Esporta report</span>
+                  </button>
+                  <button class="btn-ghost rounded-lg py-2 px-4 text-label-md flex items-center gap-xs" id="btn-open-logs" type="button">
+                    <span class="material-symbols-outlined text-[18px]">folder_open</span>
+                    <span data-i18n="set_diagnostics_logs">Apri log</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Customization Card -->
+          <div class="glass-panel rounded-xl p-lg mt-gutter">
+            <h3 class="text-title-lg text-on-surface mb-md" data-i18n="set_customization_title">Personalizzazione</h3>
+            <div class="space-y-md">
+              <div class="flex items-center justify-between group" id="pref-theme">
+                <div>
+                  <label class="text-body-md text-on-surface group-hover:text-secondary-fixed transition-colors" for="theme-select" data-i18n="set_pref_theme">Colore tema</label>
+                  <p class="text-label-sm text-on-surface-variant" data-i18n="set_pref_theme_sub">Colore principale dell'interfaccia</p>
+                </div>
+                <select id="theme-select" aria-label="Colore tema" data-i18n-aria-label="set_pref_theme" class="bg-surface-container-low/50 text-secondary-container font-medium border border-white/10 rounded-lg py-2 px-4 pr-10 text-body-md focus:outline-none focus:border-secondary-container transition-all duration-300 cursor-pointer hover:bg-white/10 shadow-lg backdrop-blur-md">
+                  <option value="blue" data-i18n="set_theme_blue">Blu</option>
+                  <option value="red" data-i18n="set_theme_red">Rosso</option>
+                  <option value="green" data-i18n="set_theme_green">Verde</option>
+                  <option value="orange" data-i18n="set_theme_orange">Arancione</option>
+                  <option value="purple" data-i18n="set_theme_purple">Viola</option>
+                  <option value="pink" data-i18n="set_theme_pink">Rosa</option>
+                  <option value="gray" data-i18n="set_theme_gray">Grigio</option>
+                </select>
+              </div>
+              <div class="flex items-center justify-between group mt-md" id="pref-lang">
+                <div>
+                  <p class="text-body-md text-on-surface group-hover:text-secondary-fixed transition-colors" data-i18n="set_pref_lang">Lingua</p>
+                  <p class="text-label-sm text-on-surface-variant" data-i18n="set_pref_lang_sub">Lingua dell'interfaccia</p>
+                </div>
+                <select id="lang-select" class="bg-surface-container-low/50 text-secondary-container font-medium border border-white/10 rounded-lg py-2 px-4 pr-10 text-body-md focus:outline-none focus:border-secondary-container transition-all duration-300 cursor-pointer hover:bg-white/10 shadow-lg backdrop-blur-md" style="-webkit-appearance: none; -moz-appearance: none; appearance: none; background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2300f1fe%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E'); background-repeat: no-repeat; background-position: right 0.75rem center; background-size: 1.2em 1.2em;">
+                  <option value="it" class="bg-[#0A1128] text-white">Italiano</option>
+                  <option value="en" class="bg-[#0A1128] text-white">English</option>
+                  <option value="es" class="bg-[#0A1128] text-white">Español</option>
+                  <option value="zh" class="bg-[#0A1128] text-white">简体中文</option>
+                </select>
+              </div>
+              <div class="flex items-center justify-between group mt-md" id="pref-font">
+                <div>
+                  <label class="text-body-md text-on-surface group-hover:text-secondary-fixed transition-colors block cursor-pointer" for="font-select" data-i18n="set_pref_font">Carattere</label>
+                  <p class="text-label-sm text-on-surface-variant" data-i18n="set_pref_font_sub">Tipo di carattere dell'interfaccia</p>
+                </div>
+                <select id="font-select" class="bg-surface-container-low/50 text-secondary-container font-medium border border-white/10 rounded-lg py-2 px-4 pr-10 text-body-md focus:outline-none focus:border-secondary-container transition-all duration-300 cursor-pointer hover:bg-white/10 shadow-lg backdrop-blur-md" style="-webkit-appearance: none; -moz-appearance: none; appearance: none; background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2300f1fe%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E'); background-repeat: no-repeat; background-position: right 0.75rem center; background-size: 1.2em 1.2em;">
+                  <option value="inter" class="bg-[#0A1128] text-white">Inter</option>
+                  <option value="segoe-ui" class="bg-[#0A1128] text-white">Segoe UI</option>
+                  <option value="arial" class="bg-[#0A1128] text-white">Arial</option>
+                  <option value="calibri" class="bg-[#0A1128] text-white">Calibri</option>
+                  <option value="verdana" class="bg-[#0A1128] text-white">Verdana</option>
+                  <option value="tahoma" class="bg-[#0A1128] text-white">Tahoma</option>
+                  <option value="trebuchet-ms" class="bg-[#0A1128] text-white">Trebuchet MS</option>
+                  <option value="georgia" class="bg-[#0A1128] text-white">Georgia</option>
+                  <option value="times-new-roman" class="bg-[#0A1128] text-white">Times New Roman</option>
+                  <option value="consolas" class="bg-[#0A1128] text-white">Consolas</option>
+                </select>
+              </div>
+              <div class="specimen-preview" id="font-specimen-preview">
+                <span class="specimen-preview-title" data-i18n="specimen_preview_title">Anteprima carattere</span>
+                <span class="specimen-preview-text" data-i18n="specimen_preview_text">Volt Manager · Aa 123</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Right Column -->
+        <div class="col-span-12 lg:col-span-4 flex flex-col gap-gutter">
+          <!-- App Info Card -->
+          <div class="glass-panel rounded-xl p-lg text-center flex flex-col items-center justify-center border-t-2 border-t-secondary-container/30">
+            <div class="w-20 h-20 rounded-2xl bg-gradient-to-br from-surface-container-high to-surface flex items-center justify-center mb-md shadow-lg border border-white/5 relative overflow-hidden">
+              <div class="absolute inset-0 bg-secondary-container/20 blur-xl rounded-full scale-150"></div>
+              <img src="images/project_logo.png" alt="VOLT MANAGER" class="w-16 h-16 object-cover rounded-xl relative z-10" />
+            </div>
+            <h3 class="text-headline-md text-on-surface">VOLT MANAGER</h3>
+            <p class="text-body-md text-secondary-fixed-dim mt-1" id="info-version">v1.0.0</p>
+            <div class="w-full h-px bg-white/10 my-md"></div>
+            <div class="flex justify-between w-full text-body-md">
+              <span class="text-on-surface-variant">CPU</span>
+              <span class="text-on-surface text-right ml-4 truncate" id="info-cpu">--</span>
+            </div>
+            <div class="flex justify-between w-full text-body-md mt-sm">
+              <span class="text-on-surface-variant">GPU</span>
+              <span class="text-on-surface text-right ml-4 truncate" id="info-gpu">--</span>
+            </div>
+            <div class="flex justify-between w-full text-body-md mt-sm">
+              <span class="text-on-surface-variant">RAM</span>
+              <span class="text-on-surface" id="info-ram">--</span>
+            </div>
+            <div class="flex justify-between w-full text-body-md mt-sm">
+              <span class="text-on-surface-variant" data-i18n="set_sys_system">Sistema</span>
+              <span class="text-on-surface text-right ml-4 truncate" id="info-os">--</span>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============ VIEW: WIDGETS ============ -->
+    <section class="view flex-1 flex-col hidden" id="view-widgets">
+      <div class="mb-xl">
+        <h2 class="text-headline-lg text-on-surface" data-i18n="widget_settings_title">Widget desktop</h2>
+        <p class="text-body-lg text-on-surface-variant mt-xs" data-i18n="widget_settings_sub">Gadget separati sul desktop, con puntina per tenerli sopra.</p>
+      </div>
+      <div class="glass-panel rounded-xl p-lg widgets-category-card" id="widgets-card">
+        <div class="flex flex-col lg:flex-row lg:items-start justify-between gap-lg mb-lg">
+          <div class="max-w-3xl">
+            <h3 class="text-title-lg text-on-surface flex items-center gap-xs">
+              <span class="material-symbols-outlined text-secondary-container">widgets</span>
+              <span data-i18n="widget_master_title">Categoria widget</span>
+            </h3>
+            <p class="text-body-md text-on-surface-variant mt-1" data-i18n="widget_master_sub">Attiva o disattiva tutti i widget desktop.</p>
+          </div>
+          <div class="widgets-master-control">
+            <div>
+              <p class="text-body-md text-on-surface" data-i18n="widget_master_title">Categoria widget</p>
+              <p class="text-label-sm text-on-surface-variant" data-i18n="widget_master_sub">Attiva o disattiva tutti i widget desktop.</p>
+            </div>
+            <div class="mini-toggle flex-shrink-0" data-on="false" id="toggle-widgets-master">
+              <div class="mini-toggle-knob"></div>
+            </div>
+          </div>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-sm mb-lg">
+          <div class="startup-summary-card" data-tone="on">
+            <div class="startup-summary-icon"><span class="material-symbols-outlined text-[20px]">check_circle</span></div>
+            <div>
+              <p class="text-title-lg text-on-surface" id="widgets-active-count">--</p>
+              <p class="text-label-sm text-on-surface-variant" data-i18n="widget_active">Widget attivi</p>
+            </div>
+          </div>
+          <div class="startup-summary-card" data-tone="off">
+            <div class="startup-summary-icon"><span class="material-symbols-outlined text-[20px]">widgets</span></div>
+            <div>
+              <p class="text-title-lg text-on-surface" id="widgets-total-count">--</p>
+              <p class="text-label-sm text-on-surface-variant" data-i18n="widget_total">Widget totali</p>
+            </div>
+          </div>
+        </div>
+        <div class="grid grid-cols-1 xl:grid-cols-2 gap-gutter" id="widgets-groups">
+          <section>
+            <h4 class="text-label-md uppercase tracking-wider text-secondary-container mb-sm" data-i18n="widget_active">Widget attivi</h4>
+            <div class="space-y-sm" id="widgets-enabled-list"></div>
+          </section>
+          <section>
+            <h4 class="text-label-md uppercase tracking-wider text-on-surface-variant mb-sm" data-i18n="widget_disabled">Widget disattivati</h4>
+            <div class="space-y-sm" id="widgets-disabled-list"></div>
+          </section>
+        </div>
+        <div class="space-y-sm hidden" id="widgets-list" aria-hidden="true"></div>
+      </div>
+    </section>
+
+    <!-- ============ VIEW: CHANGELOG ============ -->
+    <section class="view flex-1 flex-col hidden" id="view-changelog">
+      <div class="mb-xl flex flex-col sm:flex-row sm:items-end justify-between gap-md">
+        <div>
+          <h2 class="text-headline-lg text-on-surface" data-i18n="changelog_title">Changelog</h2>
+          <p class="text-body-lg text-on-surface-variant mt-xs" data-i18n="changelog_sub">Storico completo di tutte le versioni pubblicate.</p>
+        </div>
+        <button class="btn-ghost rounded-lg py-2.5 px-4 text-label-md flex items-center gap-xs self-start sm:self-auto" id="btn-refresh-changelog">
+          <span class="material-symbols-outlined text-[18px]">refresh</span>
+          <span data-i18n="changelog_refresh">Aggiorna</span>
+        </button>
+      </div>
+      <p class="text-label-md text-on-surface-variant mb-md hidden" id="changelog-status"></p>
+      <div class="glass-panel rounded-xl p-lg flex-1 overflow-y-auto changelog-scroll" id="changelog-list">
+        <p class="text-body-md text-on-surface-variant opacity-70" data-i18n="changelog_loading">Caricamento…</p>
+      </div>
+    </section>
+  </div>
+</main>
+
+<!-- ============ CHANNEL RISK WARNING MODAL ============ -->
+<!-- z-index inline: arbitrary Tailwind z-[115] is not in the compiled CSS bundle. -->
+<div class="fixed inset-0 bg-black/60 hidden items-center justify-center" id="channel-warn-overlay" style="z-index:200;">
+  <div class="w-full max-w-md mx-4 glass-modal rounded-2xl overflow-hidden" id="channel-warn-modal" role="dialog" aria-modal="true" aria-labelledby="channel-warn-title">
+    <div class="px-6 py-5 border-b border-white/5 flex items-center gap-3">
+      <div class="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
+           style="background:color-mix(in srgb,#ffc857 12%,transparent);border:1px solid color-mix(in srgb,#ffc857 30%,transparent);">
+        <span class="material-symbols-outlined text-2xl" style="color:#ffc857;">warning</span>
+      </div>
+      <h2 class="text-title-lg text-on-surface font-bold" id="channel-warn-title">Attenzione</h2>
+    </div>
+    <div class="px-6 py-5">
+      <p class="text-body-md text-on-surface-variant leading-relaxed" id="channel-warn-body"></p>
+    </div>
+    <div class="px-6 py-4 border-t border-white/5 flex justify-end gap-3">
+      <button type="button" id="channel-warn-cancel" class="btn-ghost rounded-lg py-2.5 px-5 text-label-md">Annulla</button>
+      <button type="button" id="channel-warn-confirm"
+              class="btn-glow bg-secondary-container text-on-secondary-container font-bold rounded-lg py-2.5 px-6 text-label-md cursor-pointer border-0">
+        Continua
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ UPDATE MODAL ============ -->
+<div class="fixed inset-0 z-[110] bg-black/60 hidden items-center justify-center" id="update-modal-overlay">
+  <div class="w-full max-w-lg mx-4 glass-modal rounded-2xl overflow-hidden" id="update-modal">
+    <!-- Header -->
+    <div class="px-6 py-5 border-b border-white/5 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <span class="material-symbols-outlined text-secondary-container text-2xl">system_update_alt</span>
+        <h2 class="text-title-lg text-on-surface font-bold" data-i18n="upd_modal_title">Aggiornamento disponibile</h2>
+      </div>
+      <button onclick="document.getElementById('update-modal-overlay').classList.add('hidden'),document.getElementById('update-modal-overlay').classList.remove('flex')"
+              class="w-8 h-8 flex items-center justify-center rounded-lg text-on-surface-variant hover:bg-white/10 transition-colors cursor-pointer text-lg border-0 bg-transparent">✕</button>
+    </div>
+    <!-- Version badges -->
+    <div class="px-6 pt-5 flex items-center gap-4">
+      <div class="flex flex-col items-center px-4 py-2 bg-surface-container rounded-lg border border-white/5">
+        <span class="text-label-sm text-on-surface-variant mb-1" data-i18n="upd_modal_cur">Versione attuale</span>
+        <span class="text-title-md font-mono text-on-surface-variant" id="upd-modal-cur-ver">v?</span>
+      </div>
+      <span class="material-symbols-outlined text-secondary-container text-2xl">arrow_forward</span>
+      <div class="flex flex-col items-center px-4 py-2 bg-secondary-container/10 rounded-lg border border-secondary-container/30">
+        <span class="text-label-sm text-secondary-container mb-1" data-i18n="upd_modal_new">Nuova versione</span>
+        <span class="text-title-md font-mono text-secondary-container font-bold" id="upd-modal-new-ver">v?</span>
+      </div>
+    </div>
+    <!-- Release notes -->
+    <div class="px-6 pt-4 pb-2 max-h-40 overflow-y-auto" id="upd-modal-notes">
+      <p class="text-label-md text-on-surface-variant opacity-60" data-i18n="set_changelog_empty">Caricamento note di rilascio…</p>
+    </div>
+    <!-- Progress bar (hidden until download starts) -->
+    <div class="px-6 pb-2 hidden" id="upd-modal-progress-wrap">
+      <div class="w-full h-1.5 bg-surface-container rounded-full overflow-hidden mt-2">
+        <div class="h-full bg-secondary-container rounded-full transition-all duration-300" id="upd-modal-bar" style="width:0%"></div>
+      </div>
+      <div class="flex justify-between mt-1">
+        <span class="text-label-sm text-on-surface-variant" id="upd-modal-prog-label">0%</span>
+      </div>
+    </div>
+    <p class="px-6 pb-2 text-label-md text-secondary-container hidden" id="upd-modal-state-msg" data-i18n="upd_modal_installing">Installazione in corso, l'app si riavvierà…</p>
+    <!-- Footer -->
+    <div class="px-6 py-4 border-t border-white/5 flex justify-end gap-3">
+      <button id="upd-modal-btn-dismiss"
+              class="btn-ghost rounded-lg py-2.5 px-5 text-label-md" data-i18n="upd_banner_later">Più tardi</button>
+      <button id="upd-modal-btn-install"
+              class="btn-glow bg-secondary-container text-on-secondary-container font-bold rounded-lg py-2.5 px-6 text-label-md flex items-center gap-2 cursor-pointer border-0"
+              data-i18n="upd_modal_btn_install">
+        <span class="material-symbols-outlined text-[16px]">download</span>
+        Scarica e installa
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MANUAL OVERRIDE MODAL ============ -->
+<div class="fixed inset-0 z-[100] vm-scrim hidden items-center justify-center" id="manual-override-overlay">
+  <main class="w-full max-w-md px-lg z-10">
+    <div class="glass-modal rounded-3xl p-xl flex flex-col" id="manual-override-modal">
+      <div class="flex items-center gap-3 mb-md">
+        <div class="w-10 h-10 rounded-lg bg-secondary-container/20 flex items-center justify-center border border-secondary-container/30">
+          <span class="material-symbols-outlined text-secondary-container icon-fill">lock</span>
+        </div>
+        <h1 class="text-headline-md text-on-surface" data-i18n="override_title">Per quanto tempo mantenere questo piano?</h1>
+      </div>
+      <p class="text-body-md text-on-surface-variant mb-lg" id="manual-override-plan"></p>
+      <div class="grid grid-cols-1 gap-sm">
+        <button class="manual-override-option btn-ghost rounded-lg py-3 px-4 text-body-md text-left" data-hours="1" type="button" data-i18n="override_1h">1 ora</button>
+        <button class="manual-override-option btn-ghost rounded-lg py-3 px-4 text-body-md text-left" data-hours="10" type="button" data-i18n="override_10h">10 ore</button>
+        <button class="manual-override-option btn-ghost rounded-lg py-3 px-4 text-body-md text-left" data-hours="12" type="button" data-i18n="override_12h">12 ore</button>
+        <button class="manual-override-option btn-ghost rounded-lg py-3 px-4 text-body-md text-left" data-forever="true" type="button" data-i18n="override_forever">Sempre</button>
+      </div>
+      <p class="hidden text-body-md text-on-surface-variant mt-md" id="manual-override-warning" data-i18n="override_forever_warning">L'app non cambiera piu il piano automaticamente finche non annulli.</p>
+      <div class="flex justify-end gap-md mt-lg">
+        <button class="btn-ghost rounded-lg py-3 px-4 text-label-md" id="btn-manual-override-cancel" type="button" data-i18n="override_cancel">Annulla</button>
+        <button class="btn-primary rounded-lg py-3 px-4 text-label-md hidden" id="btn-manual-override-confirm" type="button" data-i18n="override_confirm">Conferma</button>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- ============ WELCOME / ONBOARDING OVERLAY ============ -->
+<div class="fixed inset-0 z-[120] bg-background hidden items-center justify-center" id="welcome-overlay">
+  <div class="ambient-glow"></div>
+  <main class="w-full max-w-lg px-lg z-10">
+    <div class="glass-modal rounded-3xl p-xl flex flex-col" id="welcome-modal">
+
+      <!-- Step 0: Intro -->
+      <section class="welcome-step flex flex-col items-center text-center" data-step="0">
+        <div class="w-20 h-20 rounded-full bg-surface-container-high flex items-center justify-center mb-lg border border-white/5 relative overflow-hidden">
+          <div class="absolute inset-0 rounded-full theme-accent-shadow-lg"></div>
+          <img src="images/project_logo.png" alt="VOLT MANAGER" class="w-16 h-16 object-cover rounded-full relative z-10" />
+        </div>
+        <h1 class="text-headline-md text-on-surface mb-sm" data-i18n="welcome_title">Benvenuto in VOLT MANAGER</h1>
+        <p class="text-body-md text-on-surface-variant mb-xl max-w-[320px]" data-i18n="welcome_intro_sub">Domina l'energia. Sblocca la potenza.</p>
+      </section>
+
+      <!-- Step 1: Theme color choice -->
+      <section class="welcome-step hidden flex-col gap-lg" data-step="1">
+        <div class="text-center">
+          <h2 class="text-headline-sm text-on-surface mb-sm" data-i18n="welcome_theme_title">Scegli il colore del tema</h2>
+          <p class="text-body-md text-on-surface-variant max-w-[360px] mx-auto" data-i18n="welcome_theme_intro">Puoi cambiarlo in qualsiasi momento dalle impostazioni.</p>
+        </div>
+        <div class="welcome-theme-grid" role="group" aria-label="Colore tema" data-i18n-aria-label="set_pref_theme">
+          <button class="welcome-theme-card" data-welcome-theme="blue" type="button" aria-pressed="false" style="--theme-swatch:#3B82F6">
+            <span class="welcome-theme-swatch" aria-hidden="true"></span><span data-i18n="set_theme_blue">Blu</span><span class="welcome-theme-check material-symbols-outlined">check</span>
+          </button>
+          <button class="welcome-theme-card" data-welcome-theme="red" type="button" aria-pressed="false" style="--theme-swatch:#EF4444">
+            <span class="welcome-theme-swatch" aria-hidden="true"></span><span data-i18n="set_theme_red">Rosso</span><span class="welcome-theme-check material-symbols-outlined">check</span>
+          </button>
+          <button class="welcome-theme-card" data-welcome-theme="green" type="button" aria-pressed="false" style="--theme-swatch:#22C55E">
+            <span class="welcome-theme-swatch" aria-hidden="true"></span><span data-i18n="set_theme_green">Verde</span><span class="welcome-theme-check material-symbols-outlined">check</span>
+          </button>
+          <button class="welcome-theme-card" data-welcome-theme="orange" type="button" aria-pressed="false" style="--theme-swatch:#F97316">
+            <span class="welcome-theme-swatch" aria-hidden="true"></span><span data-i18n="set_theme_orange">Arancione</span><span class="welcome-theme-check material-symbols-outlined">check</span>
+          </button>
+          <button class="welcome-theme-card" data-welcome-theme="purple" type="button" aria-pressed="false" style="--theme-swatch:#A855F7">
+            <span class="welcome-theme-swatch" aria-hidden="true"></span><span data-i18n="set_theme_purple">Viola</span><span class="welcome-theme-check material-symbols-outlined">check</span>
+          </button>
+          <button class="welcome-theme-card" data-welcome-theme="pink" type="button" aria-pressed="false" style="--theme-swatch:#EC4899">
+            <span class="welcome-theme-swatch" aria-hidden="true"></span><span data-i18n="set_theme_pink">Rosa</span><span class="welcome-theme-check material-symbols-outlined">check</span>
+          </button>
+          <button class="welcome-theme-card" data-welcome-theme="gray" type="button" aria-pressed="false" style="--theme-swatch:#94A3B8">
+            <span class="welcome-theme-swatch" aria-hidden="true"></span><span data-i18n="set_theme_gray">Grigio</span><span class="welcome-theme-check material-symbols-outlined">check</span>
+          </button>
+        </div>
+      </section>
+
+      <!-- Step 2: Features -->
+      <section class="welcome-step hidden flex-col gap-lg" data-step="2">
+        <h2 class="text-headline-sm text-on-surface mb-sm text-center" data-i18n="welcome_features_title">Cosa puoi fare</h2>
+        <div class="flex flex-col gap-md">
+          <div class="flex items-center gap-md glass-card rounded-xl p-md">
+            <span class="material-symbols-outlined text-secondary-container text-[28px]">monitoring</span>
+            <div>
+              <p class="text-body-md text-on-surface font-medium" data-i18n="welcome_feat_monitor_title">Monitoraggio hardware</p>
+              <p class="text-label-sm text-on-surface-variant" data-i18n="welcome_feat_monitor_sub">CPU, GPU, RAM e disco in tempo reale</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-md glass-card rounded-xl p-md">
+            <span class="material-symbols-outlined text-secondary-container text-[28px]">bolt</span>
+            <div>
+              <p class="text-body-md text-on-surface font-medium" data-i18n="welcome_feat_auto_title">Switch automatico piani</p>
+              <p class="text-label-sm text-on-surface-variant" data-i18n="welcome_feat_auto_sub">Piani energetici adattati al carico</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-md glass-card rounded-xl p-md">
+            <span class="material-symbols-outlined text-secondary-container text-[28px]">app_shortcut</span>
+            <div>
+              <p class="text-body-md text-on-surface font-medium" data-i18n="welcome_feat_apps_title">Profili per-app</p>
+              <p class="text-label-sm text-on-surface-variant" data-i18n="welcome_feat_apps_sub">Piano dedicato per ogni applicazione</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-md glass-card rounded-xl p-md">
+            <span class="material-symbols-outlined text-secondary-container text-[28px]">memory</span>
+            <div>
+              <p class="text-body-md text-on-surface font-medium" data-i18n="welcome_feat_ram_title">RAM Cleaner</p>
+              <p class="text-label-sm text-on-surface-variant" data-i18n="welcome_feat_ram_sub">Libera memoria standby al volo</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Step 3: Preferences -->
+      <section class="welcome-step hidden flex-col gap-lg" data-step="3">
+        <h2 class="text-headline-sm text-on-surface text-center" data-i18n="welcome_prefs_title">Imposta le preferenze</h2>
+
+        <!-- Language -->
+        <div class="flex items-center justify-between gap-md">
+          <div>
+            <p class="text-body-md text-on-surface font-medium" data-i18n="set_pref_lang">Lingua</p>
+            <p class="text-label-sm text-on-surface-variant" data-i18n="set_pref_lang_sub">Lingua dell'interfaccia</p>
+          </div>
+          <select id="welcome-lang-select" class="bg-surface-container-low/50 text-secondary-container font-medium border border-white/10 rounded-lg py-2 px-4 pr-10 text-body-md focus:outline-none focus:border-secondary-container transition-all duration-300 cursor-pointer hover:bg-white/10 shadow-lg backdrop-blur-md" style="-webkit-appearance: none; -moz-appearance: none; appearance: none; background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2300f1fe%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E'); background-repeat: no-repeat; background-position: right 0.75rem center; background-size: 1.2em 1.2em;">
+            <option value="it">Italiano</option>
+            <option value="en">English</option>
+            <option value="es">Español</option>
+            <option value="zh">简体中文</option>
+          </select>
+        </div>
+
+        <!-- Auto-switch -->
+        <div class="flex items-center justify-between gap-md">
+          <div class="flex-1">
+            <p class="text-body-md text-on-surface font-medium" data-i18n="power_master_title">Attiva Gestione Automatica in Background</p>
+            <p class="text-label-sm text-on-surface-variant" data-i18n="welcome_autoswitch_sub">Switch automatico dei piani energetici</p>
+          </div>
+          <div class="relative inline-block w-16 h-8 align-middle select-none transition duration-200 ease-in flex-shrink-0">
+            <input checked class="toggle-large" id="welcome-master-toggle" type="checkbox"/>
+            <label class="toggle-label-large cursor-pointer" for="welcome-master-toggle">
+              <span class="sr-only">Auto-switch</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Silent auto updates -->
+        <div class="flex items-center justify-between gap-md">
+          <div class="flex-1">
+            <p class="text-body-md text-on-surface font-medium" data-i18n="set_pref_silent_updates">Aggiornamenti automatici silenziosi</p>
+            <p class="text-label-sm text-on-surface-variant" data-i18n="set_pref_silent_updates_sub">Installa le nuove versioni in automatico e avvisa al riavvio.</p>
+          </div>
+          <div class="relative inline-block w-16 h-8 align-middle select-none transition duration-200 ease-in flex-shrink-0">
+            <input checked class="toggle-large" id="welcome-silent-update-toggle" type="checkbox"/>
+            <label class="toggle-label-large cursor-pointer" for="welcome-silent-update-toggle">
+              <span class="sr-only">Silent auto updates</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Desktop widgets -->
+        <div class="flex items-center justify-between gap-md">
+          <div class="flex-1">
+            <p class="text-body-md text-on-surface font-medium" data-i18n="widget_settings_title">Widget desktop</p>
+            <p class="text-label-sm text-on-surface-variant" data-i18n="welcome_widgets_sub">Mostra gadget con orologio, calendario e metriche sul desktop</p>
+          </div>
+          <div class="relative inline-block w-16 h-8 align-middle select-none transition duration-200 ease-in flex-shrink-0">
+            <input class="toggle-large" id="welcome-widgets-toggle" type="checkbox"/>
+            <label class="toggle-label-large cursor-pointer" for="welcome-widgets-toggle">
+              <span class="sr-only">Desktop widgets</span>
+            </label>
+          </div>
+        </div>
+      </section>
+
+      <!-- Dot indicator -->
+      <div class="flex items-center justify-center gap-xs mt-lg" id="welcome-dots">
+        <span class="welcome-dot" data-go="0"></span>
+        <span class="welcome-dot" data-go="1"></span>
+        <span class="welcome-dot" data-go="2"></span>
+        <span class="welcome-dot" data-go="3"></span>
+      </div>
+
+      <!-- Navigation -->
+      <div class="flex items-center justify-between gap-md mt-lg">
+        <button class="btn-ghost rounded-lg py-3 px-4 text-label-md" id="welcome-btn-skip" type="button" data-i18n="welcome_skip">Salta</button>
+        <div class="flex items-center gap-sm">
+          <button class="btn-ghost rounded-lg py-3 px-4 text-label-md" id="welcome-btn-back" type="button" data-i18n="welcome_back">Indietro</button>
+          <button class="btn-primary rounded-lg py-3 px-4 text-label-md" id="welcome-btn-next" type="button" data-i18n="welcome_next">Avanti</button>
+          <button class="btn-primary rounded-lg py-3 px-4 text-label-md hidden" id="welcome-btn-start" type="button" data-i18n="welcome_start">Inizia</button>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- ============ SETUP MODAL OVERLAY ============ -->
+<div class="fixed inset-0 z-[100] bg-background hidden items-center justify-center" id="setup-overlay">
+  <div class="ambient-glow"></div>
+  <main class="w-full max-w-md px-lg z-10">
+    <div class="glass-modal rounded-3xl p-xl flex flex-col items-center text-center" id="setup-modal">
+      <div class="w-20 h-20 rounded-full bg-surface-container-high flex items-center justify-center mb-lg border border-white/5 relative overflow-hidden">
+        <div class="absolute inset-0 rounded-full theme-accent-shadow-lg"></div>
+        <img src="images/project_logo.png" alt="VOLT MANAGER" class="w-16 h-16 object-cover rounded-full relative z-10" />
+      </div>
+      <h1 class="text-headline-md text-on-surface mb-sm" data-i18n="setup_req">Setup Richiesto</h1>
+      <p class="text-body-md text-on-surface-variant mb-xl max-w-[280px]" id="setup-message" data-i18n="setup_req_sub">
+        Piani energetici di base non rilevati. È necessario installarli per ottimizzare le prestazioni del sistema.
+      </p>
+      <div class="flex flex-col sm:flex-row gap-md w-full">
+        <button class="btn-ghost flex-1 rounded-lg py-3 px-4 text-label-md flex items-center justify-center gap-xs" id="btn-setup-exit">
+          <span class="material-symbols-outlined text-[18px]">close</span>
+          <span data-i18n="setup_btn_exit">No, esci</span>
+        </button>
+        <button class="btn-primary flex-1 rounded-lg py-3 px-4 text-label-md flex items-center justify-center gap-xs" id="btn-setup-install">
+          <span class="material-symbols-outlined text-[18px]">download</span>
+          <span data-i18n="setup_btn_install">Installa piani di base</span>
+        </button>
+      </div>
+      <div class="mt-lg flex items-center gap-2 opacity-60">
+        <span class="material-symbols-outlined text-[14px] text-secondary-container">info</span>
+        <span class="text-label-sm text-on-surface-variant" data-i18n="setup_admin">Questa operazione richiede i privilegi di amministratore.</span>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- ============ ENERGY TIPS POPUP ============ -->
+<div class="fixed inset-0 z-[110] bg-black/60 hidden items-center justify-center" id="energy-tips-overlay">
+  <div class="w-full max-w-md mx-4 glass-modal rounded-2xl overflow-hidden" id="energy-tips-modal" role="dialog" aria-modal="true" aria-labelledby="energy-tips-title">
+    <!-- Header -->
+    <div class="px-6 py-5 border-b border-white/5 flex items-center justify-between gap-3">
+      <div class="flex items-center gap-3 min-w-0">
+        <div class="w-10 h-10 rounded-lg bg-secondary-container/20 flex items-center justify-center border border-secondary-container/30 shrink-0">
+          <span class="material-symbols-outlined text-secondary-container icon-fill">tips_and_updates</span>
+        </div>
+        <div class="min-w-0">
+          <h2 class="text-title-lg text-on-surface font-bold truncate" id="energy-tips-title" data-i18n="tips_modal_title">Consigli energetici</h2>
+          <p class="text-label-sm text-on-surface-variant truncate" data-i18n="tips_modal_sub">Suggerimenti per consumare meno e durare di più.</p>
+        </div>
+      </div>
+      <button id="energy-tips-close"
+              class="w-8 h-8 flex items-center justify-center rounded-lg text-on-surface-variant hover:bg-white/10 transition-colors cursor-pointer text-lg border-0 bg-transparent shrink-0">✕</button>
+    </div>
+    <!-- Tip body -->
+    <div class="px-6 py-5">
+      <div class="flex items-start gap-4">
+        <div class="w-12 h-12 rounded-xl bg-surface-container-high border border-white/5 flex items-center justify-center shrink-0 relative overflow-hidden">
+          <div class="absolute inset-0 bg-secondary-container/10 blur-xl"></div>
+          <span class="material-symbols-outlined text-secondary-container text-2xl relative z-10" id="energy-tip-icon">eco</span>
+        </div>
+        <div class="min-w-0">
+          <h3 class="text-headline-md text-on-surface mb-1" id="energy-tip-title">&nbsp;</h3>
+          <p class="text-body-md text-on-surface-variant" id="energy-tip-body">&nbsp;</p>
+        </div>
+      </div>
+    </div>
+    <!-- Dot indicator -->
+    <div class="flex items-center justify-center gap-xs pb-2" id="energy-tip-dots"></div>
+    <!-- Footer -->
+    <div class="px-6 py-4 border-t border-white/5 flex items-center justify-between gap-3">
+      <span class="text-label-sm text-on-surface-variant font-mono" id="energy-tip-counter">1 / 1</span>
+      <div class="flex items-center gap-2">
+        <button class="btn-ghost rounded-lg py-2.5 px-5 text-label-md" id="energy-tip-prev" type="button" data-i18n="tips_prev">Indietro</button>
+        <button class="btn-primary rounded-lg py-2.5 px-6 text-label-md flex items-center gap-2 cursor-pointer border-0" id="energy-tip-next" type="button" data-i18n="tips_next">Avanti</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="js/bridge.js?v=errlog1"></script>
+<script src="js/font.js?v=fontfix2"></script>
+<script src="js/i18n.js?v=nav-reorg1"></script>
+<script src="js/app.js?v=ram1"></script>
+<script src="js/effects.js?v=ram3"></script>
+<script src="js/perf-guard.js?v=hwtier1"></script>
+<script src="js/dashboard.js?v=ram2"></script>
+<script src="js/settings.js?v=fontfix2"></script>
+<script src="js/welcome.js?v=silentupdate1"></script>
+<script src="js/tour.js?v=nav-reorg1"></script>
+<script src="js/tips.js?v=tips1"></script>
+<script src="js/changelog.js?v=temps1"></script>
+<script src="js/setup.js?v=temps1"></script>
+<!-- power.js / advanced.js: lazy-loaded on first open of power/settings (app.js) -->
+</body>
+</html>

@@ -1,0 +1,136 @@
+# Build output
+bin/
+obj/
+publish/
+publish-supervisor/
+publish-planswitch/
+dist/
+artifacts/
+installer/
+**/bin/
+**/obj/
+src/VoltManager.Setup/Payload/
+src/VoltManager.Setup/voltmanager.ico
+
+# Generated packages and binaries
+*.exe
+*.dll
+*.pdb
+*.appx
+*.appxbundle
+*.msi
+*.msix
+*.msixbundle
+*.nupkg
+*.snupkg
+*.zip
+
+# Keep real source assets
+!src/**/wwwroot/**
+!src/**/Assets/**
+!src/**/*.ico
+!src/**/*.woff2
+!src/**/*.png
+!src/**/*.jpg
+!src/**/*.jpeg
+!src/**/*.svg
+
+# Local tools and downloaded payloads
+.build_tools/
+installer/MicrosoftEdgeWebview2Setup.exe
+installer/Output/
+
+# Test, logs and coverage output
+TestResults/
+coverage/
+*.coverage
+*.coveragexml
+*.trx
+*.log
+msbuild.log
+sensordump.txt
+raw
+
+# User, IDE, AI tools
+*.user
+*.rsuser
+*.suo
+*.userosscache
+*.userprefs
+*.sln.docstates
+.vs/
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+.claude/
+.codex/
+.commandcode/
+.agents/
+CLAUDE.md
+AGENTS.md
+
+# Secrets, cloud state, local deploy config
+.env
+.env.*
+*.local
+*.secret
+*.secrets.*
+*.key
+*.pem
+*.pfx
+*.p12
+*.jks
+*.keystore
+*.crt
+*.cer
+*.mobileprovision
+.aws/
+.azure/
+.gcloud/
+.terraform/
+.pulumi/
+.serverless/
+.vercel/
+.netlify/
+.supabase/
+
+# Temp and OS files
+*.tmp
+*.cache
+*.bak
+*.orig
+.DS_Store
+Thumbs.db
+/nul
+
+# Repo-local analysis output
+graphify-out/
+
+# Piani locali
+plan/
+
+# MCP config locali e workspace AI
+mcps/
+pinai/
+
+# Local scratch, external projects, old material
+albyfit/
+tmp/
+temp/
+scratch/
+backup/
+backups/
+old/
+archive/
+# Root-only logo copies (app assets live under src/**/wwwroot/images and Assets)
+/project_logo.png
+/sponsor_logo.png
+/VoltManager_logo.png
+
+# Internal/dev-only (not needed to study or fork the app)
+tools/
+scripts/Test-*.ps1
+repomix-output.xml
+docs/plans/

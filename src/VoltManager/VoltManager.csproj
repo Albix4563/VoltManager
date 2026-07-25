@@ -1,0 +1,54 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\voltmanager.ico</ApplicationIcon>
+    <AssemblyVersion>1.1.1.0</AssemblyVersion>
+    <FileVersion>1.1.1.0</FileVersion>
+    <Version>1.1.1</Version>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>false</SelfContained>
+    <SatelliteResourceLanguages>en;it;es;zh-Hans</SatelliteResourceLanguages>
+    <PublishReadyToRun>true</PublishReadyToRun>
+    <TieredCompilationQuickJit>true</TieredCompilationQuickJit>
+    <TieredCompilation>true</TieredCompilation>
+    <!-- Tray app: a small heap sampled on timers. Workstation, non-concurrent GC drops
+         the background-GC thread and its extra reserved segment; see also
+         runtimeconfig.template.json for System.GC.ConserveMemory. -->
+    <ServerGarbageCollection>false</ServerGarbageCollection>
+    <ConcurrentGarbageCollection>false</ConcurrentGarbageCollection>
+    <RetainVMGarbageCollection>false</RetainVMGarbageCollection>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\Shared\AppThemeColor.cs" Link="Models\AppThemeColor.Enum.cs" />
+    <Compile Include="..\Shared\AppThemeColorPalette.cs" Link="Models\AppThemeColorPalette.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="LibreHardwareMonitorLib" Version="0.9.6" />
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2592.51" />
+    <PackageReference Include="H.NotifyIcon.Wpf" Version="2.0.131" />
+    <PackageReference Include="System.Management" Version="10.0.2" />
+    <PackageReference Include="System.Threading.AccessControl" Version="10.0.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="wwwroot\**\*" CopyToOutputDirectory="PreserveNewest" />
+    <Resource Include="Assets\voltmanager.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\VoltManager.Supervisor\VoltManager.Supervisor.csproj">
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+      <OutputItemType>Content</OutputItemType>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </ProjectReference>
+  </ItemGroup>
+
+</Project>
