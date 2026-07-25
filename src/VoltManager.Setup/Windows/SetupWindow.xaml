@@ -73,7 +73,8 @@
                                         <DropShadowEffect Color="{DynamicResource C.Accent}" BlurRadius="22" ShadowDepth="0" Opacity="0.85"/>
                                     </Ellipse.Effect>
                                 </Ellipse>
-                                <Ellipse Width="66" Height="66" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <Ellipse Width="66" Height="66" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                         RenderOptions.BitmapScalingMode="HighQuality">
                                     <Ellipse.Fill>
                                         <ImageBrush x:Name="LogoBrush" Stretch="Uniform"/>
                                     </Ellipse.Fill>
@@ -120,7 +121,7 @@
                     <Grid.RowDefinitions>
                         <RowDefinition Height="50"/>
                         <RowDefinition Height="*"/>
-                        <RowDefinition Height="78"/>
+                        <RowDefinition Height="64"/>
                     </Grid.RowDefinitions>
 
                     <!-- Titlebar -->
@@ -142,14 +143,14 @@
                                     VerticalContentAlignment="Center"/>
 
                     <!-- Footer buttons -->
-                    <Border Grid.Row="2" BorderBrush="#1E2C4C" BorderThickness="0,1,0,0" Padding="38,0">
+                    <Border Grid.Row="2" BorderBrush="#1E2C4C" BorderThickness="0,1,0,0" Padding="44,0">
                         <Grid>
                             <Button x:Name="BtnBack" Style="{StaticResource GhostBtn}"
-                                    HorizontalAlignment="Left" Visibility="Collapsed"
+                                    HorizontalAlignment="Left" VerticalAlignment="Center" Visibility="Collapsed"
                                     Click="BtnBack_Click"/>
-                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,2,0">
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
                                 <Button x:Name="BtnCancel" Style="{StaticResource GhostBtn}"
-                                        Margin="0,0,12,0" Click="BtnCancel_Click"/>
+                                        Margin="0,0,8,0" Click="BtnCancel_Click"/>
                                 <Button x:Name="BtnNext" Style="{StaticResource PrimaryBtn}"
                                         Click="BtnNext_Click"/>
                             </StackPanel>

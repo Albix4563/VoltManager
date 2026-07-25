@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -39,12 +40,9 @@ namespace VoltManager.Setup.Windows
         {
             try
             {
-                var img = new BitmapImage();
-                img.BeginInit();
-                img.UriSource = new Uri("pack://application:,,,/Assets/voltmanager.ico");
-                img.CacheOption = BitmapCacheOption.OnLoad;
-                img.EndInit();
-                LogoBrush.ImageSource = img;
+                var uri = new Uri("pack://application:,,,/Assets/voltmanager.ico");
+                var decoder = BitmapDecoder.Create(uri, BitmapCreateOptions.None, BitmapCacheOption.OnLoad);
+                LogoBrush.ImageSource = decoder.Frames.OrderByDescending(f => f.PixelWidth).First();
             }
             catch { }
         }

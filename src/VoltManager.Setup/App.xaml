@@ -261,8 +261,8 @@
         <Style x:Key="PrimaryBtn" TargetType="Button">
             <Setter Property="Foreground" Value="#031018"/>
             <Setter Property="FontWeight" Value="Bold"/>
-            <Setter Property="FontSize" Value="13.5"/>
-            <Setter Property="Padding" Value="32,12"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Padding" Value="20,8"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="RenderTransformOrigin" Value="0.5,0.5"/>
@@ -270,7 +270,7 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
                         <Border x:Name="bd" Background="{DynamicResource AccentGradient}"
-                                CornerRadius="12" Padding="{TemplateBinding Padding}"
+                                CornerRadius="9" Padding="{TemplateBinding Padding}"
                                 RenderTransformOrigin="0.5,0.5">
                             <Border.RenderTransform>
                                 <ScaleTransform x:Name="sc" ScaleX="1" ScaleY="1"/>
@@ -413,9 +413,9 @@
         <Style x:Key="GhostBtn" TargetType="Button">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}"/>
-            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontSize" Value="12"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Padding" Value="24,11"/>
+            <Setter Property="Padding" Value="16,8"/>
             <Setter Property="BorderThickness" Value="1.5"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Template">
@@ -424,7 +424,7 @@
                         <Border x:Name="bd" Background="{TemplateBinding Background}"
                                 BorderBrush="{StaticResource BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="12" Padding="{TemplateBinding Padding}"
+                                CornerRadius="9" Padding="{TemplateBinding Padding}"
                                 RenderTransformOrigin="0.5,0.5">
                             <Border.RenderTransform>
                                 <ScaleTransform x:Name="sc" ScaleX="1" ScaleY="1"/>
