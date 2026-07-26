@@ -108,6 +108,34 @@ jobs:
         run: |
           Copy-Item src/VoltManager/Assets/voltmanager.ico src/VoltManager.Setup/Assets/voltmanager.ico -Force
 
+      # --- Code signing (SignPath) -------------------------------------------------
+      # No-op until the SIGNPATH_API_TOKEN secret exists in repo settings.
+      # TODO: once the release (CA-issued) certificate is approved, add a "Release"
+      # signing policy in SignPath and switch SigningPolicySlug below based on
+      # steps.ver.outputs.is_preview instead of always using the test policy.
+      - name: Sign app binaries (SignPath)
+        if: ${{ secrets.SIGNPATH_API_TOKEN != '' }}
+        shell: pwsh
+        env:
+          SIGNPATH_API_TOKEN: ${{ secrets.SIGNPATH_API_TOKEN }}
+        run: |
+          Install-Module -Name SignPath.Client -Force -Scope CurrentUser -SkipPublisherCheck
+          Import-Module SignPath.Client
+          foreach ($f in 'VoltManager.exe','VoltManager.Supervisor.exe','VoltManagerPlanSwitch.exe') {
+            $path = "publish/$f"
+            $signed = "$path.signed"
+            Submit-SigningRequest `
+              -InputArtifactPath $path `
+              -ApiToken $env:SIGNPATH_API_TOKEN `
+              -OrganizationId '227cb90d-401a-4eb8-b071-5522890298a3' `
+              -ProjectSlug 'VoltManager_Windows' `
+              -SigningPolicySlug 'Test_signing' `
+              -OutputArtifactPath $signed `
+              -WaitForCompletion
+            Move-Item $signed $path -Force
+          }
+      # -------------------------------------------------------------------------------
+
       - name: Zip publish folder into payload
         shell: pwsh
         run: |
@@ -144,6 +172,27 @@ jobs:
           Copy-Item dist/setup-build/VoltManagerSetup.exe `
             dist/VoltManagerSetup-${{ steps.ver.outputs.version }}.exe -Force
           Get-ChildItem dist
+
+      # --- Code signing (SignPath) -------------------------------------------------
+      - name: Sign installer (SignPath)
+        if: ${{ secrets.SIGNPATH_API_TOKEN != '' }}
+        shell: pwsh
+        env:
+          SIGNPATH_API_TOKEN: ${{ secrets.SIGNPATH_API_TOKEN }}
+        run: |
+          Import-Module SignPath.Client
+          $path = "dist/VoltManagerSetup-${{ steps.ver.outputs.version }}.exe"
+          $signed = "$path.signed"
+          Submit-SigningRequest `
+            -InputArtifactPath $path `
+            -ApiToken $env:SIGNPATH_API_TOKEN `
+            -OrganizationId '227cb90d-401a-4eb8-b071-5522890298a3' `
+            -ProjectSlug 'VoltManager_Windows' `
+            -SigningPolicySlug 'Test_signing' `
+            -OutputArtifactPath $signed `
+            -WaitForCompletion
+          Move-Item $signed $path -Force
+      # -------------------------------------------------------------------------------
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
