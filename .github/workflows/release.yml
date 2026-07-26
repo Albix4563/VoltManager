@@ -52,7 +52,13 @@ jobs:
           "tag=$tag"                    | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           "name=$name"                  | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           "is_preview=$($isPrerelease.ToString().ToLower())" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-          Write-Host "Release: $name (tag $tag, prerelease=$isPrerelease)"
+
+          # Le build stabili vanno firmate con il certificato CA pubblico; alpha/beta
+          # restano sulla policy di test (certificato non attendibile da Windows).
+          # ponytail: rimettere 'Test_signing' qui sotto se la policy Release non esiste ancora.
+          $policy = if ($isPrerelease) { 'Test_signing' } else { 'Release' }
+          "signing_policy=$policy" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          Write-Host "Release: $name (tag $tag, prerelease=$isPrerelease, signing=$policy)"
 
       - uses: actions/setup-dotnet@v4
         with:
@@ -112,9 +118,9 @@ jobs:
 
       # --- Code signing (SignPath) -------------------------------------------------
       # No-op until the SIGNPATH_API_TOKEN secret exists in repo settings.
-      # TODO: once the release (CA-issued) certificate is approved, add a "Release"
-      # signing policy in SignPath and switch SigningPolicySlug below based on
-      # steps.ver.outputs.is_preview instead of always using the test policy.
+      # La policy arriva da steps.ver.outputs.signing_policy: 'Test_signing' per le
+      # prerelease, 'Release' per le stabili. Richiede che la signing policy "Release"
+      # esista in SignPath con il certificato CA approvato.
       - name: Sign app binaries (SignPath)
         if: ${{ env.SIGNPATH_ENABLED == 'true' }}
         shell: pwsh
@@ -131,7 +137,7 @@ jobs:
               -ApiToken $env:SIGNPATH_API_TOKEN `
               -OrganizationId '227cb90d-401a-4eb8-b071-5522890298a3' `
               -ProjectSlug 'VoltManager_Windows' `
-              -SigningPolicySlug 'Test_signing' `
+              -SigningPolicySlug '${{ steps.ver.outputs.signing_policy }}' `
               -OutputArtifactPath $signed `
               -WaitForCompletion
             Move-Item $signed $path -Force
@@ -190,7 +196,7 @@ jobs:
             -ApiToken $env:SIGNPATH_API_TOKEN `
             -OrganizationId '227cb90d-401a-4eb8-b071-5522890298a3' `
             -ProjectSlug 'VoltManager_Windows' `
-            -SigningPolicySlug 'Test_signing' `
+            -SigningPolicySlug '${{ steps.ver.outputs.signing_policy }}' `
             -OutputArtifactPath $signed `
             -WaitForCompletion
           Move-Item $signed $path -Force
