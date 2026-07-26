@@ -14,8 +14,6 @@ concurrency:
 jobs:
   release:
     runs-on: windows-latest
-    env:
-      SIGNPATH_ENABLED: ${{ secrets.SIGNPATH_API_TOKEN != '' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -52,13 +50,7 @@ jobs:
           "tag=$tag"                    | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           "name=$name"                  | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           "is_preview=$($isPrerelease.ToString().ToLower())" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-
-          # Le build stabili vanno firmate con il certificato CA pubblico; alpha/beta
-          # restano sulla policy di test (certificato non attendibile da Windows).
-          # ponytail: rimettere 'Test_signing' qui sotto se la policy Release non esiste ancora.
-          $policy = if ($isPrerelease) { 'Test_signing' } else { 'Release' }
-          "signing_policy=$policy" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-          Write-Host "Release: $name (tag $tag, prerelease=$isPrerelease, signing=$policy)"
+          Write-Host "Release: $name (tag $tag, prerelease=$isPrerelease)"
 
       - uses: actions/setup-dotnet@v4
         with:
@@ -116,34 +108,6 @@ jobs:
         run: |
           Copy-Item src/VoltManager/Assets/voltmanager.ico src/VoltManager.Setup/Assets/voltmanager.ico -Force
 
-      # --- Code signing (SignPath) -------------------------------------------------
-      # No-op until the SIGNPATH_API_TOKEN secret exists in repo settings.
-      # La policy arriva da steps.ver.outputs.signing_policy: 'Test_signing' per le
-      # prerelease, 'Release' per le stabili. Richiede che la signing policy "Release"
-      # esista in SignPath con il certificato CA approvato.
-      - name: Sign app binaries (SignPath)
-        if: ${{ env.SIGNPATH_ENABLED == 'true' }}
-        shell: pwsh
-        env:
-          SIGNPATH_API_TOKEN: ${{ secrets.SIGNPATH_API_TOKEN }}
-        run: |
-          Install-Module -Name SignPath -Force -Scope CurrentUser -SkipPublisherCheck
-          Import-Module SignPath
-          foreach ($f in 'VoltManager.exe','VoltManager.Supervisor.exe','VoltManagerPlanSwitch.exe') {
-            $path = "publish/$f"
-            $signed = "$path.signed"
-            Submit-SigningRequest `
-              -InputArtifactPath $path `
-              -ApiToken $env:SIGNPATH_API_TOKEN `
-              -OrganizationId '227cb90d-401a-4eb8-b071-5522890298a3' `
-              -ProjectSlug 'VoltManager_Windows' `
-              -SigningPolicySlug '${{ steps.ver.outputs.signing_policy }}' `
-              -OutputArtifactPath $signed `
-              -WaitForCompletion
-            Move-Item $signed $path -Force
-          }
-      # -------------------------------------------------------------------------------
-
       - name: Zip publish folder into payload
         shell: pwsh
         run: |
@@ -180,27 +144,6 @@ jobs:
           Copy-Item dist/setup-build/VoltManagerSetup.exe `
             dist/VoltManagerSetup-${{ steps.ver.outputs.version }}.exe -Force
           Get-ChildItem dist
-
-      # --- Code signing (SignPath) -------------------------------------------------
-      - name: Sign installer (SignPath)
-        if: ${{ env.SIGNPATH_ENABLED == 'true' }}
-        shell: pwsh
-        env:
-          SIGNPATH_API_TOKEN: ${{ secrets.SIGNPATH_API_TOKEN }}
-        run: |
-          Import-Module SignPath
-          $path = "dist/VoltManagerSetup-${{ steps.ver.outputs.version }}.exe"
-          $signed = "$path.signed"
-          Submit-SigningRequest `
-            -InputArtifactPath $path `
-            -ApiToken $env:SIGNPATH_API_TOKEN `
-            -OrganizationId '227cb90d-401a-4eb8-b071-5522890298a3' `
-            -ProjectSlug 'VoltManager_Windows' `
-            -SigningPolicySlug '${{ steps.ver.outputs.signing_policy }}' `
-            -OutputArtifactPath $signed `
-            -WaitForCompletion
-          Move-Item $signed $path -Force
-      # -------------------------------------------------------------------------------
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
