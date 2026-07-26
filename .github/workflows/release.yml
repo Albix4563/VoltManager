@@ -121,8 +121,8 @@ jobs:
         env:
           SIGNPATH_API_TOKEN: ${{ secrets.SIGNPATH_API_TOKEN }}
         run: |
-          Install-Module -Name SignPath.Client -Force -Scope CurrentUser -SkipPublisherCheck
-          Import-Module SignPath.Client
+          Install-Module -Name SignPath -Force -Scope CurrentUser -SkipPublisherCheck
+          Import-Module SignPath
           foreach ($f in 'VoltManager.exe','VoltManager.Supervisor.exe','VoltManagerPlanSwitch.exe') {
             $path = "publish/$f"
             $signed = "$path.signed"
@@ -182,7 +182,7 @@ jobs:
         env:
           SIGNPATH_API_TOKEN: ${{ secrets.SIGNPATH_API_TOKEN }}
         run: |
-          Import-Module SignPath.Client
+          Import-Module SignPath
           $path = "dist/VoltManagerSetup-${{ steps.ver.outputs.version }}.exe"
           $signed = "$path.signed"
           Submit-SigningRequest `
