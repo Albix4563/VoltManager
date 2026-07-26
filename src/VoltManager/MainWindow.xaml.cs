@@ -208,6 +208,8 @@ public partial class MainWindow : Window
                 _bridge?.PushEvent("scheduledPowerActionChanged", state);
                 Dispatcher.Invoke(() => RefreshScheduledPowerTrayState(state));
             };
+            // When a game/heavy app session ends, apply any update that was deferred mid-session.
+            _app.HeavyApps.ActivityChanged += OnHeavyAppActivityChangedForUpdates;
             StartAutoUpdateLoop();
             _hostEventsWired = true;
         }
@@ -433,6 +435,15 @@ public partial class MainWindow : Window
             if (!info.UpdateAvailable || string.IsNullOrWhiteSpace(info.DownloadUrl)) return;
             if (IsUpdateSuppressed(info, respectSnooze: true)) return;
 
+            // Never restart / prompt while a game is running — retry after the session ends.
+            if (_app.IsHeavyAppSessionActive())
+            {
+                if (ShouldInstallUpdatesSilently())
+                    _app.DeferUpdateUntilGameEnds(info.DownloadUrl);
+                Logger.Info("Startup update deferred: game/heavy app session active.");
+                return;
+            }
+
             if (ShouldInstallUpdatesSilently())
                 await DownloadAndInstallUpdateAsync(info.DownloadUrl);
             else
@@ -476,6 +487,15 @@ public partial class MainWindow : Window
             if (!info.UpdateAvailable || string.IsNullOrWhiteSpace(info.DownloadUrl)) return;
             if (IsUpdateSuppressed(info, respectSnooze: true)) return;
 
+            // Never install or interrupt while a game is running.
+            if (_app.IsHeavyAppSessionActive())
+            {
+                if (ShouldInstallUpdatesSilently())
+                    _app.DeferUpdateUntilGameEnds(info.DownloadUrl);
+                Logger.Info("Automatic update deferred: game/heavy app session active.");
+                return;
+            }
+
             if (ShouldInstallUpdatesSilently())
                 await DownloadAndInstallUpdateAsync(info.DownloadUrl);
             else if (IsAppInForeground())
@@ -492,6 +512,24 @@ public partial class MainWindow : Window
         {
             Interlocked.Exchange(ref _autoUpdateCheckRunning, 0);
         }
+    }
+
+    private void OnHeavyAppActivityChangedForUpdates(HeavyAppDetectionState state)
+    {
+        // ActivityChanged may fire from the detection timer thread.
+        if (state.Active) return;
+        if (!_app.HasDeferredUpdate()) return;
+
+        _ = Dispatcher.InvokeAsync(async () =>
+        {
+            // Re-check on the UI thread: another scan may have reactivated the session.
+            if (_app.IsHeavyAppSessionActive()) return;
+            string? url = _app.TakeDeferredUpdateUrl();
+            if (string.IsNullOrWhiteSpace(url)) return;
+
+            Logger.Info("Game/heavy app session ended — installing deferred update.");
+            await DownloadAndInstallUpdateAsync(url);
+        });
     }
 
     private bool IsUpdateSuppressed(UpdateInfo info, bool respectSnooze)
@@ -549,9 +587,23 @@ public partial class MainWindow : Window
 
     private async Task DownloadAndInstallUpdateAsync(string url)
     {
+        // Last-line guard: never restart the host while a game is running.
+        if (_app.IsHeavyAppSessionActive())
+        {
+            _app.DeferUpdateUntilGameEnds(url);
+            return;
+        }
+
         try
         {
             string path = await _app.Updates.DownloadUpdateAsync(url);
+            // Game may have started during download — re-check before launching installer.
+            if (_app.IsHeavyAppSessionActive())
+            {
+                _app.DeferUpdateUntilGameEnds(url);
+                return;
+            }
+
             Process.Start(new ProcessStartInfo(path,
                 $"/update --pid {Environment.ProcessId} --lang {_app.Loc.CurrentLanguage}") { UseShellExecute = true });
             _exiting = true;

@@ -63,6 +63,10 @@ public partial class App : Application
     private static readonly TimeSpan HeavyAppTeardownGrace = TimeSpan.FromSeconds(15);
     private static readonly TimeSpan AppProfileTeardownGrace = TimeSpan.FromSeconds(15);
 
+    // Update install deferred while a detected game/heavy app is running.
+    private readonly object _deferredUpdateLock = new();
+    private string? _deferredUpdateUrl;
+
     public PowerPlan? ActivePlan { get; private set; }
     public CpuAutomationState CpuAutomationState { get; private set; } = new();
     public event Action<PowerPlan?>? ActivePlanChanged;
@@ -854,6 +858,38 @@ public partial class App : Application
     public HeavyAppDetectionState GetHeavyAppStatus() => HeavyApps.Current;
 
     public HeavyAppDetectionState RefreshHeavyAppDetection() => HeavyApps.Refresh();
+
+    /// <summary>True when detection reports an active game / heavy app session.</summary>
+    public bool IsHeavyAppSessionActive() => HeavyApps.Current.Active;
+
+    /// <summary>
+    /// Queues an update install URL for after the current game session ends.
+    /// Overwrites any previous deferred URL (latest available installer wins).
+    /// </summary>
+    public void DeferUpdateUntilGameEnds(string downloadUrl)
+    {
+        if (string.IsNullOrWhiteSpace(downloadUrl)) return;
+        lock (_deferredUpdateLock)
+            _deferredUpdateUrl = downloadUrl.Trim();
+        Logger.Info("Update install deferred until game/heavy app session ends.");
+    }
+
+    /// <summary>Returns and clears a previously deferred update URL, if any.</summary>
+    public string? TakeDeferredUpdateUrl()
+    {
+        lock (_deferredUpdateLock)
+        {
+            var url = _deferredUpdateUrl;
+            _deferredUpdateUrl = null;
+            return url;
+        }
+    }
+
+    public bool HasDeferredUpdate()
+    {
+        lock (_deferredUpdateLock)
+            return !string.IsNullOrWhiteSpace(_deferredUpdateUrl);
+    }
 
     public AppPowerProfileState GetAppPowerProfileStatus() => AppProfiles.Current;
 

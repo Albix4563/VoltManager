@@ -568,7 +568,33 @@ public class HostBridge
             {
                 var url = payload.GetProperty("url").GetString()
                     ?? throw new ArgumentException("URL mancante");
+
+                // Do not restart while a game is running — queue and install after the session.
+                if (_app.IsHeavyAppSessionActive())
+                {
+                    _app.DeferUpdateUntilGameEnds(url);
+                    return new
+                    {
+                        success = false,
+                        deferred = true,
+                        reason = "heavyAppActive",
+                        message = _loc.T("Dialog_UpdateDeferredGame"),
+                    };
+                }
+
                 string path = await _updates.DownloadUpdateAsync(url);
+                if (_app.IsHeavyAppSessionActive())
+                {
+                    _app.DeferUpdateUntilGameEnds(url);
+                    return new
+                    {
+                        success = false,
+                        deferred = true,
+                        reason = "heavyAppActive",
+                        message = _loc.T("Dialog_UpdateDeferredGame"),
+                    };
+                }
+
                 Process.Start(new ProcessStartInfo(path,
                     $"/update --pid {Environment.ProcessId} --lang {_loc.CurrentLanguage}") { UseShellExecute = true });
                 ExitRequested?.Invoke();

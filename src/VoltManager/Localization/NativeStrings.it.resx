@@ -26,6 +26,7 @@
   <data name="Dialog_StartupFailed" xml:space="preserve"><value>VoltManager non è riuscito ad avviarsi.\n\nDettagli salvati nel log:\n{0}\n\nErrore: {1}</value></data>
   <data name="Dialog_UnexpectedError" xml:space="preserve"><value>Si è verificato un errore imprevisto. VoltManager resta attivo, ma l'ultima operazione potrebbe non essere riuscita.\n\nDettagli salvati nel log:\n{0}\n\nErrore: {1}</value></data>
   <data name="Dialog_UpdateDownloadFailed" xml:space="preserve"><value>Download aggiornamento fallito: {0}</value></data>
+  <data name="Dialog_UpdateDeferredGame" xml:space="preserve"><value>C'è un gioco in esecuzione. VoltManager installerà l'aggiornamento dopo la chiusura del gioco.</value></data>
   <data name="Dialog_GamingActivationFailed" xml:space="preserve"><value>Non sono riuscito ad attivare il piano gaming. Verifica che il piano Prestazioni sia disponibile e riprova.</value></data>
   <data name="Dialog_GamingReminder" xml:space="preserve"><value>Hai il piano gaming attivo, ma la CPU risulta a riposo ({0:0.0}%) da diversi minuti.\n\nVuoi disattivare il piano gaming e riprendere il piano energetico automatico?</value></data>
   <data name="Dialog_GamingTitle" xml:space="preserve"><value>Piano gaming attivo</value></data>

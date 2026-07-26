@@ -26,6 +26,7 @@
   <data name="Dialog_StartupFailed" xml:space="preserve"><value>VoltManager no pudo iniciarse.\n\nDetalles guardados en el registro:\n{0}\n\nError: {1}</value></data>
   <data name="Dialog_UnexpectedError" xml:space="preserve"><value>Se produjo un error inesperado. VoltManager sigue activo pero la última operación podría no haberse completado.\n\nDetalles guardados en el registro:\n{0}\n\nError: {1}</value></data>
   <data name="Dialog_UpdateDownloadFailed" xml:space="preserve"><value>Error al descargar la actualización: {0}</value></data>
+  <data name="Dialog_UpdateDeferredGame" xml:space="preserve"><value>Hay un juego en ejecución. VoltManager instalará la actualización al cerrar el juego.</value></data>
   <data name="Dialog_GamingActivationFailed" xml:space="preserve"><value>No se pudo activar el modo de juego. Verifica que el plan Alto rendimiento esté disponible e inténtalo de nuevo.</value></data>
   <data name="Dialog_GamingReminder" xml:space="preserve"><value>El modo de juego está activo pero la CPU parece estar inactiva ({0:0.0}%) desde hace varios minutos.\n\n¿Desactivar el modo de juego y reanudar el plan de energía automático?</value></data>
   <data name="Dialog_GamingTitle" xml:space="preserve"><value>Modo de juego activo</value></data>

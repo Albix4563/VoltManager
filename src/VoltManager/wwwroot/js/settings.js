@@ -46,6 +46,7 @@
             dlProg: 'Download… ',
             dlFail: 'Download non riuscito: ',
             installing: "Installazione in corso, l'app si riavvierà…",
+            deferredGame: "C'è un gioco in esecuzione. L'aggiornamento verrà installato alla chiusura del gioco.",
             snoozed: 'Aggiornamento rimandato.',
             skipped: 'Questa versione verrà saltata.',
             min15: '15 minuti', min30: '30 minuti', hour1: '1 ora', hours2: '2 ore',
@@ -83,6 +84,7 @@
             dlProg: 'Descargando… ',
             dlFail: 'Descarga fallida: ',
             installing: 'Instalando, la aplicación se reiniciará…',
+            deferredGame: 'Hay un juego en ejecución. La actualización se instalará al cerrar el juego.',
             snoozed: 'Actualización pospuesta.',
             skipped: 'Esta versión se omitirá.',
             min15: '15 minutos', min30: '30 minutos', hour1: '1 hora', hours2: '2 horas',
@@ -120,6 +122,7 @@
             dlProg: 'Download… ',
             dlFail: 'Download failed: ',
             installing: 'Installing, the app will restart…',
+            deferredGame: 'A game is running. The update will install after you close the game.',
             snoozed: 'Update postponed.',
             skipped: 'This version will be skipped.',
             min15: '15 minutes', min30: '30 minutes', hour1: '1 hour', hours2: '2 hours',
@@ -155,6 +158,7 @@
             dlProg: '正在下载… ',
             dlFail: '下载失败：',
             installing: '正在安装，应用将重启…',
+            deferredGame: '检测到游戏正在运行。关闭游戏后将自动安装更新。',
             snoozed: '更新已推迟。',
             skipped: '将跳过此版本。',
             min15: '15 分钟', min30: '30 分钟', hour1: '1 小时', hours2: '2 小时',
@@ -483,7 +487,18 @@
         if (progLabel) progLabel.textContent = tr('msg_dl_prog', lt('dlProg')) + '0%';
 
         try {
-            await Host.call('downloadUpdate', { url: downloadUrl });
+            const result = await Host.call('downloadUpdate', { url: downloadUrl });
+            if (result && result.deferred) {
+                setModalActionsDisabled(false);
+                if (progWrap) progWrap.classList.add('hidden');
+                const msg = result.message || lt('deferredGame');
+                if (stateMsg) {
+                    stateMsg.textContent = msg;
+                    stateMsg.classList.remove('hidden');
+                }
+                setStatus(msg, false);
+                return;
+            }
             if (stateMsg) {
                 stateMsg.textContent = tr('upd_modal_installing', lt('installing'));
                 stateMsg.classList.remove('hidden');

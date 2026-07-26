@@ -26,6 +26,7 @@
   <data name="Dialog_StartupFailed" xml:space="preserve"><value>VoltManager 启动失败。\n\n详细信息已保存到日志：\n{0}\n\n错误：{1}</value></data>
   <data name="Dialog_UnexpectedError" xml:space="preserve"><value>发生意外错误。VoltManager 仍处于活动状态，但上次操作可能未完成。\n\n详细信息已保存到日志：\n{0}\n\n错误：{1}</value></data>
   <data name="Dialog_UpdateDownloadFailed" xml:space="preserve"><value>更新下载失败：{0}</value></data>
+  <data name="Dialog_UpdateDeferredGame" xml:space="preserve"><value>检测到游戏正在运行。关闭游戏后，VoltManager 将自动安装更新。</value></data>
   <data name="Dialog_GamingActivationFailed" xml:space="preserve"><value>无法激活游戏模式。请确认高性能计划可用后重试。</value></data>
   <data name="Dialog_GamingReminder" xml:space="preserve"><value>游戏模式已启用，但 CPU 似乎处于空闲状态 ({0:0.0}%) 已有几分钟。\n\n是否禁用游戏模式并恢复自动电源计划？</value></data>
   <data name="Dialog_GamingTitle" xml:space="preserve"><value>游戏模式已启用</value></data>
