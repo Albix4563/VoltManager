@@ -1224,7 +1224,10 @@
                     syncAppPowerProfileUi();
                     scheduleSave();
                 } catch (err) {
-                    console.error('pickAppPowerProfileExecutable failed', err);
+                    const label = document.getElementById('app-profile-state-label');
+                    Host.fail(err, (msg) => {
+                        if (label) label.textContent = msg;
+                    });
                 } finally {
                     add.disabled = false;
                 }
@@ -1290,7 +1293,10 @@
                     heavyAppStatus = await Host.call('refreshHeavyAppDetection');
                     renderHeavyAppStatus(heavyAppStatus);
                 } catch (err) {
-                    console.error('refreshHeavyAppDetection failed', err);
+                    const label = document.getElementById('heavy-app-state-label');
+                    Host.fail(err, (msg) => {
+                        if (label) label.textContent = msg;
+                    });
                 } finally {
                     refresh.disabled = false;
                 }
@@ -1345,8 +1351,13 @@
                     }
                     renderKeepAwakeState(keepAwakeState);
                 } catch (err) {
-                    console.error('setKeepAwake failed', err);
-                    scheduleSave();
+                    cfg.enabled = !next;
+                    keepAwakeState = { enabled: !next, applied: !next };
+                    const status = document.getElementById('keep-awake-status');
+                    Host.fail(err, (msg) => {
+                        if (status) status.textContent = msg;
+                    });
+                    syncKeepAwakeUi();
                 }
             } else {
                 scheduleSave();
@@ -1395,8 +1406,12 @@
                             cfg.enabled = thermalState.enabled;
                         renderThermalState(thermalState);
                     } catch (err) {
-                        console.error('setThermalGuardEnabled failed', err);
-                        scheduleSave();
+                        cfg.enabled = !cfg.enabled;
+                        setToggle(document.getElementById('toggle-thermal-main'), cfg.enabled);
+                        const status = document.getElementById('thermal-status');
+                        Host.fail(err, (msg) => {
+                            if (status) status.textContent = msg;
+                        });
                     }
                 } else scheduleSave();
                 return;
@@ -1464,8 +1479,12 @@
                             cfg.enabled = idleState.enabled;
                         renderIdleState(idleState);
                     } catch (err) {
-                        console.error('setIdlePowerGuardEnabled failed', err);
-                        scheduleSave();
+                        cfg.enabled = !cfg.enabled;
+                        setToggle(document.getElementById('toggle-idle-main'), cfg.enabled);
+                        const status = document.getElementById('idle-status');
+                        Host.fail(err, (msg) => {
+                            if (status) status.textContent = msg;
+                        });
                     }
                 } else scheduleSave();
                 return;

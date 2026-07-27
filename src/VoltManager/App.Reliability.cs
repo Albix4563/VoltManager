@@ -19,8 +19,8 @@ public partial class App
         if (SupervisorBootstrap.TryDelegate(arguments))
             Environment.Exit(AppExitCodes.Success);
 
-        // Register before App.OnStartup installs the legacy handlers. The hard-exit
-        // deadline is therefore armed before any legacy modal error dialog can block.
+        // Sole UI-thread unhandled policy (see UnhandledExceptionPolicy.UiThreadPolicy).
+        // Do not also register a keep-alive MessageBox handler for the same event.
         DispatcherUnhandledException += OnReliabilityDispatcherUnhandledException;
         Exit += OnReliabilityExit;
         AppDomain.CurrentDomain.UnhandledException += OnReliabilityDomainUnhandledException;
@@ -30,9 +30,18 @@ public partial class App
         object sender,
         DispatcherUnhandledExceptionEventArgs e)
     {
+        // Mark handled so WPF does not rethrow while we shut down on our terms.
         e.Handled = true;
-        CaptureCrashOnce("unhandled_ui_exception", e.Exception, AppExitCodes.UnhandledUiException);
-        BeginBoundedFatalShutdown(AppExitCodes.UnhandledUiException);
+
+        var action = UnhandledExceptionPolicy.UiThreadPolicy;
+        try { Logger.Error("Unhandled UI-thread exception", e.Exception); }
+        catch { /* logging must not mask the original failure */ }
+
+        if (UnhandledExceptionPolicy.CapturesCrashDiagnostic(action))
+            CaptureCrashOnce("unhandled_ui_exception", e.Exception, AppExitCodes.UnhandledUiException);
+
+        if (UnhandledExceptionPolicy.BeginsFatalShutdown(action))
+            BeginBoundedFatalShutdown(AppExitCodes.UnhandledUiException);
     }
 
     private void OnReliabilityDomainUnhandledException(object? sender, UnhandledExceptionEventArgs e)

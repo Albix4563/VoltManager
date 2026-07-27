@@ -284,11 +284,12 @@ public partial class App : Application
 
     private void HookGlobalExceptionHandlers()
     {
-        // UI-thread exceptions: log, tell the user, and keep the app alive — a
-        // single broken handler must not kill the tray app the user relies on.
-        DispatcherUnhandledException += OnDispatcherUnhandledException;
+        // UI-thread unhandled exceptions are owned exclusively by App.Reliability
+        // (fatal shutdown + crash diagnostic). Do not register a second
+        // DispatcherUnhandledException handler that would MessageBox-and-continue.
 
         // Background-thread exceptions are fatal to the process; log before exit.
+        // Crash diagnostic for domain unhandled is also captured by App.Reliability.
         AppDomain.CurrentDomain.UnhandledException += (_, args) =>
         {
             if (args.ExceptionObject is Exception ex)
@@ -298,30 +299,12 @@ public partial class App : Application
         };
 
         // Faulted Tasks whose exception was never observed: log and swallow.
+        // These are not classified as fatal — they may be abandoned background work.
         TaskScheduler.UnobservedTaskException += (_, args) =>
         {
             Logger.Error("Unobserved task exception", args.Exception);
             args.SetObserved();
         };
-    }
-
-    private void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
-    {
-        Logger.Error("Unhandled UI-thread exception", e.Exception);
-        e.Handled = true;
-        try
-        {
-            MessageBox.Show(
-                Loc.T("Dialog_UnexpectedError",
-                    Logger.LogFilePath ?? Loc.T("UpdatePrompt_ND"),
-                    e.Exception.Message),
-                Loc.T("Dialog_VoltManagerTitle"),
-                MessageBoxButton.OK, MessageBoxImage.Warning);
-        }
-        catch
-        {
-            // Showing the dialog must not itself crash the handler.
-        }
     }
 
     private void SetupJumpList()

@@ -770,8 +770,8 @@
                 : await Host.call('setGamingMode', { enabled });
             renderGamingModeState(res);
         } catch (err) {
-            console.error('setGamingMode failed', err);
             renderGamingModeState({ active: !enabled });
+            Host.fail(err);
         }
     }
 
@@ -816,8 +816,13 @@
             renderOverrideStatus(res.override);
             closeOverrideModal();
         } catch (err) {
-            console.error('setManualOverride failed', err);
             if (previous) reflectPlan(previous.dataset.plan);
+            Host.fail(err, (msg) => {
+                if (overrideWarning) {
+                    overrideWarning.textContent = msg;
+                    overrideWarning.classList.remove('hidden');
+                }
+            });
         } finally {
             switching = false;
         }
@@ -854,7 +859,12 @@
             const res = await Host.call('clearManualOverride');
             renderOverrideStatus(res.override);
         } catch (err) {
-            console.error('clearManualOverride failed', err);
+            Host.fail(err, (msg) => {
+                if (overrideWarning) {
+                    overrideWarning.textContent = msg;
+                    overrideWarning.classList.remove('hidden');
+                }
+            });
         }
     });
 
@@ -866,8 +876,8 @@
             const state = await Host.call('setPowerSourcePlanSwitch', { enabled: enable });
             renderPowerSourcePlanState(state);
         } catch (err) {
-            console.error('setPowerSourcePlanSwitch failed', err);
             setMiniToggle(powerSourcePlanHomeToggle, !enable);
+            Host.fail(err);
         }
     });
 

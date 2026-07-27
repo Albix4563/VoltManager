@@ -868,8 +868,9 @@
             setToggle(toggleWidgetsMaster, enabled);
             try {
                 renderWidgetsState(await Host.call('setWidgetsMaster', { enabled }));
-            } catch {
+            } catch (err) {
                 setToggle(toggleWidgetsMaster, previous);
+                Host.fail(err, (msg) => setStatus(tr('msg_err', lt('err')) + msg, true));
             }
         });
 
@@ -1433,9 +1434,13 @@
         setToggle(toggleAutostart, enable);
         try {
             const res = await Host.call('setStartWithWindows', { enabled: enable });
-            if (res && res.success === false) setToggle(toggleAutostart, !enable);
-        } catch {
+            if (res && res.success === false) {
+                setToggle(toggleAutostart, !enable);
+                setStatus(tr('msg_err', lt('err')) + (res.message || ''), true);
+            }
+        } catch (err) {
             setToggle(toggleAutostart, !enable);
+            Host.fail(err, (msg) => setStatus(tr('msg_err', lt('err')) + msg, true));
         }
     });
 
@@ -1448,13 +1453,18 @@
                 const settings = window.__voltSettings.get ? window.__voltSettings.get() : window.__voltSettings;
                 settings.closeToTray = enable;
             }
-        } catch {
+        } catch (err) {
             setToggle(toggleTray, !enable);
+            Host.fail(err, (msg) => setStatus(tr('msg_err', lt('err')) + msg, true));
         }
     });
 
     document.getElementById('btn-export-settings')?.addEventListener('click', async () => {
-        try { await Host.call('exportSettings'); } catch (e) { console.error('exportSettings failed', e); }
+        try {
+            await Host.call('exportSettings');
+        } catch (e) {
+            Host.fail(e, (msg) => setStatus(tr('msg_err', lt('err')) + msg, true));
+        }
     });
 
     document.getElementById('btn-import-settings')?.addEventListener('click', async () => {
@@ -1462,7 +1472,9 @@
             const res = await Host.call('importSettings');
             // ponytail: full reload instead of re-hydrating every panel from the new settings
             if (res && res.success) location.reload();
-        } catch (e) { console.error('importSettings failed', e); }
+        } catch (e) {
+            Host.fail(e, (msg) => setStatus(tr('msg_err', lt('err')) + msg, true));
+        }
     });
 
     function diagMsg(key, fallback) {

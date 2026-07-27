@@ -17,11 +17,8 @@ namespace VoltManager.Bridge;
 /// </summary>
 public class HostBridge
 {
-    private static readonly JsonSerializerOptions JsonOpts = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) },
-    };
+    // Shared with BridgeRpc so reply JSON and dispatch serialization stay identical.
+    private static readonly JsonSerializerOptions JsonOpts = BridgeRpc.JsonOpts;
 
     // Same shape as settings.json on disk (PascalCase, enum names), so a backup
     // is interchangeable with the real settings file.
@@ -133,25 +130,32 @@ public class HostBridge
             JsonElement payload = root.TryGetProperty("payload", out var p) ? p.Clone() : default;
 
             object? result = await DispatchAsync(method, payload);
-            Reply(id!, ok: true, result);
+            PostReplyJson(BridgeRpc.FormatSuccess(id!, result));
         }
         catch (Exception ex)
         {
-            Logger.Error("Bridge message handling failed (id: " + (id ?? "none") + ")", ex);
-            if (id != null) Reply(id, ok: false, ex.Message);
+            // Dispatch failures are non-fatal: log + non-ok reply; process stays up.
+            var failure = BridgeRpc.OnDispatchException(id, ex);
+            Logger.Error(failure.LogMessage, ex);
+            if (failure.ShouldReply)
+                PostReplyJson(BridgeRpc.FormatFailure(failure.Id!, failure.ErrorMessage));
         }
+    }
+
+    private void PostReplyJson(string msg)
+    {
+        _webView.Dispatcher.Invoke(() =>
+        {
+            try { _webView.CoreWebView2?.PostWebMessageAsJson(msg); }
+            catch { /* WebView torn down mid-reply */ }
+        });
     }
 
     private void Reply(string id, bool ok, object? result)
     {
-        var msg = ok
-            ? JsonSerializer.Serialize(new { id, ok = true, result }, JsonOpts)
-            : JsonSerializer.Serialize(new { id, ok = false, error = result?.ToString() ?? "errore" }, JsonOpts);
-        _webView.Dispatcher.Invoke(() =>
-        {
-            try { _webView.CoreWebView2?.PostWebMessageAsJson(msg); }
-            catch { }
-        });
+        PostReplyJson(ok
+            ? BridgeRpc.FormatSuccess(id, result)
+            : BridgeRpc.FormatFailure(id, result?.ToString()));
     }
 
     private async Task<object?> DispatchAsync(string method, JsonElement payload)
@@ -607,8 +611,7 @@ public class HostBridge
                     ? msgEl.GetString() ?? "" : "";
                 string? stack = payload.TryGetProperty("stack", out var stEl)
                     ? stEl.GetString() : null;
-                Logger.Error("[UI] " + message + (stack != null ? "\n" + stack : ""));
-                return new { success = true };
+                return BridgeRpc.HandleLogError(message, stack, Logger.Error);
             }
 
             case "openExternal":

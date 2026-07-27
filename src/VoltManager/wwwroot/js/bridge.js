@@ -59,6 +59,19 @@
             if (!listeners.has(eventName)) listeners.set(eventName, []);
             listeners.get(eventName).push(handler);
         },
+        /**
+         * Surfaces a user-initiated host failure on an existing status hook.
+         * show(msg, isError) may be a function, or omitted (console only).
+         * Returns the message string for callers that also need it.
+         */
+        fail(err, show) {
+            var msg = (err && err.message) ? err.message : String(err || 'Error');
+            try {
+                if (typeof show === 'function') show(msg, true);
+            } catch (_) { /* status UI must not mask the original error */ }
+            try { console.error(msg, err); } catch (_) {}
+            return msg;
+        },
     };
 
     // Forward uncaught JS errors and rejected promises to the host log so UI
