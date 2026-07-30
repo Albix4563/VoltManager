@@ -108,7 +108,32 @@ public sealed class ThemeService
             Color.FromRgb(248, 250, 252),
             Color.FromRgb(203, 213, 225),
             Blend(surfaceElevated, primary, 0.48),
-            Color.FromRgb(15, 23, 42));
+            BestContrastingText(hover));
+    }
+
+    private static Color BestContrastingText(Color background)
+    {
+        var light = Colors.White;
+        var dark = Color.FromRgb(15, 23, 42);
+        return ContrastRatio(background, light) >= ContrastRatio(background, dark) ? light : dark;
+    }
+
+    private static double ContrastRatio(Color first, Color second)
+    {
+        double lighter = Math.Max(RelativeLuminance(first), RelativeLuminance(second));
+        double darker = Math.Min(RelativeLuminance(first), RelativeLuminance(second));
+        return (lighter + 0.05) / (darker + 0.05);
+    }
+
+    private static double RelativeLuminance(Color color)
+        => 0.2126 * Linear(color.R) + 0.7152 * Linear(color.G) + 0.0722 * Linear(color.B);
+
+    private static double Linear(byte channel)
+    {
+        double value = channel / 255d;
+        return value <= 0.04045
+            ? value / 12.92
+            : Math.Pow((value + 0.055) / 1.055, 2.4);
     }
 
     private static Color ParseHexColor(string value)
