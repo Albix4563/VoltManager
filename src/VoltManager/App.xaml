@@ -13,30 +13,5 @@
         <SolidColorBrush x:Key="ThemeMutedTextBrush" Color="#CBD5E1" />
         <SolidColorBrush x:Key="ThemeBorderBrush" Color="#2F578B" />
         <SolidColorBrush x:Key="ThemeOnPrimaryBrush" Color="#0F172A" />
-
-        <Style TargetType="{x:Type ContextMenu}">
-            <Setter Property="Background" Value="{DynamicResource ThemeSurfaceBrush}" />
-            <Setter Property="Foreground" Value="{DynamicResource ThemeTextBrush}" />
-            <Setter Property="BorderBrush" Value="{DynamicResource ThemeBorderBrush}" />
-            <Setter Property="BorderThickness" Value="1" />
-        </Style>
-        <Style TargetType="{x:Type MenuItem}">
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="Foreground" Value="{DynamicResource ThemeTextBrush}" />
-            <Setter Property="BorderBrush" Value="Transparent" />
-            <Style.Triggers>
-                <Trigger Property="IsHighlighted" Value="True">
-                    <Setter Property="Background" Value="{DynamicResource ThemeHoverBrush}" />
-                    <Setter Property="Foreground" Value="{DynamicResource ThemeOnPrimaryBrush}" />
-                </Trigger>
-                <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Foreground" Value="{DynamicResource ThemeMutedTextBrush}" />
-                </Trigger>
-            </Style.Triggers>
-        </Style>
-        <Style TargetType="{x:Type Separator}">
-            <Setter Property="Background" Value="{DynamicResource ThemeBorderBrush}" />
-            <Setter Property="Margin" Value="4,2" />
-        </Style>
     </Application.Resources>
 </Application>
