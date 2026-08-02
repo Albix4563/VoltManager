@@ -2,6 +2,7 @@ using System.IO;
 using System.Text.Json.Serialization;
 using Microsoft.Win32;
 using VoltManager.Models;
+using VoltManager.Services.GameDetection;
 
 namespace VoltManager.Services;
 
@@ -13,6 +14,9 @@ public record DetectedHeavyApp
     [JsonPropertyName("reason")] public string Reason { get; init; } = "";
     [JsonPropertyName("workingSetMb")] public long WorkingSetMb { get; init; }
     [JsonPropertyName("startedAtUtc")] public DateTime? StartedAtUtc { get; init; }
+    [JsonPropertyName("confidenceScore")] public int ConfidenceScore { get; init; }
+    [JsonPropertyName("confidenceLevel")] public string ConfidenceLevel { get; init; } = "ignored";
+    [JsonPropertyName("evidence")] public IReadOnlyList<GameDetectionEvidence> Evidence { get; init; } = Array.Empty<GameDetectionEvidence>();
 }
 
 public record ObservedHeavyProcess(int ProcessId, string Path, DateTime? StartedAtUtc, string Name = "", long WorkingSetMb = 0);
@@ -249,6 +253,8 @@ public sealed class HeavyAppDetectionService : IDisposable
             : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         var snapshot = ProcessSnapshotProvider.Get(SnapshotMaxAge);
+        var processGraph = new ProcessGraph(snapshot.Processes);
+        DateTime scanNowUtc = DateTime.UtcNow;
         var detected = new List<DetectedHeavyApp>();
         var observed = new List<ObservedHeavyProcess>();
         foreach (var process in snapshot.Processes)
@@ -263,17 +269,41 @@ public sealed class HeavyAppDetectionService : IDisposable
                 long workingSetMb = Math.Max(0, process.WorkingSetBytes / 1024 / 1024);
                 observed.Add(new ObservedHeavyProcess(process.Pid, path, startedAtUtc, process.Name, workingSetMb));
 
-                string? reason = ClassifyProcess(path, process.Name, process.WorkingSetBytes, gpuHighPerformancePaths, config);
+                string? reason = ClassifyProcess(
+                    path,
+                    process.Name,
+                    process.WorkingSetBytes,
+                    gpuHighPerformancePaths,
+                    config);
                 if (reason == null) continue;
+
+                bool hasLauncherAncestor = processGraph.TryFindAncestor(
+                    process.Pid,
+                    ancestor => IsKnownStorefrontProcess(ancestor.Name),
+                    maxDepth: 3,
+                    out _);
+                var assessment = AssessProcess(
+                    path,
+                    process.Name,
+                    process.WorkingSetBytes,
+                    gpuHighPerformancePaths,
+                    config,
+                    startedAtUtc,
+                    scanNowUtc,
+                    hasLauncherAncestor);
+                if (assessment.PrimaryReason == null) continue;
 
                 detected.Add(new DetectedHeavyApp
                 {
                     ProcessId = process.Pid,
                     Name = string.IsNullOrWhiteSpace(process.Name) ? System.IO.Path.GetFileNameWithoutExtension(path) : process.Name,
                     Path = path,
-                    Reason = reason,
+                    Reason = assessment.PrimaryReason,
                     WorkingSetMb = workingSetMb,
                     StartedAtUtc = startedAtUtc,
+                    ConfidenceScore = assessment.Score,
+                    ConfidenceLevel = assessment.Level,
+                    Evidence = assessment.Evidence,
                 });
             }
             catch
@@ -322,16 +352,35 @@ public sealed class HeavyAppDetectionService : IDisposable
             ActivityChanged?.Invoke(next);
     }
 
-    private static bool HasMeaningfulChange(HeavyAppDetectionState previous, HeavyAppDetectionState next)
+    public static bool HasMeaningfulChange(HeavyAppDetectionState previous, HeavyAppDetectionState next)
     {
         if (previous.Enabled != next.Enabled) return true;
         if (previous.Active != next.Active) return true;
         if (previous.TargetPlan != next.TargetPlan) return true;
         if (previous.DetectedCount != next.DetectedCount) return true;
 
-        var prevPaths = previous.ActiveProcesses.Select(p => p.Path).OrderBy(p => p, StringComparer.OrdinalIgnoreCase);
-        var nextPaths = next.ActiveProcesses.Select(p => p.Path).OrderBy(p => p, StringComparer.OrdinalIgnoreCase);
-        return !prevPaths.SequenceEqual(nextPaths, StringComparer.OrdinalIgnoreCase);
+        var previousProcesses = previous.ActiveProcesses
+            .OrderBy(process => process.Path, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        var nextProcesses = next.ActiveProcesses
+            .OrderBy(process => process.Path, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        if (previousProcesses.Length != nextProcesses.Length)
+            return true;
+
+        for (int index = 0; index < previousProcesses.Length; index++)
+        {
+            var left = previousProcesses[index];
+            var right = nextProcesses[index];
+            if (!left.Path.Equals(right.Path, StringComparison.OrdinalIgnoreCase) ||
+                !left.Reason.Equals(right.Reason, StringComparison.Ordinal) ||
+                left.ConfidenceScore != right.ConfidenceScore ||
+                !left.ConfidenceLevel.Equals(right.ConfidenceLevel, StringComparison.Ordinal) ||
+                !left.Evidence.SequenceEqual(right.Evidence))
+                return true;
+        }
+
+        return false;
     }
 
     private static int ReasonPriority(string reason) => reason switch
@@ -410,26 +459,87 @@ public sealed class HeavyAppDetectionService : IDisposable
 
     public static string? ClassifyProcess(string path, string processName, long workingSetBytes,
         HashSet<string> gpuHighPerformancePaths, HeavyAppDetectionSettings config)
+        => ClassifyNormalizedProcess(
+            NormalizePath(path), processName, workingSetBytes, gpuHighPerformancePaths, config);
+
+    public static GameDetectionAssessment AssessProcess(
+        string path,
+        string processName,
+        long workingSetBytes,
+        HashSet<string> gpuHighPerformancePaths,
+        HeavyAppDetectionSettings config,
+        DateTime? startedAtUtc = null,
+        DateTime? nowUtc = null,
+        bool hasLauncherAncestor = false)
     {
         string normalized = NormalizePath(path);
-        if (IsNonGameShell(normalized, processName))
+        string? primaryReason = ClassifyNormalizedProcess(
+            normalized, processName, workingSetBytes, gpuHighPerformancePaths, config);
+        if (primaryReason == null)
+            return GameDetectionAssessment.Empty;
+
+        var evidence = new List<GameDetectionEvidence>(7);
+
+        if (config.UseWindowsGpuPreferences && gpuHighPerformancePaths.Contains(normalized))
+            evidence.Add(new GameDetectionEvidence(
+                "windowsGpuPreference", "identity", 25, "Windows high-performance GPU preference"));
+
+        if (config.UseGameInstallHeuristics && LooksLikeGameInstallPath(normalized))
+            evidence.Add(new GameDetectionEvidence(
+                "gameInstallPath", "provenance", 30, "Known game installation path"));
+
+        if (config.UseGameInstallHeuristics && LooksLikeGameBinaryLayout(normalized))
+            evidence.Add(new GameDetectionEvidence(
+                "gameBinaryLayout", "identity", 20, "Common game binary layout"));
+
+        if (config.UseResourceHeuristics && LooksLikeHeavyUserProcess(normalized, processName, workingSetBytes, config.MinWorkingSetMb))
+            evidence.Add(new GameDetectionEvidence(
+                "resourceHeuristic", "runtime", 5, "Heavy working-set fallback"));
+
+        if (hasLauncherAncestor)
+            evidence.Add(new GameDetectionEvidence(
+                "launcherAncestry", "provenance", 15, "Known launcher ancestor"));
+
+        if (startedAtUtc != null && nowUtc != null && nowUtc >= startedAtUtc)
+        {
+            TimeSpan duration = nowUtc.Value - startedAtUtc.Value;
+            if (duration >= TimeSpan.FromSeconds(15))
+                evidence.Add(new GameDetectionEvidence(
+                    "duration15s", "runtime", 4, "Running for at least 15 seconds"));
+            if (duration >= TimeSpan.FromMinutes(2))
+                evidence.Add(new GameDetectionEvidence(
+                    "duration2m", "runtime", 3, "Running for at least two minutes"));
+        }
+
+        return GameConfidenceScorer.Score(evidence, primaryReason);
+    }
+
+    private static string? ClassifyNormalizedProcess(
+        string normalizedPath,
+        string processName,
+        long workingSetBytes,
+        HashSet<string> gpuHighPerformancePaths,
+        HeavyAppDetectionSettings config)
+    {
+        if (IsNonGameShell(normalizedPath, processName))
             return null;
 
-        bool idleGameHelper = (LooksLikeGameInstallPath(normalized) || LooksLikeGameBinaryLayout(normalized)) &&
-                              LooksLikeIdleGameHelper(normalized, processName, workingSetBytes, config.MinWorkingSetMb);
+        bool idleGameHelper = (LooksLikeGameInstallPath(normalizedPath) || LooksLikeGameBinaryLayout(normalizedPath)) &&
+                              LooksLikeIdleGameHelper(normalizedPath, processName, workingSetBytes, config.MinWorkingSetMb);
         if (idleGameHelper)
             return null;
 
-        if (config.UseWindowsGpuPreferences && gpuHighPerformancePaths.Contains(normalized))
+        if (config.UseWindowsGpuPreferences && gpuHighPerformancePaths.Contains(normalizedPath))
             return "windowsGpuPreference";
 
-        if (config.UseGameInstallHeuristics && LooksLikeGameInstallPath(normalized))
+        if (config.UseGameInstallHeuristics && LooksLikeGameInstallPath(normalizedPath))
             return "gameInstallPath";
 
-        if (config.UseGameInstallHeuristics && LooksLikeGameBinaryLayout(normalized))
+        if (config.UseGameInstallHeuristics && LooksLikeGameBinaryLayout(normalizedPath))
             return "gameBinaryLayout";
 
-        if (config.UseResourceHeuristics && LooksLikeHeavyUserProcess(normalized, processName, workingSetBytes, config.MinWorkingSetMb))
+        if (config.UseResourceHeuristics && LooksLikeHeavyUserProcess(
+                normalizedPath, processName, workingSetBytes, config.MinWorkingSetMb))
             return "resourceHeuristic";
 
         return null;
