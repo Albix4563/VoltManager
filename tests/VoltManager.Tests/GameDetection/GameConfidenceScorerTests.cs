@@ -50,6 +50,107 @@ public class GameConfidenceScorerTests
         Assert.Equal(100, positive.Score);
     }
 
+    // Calibration scenarios: the score must land on the intended side of the game gate.
+    public static TheoryData<string, GameDetectionEvidence[], int, bool> CalibrationScenarios => new()
+    {
+        {
+            "Steam game mid-match, exclusive fullscreen",
+            new[]
+            {
+                new GameDetectionEvidence("gameInstallPath", "provenance", 30, "Steam library"),
+                new GameDetectionEvidence("gpu3dSustained", "runtime", 25, "GPU 3D busy"),
+                new GameDetectionEvidence("d3dFullscreen", "runtime", 20, "D3D fullscreen"),
+                new GameDetectionEvidence("foreground", "runtime", 15, "Foreground"),
+                new GameDetectionEvidence("resourceHeuristic", "runtime", 5, "Large working set"),
+                new GameDetectionEvidence("duration15s", "runtime", 4, "Alive 15s"),
+                new GameDetectionEvidence("duration2m", "runtime", 3, "Alive 2m"),
+            },
+            90, true
+        },
+        {
+            "Steam game just launched, still loading",
+            new[]
+            {
+                new GameDetectionEvidence("gameInstallPath", "provenance", 30, "Steam library"),
+                new GameDetectionEvidence("gpu3dSustained", "runtime", 25, "GPU 3D busy"),
+                new GameDetectionEvidence("foreground", "runtime", 15, "Foreground"),
+            },
+            70, true
+        },
+        {
+            "Indie game in a custom folder, fullscreen",
+            new[]
+            {
+                new GameDetectionEvidence("gpu3dSustained", "runtime", 25, "GPU 3D busy"),
+                new GameDetectionEvidence("d3dFullscreen", "runtime", 20, "D3D fullscreen"),
+                new GameDetectionEvidence("foreground", "runtime", 15, "Foreground"),
+                new GameDetectionEvidence("duration15s", "runtime", 4, "Alive 15s"),
+                new GameDetectionEvidence("duration2m", "runtime", 3, "Alive 2m"),
+            },
+            60, true
+        },
+        {
+            "Blender rendering in a window",
+            new[]
+            {
+                new GameDetectionEvidence("gpu3dSustained", "runtime", 25, "GPU 3D busy"),
+                new GameDetectionEvidence("foreground", "runtime", 15, "Foreground"),
+                new GameDetectionEvidence("resourceHeuristic", "runtime", 5, "Large working set"),
+                new GameDetectionEvidence("duration15s", "runtime", 4, "Alive 15s"),
+                new GameDetectionEvidence("duration2m", "runtime", 3, "Alive 2m"),
+            },
+            52, false
+        },
+        {
+            "Electron app maximized, 800 MB",
+            new[]
+            {
+                new GameDetectionEvidence("foreground", "runtime", 15, "Foreground"),
+                new GameDetectionEvidence("duration15s", "runtime", 4, "Alive 15s"),
+                new GameDetectionEvidence("duration2m", "runtime", 3, "Alive 2m"),
+            },
+            22, false
+        },
+    };
+
+    [Theory]
+    [MemberData(nameof(CalibrationScenarios))]
+    public void Score_puts_calibration_scenarios_on_the_right_side_of_the_gate(
+        string scenario, GameDetectionEvidence[] evidence, int expectedScore, bool expectedGame)
+    {
+        var assessment = GameConfidenceScorer.Score(evidence);
+
+        Assert.Equal(expectedScore, assessment.Score);
+        Assert.Equal(expectedGame, assessment.Score >= GameConfidenceScorer.GameThreshold);
+        Assert.NotEmpty(scenario);
+    }
+
+    [Fact]
+    public void Runtime_group_alone_can_reach_the_game_gate()
+    {
+        // A process holding the 3D engine in exclusive fullscreen is a game regardless
+        // of where its binary lives — the case the install-path heuristics cannot see.
+        var assessment = GameConfidenceScorer.Score(new[]
+        {
+            new GameDetectionEvidence("gpu3dSustained", "runtime", 25, "GPU 3D busy"),
+            new GameDetectionEvidence("d3dFullscreen", "runtime", 20, "D3D fullscreen"),
+            new GameDetectionEvidence("foreground", "runtime", 15, "Foreground"),
+            new GameDetectionEvidence("resourceHeuristic", "runtime", 5, "Large working set"),
+            new GameDetectionEvidence("duration15s", "runtime", 4, "Alive 15s"),
+            new GameDetectionEvidence("duration2m", "runtime", 3, "Alive 2m"),
+        });
+
+        Assert.Equal(60, assessment.Score);
+        Assert.Equal("probable", assessment.Level);
+    }
+
+    [Fact]
+    public void GameThreshold_matches_the_probable_level_boundary()
+    {
+        Assert.Equal("probable", GameConfidenceScorer.LevelFor(GameConfidenceScorer.GameThreshold));
+        Assert.Equal("unknown", GameConfidenceScorer.LevelFor(GameConfidenceScorer.GameThreshold - 1));
+    }
+
     [Fact]
     public void Score_handles_integer_extremes_before_clamping()
     {

@@ -7,9 +7,14 @@ public static class GameConfidenceScorer
         {
             ["identity"] = 50,
             ["provenance"] = 35,
-            ["runtime"] = 25,
+            // Runtime alone must be able to reach GameThreshold: a process holding the 3D
+            // engine in exclusive fullscreen is a game wherever its binary happens to live.
+            ["runtime"] = 60,
             ["history"] = 25,
         };
+
+    /// <summary>Score at or above which a detection is classified as a game.</summary>
+    public const int GameThreshold = 60;
 
     public static GameDetectionAssessment Score(
         IEnumerable<GameDetectionEvidence> evidence,

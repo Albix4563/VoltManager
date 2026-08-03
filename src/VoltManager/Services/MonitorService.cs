@@ -59,6 +59,22 @@ public class MonitorService : IDisposable
     /// <summary>Exposes the process-scan cadence bucket chosen at construction (for tests).</summary>
     public int ProcessScanEveryTicks => _processScanEveryTicks;
 
+    // The monitor tick is user-configurable and can run slower than the 5s heavy-app scan.
+    // Past this age the per-process GPU map is dropped rather than reused stale.
+    private static readonly TimeSpan Gpu3DMaxAge = TimeSpan.FromSeconds(15);
+
+    /// <summary>
+    /// Per-PID GPU 3D utilization from the last metrics tick. Empty when GPU counters are
+    /// unavailable or the last read is too old to be meaningful.
+    /// </summary>
+    public IReadOnlyDictionary<int, double> ReadGpu3DByProcess()
+    {
+        var snapshot = _gpu.PerProcess3D;
+        return DateTime.UtcNow - snapshot.TimestampUtc > Gpu3DMaxAge
+            ? GpuCounterProvider.Gpu3DSnapshot.Empty.ByPid
+            : snapshot.ByPid;
+    }
+
     public MonitorService()
     {
         // No WMI/GetSystemInfo on the startup path: cores + RAM from free OS APIs.

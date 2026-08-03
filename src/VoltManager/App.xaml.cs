@@ -54,12 +54,14 @@ public partial class App : Application
     private bool _heavyAppPlanSessionActive;
     private PlanId? _planBeforeHeavyAppSession;
     private DateTime _heavyAppLastActiveUtc;
+    private bool _heavyAppLastActiveWasGame;
     private bool _appProfilePlanSessionActive;
     private PlanId? _planBeforeAppProfileSession;
     private DateTime _appProfileLastActiveUtc;
     private readonly PowerPlanGuardService _planGuard = new();
-    // Grace before tearing down a heavy-app session: absorbs transient scan misses so an
-    // alt-tabbed/minimized game does not immediately revert the power plan.
+    // Grace before tearing down a game session: absorbs transient scan misses so an
+    // alt-tabbed/minimized game does not immediately revert the power plan. It does not
+    // apply to plain heavy apps — a finished render or build releases the plan at once.
     private static readonly TimeSpan HeavyAppTeardownGrace = TimeSpan.FromSeconds(15);
     private static readonly TimeSpan AppProfileTeardownGrace = TimeSpan.FromSeconds(15);
 
@@ -154,7 +156,7 @@ public partial class App : Application
         AutoStart = new StartupService();
         Automation = new AutomationEngine();
         Settings.SettingsChanged += _ => UpdateSamplingPeriod();
-        HeavyApps = new HeavyAppDetectionService(Settings);
+        HeavyApps = new HeavyAppDetectionService(Settings, Monitor.ReadGpu3DByProcess);
         AppProfiles = new AppPowerProfileService(Settings);
         PowerSourcePlans = new PowerSourcePlanService(Settings);
         ThermalGuard = new ThermalGuardService(Settings);
@@ -605,6 +607,7 @@ public partial class App : Application
         if (canAutoSwitch && state.Active)
         {
             _heavyAppLastActiveUtc = now;
+            _heavyAppLastActiveWasGame = state.GameActive;
             if (!_heavyAppPlanSessionActive)
             {
                 _planBeforeHeavyAppSession = ActivePlan?.PlanId;
@@ -630,10 +633,11 @@ public partial class App : Application
         {
             // Keep the session (and performance plan) alive until the game has been gone for the
             // full grace window; a single missed scan or alt-tab must not revert the plan.
-            if (canAutoSwitch && now - _heavyAppLastActiveUtc < HeavyAppTeardownGrace)
+            if (canAutoSwitch && _heavyAppLastActiveWasGame && now - _heavyAppLastActiveUtc < HeavyAppTeardownGrace)
                 return true;
 
             _heavyAppPlanSessionActive = false;
+            _heavyAppLastActiveWasGame = false;
             var previous = _planBeforeHeavyAppSession;
             _planBeforeHeavyAppSession = null;
             _planGuard.ClearExpected("heavyApp");

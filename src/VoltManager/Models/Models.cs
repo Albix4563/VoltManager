@@ -155,6 +155,10 @@ public class HeavyAppDetectionSettings
     [JsonPropertyName("useGameInstallHeuristics")] public bool UseGameInstallHeuristics { get; set; } = true;
     [JsonPropertyName("useResourceHeuristics")] public bool UseResourceHeuristics { get; set; } = true;
     [JsonPropertyName("minWorkingSetMb")] public int MinWorkingSetMb { get; set; } = 1536;
+    /// <summary>Executables or folders the user always wants treated as a game.</summary>
+    [JsonPropertyName("alwaysGamePaths")] public List<string> AlwaysGamePaths { get; set; } = new();
+    /// <summary>Executables or folders that must never be detected. Wins over the include list.</summary>
+    [JsonPropertyName("neverGamePaths")] public List<string> NeverGamePaths { get; set; } = new();
 }
 
 public class AppPowerProfileRule

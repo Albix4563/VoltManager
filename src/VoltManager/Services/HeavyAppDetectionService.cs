@@ -12,6 +12,8 @@ public record DetectedHeavyApp
     [JsonPropertyName("name")] public string Name { get; init; } = "";
     [JsonPropertyName("path")] public string Path { get; init; } = "";
     [JsonPropertyName("reason")] public string Reason { get; init; } = "";
+    /// <summary>"game" (confidence gate reached, sticky) or "heavyApp" (resource gate, never sticky).</summary>
+    [JsonPropertyName("kind")] public string Kind { get; init; } = "heavyApp";
     [JsonPropertyName("workingSetMb")] public long WorkingSetMb { get; init; }
     [JsonPropertyName("startedAtUtc")] public DateTime? StartedAtUtc { get; init; }
     [JsonPropertyName("confidenceScore")] public int ConfidenceScore { get; init; }
@@ -25,6 +27,8 @@ public record HeavyAppDetectionState
 {
     [JsonPropertyName("enabled")] public bool Enabled { get; init; }
     [JsonPropertyName("active")] public bool Active { get; init; }
+    /// <summary>At least one detection passed the game confidence gate this scan.</summary>
+    [JsonPropertyName("gameActive")] public bool GameActive { get; init; }
     [JsonPropertyName("targetPlan")] public PlanId TargetPlan { get; init; } = PlanId.Performance;
     [JsonPropertyName("detectedCount")] public int DetectedCount { get; init; }
     [JsonPropertyName("activeProcesses")] public List<DetectedHeavyApp> ActiveProcesses { get; init; } = new();
@@ -183,6 +187,7 @@ public sealed class HeavyAppDetectionService : IDisposable
     };
 
     private readonly SettingsService _settings;
+    private readonly Func<IReadOnlyDictionary<int, double>>? _gpu3DByProcess;
     private readonly object _lock = new();
     private Timer? _timer;
     private bool _scanFaulted; // throttles scan-failure logging to once per streak
@@ -200,9 +205,14 @@ public sealed class HeavyAppDetectionService : IDisposable
     static HeavyAppDetectionService() => RunSelfCheck();
 #endif
 
-    public HeavyAppDetectionService(SettingsService settings)
+    /// <param name="gpu3DByProcess">Per-PID GPU 3D utilization source (MonitorService); optional
+    /// so detection still runs — on path signals alone — where GPU counters are unavailable.</param>
+    public HeavyAppDetectionService(
+        SettingsService settings,
+        Func<IReadOnlyDictionary<int, double>>? gpu3DByProcess = null)
     {
         _settings = settings;
+        _gpu3DByProcess = gpu3DByProcess;
     }
 
     public HeavyAppDetectionState Current
@@ -268,6 +278,9 @@ public sealed class HeavyAppDetectionService : IDisposable
         // Foreground + exclusive/borderless fullscreen top-level windows (GetForegroundWindow
         // alone misses some exclusive-fullscreen titles that leave FG on a shell helper).
         var presentationPids = ForegroundProcessProbe.TryGetPresentationProcessIds();
+        int? foregroundPid = ForegroundProcessProbe.TryGetForegroundProcessId();
+        bool d3dFullscreenActive = ForegroundProcessProbe.IsD3dFullscreenActive();
+        var gpu3D = ReadGpu3DByProcessSafe();
         DateTime scanNowUtc = DateTime.UtcNow;
         var detected = new List<DetectedHeavyApp>();
         var observed = new List<ObservedHeavyProcess>();
@@ -289,19 +302,12 @@ public sealed class HeavyAppDetectionService : IDisposable
                     maxDepth: 3,
                     out _);
                 bool isForeground = presentationPids.Contains(process.Pid);
+                gpu3D.TryGetValue(process.Pid, out double gpu3DPercent);
+                bool d3dFullscreen = ForegroundProcessProbe.ShouldAttributeD3dFullscreen(
+                    d3dFullscreenActive, process.Pid, foregroundPid, presentationPids);
 
                 // Classify after ancestry/foreground so custom-folder titles can stick without
                 // depending only on path markers or peak working-set.
-                string? reason = ClassifyProcess(
-                    path,
-                    process.Name,
-                    process.WorkingSetBytes,
-                    gpuHighPerformancePaths,
-                    config,
-                    hasLauncherAncestor,
-                    isForeground);
-                if (reason == null) continue;
-
                 var assessment = AssessProcess(
                     path,
                     process.Name,
@@ -311,8 +317,14 @@ public sealed class HeavyAppDetectionService : IDisposable
                     startedAtUtc,
                     scanNowUtc,
                     hasLauncherAncestor,
-                    isForeground);
+                    isForeground,
+                    gpu3DPercent,
+                    d3dFullscreen);
                 if (assessment.PrimaryReason == null) continue;
+
+                string? kind = ClassifyKind(
+                    assessment, NormalizePath(path), process.Name, process.WorkingSetBytes, config);
+                if (kind == null) continue;
 
                 detected.Add(new DetectedHeavyApp
                 {
@@ -320,6 +332,7 @@ public sealed class HeavyAppDetectionService : IDisposable
                     Name = string.IsNullOrWhiteSpace(process.Name) ? System.IO.Path.GetFileNameWithoutExtension(path) : process.Name,
                     Path = path,
                     Reason = assessment.PrimaryReason,
+                    Kind = kind,
                     WorkingSetMb = workingSetMb,
                     StartedAtUtc = startedAtUtc,
                     ConfidenceScore = assessment.Score,
@@ -343,8 +356,10 @@ public sealed class HeavyAppDetectionService : IDisposable
 
         var unique = detected
             .GroupBy(p => p.Path, StringComparer.OrdinalIgnoreCase)
-            .Select(g => g.OrderByDescending(p => ReasonPriority(p.Reason)).ThenByDescending(p => p.WorkingSetMb).First())
-            .OrderByDescending(p => ReasonPriority(p.Reason))
+            .Select(g => g.OrderByDescending(p => p.ConfidenceScore).ThenByDescending(p => ReasonPriority(p.Reason)).ThenByDescending(p => p.WorkingSetMb).First())
+            .OrderByDescending(p => IsGame(p))
+            .ThenByDescending(p => p.ConfidenceScore)
+            .ThenByDescending(p => ReasonPriority(p.Reason))
             .ThenByDescending(p => p.WorkingSetMb)
             .Take(8)
             .ToList();
@@ -352,12 +367,57 @@ public sealed class HeavyAppDetectionService : IDisposable
         Publish(new HeavyAppDetectionState
         {
             Enabled = true,
+            // Heavy non-game apps keep raising the plan exactly as before; only the
+            // game flag (sticky + teardown grace) is gated on confidence.
             Active = unique.Count > 0,
+            GameActive = detected.Any(IsGame),
             TargetPlan = config.TargetPlan,
             DetectedCount = detected.Count,
             ActiveProcesses = unique,
             LastScanUtc = DateTime.UtcNow,
         });
+    }
+
+    private IReadOnlyDictionary<int, double> ReadGpu3DByProcessSafe()
+    {
+        if (_gpu3DByProcess == null) return EmptyGpu3D;
+        try { return _gpu3DByProcess() ?? EmptyGpu3D; }
+        catch { return EmptyGpu3D; }
+    }
+
+    private static readonly IReadOnlyDictionary<int, double> EmptyGpu3D = new Dictionary<int, double>();
+
+    public static bool IsGame(DetectedHeavyApp app)
+        => string.Equals(app.Kind, "game", StringComparison.Ordinal);
+
+    /// <summary>
+    /// Splits detections into the two paths: "game" once the confidence gate is reached
+    /// (sticky, teardown grace), "heavyApp" for strong install-path hits and large user
+    /// workloads (never sticky), null for everything else.
+    /// </summary>
+    public static string? ClassifyKind(
+        GameDetectionAssessment assessment,
+        string normalizedPath,
+        string processName,
+        long workingSetBytes,
+        HeavyAppDetectionSettings config)
+    {
+        if (assessment.PrimaryReason == null)
+            return null;
+        if (assessment.Score >= GameConfidenceScorer.GameThreshold)
+            return "game";
+
+        // Strong provenance/identity hits keep the legacy behavior so machines without GPU
+        // counters (VM, old driver) do not silently lose detection they have today.
+        if (assessment.PrimaryReason is "windowsGpuPreference" or "gameInstallPath" or "gameBinaryLayout")
+            return "heavyApp";
+
+        // The weak runtime reasons (launcherChild, foregroundActive) must clear the resource
+        // gate on their own — that is what stops fullscreen Electron apps from pinning the plan.
+        return config.UseResourceHeuristics &&
+               LooksLikeHeavyUserProcess(normalizedPath, processName, workingSetBytes, config.MinWorkingSetMb)
+            ? "heavyApp"
+            : null;
     }
 
     private void Publish(HeavyAppDetectionState next)
@@ -377,6 +437,7 @@ public sealed class HeavyAppDetectionService : IDisposable
     {
         if (previous.Enabled != next.Enabled) return true;
         if (previous.Active != next.Active) return true;
+        if (previous.GameActive != next.GameActive) return true;
         if (previous.TargetPlan != next.TargetPlan) return true;
         if (previous.DetectedCount != next.DetectedCount) return true;
 
@@ -395,6 +456,7 @@ public sealed class HeavyAppDetectionService : IDisposable
             var right = nextProcesses[index];
             if (!left.Path.Equals(right.Path, StringComparison.OrdinalIgnoreCase) ||
                 !left.Reason.Equals(right.Reason, StringComparison.Ordinal) ||
+                !left.Kind.Equals(right.Kind, StringComparison.Ordinal) ||
                 left.ConfidenceScore != right.ConfidenceScore ||
                 !left.ConfidenceLevel.Equals(right.ConfidenceLevel, StringComparison.Ordinal) ||
                 !left.Evidence.SequenceEqual(right.Evidence))
@@ -406,11 +468,13 @@ public sealed class HeavyAppDetectionService : IDisposable
 
     private static int ReasonPriority(string reason) => reason switch
     {
+        "userRule" => 5,
         "windowsGpuPreference" => 4,
         "gameInstallPath" => 3,
         "gameBinaryLayout" => 2,
         "launcherChild" => 2,
         "foregroundActive" => 2,
+        "gpuActive" => 2,
         "resourceHeuristic" => 1,
         _ => 0,
     };
@@ -424,7 +488,9 @@ public sealed class HeavyAppDetectionService : IDisposable
             .GroupBy(p => p.ProcessId)
             .ToDictionary(g => g.Key, g => g.First());
 
-        foreach (var app in detectedList)
+        // Only confidence-gated games become sticky. Heavy non-game apps release the plan
+        // as soon as they stop qualifying, so a finished render/compile does not linger.
+        foreach (var app in detectedList.Where(IsGame))
             sticky[app.ProcessId] = app;
 
         var detectedPids = detectedList.Select(a => a.ProcessId).ToHashSet();
@@ -437,7 +503,7 @@ public sealed class HeavyAppDetectionService : IDisposable
                 // performance plan does not drop during the handoff (grace alone is short).
                 var exiting = sticky[pid];
                 sticky.Remove(pid);
-                if (exiting.Reason != "resourceHeuristic" &&
+                if (IsGame(exiting) &&
                     TryHandoffStickyToInstallRootPeer(
                         sticky, exiting, observedByPid, detectedList, detectedPids, minWorkingSetMb))
                 {
@@ -453,9 +519,9 @@ public sealed class HeavyAppDetectionService : IDisposable
             string livePath = NormalizePath(live.Path);
             string liveName = string.IsNullOrWhiteSpace(live.Name) ? sticky[pid].Name : live.Name;
 
-            // Resource-only hits are deliberately non-sticky: once the process drops below the
-            // threshold it stops forcing the high-performance plan.
-            if (sticky[pid].Reason == "resourceHeuristic")
+            // Anything that never reached the game gate is deliberately non-sticky: once it
+            // stops qualifying it stops forcing the high-performance plan.
+            if (!IsGame(sticky[pid]))
             {
                 sticky.Remove(pid);
                 continue;
@@ -560,6 +626,7 @@ public sealed class HeavyAppDetectionService : IDisposable
             Name = bestName,
             Path = best.Path,
             Reason = exiting.Reason,
+            Kind = exiting.Kind,
             WorkingSetMb = best.WorkingSetMb,
             StartedAtUtc = best.StartedAtUtc,
             ConfidenceScore = exiting.ConfidenceScore,
@@ -629,10 +696,10 @@ public sealed class HeavyAppDetectionService : IDisposable
 
     public static string? ClassifyProcess(string path, string processName, long workingSetBytes,
         HashSet<string> gpuHighPerformancePaths, HeavyAppDetectionSettings config,
-        bool hasLauncherAncestor = false, bool isForeground = false)
+        bool hasLauncherAncestor = false, bool isForeground = false, double gpu3DPercent = 0)
         => ClassifyNormalizedProcess(
             NormalizePath(path), processName, workingSetBytes, gpuHighPerformancePaths, config,
-            hasLauncherAncestor, isForeground);
+            hasLauncherAncestor, isForeground, gpu3DPercent);
 
     public static GameDetectionAssessment AssessProcess(
         string path,
@@ -643,16 +710,31 @@ public sealed class HeavyAppDetectionService : IDisposable
         DateTime? startedAtUtc = null,
         DateTime? nowUtc = null,
         bool hasLauncherAncestor = false,
-        bool isForeground = false)
+        bool isForeground = false,
+        double gpu3DPercent = 0,
+        bool d3dFullscreen = false)
     {
         string normalized = NormalizePath(path);
         string? primaryReason = ClassifyNormalizedProcess(
             normalized, processName, workingSetBytes, gpuHighPerformancePaths, config,
-            hasLauncherAncestor, isForeground);
+            hasLauncherAncestor, isForeground, gpu3DPercent);
         if (primaryReason == null)
             return GameDetectionAssessment.Empty;
 
-        var evidence = new List<GameDetectionEvidence>(9);
+        // An explicit user rule is the whole answer: no heuristic can raise or lower it.
+        if (primaryReason == "userRule")
+            return new GameDetectionAssessment
+            {
+                PrimaryReason = "userRule",
+                Score = 100,
+                Level = "confirmed",
+                Evidence = new[]
+                {
+                    new GameDetectionEvidence("userRule", "identity", 100, "User rule: always treat as game"),
+                },
+            };
+
+        var evidence = new List<GameDetectionEvidence>(11);
 
         if (config.UseWindowsGpuPreferences && gpuHighPerformancePaths.Contains(normalized))
             evidence.Add(new GameDetectionEvidence(
@@ -671,10 +753,23 @@ public sealed class HeavyAppDetectionService : IDisposable
             evidence.Add(new GameDetectionEvidence(
                 "launcherAncestry", "provenance", 15, "Known launcher ancestor"));
 
+        // Runtime signals: what the process is actually doing, not where it was installed.
+        // This is the only evidence that can recognize a game in an arbitrary folder.
+        if (gpu3DPercent >= Gpu3DSustainedPercent)
+            evidence.Add(new GameDetectionEvidence(
+                "gpu3dSustained", "runtime", 25, "Sustained GPU 3D usage"));
+        else if (gpu3DPercent >= Gpu3DActivePercent)
+            evidence.Add(new GameDetectionEvidence(
+                "gpu3dActive", "runtime", 10, "Active GPU 3D usage"));
+
+        if (d3dFullscreen)
+            evidence.Add(new GameDetectionEvidence(
+                "d3dFullscreen", "runtime", 20, "Exclusive Direct3D fullscreen session"));
+
         if (primaryReason == "foregroundActive" ||
             (isForeground && !IsNonGameShell(normalized, processName)))
             evidence.Add(new GameDetectionEvidence(
-                "foreground", "runtime", 20, "Owns foreground or fullscreen presentation window"));
+                "foreground", "runtime", 15, "Owns foreground or fullscreen presentation window"));
 
         if (config.UseResourceHeuristics && LooksLikeHeavyUserProcess(normalized, processName, workingSetBytes, config.MinWorkingSetMb))
             evidence.Add(new GameDetectionEvidence(
@@ -694,6 +789,10 @@ public sealed class HeavyAppDetectionService : IDisposable
         return GameConfidenceScorer.Score(evidence, primaryReason);
     }
 
+    // A game keeps the 3D engine busy; "sustained" separates play from a UI animating a frame.
+    private const double Gpu3DSustainedPercent = 20;
+    private const double Gpu3DActivePercent = 3;
+
     private static string? ClassifyNormalizedProcess(
         string normalizedPath,
         string processName,
@@ -701,8 +800,16 @@ public sealed class HeavyAppDetectionService : IDisposable
         HashSet<string> gpuHighPerformancePaths,
         HeavyAppDetectionSettings config,
         bool hasLauncherAncestor = false,
-        bool isForeground = false)
+        bool isForeground = false,
+        double gpu3DPercent = 0)
     {
+        // User rules outrank every heuristic. An explicit exclusion outranks an explicit
+        // inclusion too: the safe answer wins when the user contradicts themselves.
+        if (MatchesUserPath(normalizedPath, config.NeverGamePaths))
+            return null;
+        if (MatchesUserPath(normalizedPath, config.AlwaysGamePaths))
+            return "userRule";
+
         if (IsNonGameShell(normalizedPath, processName))
             return null;
 
@@ -733,11 +840,43 @@ public sealed class HeavyAppDetectionService : IDisposable
             LooksLikeForegroundGameCandidate(normalizedPath, processName, workingSetBytes, config.MinWorkingSetMb))
             return "foregroundActive";
 
+        // Holding the 3D engine that hard is real-time rendering. Path heuristics never see a
+        // small game installed outside a storefront tree; this is the signal that does. It only
+        // opens the assessment — the confidence gate still decides game vs heavy app.
+        if (gpu3DPercent >= Gpu3DSustainedPercent && !IsResourceDenied(normalizedPath, processName))
+            return "gpuActive";
+
         if (config.UseResourceHeuristics && LooksLikeHeavyUserProcess(
                 normalizedPath, processName, workingSetBytes, config.MinWorkingSetMb))
             return "resourceHeuristic";
 
         return null;
+    }
+
+    /// <summary>
+    /// Matches a normalized process path against a user list: exact executable, or any file
+    /// under a listed folder.
+    /// </summary>
+    private static bool MatchesUserPath(string normalizedPath, List<string>? userPaths)
+    {
+        if (userPaths == null || userPaths.Count == 0)
+            return false;
+
+        foreach (string entry in userPaths)
+        {
+            if (string.IsNullOrWhiteSpace(entry))
+                continue;
+            string normalizedEntry = NormalizePath(entry);
+            if (normalizedPath.Equals(normalizedEntry, StringComparison.OrdinalIgnoreCase))
+                return true;
+            string prefix = normalizedEntry.EndsWith("\\", StringComparison.Ordinal)
+                ? normalizedEntry
+                : normalizedEntry + "\\";
+            if (normalizedPath.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+
+        return false;
     }
 
     /// <summary>
@@ -747,9 +886,7 @@ public sealed class HeavyAppDetectionService : IDisposable
     private static bool LooksLikeForegroundGameCandidate(
         string normalizedPath, string processName, long workingSetBytes, int minWorkingSetMb)
     {
-        if (ResourceDenyPathMarkers.Any(m => normalizedPath.Contains(m, StringComparison.OrdinalIgnoreCase)))
-            return false;
-        if (ResourceDenyProcessNames.Any(n => string.Equals(processName, n, StringComparison.OrdinalIgnoreCase)))
+        if (IsResourceDenied(normalizedPath, processName))
             return false;
 
         if (LooksLikeShippingGameBinary(normalizedPath, processName))
@@ -758,6 +895,11 @@ public sealed class HeavyAppDetectionService : IDisposable
         long thresholdMb = Math.Max(256, minWorkingSetMb / 2);
         return workingSetBytes / 1024 / 1024 >= thresholdMb;
     }
+
+    /// <summary>Browsers, IDEs, chat and other known non-game workloads, by path or name.</summary>
+    private static bool IsResourceDenied(string normalizedPath, string processName)
+        => ResourceDenyPathMarkers.Any(m => normalizedPath.Contains(m, StringComparison.OrdinalIgnoreCase)) ||
+           ResourceDenyProcessNames.Any(n => string.Equals(processName, n, StringComparison.OrdinalIgnoreCase));
 
     private static bool IsNonGameShell(string normalizedPath, string processName)
     {
@@ -1000,6 +1142,21 @@ public sealed class HeavyAppDetectionService : IDisposable
                 throw new InvalidOperationException($"SelfCheck failed [{caseName}]: got '{actual}', expected '{expected}'");
         }
 
+        static void ExpectKind(
+            string path, string name, long workingSetBytes, HashSet<string> gpuPrefs,
+            HeavyAppDetectionSettings config, string? expected, string caseName,
+            bool isForeground = false, double gpu3DPercent = 0, bool d3dFullscreen = false)
+        {
+            var assessment = AssessProcess(
+                path, name, workingSetBytes, gpuPrefs, config,
+                startedAtUtc: null, nowUtc: null, hasLauncherAncestor: false,
+                isForeground: isForeground, gpu3DPercent: gpu3DPercent, d3dFullscreen: d3dFullscreen);
+            Expect(
+                ClassifyKind(assessment, NormalizePath(path), name, workingSetBytes, config),
+                expected,
+                caseName);
+        }
+
         Expect(
             ClassifyProcess(@"C:\Program Files (x86)\Steam\steamapps\common\Game\game.exe", "game", 200 * 1024 * 1024, gpu, cfg),
             "gameInstallPath",
@@ -1205,6 +1362,33 @@ public sealed class HeavyAppDetectionService : IDisposable
             "gameInstallPath",
             "lol match binary still detected");
 
+        // A process holding the 3D engine in exclusive fullscreen is a game wherever it lives.
+        ExpectKind(
+            @"D:\MyStuff\Indie\Indie.exe", "Indie", 700L * 1024 * 1024,
+            new HashSet<string>(StringComparer.OrdinalIgnoreCase), cfg,
+            "game", "indie custom folder reaches the gate on runtime alone",
+            isForeground: true, gpu3DPercent: 55, d3dFullscreen: true);
+
+        // Fullscreen Electron app: below the gate and below the resource floor — dropped entirely.
+        ExpectKind(
+            @"C:\Users\Someone\AppData\Local\Notionish\Notionish.exe", "Notionish", 800L * 1024 * 1024,
+            new HashSet<string>(StringComparer.OrdinalIgnoreCase), cfg,
+            null, "fullscreen electron app dropped",
+            isForeground: true, gpu3DPercent: 1.5);
+
+        // Heavy render workload: still raises the plan, but never as a game (so never sticky).
+        ExpectKind(
+            @"C:\Program Files\Blender Foundation\Blender 4.2\blender.exe", "blender", 6L * 1024 * 1024 * 1024,
+            new HashSet<string>(StringComparer.OrdinalIgnoreCase), cfg,
+            "heavyApp", "render workload stays a heavy app",
+            isForeground: true, gpu3DPercent: 95);
+
+        // No GPU counters (VM / old driver) must not silently disable path-based detection.
+        ExpectKind(
+            @"D:\Steam\steamapps\common\Stardewish\Stardewish.exe", "Stardewish", 200L * 1024 * 1024,
+            new HashSet<string>(StringComparer.OrdinalIgnoreCase), cfg,
+            "heavyApp", "known install path survives without runtime signals");
+
         // Sticky must release a misclassified storefront process once it no longer qualifies.
         var sticky = new Dictionary<int, DetectedHeavyApp>
         {
@@ -1214,6 +1398,7 @@ public sealed class HeavyAppDetectionService : IDisposable
                 Name = "EADesktop",
                 Path = @"C:\Program Files\Electronic Arts\EA Desktop\EA Desktop\EADesktop.exe",
                 Reason = "gameInstallPath",
+                Kind = "game",
                 WorkingSetMb = 400,
             },
         };
@@ -1242,6 +1427,7 @@ public sealed class HeavyAppDetectionService : IDisposable
                 Name = "Title",
                 Path = @"D:\SteamLibrary\steamapps\common\Title\Title.exe",
                 Reason = "gameInstallPath",
+                Kind = "game",
                 WorkingSetMb = 300,
                 StartedAtUtc = DateTime.UtcNow.AddMinutes(-1),
             },
@@ -1261,6 +1447,37 @@ public sealed class HeavyAppDetectionService : IDisposable
             DateTime.UtcNow);
         if (handoffMerged.Count != 1 || handoffMerged[0].ProcessId != 92 || !handoffSticky.ContainsKey(92))
             throw new InvalidOperationException("SelfCheck failed [sticky install-root handoff]");
+        if (!IsGame(handoffMerged[0]))
+            throw new InvalidOperationException("SelfCheck failed [sticky install-root handoff]: successor lost its game kind");
+
+        // A heavy app must never become sticky: it releases the plan as soon as the load ends.
+        var heavySticky = new Dictionary<int, DetectedHeavyApp>();
+        MergeStickyDetections(
+            heavySticky,
+            new[]
+            {
+                new DetectedHeavyApp
+                {
+                    ProcessId = 77,
+                    Name = "blender",
+                    Path = @"C:\Program Files\Blender Foundation\Blender 4.2\blender.exe",
+                    Reason = "resourceHeuristic",
+                    Kind = "heavyApp",
+                    WorkingSetMb = 6000,
+                },
+            },
+            new[]
+            {
+                new ObservedHeavyProcess(
+                    77,
+                    @"C:\Program Files\Blender Foundation\Blender 4.2\blender.exe",
+                    DateTime.UtcNow,
+                    "blender",
+                    6000),
+            },
+            DateTime.UtcNow);
+        if (heavySticky.Count != 0)
+            throw new InvalidOperationException("SelfCheck failed [heavy app never sticky]");
     }
 
     public void Dispose()

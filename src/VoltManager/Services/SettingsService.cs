@@ -234,12 +234,38 @@ public class SettingsService
         };
     }
 
-    private static void NormalizeHeavyAppDetectionSettings(HeavyAppDetectionSettings settings)
+    public static void NormalizeHeavyAppDetectionSettings(HeavyAppDetectionSettings settings)
     {
         settings.MinWorkingSetMb = Math.Clamp(settings.MinWorkingSetMb, 256, 8192);
 
         if (!settings.UseWindowsGpuPreferences && !settings.UseGameInstallHeuristics && !settings.UseResourceHeuristics)
             settings.UseWindowsGpuPreferences = true;
+
+        settings.AlwaysGamePaths = NormalizeUserPathList(settings.AlwaysGamePaths);
+        settings.NeverGamePaths = NormalizeUserPathList(settings.NeverGamePaths);
+    }
+
+    // Hand-edited lists: drop blanks, dedupe case-insensitively, and cap so a runaway
+    // config cannot turn every classification into a linear scan of thousands of entries.
+    private const int MaxUserPathEntries = 200;
+
+    private static List<string> NormalizeUserPathList(List<string>? paths)
+    {
+        var normalized = new List<string>();
+        if (paths == null) return normalized;
+
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (string? entry in paths)
+        {
+            string value = Environment.ExpandEnvironmentVariables(entry ?? "").Trim().Trim('"');
+            if (string.IsNullOrWhiteSpace(value)) continue;
+            if (!seen.Add(value)) continue;
+
+            normalized.Add(value);
+            if (normalized.Count >= MaxUserPathEntries) break;
+        }
+
+        return normalized;
     }
 
     private static void NormalizeAppPowerProfileSettings(AppPowerProfileSettings settings)

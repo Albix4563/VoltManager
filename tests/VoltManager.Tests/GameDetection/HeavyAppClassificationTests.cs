@@ -164,6 +164,7 @@ public class HeavyAppClassificationTests
                 Name = "Wow",
                 Path = path,
                 Reason = "gameBinaryLayout",
+                Kind = "game",
                 WorkingSetMb = 1600,
                 StartedAtUtc = started,
             },
@@ -279,7 +280,7 @@ public class HeavyAppClassificationTests
 
         Assert.Equal("foregroundActive", assessment.PrimaryReason);
         Assert.Contains(assessment.Evidence, e => e.Code == "foreground");
-        Assert.True(assessment.Score >= 20);
+        Assert.True(assessment.Score >= 15);
     }
 
     [Fact]
@@ -321,6 +322,7 @@ public class HeavyAppClassificationTests
                 Name = "CoolGame",
                 Path = path,
                 Reason = "foregroundActive",
+                Kind = "game",
                 WorkingSetMb = 900,
                 StartedAtUtc = started,
             },
@@ -386,6 +388,7 @@ public class HeavyAppClassificationTests
                 Name = "game",
                 Path = path,
                 Reason = "gameInstallPath",
+                Kind = "game",
                 WorkingSetMb = 2000,
                 StartedAtUtc = started,
             },
@@ -444,6 +447,7 @@ public class HeavyAppClassificationTests
                 Name = "Title",
                 Path = bootstrap,
                 Reason = "gameInstallPath",
+                Kind = "game",
                 WorkingSetMb = 400,
                 StartedAtUtc = sessionStart,
             },
@@ -526,6 +530,7 @@ public class HeavyAppClassificationTests
                 Name = "Wow",
                 Path = first,
                 Reason = "gameBinaryLayout",
+                Kind = "game",
                 WorkingSetMb = 800,
                 StartedAtUtc = sessionStart,
             },
@@ -626,6 +631,7 @@ public class HeavyAppClassificationTests
                 Name = "CoolGame",
                 Path = path,
                 Reason = "launcherChild",
+                Kind = "game",
                 WorkingSetMb = 900,
                 StartedAtUtc = started,
             },

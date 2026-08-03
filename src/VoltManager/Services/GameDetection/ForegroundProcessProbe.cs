@@ -43,6 +43,11 @@ public static class ForegroundProcessProbe
     [DllImport("user32.dll", CharSet = CharSet.Auto)]
     private static extern bool GetMonitorInfo(IntPtr hMonitor, ref MonitorInfo lpmi);
 
+    [DllImport("shell32.dll")]
+    private static extern int SHQueryUserNotificationState(out int state);
+
+    private const int QunsRunningD3DFullScreen = 3;
+
     private delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
 
     [StructLayout(LayoutKind.Sequential)]
@@ -128,6 +133,34 @@ public static class ForegroundProcessProbe
 
         return pids;
     }
+
+    /// <summary>
+    /// True when the shell reports an exclusive/borderless D3D fullscreen session anywhere.
+    /// The flag is system-wide: it never says which process owns it.
+    /// </summary>
+    public static bool IsD3dFullscreenActive()
+    {
+        try
+        {
+            // S_OK only; on failure the out value is undefined.
+            return SHQueryUserNotificationState(out int state) == 0 && state == QunsRunningD3DFullScreen;
+        }
+        catch
+        {
+            // ponytail: shell32 missing this export only on non-desktop SKUs — no signal, no crash.
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Conservative attribution of the system-wide D3D fullscreen flag to a single process:
+    /// the PID must own the foreground window *and* a near-fullscreen window.
+    /// </summary>
+    public static bool ShouldAttributeD3dFullscreen(
+        bool d3dFullscreenActive, int pid, int? foregroundPid, IReadOnlySet<int> presentationPids)
+        => d3dFullscreenActive
+           && foregroundPid == pid
+           && presentationPids.Contains(pid);
 
     /// <summary>
     /// True when the window rect covers the monitor rect within <paramref name="tolerancePx"/>.

@@ -63,4 +63,36 @@ public class ForegroundProcessProbeTests
         if (fg != null)
             Assert.Contains(fg.Value, presentation);
     }
+
+    [Fact]
+    public void ShouldAttributeD3dFullscreen_requires_foreground_and_presentation_ownership()
+    {
+        var presentation = new HashSet<int> { 100, 200 };
+
+        Assert.True(ForegroundProcessProbe.ShouldAttributeD3dFullscreen(
+            d3dFullscreenActive: true, pid: 100, foregroundPid: 100, presentation));
+
+        // Background presentation owner: the shell flag says nothing about it.
+        Assert.False(ForegroundProcessProbe.ShouldAttributeD3dFullscreen(
+            d3dFullscreenActive: true, pid: 200, foregroundPid: 100, presentation));
+
+        // Foreground but no fullscreen window of its own.
+        Assert.False(ForegroundProcessProbe.ShouldAttributeD3dFullscreen(
+            d3dFullscreenActive: true, pid: 300, foregroundPid: 300, presentation));
+    }
+
+    [Fact]
+    public void ShouldAttributeD3dFullscreen_is_false_without_the_shell_flag()
+    {
+        var presentation = new HashSet<int> { 100 };
+
+        Assert.False(ForegroundProcessProbe.ShouldAttributeD3dFullscreen(
+            d3dFullscreenActive: false, pid: 100, foregroundPid: 100, presentation));
+        Assert.False(ForegroundProcessProbe.ShouldAttributeD3dFullscreen(
+            d3dFullscreenActive: true, pid: 100, foregroundPid: null, presentation));
+    }
+
+    [Fact]
+    public void IsD3dFullscreenActive_does_not_throw()
+        => _ = ForegroundProcessProbe.IsD3dFullscreenActive();
 }
