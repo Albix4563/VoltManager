@@ -265,6 +265,7 @@ public sealed class HeavyAppDetectionService : IDisposable
 
         var snapshot = ProcessSnapshotProvider.Get(SnapshotMaxAge);
         var processGraph = new ProcessGraph(snapshot.Processes);
+        int? foregroundPid = ForegroundProcessProbe.TryGetForegroundProcessId();
         DateTime scanNowUtc = DateTime.UtcNow;
         var detected = new List<DetectedHeavyApp>();
         var observed = new List<ObservedHeavyProcess>();
@@ -285,16 +286,18 @@ public sealed class HeavyAppDetectionService : IDisposable
                     IsLauncherAncestor,
                     maxDepth: 3,
                     out _);
+                bool isForeground = foregroundPid != null && foregroundPid.Value == process.Pid;
 
-                // Classify after ancestry so custom-folder titles launched by Steam/Epic/etc.
-                // can stick without depending only on path markers or peak working-set.
+                // Classify after ancestry/foreground so custom-folder titles can stick without
+                // depending only on path markers or peak working-set.
                 string? reason = ClassifyProcess(
                     path,
                     process.Name,
                     process.WorkingSetBytes,
                     gpuHighPerformancePaths,
                     config,
-                    hasLauncherAncestor);
+                    hasLauncherAncestor,
+                    isForeground);
                 if (reason == null) continue;
 
                 var assessment = AssessProcess(
@@ -305,7 +308,8 @@ public sealed class HeavyAppDetectionService : IDisposable
                     config,
                     startedAtUtc,
                     scanNowUtc,
-                    hasLauncherAncestor);
+                    hasLauncherAncestor,
+                    isForeground);
                 if (assessment.PrimaryReason == null) continue;
 
                 detected.Add(new DetectedHeavyApp
@@ -404,6 +408,7 @@ public sealed class HeavyAppDetectionService : IDisposable
         "gameInstallPath" => 3,
         "gameBinaryLayout" => 2,
         "launcherChild" => 2,
+        "foregroundActive" => 2,
         "resourceHeuristic" => 1,
         _ => 0,
     };
@@ -475,10 +480,10 @@ public sealed class HeavyAppDetectionService : IDisposable
 
     public static string? ClassifyProcess(string path, string processName, long workingSetBytes,
         HashSet<string> gpuHighPerformancePaths, HeavyAppDetectionSettings config,
-        bool hasLauncherAncestor = false)
+        bool hasLauncherAncestor = false, bool isForeground = false)
         => ClassifyNormalizedProcess(
             NormalizePath(path), processName, workingSetBytes, gpuHighPerformancePaths, config,
-            hasLauncherAncestor);
+            hasLauncherAncestor, isForeground);
 
     public static GameDetectionAssessment AssessProcess(
         string path,
@@ -488,16 +493,17 @@ public sealed class HeavyAppDetectionService : IDisposable
         HeavyAppDetectionSettings config,
         DateTime? startedAtUtc = null,
         DateTime? nowUtc = null,
-        bool hasLauncherAncestor = false)
+        bool hasLauncherAncestor = false,
+        bool isForeground = false)
     {
         string normalized = NormalizePath(path);
         string? primaryReason = ClassifyNormalizedProcess(
             normalized, processName, workingSetBytes, gpuHighPerformancePaths, config,
-            hasLauncherAncestor);
+            hasLauncherAncestor, isForeground);
         if (primaryReason == null)
             return GameDetectionAssessment.Empty;
 
-        var evidence = new List<GameDetectionEvidence>(8);
+        var evidence = new List<GameDetectionEvidence>(9);
 
         if (config.UseWindowsGpuPreferences && gpuHighPerformancePaths.Contains(normalized))
             evidence.Add(new GameDetectionEvidence(
@@ -515,6 +521,11 @@ public sealed class HeavyAppDetectionService : IDisposable
             (hasLauncherAncestor && !IsNonGameShell(normalized, processName)))
             evidence.Add(new GameDetectionEvidence(
                 "launcherAncestry", "provenance", 15, "Known launcher ancestor"));
+
+        if (primaryReason == "foregroundActive" ||
+            (isForeground && !IsNonGameShell(normalized, processName)))
+            evidence.Add(new GameDetectionEvidence(
+                "foreground", "runtime", 20, "Owns the foreground window"));
 
         if (config.UseResourceHeuristics && LooksLikeHeavyUserProcess(normalized, processName, workingSetBytes, config.MinWorkingSetMb))
             evidence.Add(new GameDetectionEvidence(
@@ -540,7 +551,8 @@ public sealed class HeavyAppDetectionService : IDisposable
         long workingSetBytes,
         HashSet<string> gpuHighPerformancePaths,
         HeavyAppDetectionSettings config,
-        bool hasLauncherAncestor = false)
+        bool hasLauncherAncestor = false,
+        bool isForeground = false)
     {
         if (IsNonGameShell(normalizedPath, processName))
             return null;
@@ -565,11 +577,37 @@ public sealed class HeavyAppDetectionService : IDisposable
             LooksLikeLauncherSpawnedGame(normalizedPath, processName, workingSetBytes, config.MinWorkingSetMb))
             return "launcherChild";
 
+        // Foreground window (GetForegroundWindow): sticky start signal for custom-folder
+        // titles that never show a storefront parent and have not yet peaked RAM.
+        if (config.UseGameInstallHeuristics &&
+            isForeground &&
+            LooksLikeForegroundGameCandidate(normalizedPath, processName, workingSetBytes, config.MinWorkingSetMb))
+            return "foregroundActive";
+
         if (config.UseResourceHeuristics && LooksLikeHeavyUserProcess(
                 normalizedPath, processName, workingSetBytes, config.MinWorkingSetMb))
             return "resourceHeuristic";
 
         return null;
+    }
+
+    /// <summary>
+    /// Foreground alone is not enough (browsers/IDEs/chat). Require a shipping-style binary
+    /// name or a moderate working set, and never resource-deny paths/names.
+    /// </summary>
+    private static bool LooksLikeForegroundGameCandidate(
+        string normalizedPath, string processName, long workingSetBytes, int minWorkingSetMb)
+    {
+        if (ResourceDenyPathMarkers.Any(m => normalizedPath.Contains(m, StringComparison.OrdinalIgnoreCase)))
+            return false;
+        if (ResourceDenyProcessNames.Any(n => string.Equals(processName, n, StringComparison.OrdinalIgnoreCase)))
+            return false;
+
+        if (LooksLikeShippingGameBinary(normalizedPath, processName))
+            return true;
+
+        long thresholdMb = Math.Max(256, minWorkingSetMb / 2);
+        return workingSetBytes / 1024 / 1024 >= thresholdMb;
     }
 
     private static bool IsNonGameShell(string normalizedPath, string processName)
@@ -970,6 +1008,31 @@ public sealed class HeavyAppDetectionService : IDisposable
                 hasLauncherAncestor: true),
             "launcherChild",
             "custom folder game via launcher ancestry");
+
+        // Foreground custom-folder title: sticky start without launcher parent or huge WS.
+        Expect(
+            ClassifyProcess(
+                @"D:\CustomLibrary\Standalone\StandaloneGame.exe",
+                "StandaloneGame",
+                900 * 1024 * 1024,
+                new HashSet<string>(StringComparer.OrdinalIgnoreCase),
+                cfg,
+                hasLauncherAncestor: false,
+                isForeground: true),
+            "foregroundActive",
+            "custom folder game via foreground");
+
+        Expect(
+            ClassifyProcess(
+                @"C:\Program Files\Google\Chrome\Application\chrome.exe",
+                "chrome",
+                900 * 1024 * 1024,
+                new HashSet<string>(StringComparer.OrdinalIgnoreCase),
+                cfg,
+                hasLauncherAncestor: false,
+                isForeground: true),
+            null,
+            "foreground chrome still excluded");
 
         Expect(
             ClassifyProcess(

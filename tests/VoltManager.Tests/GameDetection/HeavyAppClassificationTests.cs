@@ -253,6 +253,113 @@ public class HeavyAppClassificationTests
     }
 
     [Fact]
+    public void Custom_folder_game_detected_via_foreground_without_launcher_or_path()
+    {
+        string? reason = HeavyAppDetectionService.ClassifyProcess(
+            @"D:\MyLibrary\CoolGame\CoolGame.exe",
+            "CoolGame",
+            900 * Mb,
+            EmptyGpu,
+            DefaultConfig,
+            hasLauncherAncestor: false,
+            isForeground: true);
+
+        Assert.Equal("foregroundActive", reason);
+
+        var assessment = HeavyAppDetectionService.AssessProcess(
+            @"D:\MyLibrary\CoolGame\CoolGame.exe",
+            "CoolGame",
+            900 * Mb,
+            EmptyGpu,
+            DefaultConfig,
+            DateTime.UtcNow.AddMinutes(-1),
+            DateTime.UtcNow,
+            hasLauncherAncestor: false,
+            isForeground: true);
+
+        Assert.Equal("foregroundActive", assessment.PrimaryReason);
+        Assert.Contains(assessment.Evidence, e => e.Code == "foreground");
+        Assert.True(assessment.Score >= 20);
+    }
+
+    [Fact]
+    public void Foreground_does_not_classify_browsers_or_storefronts()
+    {
+        Assert.Null(HeavyAppDetectionService.ClassifyProcess(
+            @"C:\Program Files\Google\Chrome\Application\chrome.exe",
+            "chrome",
+            2000 * Mb,
+            EmptyGpu,
+            DefaultConfig,
+            isForeground: true));
+        Assert.Null(HeavyAppDetectionService.ClassifyProcess(
+            @"C:\Program Files (x86)\Steam\steam.exe",
+            "steam",
+            500 * Mb,
+            EmptyGpu,
+            DefaultConfig,
+            isForeground: true));
+        Assert.Null(HeavyAppDetectionService.ClassifyProcess(
+            @"C:\Program Files (x86)\Battle.net\Battle.net.exe",
+            "Battle.net",
+            500 * Mb,
+            EmptyGpu,
+            DefaultConfig,
+            isForeground: true));
+    }
+
+    [Fact]
+    public void Sticky_foreground_game_survives_alt_tab_then_clears_on_exit()
+    {
+        var started = new DateTime(2026, 8, 2, 12, 0, 0, DateTimeKind.Utc);
+        string path = @"D:\MyLibrary\CoolGame\CoolGame.exe";
+        var sticky = new Dictionary<int, DetectedHeavyApp>
+        {
+            [4004] = new DetectedHeavyApp
+            {
+                ProcessId = 4004,
+                Name = "CoolGame",
+                Path = path,
+                Reason = "foregroundActive",
+                WorkingSetMb = 900,
+                StartedAtUtc = started,
+            },
+        };
+
+        // Alt-tab: no longer foreground, WS drops — sticky must keep the session.
+        var minimized = HeavyAppDetectionService.MergeStickyDetections(
+            sticky,
+            Array.Empty<DetectedHeavyApp>(),
+            new[] { new ObservedHeavyProcess(4004, path, started, "CoolGame", 80) },
+            DateTime.UtcNow,
+            minWorkingSetMb: 1536);
+        Assert.Single(minimized);
+        Assert.Equal("foregroundActive", minimized[0].Reason);
+
+        var afterExit = HeavyAppDetectionService.MergeStickyDetections(
+            sticky,
+            Array.Empty<DetectedHeavyApp>(),
+            Array.Empty<ObservedHeavyProcess>(),
+            DateTime.UtcNow);
+        Assert.Empty(afterExit);
+        Assert.Empty(sticky);
+    }
+
+    [Fact]
+    public void Shipping_binary_in_foreground_classifies_even_with_low_ws()
+    {
+        string? reason = HeavyAppDetectionService.ClassifyProcess(
+            @"E:\Indie\MyTitle\MyTitle-Win64-Shipping.exe",
+            "MyTitle-Win64-Shipping",
+            180 * Mb,
+            EmptyGpu,
+            DefaultConfig,
+            isForeground: true);
+
+        Assert.Equal("foregroundActive", reason);
+    }
+
+    [Fact]
     public void Tiny_helper_under_launcher_parent_is_not_launcherChild()
     {
         string? reason = HeavyAppDetectionService.ClassifyProcess(
