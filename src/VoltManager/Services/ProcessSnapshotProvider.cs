@@ -272,12 +272,117 @@ public static class ProcessSnapshotProvider
         return raw.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) ? raw[..^4] : raw;
     }
 
+    // Toolhelp32: fills ParentPid when NtQuerySystemInformation is unavailable so
+    // launcher-ancestry detection still works on the managed fallback path.
+    private const uint Th32csSnapProcess = 0x00000002;
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    private struct ProcessEntry32W
+    {
+        public uint DwSize;
+        public uint CntUsage;
+        public uint Th32ProcessId;
+        public UIntPtr Th32DefaultHeapId;
+        public uint Th32ModuleId;
+        public uint CntThreads;
+        public uint Th32ParentProcessId;
+        public int PcPriClassBase;
+        public uint DwFlags;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 260)]
+        public string SzExeFile;
+    }
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern IntPtr CreateToolhelp32Snapshot(uint dwFlags, uint th32ProcessId);
+
+    [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    private static extern bool Process32FirstW(IntPtr hSnapshot, ref ProcessEntry32W lppe);
+
+    [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    private static extern bool Process32NextW(IntPtr hSnapshot, ref ProcessEntry32W lppe);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool CloseHandle(IntPtr hObject);
+
+    private static readonly IntPtr InvalidHandleValue = new(-1);
+
+    /// <summary>
+    /// Best-effort pid → parent-pid map via CreateToolhelp32Snapshot.
+    /// Used by the managed enumeration fallback; empty on failure.
+    /// </summary>
+    public static IReadOnlyDictionary<int, int> TryReadParentProcessIds()
+    {
+        var map = new Dictionary<int, int>();
+        IntPtr snap = CreateToolhelp32Snapshot(Th32csSnapProcess, 0);
+        if (snap == IntPtr.Zero || snap == InvalidHandleValue)
+            return map;
+
+        try
+        {
+            var entry = new ProcessEntry32W { DwSize = (uint)Marshal.SizeOf<ProcessEntry32W>() };
+            if (!Process32FirstW(snap, ref entry))
+                return map;
+
+            do
+            {
+                int pid = unchecked((int)entry.Th32ProcessId);
+                int parent = unchecked((int)entry.Th32ParentProcessId);
+                if (pid > 0)
+                    map[pid] = parent;
+            }
+            while (Process32NextW(snap, ref entry));
+        }
+        catch
+        {
+            // Toolhelp can fail mid-walk on a busy machine; partial map is still useful.
+        }
+        finally
+        {
+            CloseHandle(snap);
+        }
+
+        return map;
+    }
+
+    /// <summary>
+    /// Applies a parent-pid map onto samples that still have ParentPid == 0.
+    /// Pure helper so unit tests can verify merge without live Toolhelp.
+    /// </summary>
+    public static ProcessSample[] ApplyParentProcessIds(
+        IReadOnlyList<ProcessSample> samples,
+        IReadOnlyDictionary<int, int> parentByPid)
+    {
+        if (samples.Count == 0 || parentByPid.Count == 0)
+            return samples is ProcessSample[] arr ? arr : samples.ToArray();
+
+        var result = new ProcessSample[samples.Count];
+        for (int i = 0; i < samples.Count; i++)
+        {
+            var sample = samples[i];
+            if (sample.ParentPid == 0 &&
+                parentByPid.TryGetValue(sample.Pid, out int parent) &&
+                parent > 0 &&
+                parent != sample.Pid)
+            {
+                result[i] = sample with { ParentPid = parent };
+            }
+            else
+            {
+                result[i] = sample;
+            }
+        }
+
+        return result;
+    }
+
     /// <summary>Fallback used only if the native query is unavailable; same data, higher cost.</summary>
     private static ProcessSample[] CaptureManaged()
     {
         int generation = ++_generation;
         var processes = Process.GetProcesses();
         var samples = new List<ProcessSample>(processes.Length);
+        // Snapshot parent links once: Process.GetProcesses() has no ParentPid.
+        var parents = TryReadParentProcessIds();
 
         foreach (var process in processes)
         {
@@ -296,9 +401,11 @@ public static class ProcessSnapshotProvider
                 }
                 known.Seen = generation;
 
-                // The managed API exposes no parent pid; callers that need the tree
-                // only run on the native path.
-                samples.Add(new ProcessSample(process.Id, 0, known.Name, process.WorkingSet64, cpu, started));
+                int parentPid = 0;
+                if (parents.TryGetValue(process.Id, out int mapped) && mapped > 0 && mapped != process.Id)
+                    parentPid = mapped;
+
+                samples.Add(new ProcessSample(process.Id, parentPid, known.Name, process.WorkingSet64, cpu, started));
             }
             catch
             {
