@@ -84,6 +84,8 @@ public sealed class HeavyAppDetectionService : IDisposable
     };
 
     // Engine / shipping binary layouts common to Unreal, many AAA, etc.
+    // Blizzard channel folders (\_retail_\, \_classic_\, …) are install-layout signals for
+    // Battle.net titles living outside any storefront path marker — sticky without RAM peak.
     private static readonly string[] GameBinaryLayouts =
     {
         @"\binaries\win64\",
@@ -94,6 +96,13 @@ public sealed class HeavyAppDetectionService : IDisposable
         @"\engine\binaries\win32\",
         @"\game\bin\",
         @"\shipping\",
+        @"\_retail_\",
+        @"\_classic_\",
+        @"\_classic_era_\",
+        @"\_classic_ptr_\",
+        @"\_ptr_\",
+        @"\_beta_\",
+        @"\_vendor_\",
     };
 
     // Paths that look like games but are storefront/system shells we never treat as heavy.
@@ -273,7 +282,7 @@ public sealed class HeavyAppDetectionService : IDisposable
 
                 bool hasLauncherAncestor = processGraph.TryFindAncestor(
                     process.Pid,
-                    ancestor => IsKnownStorefrontProcess(ancestor.Name),
+                    IsLauncherAncestor,
                     maxDepth: 3,
                     out _);
 
@@ -576,6 +585,35 @@ public sealed class HeavyAppDetectionService : IDisposable
         string name = (processName ?? "").ToLowerInvariant();
         return name is "gamingservices" or "gamingservicesnet" or "gamebar" or "gamebarpresencewriter"
             or "xboxpcapp" or "xboxapp" or "xboxgamebar" or "widgetservice";
+    }
+
+    /// <summary>
+    /// True when <paramref name="ancestor"/> is a storefront client that commonly parents
+    /// game processes. Name match first; path-qualified fallback for ambiguous helpers
+    /// (Battle.net <c>Agent.exe</c>, generic <c>Launcher.exe</c> under a known client tree).
+    /// </summary>
+    private static bool IsLauncherAncestor(ProcessSample ancestor)
+    {
+        if (IsKnownStorefrontProcess(ancestor.Name))
+            return true;
+
+        // Ambiguous short names: only count when the image lives under a known non-game
+        // storefront path (e.g. \battle.net\Agent.exe), not arbitrary Agent.exe tools.
+        string name = ancestor.Name ?? "";
+        if (name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+            name = name[..^4];
+        if (!name.Equals("Agent", StringComparison.OrdinalIgnoreCase) &&
+            !name.Equals("Launcher", StringComparison.OrdinalIgnoreCase) &&
+            !name.Equals("Bootstrapper", StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        string path = ProcessSnapshotProvider.GetPath(ancestor);
+        if (string.IsNullOrWhiteSpace(path))
+            return false;
+
+        string normalized = NormalizePath(path);
+        return NonGamePathMarkers.Any(marker =>
+            normalized.Contains(marker, StringComparison.OrdinalIgnoreCase));
     }
 
     /// <summary>
@@ -898,6 +936,29 @@ public sealed class HeavyAppDetectionService : IDisposable
                 hasLauncherAncestor: true),
             "gameBinaryLayout",
             "custom folder shipping with launcher parent");
+
+        // Blizzard channel folder: sticky layout without launcher parent or huge WS.
+        Expect(
+            ClassifyProcess(
+                @"D:\Games\World of Warcraft\_retail_\Wow.exe",
+                "Wow",
+                200 * 1024 * 1024,
+                new HashSet<string>(StringComparer.OrdinalIgnoreCase),
+                cfg,
+                hasLauncherAncestor: false),
+            "gameBinaryLayout",
+            "blizzard retail channel layout");
+
+        Expect(
+            ClassifyProcess(
+                @"D:\Games\Overwatch\_retail_\Overwatch.exe",
+                "Overwatch",
+                300 * 1024 * 1024,
+                new HashSet<string>(StringComparer.OrdinalIgnoreCase),
+                cfg,
+                hasLauncherAncestor: false),
+            "gameBinaryLayout",
+            "overwatch retail channel layout");
 
         Expect(
             ClassifyProcess(

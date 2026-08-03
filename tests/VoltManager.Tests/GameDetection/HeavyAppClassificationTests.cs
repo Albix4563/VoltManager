@@ -127,18 +127,76 @@ public class HeavyAppClassificationTests
             "League of Legends",
             1300 * Mb,
             "gameInstallPath");
-        // Battle.net title in custom library: no path marker, sticky via launcher parent.
+        // Battle.net / Blizzard channel folder — sticky layout, no launcher parent required.
         yield return Row(
             @"D:\Games\World of Warcraft\_retail_\Wow.exe",
             "Wow",
-            1600 * Mb,
-            "launcherChild");
+            400 * Mb,
+            "gameBinaryLayout");
+        yield return Row(
+            @"D:\Games\Overwatch\_retail_\Overwatch.exe",
+            "Overwatch",
+            500 * Mb,
+            "gameBinaryLayout");
+        yield return Row(
+            @"D:\Games\World of Warcraft\_classic_\WowClassic.exe",
+            "WowClassic",
+            350 * Mb,
+            "gameBinaryLayout");
         // Standalone Unreal layout outside any storefront
         yield return Row(
             @"E:\Indie\MyTitle\Binaries\Win64\MyTitle-Win64-Shipping.exe",
             "MyTitle-Win64-Shipping",
             700 * Mb,
             "gameBinaryLayout");
+    }
+
+    [Fact]
+    public void Blizzard_channel_layout_stays_sticky_after_alt_tab_ws_drop()
+    {
+        var started = new DateTime(2026, 8, 2, 12, 0, 0, DateTimeKind.Utc);
+        string path = @"D:\Games\World of Warcraft\_retail_\Wow.exe";
+        var sticky = new Dictionary<int, DetectedHeavyApp>
+        {
+            [3003] = new DetectedHeavyApp
+            {
+                ProcessId = 3003,
+                Name = "Wow",
+                Path = path,
+                Reason = "gameBinaryLayout",
+                WorkingSetMb = 1600,
+                StartedAtUtc = started,
+            },
+        };
+
+        var merged = HeavyAppDetectionService.MergeStickyDetections(
+            sticky,
+            Array.Empty<DetectedHeavyApp>(),
+            new[] { new ObservedHeavyProcess(3003, path, started, "Wow", 90) },
+            DateTime.UtcNow,
+            minWorkingSetMb: 1536);
+
+        Assert.Single(merged);
+        Assert.Equal("gameBinaryLayout", merged[0].Reason);
+        Assert.True(sticky.ContainsKey(3003));
+    }
+
+    [Fact]
+    public void Battle_net_client_under_battle_net_path_never_classifies()
+    {
+        // Client tree is NonGame even if a channel-like folder name appears nearby.
+        Assert.Null(HeavyAppDetectionService.ClassifyProcess(
+            @"C:\Program Files (x86)\Battle.net\Battle.net.exe",
+            "Battle.net",
+            800 * Mb,
+            EmptyGpu,
+            DefaultConfig));
+        Assert.Null(HeavyAppDetectionService.ClassifyProcess(
+            @"C:\Program Files (x86)\Battle.net\Agent.exe",
+            "Agent",
+            200 * Mb,
+            EmptyGpu,
+            DefaultConfig));
     }
 
     [Theory]
