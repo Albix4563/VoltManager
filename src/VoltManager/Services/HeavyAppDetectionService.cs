@@ -430,7 +430,18 @@ public sealed class HeavyAppDetectionService : IDisposable
         {
             if (!observedByPid.TryGetValue(pid, out var live) || !SameObservedProcess(sticky[pid], live))
             {
+                // Bootstrap/launcher PID often exits after spawning the real game binary under
+                // the same install root. Hand the sticky session to that successor so the
+                // performance plan does not drop during the handoff (grace alone is short).
+                var exiting = sticky[pid];
                 sticky.Remove(pid);
+                if (exiting.Reason != "resourceHeuristic" &&
+                    TryHandoffStickyToInstallRootPeer(
+                        sticky, exiting, observedByPid, detectedList, detectedPids, minWorkingSetMb))
+                {
+                    // Successor may have been appended to detectedList; keep set current.
+                    detectedPids = detectedList.Select(a => a.ProcessId).ToHashSet();
+                }
                 continue;
             }
 
@@ -476,6 +487,142 @@ public sealed class HeavyAppDetectionService : IDisposable
         }
 
         return true;
+    }
+
+    /// <summary>
+    /// When a sticky game PID exits, keep the session if another live non-helper process
+    /// remains under the same install root (bootstrap → shipping binary handoff).
+    /// </summary>
+    private static bool TryHandoffStickyToInstallRootPeer(
+        IDictionary<int, DetectedHeavyApp> sticky,
+        DetectedHeavyApp exiting,
+        IReadOnlyDictionary<int, ObservedHeavyProcess> observedByPid,
+        List<DetectedHeavyApp> detectedList,
+        HashSet<int> detectedPids,
+        int minWorkingSetMb)
+    {
+        string? root = TryGetGameInstallRoot(NormalizePath(exiting.Path));
+        if (string.IsNullOrEmpty(root))
+            return false;
+
+        // Already covered by a freshly classified peer under the same root.
+        if (detectedList.Any(d =>
+                d.ProcessId != exiting.ProcessId &&
+                IsPathUnderInstallRoot(NormalizePath(d.Path), root)))
+            return false;
+
+        ObservedHeavyProcess? best = null;
+        foreach (var live in observedByPid.Values)
+        {
+            if (live.ProcessId == exiting.ProcessId)
+                continue;
+            if (sticky.ContainsKey(live.ProcessId) || detectedPids.Contains(live.ProcessId))
+                continue;
+
+            string livePath = NormalizePath(live.Path);
+            if (!IsPathUnderInstallRoot(livePath, root))
+                continue;
+
+            string liveName = string.IsNullOrWhiteSpace(live.Name)
+                ? Path.GetFileNameWithoutExtension(live.Path)
+                : live.Name;
+            if (IsNonGameShell(livePath, liveName) ||
+                LooksLikeIdleGameHelper(livePath, liveName, live.WorkingSetMb * 1024 * 1024, minWorkingSetMb))
+                continue;
+
+            // Generic parent-dir roots can host unrelated apps; only hand off to peers that
+            // look like the game (shipping name) or started with/after the sticky session.
+            bool markerRoot = root.Length > 3 && (
+                LooksLikeGameInstallPath(root + "\\") ||
+                LooksLikeGameBinaryLayout(livePath));
+            if (!markerRoot)
+            {
+                if (!LooksLikeShippingGameBinary(livePath, liveName) &&
+                    !StartedWithOrAfter(live.StartedAtUtc, exiting.StartedAtUtc))
+                    continue;
+            }
+
+            if (best == null || live.WorkingSetMb > best.WorkingSetMb)
+                best = live;
+        }
+
+        if (best == null)
+            return false;
+
+        string bestName = string.IsNullOrWhiteSpace(best.Name)
+            ? Path.GetFileNameWithoutExtension(best.Path)
+            : best.Name;
+        var handed = new DetectedHeavyApp
+        {
+            ProcessId = best.ProcessId,
+            Name = bestName,
+            Path = best.Path,
+            Reason = exiting.Reason,
+            WorkingSetMb = best.WorkingSetMb,
+            StartedAtUtc = best.StartedAtUtc,
+            ConfidenceScore = exiting.ConfidenceScore,
+            ConfidenceLevel = exiting.ConfidenceLevel,
+            Evidence = exiting.Evidence,
+        };
+        sticky[handed.ProcessId] = handed;
+        detectedList.Add(handed);
+        return true;
+    }
+
+    private static bool StartedWithOrAfter(DateTime? candidateStart, DateTime? sessionStart)
+    {
+        if (candidateStart == null || sessionStart == null)
+            return true;
+        // Allow a few seconds of clock/scan skew: child may appear slightly "before" parent stamp.
+        return candidateStart.Value >= sessionStart.Value.AddSeconds(-5);
+    }
+
+    /// <summary>
+    /// Best-effort install root for sticky handoff. Prefers storefront content folders and
+    /// engine/channel layouts; falls back to the executable's parent directory.
+    /// </summary>
+    public static string? TryGetGameInstallRoot(string normalizedPath)
+    {
+        if (string.IsNullOrWhiteSpace(normalizedPath))
+            return null;
+
+        string path = NormalizePath(normalizedPath);
+
+        foreach (string marker in GamePathMarkers)
+        {
+            int idx = path.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
+            if (idx < 0)
+                continue;
+
+            int contentStart = idx + marker.Length;
+            if (contentStart >= path.Length)
+                return path[..(idx + marker.Length - 1)];
+
+            int slash = path.IndexOf('\\', contentStart);
+            int end = slash < 0 ? path.Length : slash;
+            // Include the first folder under the marker (game title directory).
+            return path[..end];
+        }
+
+        foreach (string layout in GameBinaryLayouts)
+        {
+            int idx = path.IndexOf(layout, StringComparison.OrdinalIgnoreCase);
+            if (idx > 0)
+                return path[..idx];
+        }
+
+        string? dir = Path.GetDirectoryName(path);
+        return string.IsNullOrWhiteSpace(dir) ? null : dir;
+    }
+
+    private static bool IsPathUnderInstallRoot(string normalizedPath, string installRoot)
+    {
+        if (string.IsNullOrEmpty(installRoot))
+            return false;
+        if (normalizedPath.Equals(installRoot, StringComparison.OrdinalIgnoreCase))
+            return true;
+        string prefix = installRoot.EndsWith("\\", StringComparison.Ordinal) ? installRoot : installRoot + "\\";
+        return normalizedPath.StartsWith(prefix, StringComparison.OrdinalIgnoreCase);
     }
 
     public static string? ClassifyProcess(string path, string processName, long workingSetBytes,
@@ -1083,6 +1230,35 @@ public sealed class HeavyAppDetectionService : IDisposable
             DateTime.UtcNow);
         if (merged.Count != 0 || sticky.Count != 0)
             throw new InvalidOperationException("SelfCheck failed [sticky drops ea desktop]: launcher remained sticky");
+
+        // Bootstrap PID exit hands sticky to shipping peer under the same Steam title root.
+        var handoffSticky = new Dictionary<int, DetectedHeavyApp>
+        {
+            [91] = new DetectedHeavyApp
+            {
+                ProcessId = 91,
+                Name = "Title",
+                Path = @"D:\SteamLibrary\steamapps\common\Title\Title.exe",
+                Reason = "gameInstallPath",
+                WorkingSetMb = 300,
+                StartedAtUtc = DateTime.UtcNow.AddMinutes(-1),
+            },
+        };
+        var handoffMerged = MergeStickyDetections(
+            handoffSticky,
+            Array.Empty<DetectedHeavyApp>(),
+            new[]
+            {
+                new ObservedHeavyProcess(
+                    92,
+                    @"D:\SteamLibrary\steamapps\common\Title\Binaries\Win64\Title-Win64-Shipping.exe",
+                    DateTime.UtcNow,
+                    "Title-Win64-Shipping",
+                    500),
+            },
+            DateTime.UtcNow);
+        if (handoffMerged.Count != 1 || handoffMerged[0].ProcessId != 92 || !handoffSticky.ContainsKey(92))
+            throw new InvalidOperationException("SelfCheck failed [sticky install-root handoff]");
     }
 
     public void Dispose()

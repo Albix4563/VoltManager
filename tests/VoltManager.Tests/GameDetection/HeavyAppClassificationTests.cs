@@ -431,6 +431,134 @@ public class HeavyAppClassificationTests
     }
 
     [Fact]
+    public void Sticky_handoff_bootstrap_to_shipping_under_same_install_root()
+    {
+        var sessionStart = new DateTime(2026, 8, 2, 12, 0, 0, DateTimeKind.Utc);
+        string bootstrap = @"D:\SteamLibrary\steamapps\common\Title\Title.exe";
+        string shipping = @"D:\SteamLibrary\steamapps\common\Title\Binaries\Win64\Title-Win64-Shipping.exe";
+        var sticky = new Dictionary<int, DetectedHeavyApp>
+        {
+            [5001] = new DetectedHeavyApp
+            {
+                ProcessId = 5001,
+                Name = "Title",
+                Path = bootstrap,
+                Reason = "gameInstallPath",
+                WorkingSetMb = 400,
+                StartedAtUtc = sessionStart,
+            },
+        };
+
+        // Bootstrap PID gone; shipping binary still live under the same Steam title folder.
+        var merged = HeavyAppDetectionService.MergeStickyDetections(
+            sticky,
+            Array.Empty<DetectedHeavyApp>(),
+            new[]
+            {
+                new ObservedHeavyProcess(5002, shipping, sessionStart.AddSeconds(2), "Title-Win64-Shipping", 600),
+            },
+            DateTime.UtcNow,
+            minWorkingSetMb: 1536);
+
+        Assert.Single(merged);
+        Assert.Equal(5002, merged[0].ProcessId);
+        Assert.Equal("gameInstallPath", merged[0].Reason);
+        Assert.False(sticky.ContainsKey(5001));
+        Assert.True(sticky.ContainsKey(5002));
+    }
+
+    [Fact]
+    public void Sticky_handoff_skips_helpers_and_unrelated_paths()
+    {
+        var sessionStart = new DateTime(2026, 8, 2, 12, 0, 0, DateTimeKind.Utc);
+        string bootstrap = @"D:\SteamLibrary\steamapps\common\Title\Title.exe";
+        var sticky = new Dictionary<int, DetectedHeavyApp>
+        {
+            [5101] = new DetectedHeavyApp
+            {
+                ProcessId = 5101,
+                Name = "Title",
+                Path = bootstrap,
+                Reason = "gameInstallPath",
+                WorkingSetMb = 400,
+                StartedAtUtc = sessionStart,
+            },
+        };
+
+        var merged = HeavyAppDetectionService.MergeStickyDetections(
+            sticky,
+            Array.Empty<DetectedHeavyApp>(),
+            new[]
+            {
+                // Same install root but helper — must not inherit sticky.
+                new ObservedHeavyProcess(
+                    5102,
+                    @"D:\SteamLibrary\steamapps\common\Title\EasyAntiCheat\EasyAntiCheat_EOS.exe",
+                    sessionStart.AddSeconds(1),
+                    "EasyAntiCheat_EOS",
+                    120),
+                // Different game entirely.
+                new ObservedHeavyProcess(
+                    5103,
+                    @"D:\SteamLibrary\steamapps\common\OtherGame\Other.exe",
+                    sessionStart.AddSeconds(1),
+                    "Other",
+                    900),
+            },
+            DateTime.UtcNow,
+            minWorkingSetMb: 1536);
+
+        Assert.Empty(merged);
+        Assert.Empty(sticky);
+    }
+
+    [Fact]
+    public void Sticky_handoff_blizzard_channel_to_peer_binary()
+    {
+        var sessionStart = new DateTime(2026, 8, 2, 12, 0, 0, DateTimeKind.Utc);
+        string first = @"D:\Games\World of Warcraft\_retail_\Wow.exe";
+        string peer = @"D:\Games\World of Warcraft\_retail_\WowClassic.exe";
+        var sticky = new Dictionary<int, DetectedHeavyApp>
+        {
+            [5201] = new DetectedHeavyApp
+            {
+                ProcessId = 5201,
+                Name = "Wow",
+                Path = first,
+                Reason = "gameBinaryLayout",
+                WorkingSetMb = 800,
+                StartedAtUtc = sessionStart,
+            },
+        };
+
+        var merged = HeavyAppDetectionService.MergeStickyDetections(
+            sticky,
+            Array.Empty<DetectedHeavyApp>(),
+            new[] { new ObservedHeavyProcess(5202, peer, sessionStart.AddSeconds(3), "WowClassic", 700) },
+            DateTime.UtcNow);
+
+        Assert.Single(merged);
+        Assert.Equal(5202, merged[0].ProcessId);
+        Assert.Equal("gameBinaryLayout", merged[0].Reason);
+    }
+
+    [Fact]
+    public void TryGetGameInstallRoot_prefers_storefront_title_folder()
+    {
+        string? root = HeavyAppDetectionService.TryGetGameInstallRoot(
+            @"D:\SteamLibrary\steamapps\common\Cyberpunk 2077\bin\x64\Cyberpunk2077.exe");
+        Assert.Equal(
+            HeavyAppDetectionService.NormalizePath(@"D:\SteamLibrary\steamapps\common\Cyberpunk 2077"),
+            root);
+
+        string? unrealRoot = HeavyAppDetectionService.TryGetGameInstallRoot(
+            @"E:\Indie\MyTitle\Binaries\Win64\MyTitle-Win64-Shipping.exe");
+        Assert.Equal(
+            HeavyAppDetectionService.NormalizePath(@"E:\Indie\MyTitle"),
+            unrealRoot);
+    }
+
+    [Fact]
     public void Sticky_drops_on_pid_reuse_with_different_start_time()
     {
         var originalStart = new DateTime(2026, 8, 2, 10, 0, 0, DateTimeKind.Utc);
