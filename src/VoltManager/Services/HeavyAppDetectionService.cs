@@ -123,6 +123,8 @@ public sealed class HeavyAppDetectionService : IDisposable
         @"\battle.net\",
         @"\blizzard entertainment\battle.net\",
         @"\riot games\riot client\",
+        @"\riot games\league of legends\leagueclient",
+        @"\riot games\league of legends\riot client",
         @"\rockstar games\launcher\",
         @"\rockstar games\social club\",
         @"\ubisoft connect\",
@@ -269,19 +271,23 @@ public sealed class HeavyAppDetectionService : IDisposable
                 long workingSetMb = Math.Max(0, process.WorkingSetBytes / 1024 / 1024);
                 observed.Add(new ObservedHeavyProcess(process.Pid, path, startedAtUtc, process.Name, workingSetMb));
 
-                string? reason = ClassifyProcess(
-                    path,
-                    process.Name,
-                    process.WorkingSetBytes,
-                    gpuHighPerformancePaths,
-                    config);
-                if (reason == null) continue;
-
                 bool hasLauncherAncestor = processGraph.TryFindAncestor(
                     process.Pid,
                     ancestor => IsKnownStorefrontProcess(ancestor.Name),
                     maxDepth: 3,
                     out _);
+
+                // Classify after ancestry so custom-folder titles launched by Steam/Epic/etc.
+                // can stick without depending only on path markers or peak working-set.
+                string? reason = ClassifyProcess(
+                    path,
+                    process.Name,
+                    process.WorkingSetBytes,
+                    gpuHighPerformancePaths,
+                    config,
+                    hasLauncherAncestor);
+                if (reason == null) continue;
+
                 var assessment = AssessProcess(
                     path,
                     process.Name,
@@ -388,6 +394,7 @@ public sealed class HeavyAppDetectionService : IDisposable
         "windowsGpuPreference" => 4,
         "gameInstallPath" => 3,
         "gameBinaryLayout" => 2,
+        "launcherChild" => 2,
         "resourceHeuristic" => 1,
         _ => 0,
     };
@@ -458,9 +465,11 @@ public sealed class HeavyAppDetectionService : IDisposable
     }
 
     public static string? ClassifyProcess(string path, string processName, long workingSetBytes,
-        HashSet<string> gpuHighPerformancePaths, HeavyAppDetectionSettings config)
+        HashSet<string> gpuHighPerformancePaths, HeavyAppDetectionSettings config,
+        bool hasLauncherAncestor = false)
         => ClassifyNormalizedProcess(
-            NormalizePath(path), processName, workingSetBytes, gpuHighPerformancePaths, config);
+            NormalizePath(path), processName, workingSetBytes, gpuHighPerformancePaths, config,
+            hasLauncherAncestor);
 
     public static GameDetectionAssessment AssessProcess(
         string path,
@@ -474,11 +483,12 @@ public sealed class HeavyAppDetectionService : IDisposable
     {
         string normalized = NormalizePath(path);
         string? primaryReason = ClassifyNormalizedProcess(
-            normalized, processName, workingSetBytes, gpuHighPerformancePaths, config);
+            normalized, processName, workingSetBytes, gpuHighPerformancePaths, config,
+            hasLauncherAncestor);
         if (primaryReason == null)
             return GameDetectionAssessment.Empty;
 
-        var evidence = new List<GameDetectionEvidence>(7);
+        var evidence = new List<GameDetectionEvidence>(8);
 
         if (config.UseWindowsGpuPreferences && gpuHighPerformancePaths.Contains(normalized))
             evidence.Add(new GameDetectionEvidence(
@@ -492,13 +502,14 @@ public sealed class HeavyAppDetectionService : IDisposable
             evidence.Add(new GameDetectionEvidence(
                 "gameBinaryLayout", "identity", 20, "Common game binary layout"));
 
+        if (primaryReason == "launcherChild" ||
+            (hasLauncherAncestor && !IsNonGameShell(normalized, processName)))
+            evidence.Add(new GameDetectionEvidence(
+                "launcherAncestry", "provenance", 15, "Known launcher ancestor"));
+
         if (config.UseResourceHeuristics && LooksLikeHeavyUserProcess(normalized, processName, workingSetBytes, config.MinWorkingSetMb))
             evidence.Add(new GameDetectionEvidence(
                 "resourceHeuristic", "runtime", 5, "Heavy working-set fallback"));
-
-        if (hasLauncherAncestor)
-            evidence.Add(new GameDetectionEvidence(
-                "launcherAncestry", "provenance", 15, "Known launcher ancestor"));
 
         if (startedAtUtc != null && nowUtc != null && nowUtc >= startedAtUtc)
         {
@@ -519,14 +530,14 @@ public sealed class HeavyAppDetectionService : IDisposable
         string processName,
         long workingSetBytes,
         HashSet<string> gpuHighPerformancePaths,
-        HeavyAppDetectionSettings config)
+        HeavyAppDetectionSettings config,
+        bool hasLauncherAncestor = false)
     {
         if (IsNonGameShell(normalizedPath, processName))
             return null;
 
-        bool idleGameHelper = (LooksLikeGameInstallPath(normalizedPath) || LooksLikeGameBinaryLayout(normalizedPath)) &&
-                              LooksLikeIdleGameHelper(normalizedPath, processName, workingSetBytes, config.MinWorkingSetMb);
-        if (idleGameHelper)
+        // Helpers under game trees (or under a launcher parent) must never pin performance.
+        if (LooksLikeIdleGameHelper(normalizedPath, processName, workingSetBytes, config.MinWorkingSetMb))
             return null;
 
         if (config.UseWindowsGpuPreferences && gpuHighPerformancePaths.Contains(normalizedPath))
@@ -537,6 +548,13 @@ public sealed class HeavyAppDetectionService : IDisposable
 
         if (config.UseGameInstallHeuristics && LooksLikeGameBinaryLayout(normalizedPath))
             return "gameBinaryLayout";
+
+        // Parent chain from NtQuerySystemInformation: sticky signal for titles installed
+        // outside known storefront folders (custom Battle.net / standalone library paths).
+        if (config.UseGameInstallHeuristics &&
+            hasLauncherAncestor &&
+            LooksLikeLauncherSpawnedGame(normalizedPath, processName, workingSetBytes, config.MinWorkingSetMb))
+            return "launcherChild";
 
         if (config.UseResourceHeuristics && LooksLikeHeavyUserProcess(
                 normalizedPath, processName, workingSetBytes, config.MinWorkingSetMb))
@@ -586,8 +604,10 @@ public sealed class HeavyAppDetectionService : IDisposable
                 or "gameoverlayui" => true,
             // Epic
             "epicgameslauncher" or "epicwebhelper" or "epicgamesupdater" => true,
-            // Riot
-            "riotclientservices" or "riotclientux" or "riotclientcrashhandler" => true,
+            // Riot client shells only — do not list the in-match binary names here
+            // (e.g. "League of Legends.exe" / VALORANT-Win64-Shipping stay games).
+            "riotclientservices" or "riotclientux" or "riotclientcrashhandler"
+                or "riotclient" or "leagueclient" or "leagueclientux" => true,
             // Ubisoft
             "upc" or "ubisoftconnect" or "ubisoftgamelauncher" or "ubisoftextension" => true,
             // GOG
@@ -596,8 +616,38 @@ public sealed class HeavyAppDetectionService : IDisposable
             "socialclubhelper" or "rockstarservice" or "rockstarsteamhelper" => true,
             // Amazon / itch
             "amazongamesui" or "amazongames" => true,
+            // Xbox / MS storefront helpers (name-only; path markers cover WindowsApps shells)
+            "gamingapp" or "gamingservices" or "gamingservicesnet" or "xboxpcapp"
+                or "xboxapp" or "xboxgamebar" or "gamebar" or "gamebarpresencewriter" => true,
             _ => false,
         };
+    }
+
+    /// <summary>
+    /// True when a non-storefront process under a known launcher parent looks like a real game:
+    /// shipping/engine binary naming, or enough working set to rule out tiny helpers.
+    /// </summary>
+    private static bool LooksLikeLauncherSpawnedGame(
+        string normalizedPath, string processName, long workingSetBytes, int minWorkingSetMb)
+    {
+        if (LooksLikeShippingGameBinary(normalizedPath, processName))
+            return true;
+
+        // Half the configured resource floor: enough to ignore redistributables / overlays,
+        // low enough to catch titles that have not fully loaded assets yet.
+        long thresholdMb = Math.Max(256, minWorkingSetMb / 2);
+        return workingSetBytes / 1024 / 1024 >= thresholdMb;
+    }
+
+    private static bool LooksLikeShippingGameBinary(string normalizedPath, string processName)
+    {
+        string file = Path.GetFileNameWithoutExtension(normalizedPath);
+        string combined = (file + " " + processName);
+        return combined.Contains("Shipping", StringComparison.OrdinalIgnoreCase) ||
+               combined.Contains("-Win64-", StringComparison.OrdinalIgnoreCase) ||
+               combined.Contains("-Win32-", StringComparison.OrdinalIgnoreCase) ||
+               combined.Contains("_Win64", StringComparison.OrdinalIgnoreCase) ||
+               combined.Contains("_Win32", StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool LooksLikeGameInstallPath(string normalizedPath)
@@ -616,13 +666,11 @@ public sealed class HeavyAppDetectionService : IDisposable
     {
         // Shipping/game binaries must never be treated as helpers even if the name
         // contains a substring like "client" (FortniteClient-Win64-Shipping).
+        if (LooksLikeShippingGameBinary(normalizedPath, processName))
+            return false;
+
         string file = Path.GetFileNameWithoutExtension(normalizedPath);
         string combined = (file + " " + processName).ToLowerInvariant();
-        if (combined.Contains("shipping", StringComparison.OrdinalIgnoreCase) ||
-            combined.Contains("-win64-", StringComparison.OrdinalIgnoreCase) ||
-            combined.Contains("-win32-", StringComparison.OrdinalIgnoreCase) ||
-            combined.Contains("_win64", StringComparison.OrdinalIgnoreCase))
-            return false;
 
         if (IsKnownStorefrontProcess(file) || IsKnownStorefrontProcess(processName))
             return true;
@@ -642,6 +690,8 @@ public sealed class HeavyAppDetectionService : IDisposable
             "easyanticheat", "battleye", "beonline", "bootstrap",
             "steamwebhelper", "epicwebhelper", "originwebhelperservice", "galaxyclient",
             "upc", "ubisoftconnect", "eadesktop", "eabackgroundservice", "eacefsubprocess",
+            "leagueclient", "leagueclientux", "riotclient", "riotclientservices",
+            "riotclientux",
         };
         if (alwaysHelperTokens.Any(h => tokens.Any(t =>
                 t.Equals(h, StringComparison.OrdinalIgnoreCase) ||
@@ -651,7 +701,7 @@ public sealed class HeavyAppDetectionService : IDisposable
         string[] alwaysHelperSubstrings =
         {
             "vc_redist", "eac_launcher", "gog galaxy", "crashpad", "errorreporter",
-            "ea desktop", "battle.net",
+            "ea desktop", "battle.net", "leagueclient",
         };
         if (alwaysHelperSubstrings.Any(marker => combined.Contains(marker, StringComparison.OrdinalIgnoreCase)))
             return true;
@@ -663,7 +713,7 @@ public sealed class HeavyAppDetectionService : IDisposable
 
         string[] softHelperTokens =
         {
-            "update", "reporter", "helper", "service", "cef", "qtwebengine",
+            "update", "reporter", "helper", "service", "cef", "qtwebengine", "client",
         };
         if (softHelperTokens.Any(h => tokens.Any(t =>
                 t.Equals(h, StringComparison.OrdinalIgnoreCase) ||
@@ -836,6 +886,51 @@ public sealed class HeavyAppDetectionService : IDisposable
             ClassifyProcess(@"C:\Program Files\WindowsApps\Microsoft.XboxApp_1.0.0.0_x64__8wekyb3d8bbwe\XboxApp.exe", "XboxApp", 200 * 1024 * 1024, gpu, cfg),
             null,
             "xbox shell excluded");
+
+        // Custom-folder Unreal title launched by Steam: ancestry is sticky, not resource-only.
+        Expect(
+            ClassifyProcess(
+                @"D:\CustomLibrary\MyGame\Binaries\Win64\MyGame-Win64-Shipping.exe",
+                "MyGame-Win64-Shipping",
+                400 * 1024 * 1024,
+                new HashSet<string>(StringComparer.OrdinalIgnoreCase),
+                cfg,
+                hasLauncherAncestor: true),
+            "gameBinaryLayout",
+            "custom folder shipping with launcher parent");
+
+        Expect(
+            ClassifyProcess(
+                @"D:\CustomLibrary\Standalone\StandaloneGame.exe",
+                "StandaloneGame",
+                900 * 1024 * 1024,
+                new HashSet<string>(StringComparer.OrdinalIgnoreCase),
+                cfg,
+                hasLauncherAncestor: true),
+            "launcherChild",
+            "custom folder game via launcher ancestry");
+
+        Expect(
+            ClassifyProcess(
+                @"C:\Program Files\Riot Games\League of Legends\LeagueClient.exe",
+                "LeagueClient",
+                600 * 1024 * 1024,
+                gpu,
+                cfg,
+                hasLauncherAncestor: true),
+            null,
+            "league client excluded under riot path");
+
+        Expect(
+            ClassifyProcess(
+                @"C:\Program Files\Riot Games\League of Legends\Game\League of Legends.exe",
+                "League of Legends",
+                1200 * 1024 * 1024,
+                gpu,
+                cfg,
+                hasLauncherAncestor: true),
+            "gameInstallPath",
+            "lol match binary still detected");
 
         // Sticky must release a misclassified storefront process once it no longer qualifies.
         var sticky = new Dictionary<int, DetectedHeavyApp>
