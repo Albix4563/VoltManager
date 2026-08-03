@@ -265,7 +265,9 @@ public sealed class HeavyAppDetectionService : IDisposable
 
         var snapshot = ProcessSnapshotProvider.Get(SnapshotMaxAge);
         var processGraph = new ProcessGraph(snapshot.Processes);
-        int? foregroundPid = ForegroundProcessProbe.TryGetForegroundProcessId();
+        // Foreground + exclusive/borderless fullscreen top-level windows (GetForegroundWindow
+        // alone misses some exclusive-fullscreen titles that leave FG on a shell helper).
+        var presentationPids = ForegroundProcessProbe.TryGetPresentationProcessIds();
         DateTime scanNowUtc = DateTime.UtcNow;
         var detected = new List<DetectedHeavyApp>();
         var observed = new List<ObservedHeavyProcess>();
@@ -286,7 +288,7 @@ public sealed class HeavyAppDetectionService : IDisposable
                     IsLauncherAncestor,
                     maxDepth: 3,
                     out _);
-                bool isForeground = foregroundPid != null && foregroundPid.Value == process.Pid;
+                bool isForeground = presentationPids.Contains(process.Pid);
 
                 // Classify after ancestry/foreground so custom-folder titles can stick without
                 // depending only on path markers or peak working-set.
@@ -672,7 +674,7 @@ public sealed class HeavyAppDetectionService : IDisposable
         if (primaryReason == "foregroundActive" ||
             (isForeground && !IsNonGameShell(normalized, processName)))
             evidence.Add(new GameDetectionEvidence(
-                "foreground", "runtime", 20, "Owns the foreground window"));
+                "foreground", "runtime", 20, "Owns foreground or fullscreen presentation window"));
 
         if (config.UseResourceHeuristics && LooksLikeHeavyUserProcess(normalized, processName, workingSetBytes, config.MinWorkingSetMb))
             evidence.Add(new GameDetectionEvidence(
@@ -724,8 +726,8 @@ public sealed class HeavyAppDetectionService : IDisposable
             LooksLikeLauncherSpawnedGame(normalizedPath, processName, workingSetBytes, config.MinWorkingSetMb))
             return "launcherChild";
 
-        // Foreground window (GetForegroundWindow): sticky start signal for custom-folder
-        // titles that never show a storefront parent and have not yet peaked RAM.
+        // Foreground / exclusive-fullscreen presentation: sticky start signal for custom-
+        // folder titles that never show a storefront parent and have not yet peaked RAM.
         if (config.UseGameInstallHeuristics &&
             isForeground &&
             LooksLikeForegroundGameCandidate(normalizedPath, processName, workingSetBytes, config.MinWorkingSetMb))
