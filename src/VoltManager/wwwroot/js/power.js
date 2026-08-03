@@ -74,7 +74,23 @@
             reason_windowsGpuPreference: 'Preferenza GPU Windows',
             reason_gameInstallPath: 'Percorso gioco',
             reason_gameBinaryLayout: 'Layout motore gioco',
+            reason_launcherChild: 'Avviato dal launcher',
+            reason_foregroundActive: 'In primo piano',
+            reason_gpuActive: 'GPU 3D in uso',
+            reason_userRule: 'Regola manuale',
             reason_resourceHeuristic: 'Carico risorse',
+            level_confirmed: 'Confermato',
+            level_probable: 'Probabile',
+            kindGame: 'Gioco',
+            kindHeavyApp: 'App pesante',
+            heavyScore: 'Punteggio',
+            heavyAlwaysTitle: 'Tratta sempre come gioco',
+            heavyAlwaysSub: 'Attivano il piano senza analisi.',
+            heavyNeverTitle: 'Non è mai un gioco',
+            heavyNeverSub: 'Esclusi dalla rilevazione. Vince su ogni altra regola.',
+            heavyRulesAdd: 'Aggiungi',
+            heavyRulesEmpty: 'Nessun percorso.',
+            heavyRulesRemove: 'Rimuovi',
             planConflictTitle: 'Piano energetico ripristinato',
             planConflictExternal: 'Cambio piano esterno rilevato',
             planConflictKnown: 'Processo rilevato',
@@ -168,7 +184,23 @@
             reason_windowsGpuPreference: 'Preferencia GPU de Windows',
             reason_gameInstallPath: 'Ruta de juego',
             reason_gameBinaryLayout: 'Diseño del motor del juego',
+            reason_launcherChild: 'Iniciado por el launcher',
+            reason_foregroundActive: 'En primer plano',
+            reason_gpuActive: 'GPU 3D en uso',
+            reason_userRule: 'Regla manual',
             reason_resourceHeuristic: 'Carga de recursos',
+            level_confirmed: 'Confirmado',
+            level_probable: 'Probable',
+            kindGame: 'Juego',
+            kindHeavyApp: 'App pesada',
+            heavyScore: 'Puntuación',
+            heavyAlwaysTitle: 'Tratar siempre como juego',
+            heavyAlwaysSub: 'Aplican el plan sin análisis.',
+            heavyNeverTitle: 'Nunca es un juego',
+            heavyNeverSub: 'Excluidos de la detección. Gana sobre cualquier otra regla.',
+            heavyRulesAdd: 'Añadir',
+            heavyRulesEmpty: 'Ninguna ruta.',
+            heavyRulesRemove: 'Quitar',
             planConflictTitle: 'Plan de energía restaurado',
             planConflictExternal: 'Cambio de plan externo detectado',
             planConflictKnown: 'Proceso detectado',
@@ -262,7 +294,23 @@
             reason_windowsGpuPreference: 'Windows GPU preference',
             reason_gameInstallPath: 'Game path',
             reason_gameBinaryLayout: 'Game engine layout',
+            reason_launcherChild: 'Started by launcher',
+            reason_foregroundActive: 'In the foreground',
+            reason_gpuActive: '3D GPU in use',
+            reason_userRule: 'Manual rule',
             reason_resourceHeuristic: 'Resource load',
+            level_confirmed: 'Confirmed',
+            level_probable: 'Probable',
+            kindGame: 'Game',
+            kindHeavyApp: 'Heavy app',
+            heavyScore: 'Score',
+            heavyAlwaysTitle: 'Always treat as a game',
+            heavyAlwaysSub: 'Switch the plan without any analysis.',
+            heavyNeverTitle: 'Never a game',
+            heavyNeverSub: 'Excluded from detection. Wins over every other rule.',
+            heavyRulesAdd: 'Add',
+            heavyRulesEmpty: 'No paths yet.',
+            heavyRulesRemove: 'Remove',
             planConflictTitle: 'Power plan restored',
             planConflictExternal: 'External power-plan change detected',
             planConflictKnown: 'Detected process',
@@ -356,7 +404,23 @@
             reason_windowsGpuPreference: 'Windows GPU 偏好',
             reason_gameInstallPath: '游戏路径',
             reason_gameBinaryLayout: '游戏引擎布局',
+            reason_launcherChild: '由启动器启动',
+            reason_foregroundActive: '前台运行',
+            reason_gpuActive: '正在使用 3D GPU',
+            reason_userRule: '手动规则',
             reason_resourceHeuristic: '资源负载',
+            level_confirmed: '已确认',
+            level_probable: '可能',
+            kindGame: '游戏',
+            kindHeavyApp: '高负载应用',
+            heavyScore: '评分',
+            heavyAlwaysTitle: '始终视为游戏',
+            heavyAlwaysSub: '无需分析即可切换电源计划。',
+            heavyNeverTitle: '从不视为游戏',
+            heavyNeverSub: '排除在检测之外，优先于其他所有规则。',
+            heavyRulesAdd: '添加',
+            heavyRulesEmpty: '暂无路径。',
+            heavyRulesRemove: '移除',
             planConflictTitle: '电源计划已恢复',
             planConflictExternal: '检测到外部电源计划更改',
             planConflictKnown: '检测到的进程',
@@ -443,7 +507,25 @@
         if (!cfg.useWindowsGpuPreferences && !cfg.useGameInstallHeuristics && !cfg.useResourceHeuristics) {
             cfg.useWindowsGpuPreferences = true;
         }
+        cfg.alwaysGamePaths = normalizeUserPathList(cfg.alwaysGamePaths);
+        cfg.neverGamePaths = normalizeUserPathList(cfg.neverGamePaths);
         return cfg;
+    }
+
+    // Same rules as SettingsService.NormalizeUserPathList: no blanks, case-insensitive
+    // dedupe, hard cap so a runaway list cannot slow every classification down.
+    function normalizeUserPathList(list) {
+        if (!Array.isArray(list)) return [];
+        const seen = new Set();
+        return list.reduce((out, entry) => {
+            const path = String(entry == null ? '' : entry).trim().replace(/^"+|"+$/g, '');
+            const key = path.toLowerCase();
+            if (path && !seen.has(key) && out.length < 200) {
+                seen.add(key);
+                out.push(path);
+            }
+            return out;
+        }, []);
     }
 
     function normalizeAppPowerProfiles() {
@@ -471,6 +553,10 @@
             return true;
         });
         return cfg;
+    }
+
+    function samePath(a, b) {
+        return String(a || '').toLowerCase() === String(b || '').toLowerCase();
     }
 
     function appNameFromPath(path) {
@@ -625,9 +711,17 @@
 .heavy-app-option:hover{border-color:rgb(var(--vm-accent-rgb) / .24);background:rgba(255,255,255,.055);transform:translateY(-1px);}
 .heavy-app-badge,.keep-awake-badge{display:inline-flex;align-items:center;gap:7px;padding:5px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);color:rgba(211,222,239,.74);font-size:12px;line-height:1;}
 .heavy-app-badge[data-active="true"],.keep-awake-badge[data-active="true"]{border-color:rgb(var(--vm-accent-rgb) / .32);background:rgb(var(--vm-accent-rgb) / .1);color:var(--vm-accent);animation:heavyAppGlow .9s ease-out;}
-.heavy-app-list{display:grid;gap:8px;max-height:190px;overflow:auto;padding-right:2px;}
+.heavy-app-list{display:grid;gap:8px;max-height:268px;overflow:auto;padding-right:2px;}
 .heavy-app-row{border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.035);border-radius:12px;padding:10px 12px;}
 .heavy-app-path{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:rgba(211,222,239,.58);font-size:11px;margin-top:3px;}
+.heavy-app-meta{display:block;color:rgba(211,222,239,.74);font-size:11px;margin-top:4px;}
+.heavy-app-chip{display:inline-flex;align-items:center;padding:3px 9px;border-radius:999px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);color:rgba(211,222,239,.72);font-size:11px;line-height:1;white-space:nowrap;flex-shrink:0;}
+.heavy-app-chip[data-level="confirmed"]{border-color:rgb(var(--vm-accent-rgb) / .32);background:rgb(var(--vm-accent-rgb) / .1);color:var(--vm-accent);}
+.heavy-rules-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:18px;position:relative;z-index:1;}
+.heavy-rules-card{border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.035);border-radius:16px;padding:14px;}
+.heavy-rules-list{display:grid;gap:6px;max-height:148px;overflow:auto;margin-top:12px;padding-right:2px;}
+.heavy-rule-row{display:flex;align-items:center;gap:10px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.03);border-radius:10px;padding:6px 6px 6px 10px;}
+.heavy-rule-row .app-profile-icon-btn{width:30px;height:30px;border-radius:8px;flex-shrink:0;}
 .app-profile-list{display:grid;gap:10px;position:relative;z-index:1;}
 .app-profile-row{display:grid;grid-template-columns:minmax(0,1fr) 170px 42px 42px;gap:10px;align-items:center;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.035);border-radius:14px;padding:12px;}
 .app-profile-path{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:rgba(211,222,239,.58);font-size:11px;margin-top:3px;}
@@ -647,7 +741,7 @@
 .vm-acc-body-inner{overflow:hidden;min-height:0;padding:0 24px;transition:padding .32s cubic-bezier(.4,0,.2,1);}
 .vm-acc-item[data-open="true"] .vm-acc-body-inner{padding:0 24px 24px;}
 .heavy-app-panel-inner,.keep-awake-panel-inner{position:relative;}
-@media (max-width:960px){.heavy-app-grid,.keep-awake-grid{grid-template-columns:1fr}.app-profile-row{grid-template-columns:1fr 1fr 38px 38px}}
+@media (max-width:960px){.heavy-app-grid,.keep-awake-grid,.heavy-rules-grid{grid-template-columns:1fr}.app-profile-row{grid-template-columns:1fr 1fr 38px 38px}}
         `.trim();
         document.head.appendChild(style);
     }
@@ -661,6 +755,18 @@
             '<p class="text-label-sm text-on-surface-variant" id="' + id + '-sub"></p></div></div>' +
             '<div class="mini-toggle cursor-pointer" data-on="' + (on ? 'true' : 'false') + '" id="toggle-' + id + '">' +
             '<div class="mini-toggle-knob"></div></div></div>';
+    }
+
+    function heavyRulesCardHtml(list, icon) {
+        return '<div class="heavy-rules-card">' +
+            '<div class="flex items-start justify-between gap-sm">' +
+            '<div class="flex items-center gap-sm min-w-0">' +
+            '<span class="material-symbols-outlined text-secondary-container text-[20px]">' + icon + '</span>' +
+            '<div class="min-w-0"><p class="text-body-md text-on-surface" id="heavy-rules-' + list + '-title"></p>' +
+            '<p class="text-label-sm text-on-surface-variant" id="heavy-rules-' + list + '-sub"></p></div></div>' +
+            '<button class="btn-ghost rounded-lg py-1 px-3 text-label-md flex items-center gap-xs whitespace-nowrap heavy-rules-add" data-list="' + list + '" type="button">' +
+            '<span class="material-symbols-outlined text-[18px]">add</span><span id="heavy-rules-' + list + '-add"></span></button></div>' +
+            '<div class="heavy-rules-list" id="heavy-rules-' + list + '-list"></div></div>';
     }
 
     function mountAppPowerProfileUi() {
@@ -848,7 +954,11 @@
             '<span id="heavy-app-state-label"></span></span>' +
             '<span class="text-label-md text-on-surface-variant"><span id="heavy-app-count">0</span> ' +
             '<span id="heavy-app-detected-label"></span></span></div>' +
-            '<div class="heavy-app-list" id="heavy-app-list"></div></aside></div></div>';
+            '<div class="heavy-app-list" id="heavy-app-list"></div></aside></div>' +
+            '<div class="heavy-rules-grid">' +
+            heavyRulesCardHtml('always', 'sports_esports') +
+            heavyRulesCardHtml('never', 'block') +
+            '</div></div>';
         refreshPowerLabels();
     }
 
@@ -909,7 +1019,13 @@
             'idle-target-title': 'idleTarget',
             'idle-plan-powerSaver': 'plan_powerSaver',
             'idle-plan-balanced': 'plan_balanced',
-            'idle-plan-performance': 'plan_performance'
+            'idle-plan-performance': 'plan_performance',
+            'heavy-rules-always-title': 'heavyAlwaysTitle',
+            'heavy-rules-always-sub': 'heavyAlwaysSub',
+            'heavy-rules-always-add': 'heavyRulesAdd',
+            'heavy-rules-never-title': 'heavyNeverTitle',
+            'heavy-rules-never-sub': 'heavyNeverSub',
+            'heavy-rules-never-add': 'heavyRulesAdd'
         };
 
         Object.entries(map).forEach(([id, key]) => {
@@ -919,6 +1035,7 @@
         renderAppPowerProfiles();
         renderAppPowerProfileStatus(appProfileStatus);
         renderHeavyAppStatus(heavyAppStatus);
+        renderHeavyAppRules();
         renderKeepAwakeState(keepAwakeState);
         renderThermalState(thermalState);
         renderIdleState(idleState);
@@ -938,6 +1055,7 @@
         setToggle(document.getElementById('toggle-heavy-resources'), cfg.useResourceHeuristics);
         const select = document.getElementById('heavy-app-target-plan');
         if (select) select.value = cfg.targetPlan;
+        renderHeavyAppRules();
     }
 
     function syncKeepAwakeUi() {
@@ -1141,13 +1259,47 @@
         }
 
         list.innerHTML = apps.map(app => {
+            const isGame = app.kind === 'game';
+            const level = String(app.confidenceLevel || '');
+            const chip = !isGame ? tt('kindHeavyApp')
+                : (level === 'confirmed' || level === 'probable') ? tt('level_' + level) : tt('kindGame');
             const reason = tt('reason_' + app.reason);
             const mb = Number.isFinite(Number(app.workingSetMb)) ? ' · ' + Number(app.workingSetMb) + ' MB' : '';
-            return '<div class="heavy-app-row"><div class="flex items-center justify-between gap-sm">' +
-                '<span class="text-body-md text-on-surface truncate">' + esc(app.name || 'App') + '</span>' +
-                '<span class="text-label-sm text-secondary-container whitespace-nowrap">' + esc(reason) + mb + '</span>' +
-                '</div><span class="heavy-app-path" title="' + esc(app.path || '') + '">' + esc(app.path || '') + '</span></div>';
+            // Evidence codes stay raw: they are diagnostics, not copy, and they must match
+            // what the detection log reports.
+            const codes = Array.isArray(app.evidence) ? app.evidence.map(e => e.code).join(', ') : '';
+            const hint = tt('heavyScore') + ' ' + (Number(app.confidenceScore) || 0) + '/100' + (codes ? ' · ' + codes : '');
+            return '<div class="heavy-app-row" title="' + esc(hint) + '">' +
+                '<div class="flex items-center justify-between gap-sm">' +
+                '<span class="flex items-center gap-xs min-w-0">' +
+                '<span class="material-symbols-outlined text-secondary-container text-[16px]">' + (isGame ? 'sports_esports' : 'memory') + '</span>' +
+                '<span class="text-body-md text-on-surface truncate">' + esc(app.name || 'App') + '</span></span>' +
+                '<span class="heavy-app-chip" data-level="' + esc(isGame ? level : 'heavyApp') + '">' + esc(chip) + '</span></div>' +
+                '<span class="heavy-app-path" title="' + esc(app.path || '') + '">' + esc(app.path || '') + '</span>' +
+                '<span class="heavy-app-meta">' + esc(reason + mb) + '</span></div>';
         }).join('');
+    }
+
+    function renderHeavyAppRules() {
+        if (!settings) return;
+        const cfg = normalizeHeavyAppDetection();
+
+        [['always', cfg.alwaysGamePaths], ['never', cfg.neverGamePaths]].forEach(([name, paths]) => {
+            const list = document.getElementById('heavy-rules-' + name + '-list');
+            if (!list) return;
+
+            if (!paths.length) {
+                list.innerHTML = '<p class="text-label-sm text-on-surface-variant opacity-70 py-2">' + esc(tt('heavyRulesEmpty')) + '</p>';
+                return;
+            }
+
+            list.innerHTML = paths.map(path =>
+                '<div class="heavy-rule-row"><div class="min-w-0 flex-1">' +
+                '<span class="text-label-md text-on-surface truncate block">' + esc(appNameFromPath(path)) + '</span>' +
+                '<span class="heavy-app-path" title="' + esc(path) + '">' + esc(path) + '</span></div>' +
+                '<button class="app-profile-icon-btn heavy-rules-remove" data-list="' + name + '" data-path="' + esc(path) + '" type="button" title="' + esc(tt('heavyRulesRemove')) + '">' +
+                '<span class="material-symbols-outlined text-[18px]">delete</span></button></div>').join('');
+        });
     }
 
     function renderPlanConflictToast(data) {
@@ -1282,6 +1434,41 @@
                     if (pref.id === 'pref-heavy-windows') cfg.useWindowsGpuPreferences = !cfg.useWindowsGpuPreferences;
                     if (pref.id === 'pref-heavy-gamepaths') cfg.useGameInstallHeuristics = !cfg.useGameInstallHeuristics;
                     if (pref.id === 'pref-heavy-resources') cfg.useResourceHeuristics = !cfg.useResourceHeuristics;
+                });
+                return;
+            }
+
+            const addRule = e.target.closest('.heavy-rules-add');
+            if (addRule && settings) {
+                addRule.disabled = true;
+                try {
+                    const res = await Host.call('pickAppPowerProfileExecutable');
+                    if (!res || !res.path) return;
+                    const path = String(res.path).trim();
+                    updateHeavySetting(cfg => {
+                        // A path can only sit in one list: adding it here removes it from the other.
+                        cfg.alwaysGamePaths = cfg.alwaysGamePaths.filter(p => !samePath(p, path));
+                        cfg.neverGamePaths = cfg.neverGamePaths.filter(p => !samePath(p, path));
+                        (addRule.dataset.list === 'never' ? cfg.neverGamePaths : cfg.alwaysGamePaths).push(path);
+                    });
+                } catch (err) {
+                    const label = document.getElementById('heavy-app-state-label');
+                    Host.fail(err, (msg) => {
+                        if (label) label.textContent = msg;
+                    });
+                } finally {
+                    addRule.disabled = false;
+                }
+                return;
+            }
+
+            const removeRule = e.target.closest('.heavy-rules-remove');
+            if (removeRule && settings) {
+                const path = removeRule.dataset.path;
+                const which = removeRule.dataset.list;
+                updateHeavySetting(cfg => {
+                    if (which === 'never') cfg.neverGamePaths = cfg.neverGamePaths.filter(p => !samePath(p, path));
+                    else cfg.alwaysGamePaths = cfg.alwaysGamePaths.filter(p => !samePath(p, path));
                 });
                 return;
             }
