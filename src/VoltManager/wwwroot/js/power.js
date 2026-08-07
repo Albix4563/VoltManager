@@ -757,6 +757,25 @@
             '<div class="mini-toggle-knob"></div></div></div>';
     }
 
+    // Hide battery-only power prefs on desktops (same pattern as dashboard/advanced).
+    function checkBatteryPresence() {
+        const info = window.VoltSystemInfo;
+        if (info) {
+            applyBatteryPresence(info.hasBattery);
+        } else {
+            document.addEventListener('systeminfoloaded', (e) => {
+                applyBatteryPresence(e.detail.hasBattery);
+            });
+        }
+    }
+
+    function applyBatteryPresence(hasBattery) {
+        const keepAwakeBattery = document.getElementById('pref-keep-awake-battery');
+        if (keepAwakeBattery) keepAwakeBattery.classList.toggle('hidden', hasBattery === false);
+        const idleBattery = document.getElementById('pref-idle-battery');
+        if (idleBattery) idleBattery.classList.toggle('hidden', hasBattery === false);
+    }
+
     function heavyRulesCardHtml(list, icon) {
         return '<div class="heavy-rules-card">' +
             '<div class="flex items-start justify-between gap-sm">' +
@@ -825,6 +844,7 @@
             '<p class="text-label-sm text-on-surface-variant opacity-80" id="keep-awake-note"></p>' +
             '</aside></div></div>';
         refreshPowerLabels();
+        checkBatteryPresence();
     }
 
     function mountThermalGuardUi() {
@@ -918,6 +938,7 @@
             '<p class="text-body-md text-on-surface" id="idle-status"></p>' +
             '</aside></div></div>';
         refreshPowerLabels();
+        checkBatteryPresence();
     }
 
     function mountHeavyAppUi() {
