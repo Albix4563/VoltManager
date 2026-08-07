@@ -262,19 +262,35 @@
 
     function checkBatteryPresence() {
         const info = window.VoltSystemInfo;
-        if (info) {
+        if (info && typeof info.hasBattery === 'boolean') {
             applyBatteryPresence(info.hasBattery);
-        } else {
+        }
+        if (!checkBatteryPresence._wired) {
+            checkBatteryPresence._wired = true;
             document.addEventListener('systeminfoloaded', (e) => {
-                applyBatteryPresence(e.detail.hasBattery);
+                if (e?.detail && typeof e.detail.hasBattery === 'boolean') {
+                    applyBatteryPresence(e.detail.hasBattery);
+                }
+            });
+            document.addEventListener('voltbatteryavailabilitychanged', (e) => {
+                if (e?.detail && typeof e.detail.hasBattery === 'boolean') {
+                    applyBatteryPresence(e.detail.hasBattery);
+                }
             });
         }
     }
 
     function applyBatteryPresence(hasBattery) {
         const toggleRow = document.getElementById('adv-toggle-dc-row');
-        if (toggleRow) {
-            toggleRow.classList.toggle('hidden', hasBattery === false);
+        if (!toggleRow) return;
+        const hide = hasBattery === false;
+        toggleRow.classList.toggle('hidden', hide);
+        toggleRow.style.display = hide ? 'none' : '';
+        toggleRow.setAttribute('aria-hidden', hide ? 'true' : 'false');
+        if (hide) {
+            // Force DC sections closed on desktop — no battery values to edit.
+            advShowDc = false;
+            updateDcVisibility();
         }
     }
 

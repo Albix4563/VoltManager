@@ -708,6 +708,8 @@
 .app-profile-panel:before,.heavy-app-panel:before,.keep-awake-panel:before{content:"";position:absolute;inset:-40% auto auto -12%;width:320px;height:320px;border-radius:999px;background:radial-gradient(circle,rgb(var(--vm-accent-rgb) / .14),transparent 66%);pointer-events:none;}
 .heavy-app-grid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(260px,.85fr);gap:18px;position:relative;z-index:1;}
 .heavy-app-option{border:1px solid rgba(255,255,255,.09);background:rgba(255,255,255,.035);border-radius:16px;padding:14px;display:flex;align-items:center;justify-content:space-between;gap:14px;transition:border-color .22s ease,background .22s ease,transform .22s ease;}
+/* display:flex above would beat Tailwind .hidden (same specificity, later rule). */
+.heavy-app-option.hidden{display:none;}
 .heavy-app-option:hover{border-color:rgb(var(--vm-accent-rgb) / .24);background:rgba(255,255,255,.055);transform:translateY(-1px);}
 .heavy-app-badge,.keep-awake-badge{display:inline-flex;align-items:center;gap:7px;padding:5px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);color:rgba(211,222,239,.74);font-size:12px;line-height:1;}
 .heavy-app-badge[data-active="true"],.keep-awake-badge[data-active="true"]{border-color:rgb(var(--vm-accent-rgb) / .32);background:rgb(var(--vm-accent-rgb) / .1);color:var(--vm-accent);animation:heavyAppGlow .9s ease-out;}
@@ -760,20 +762,37 @@
     // Hide battery-only power prefs on desktops (same pattern as dashboard/advanced).
     function checkBatteryPresence() {
         const info = window.VoltSystemInfo;
-        if (info) {
+        if (info && typeof info.hasBattery === 'boolean') {
             applyBatteryPresence(info.hasBattery);
-        } else {
+        }
+        // Also follow reorg / late Host resolution (desktop must stay gated after remount).
+        if (!checkBatteryPresence._wired) {
+            checkBatteryPresence._wired = true;
             document.addEventListener('systeminfoloaded', (e) => {
-                applyBatteryPresence(e.detail.hasBattery);
+                if (e?.detail && typeof e.detail.hasBattery === 'boolean') {
+                    applyBatteryPresence(e.detail.hasBattery);
+                }
+            });
+            document.addEventListener('voltbatteryavailabilitychanged', (e) => {
+                if (e?.detail && typeof e.detail.hasBattery === 'boolean') {
+                    applyBatteryPresence(e.detail.hasBattery);
+                }
             });
         }
     }
 
+    function setBatteryOnlyNode(node, hasBattery) {
+        if (!node) return;
+        const hide = hasBattery === false;
+        node.classList.toggle('hidden', hide);
+        // Inline display beats utility/component flex rules (Tailwind .flex, .heavy-app-option).
+        node.style.display = hide ? 'none' : '';
+        node.setAttribute('aria-hidden', hide ? 'true' : 'false');
+    }
+
     function applyBatteryPresence(hasBattery) {
-        const keepAwakeBattery = document.getElementById('pref-keep-awake-battery');
-        if (keepAwakeBattery) keepAwakeBattery.classList.toggle('hidden', hasBattery === false);
-        const idleBattery = document.getElementById('pref-idle-battery');
-        if (idleBattery) idleBattery.classList.toggle('hidden', hasBattery === false);
+        setBatteryOnlyNode(document.getElementById('pref-keep-awake-battery'), hasBattery);
+        setBatteryOnlyNode(document.getElementById('pref-idle-battery'), hasBattery);
     }
 
     function heavyRulesCardHtml(list, icon) {

@@ -915,11 +915,20 @@
 
     function checkBatteryPresence() {
         const info = window.VoltSystemInfo;
-        if (info) {
+        if (info && typeof info.hasBattery === 'boolean') {
             applyBatteryPresence(info.hasBattery);
-        } else {
+        }
+        if (!checkBatteryPresence._wired) {
+            checkBatteryPresence._wired = true;
             document.addEventListener('systeminfoloaded', (e) => {
-                applyBatteryPresence(e.detail.hasBattery);
+                if (e?.detail && typeof e.detail.hasBattery === 'boolean') {
+                    applyBatteryPresence(e.detail.hasBattery);
+                }
+            });
+            document.addEventListener('voltbatteryavailabilitychanged', (e) => {
+                if (e?.detail && typeof e.detail.hasBattery === 'boolean') {
+                    applyBatteryPresence(e.detail.hasBattery);
+                }
             });
         }
     }
@@ -927,7 +936,11 @@
     function applyBatteryPresence(present) {
         hasBattery = present;
         if (powerSourcePlanHome) {
-            powerSourcePlanHome.classList.toggle('hidden', present === false);
+            const hide = present === false;
+            // Node also has Tailwind `flex`; class-only .hidden can lose the cascade.
+            powerSourcePlanHome.classList.toggle('hidden', hide);
+            powerSourcePlanHome.style.display = hide ? 'none' : '';
+            powerSourcePlanHome.setAttribute('aria-hidden', hide ? 'true' : 'false');
         }
         // No battery -> never poll the firmware power flow (section stays hidden).
         if (present !== false) {
@@ -937,7 +950,9 @@
             stopPowerFlowPolling();
             stopBatteryHistoryPolling();
             powerFlowSection.classList.add('hidden');
+            powerFlowSection.style.display = 'none';
             batteryHistorySection.classList.add('hidden');
+            batteryHistorySection.style.display = 'none';
         }
     }
 
