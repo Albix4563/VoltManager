@@ -12,17 +12,26 @@
     if (!Host.available) return;
 
     // ── State ──────────────────────────────────────────────────────────────────
-    let advMounted     = false;
-    let ramMounted     = false;
-    let advWired       = false;
-    let ramWired       = false;
-    let advParams      = null;   // current PlanParameterSet from backend
-    let advSaveTimer   = null;
-    let ramStatus      = null;   // current MemoryStatus from backend
-    let ramAutoRefresh = null;   // setInterval handle
-    let ramLastClean   = null;   // timestamp of last purge
-    let ramViewActive  = false;
-    let advShowDc      = false;  // whether to show battery (DC) column
+    let advMounted       = false;
+    let timeoutMounted   = false;
+    let ramMounted       = false;
+    let advWired         = false;
+    let timeoutWired     = false;
+    let ramWired         = false;
+    let advParams        = null;   // current PlanParameterSet from backend
+    let timeoutParams    = null;   // current PowerPlanTimeoutSet from backend
+    let advSaveTimer     = null;
+    let timeoutSaveTimer = null;
+    let ramStatus        = null;   // current MemoryStatus from backend
+    let ramAutoRefresh   = null;   // setInterval handle
+    let ramLastClean     = null;   // timestamp of last purge
+    let ramViewActive    = false;
+    let advShowDc        = false;  // whether to show battery (DC) column
+    let hasBattery       = null;
+    let powerPlans       = [];
+    let activePlanGuid   = null;
+    let timeoutFollowActive = true;
+    let advFollowActive = true;
 
     // ── i18n ──────────────────────────────────────────────────────────────────
     function t(key) {
@@ -73,6 +82,36 @@
 .adv-plan-badge{display:inline-flex;align-items:center;gap:7px;padding:5px 12px;
   border-radius:999px;background:rgb(var(--vm-accent-rgb) / .08);border:1px solid rgb(var(--vm-accent-rgb) / .2);
   color:var(--vm-accent);font-size:12px;font-weight:700;}
+.adv-toolbar,.power-timeout-toolbar{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;
+  padding:15px 16px;border:1px solid rgba(255,255,255,.09);border-radius:16px;
+  background:linear-gradient(135deg,rgba(255,255,255,.045),rgba(255,255,255,.018));}
+.adv-plan-field,.power-timeout-plan-field{display:flex;flex-direction:column;gap:7px;min-width:min(100%,300px);}
+.adv-plan-select,.power-timeout-select{width:100%;min-height:42px;padding:9px 38px 9px 12px;border-radius:11px;
+  border:1px solid rgb(var(--vm-accent-rgb) / .26);background:rgba(10,18,31,.94);color:var(--vm-text);
+  font:inherit;font-size:13px;font-weight:650;outline:none;cursor:pointer;}
+.adv-plan-select:focus,.power-timeout-select:focus{border-color:var(--vm-accent);box-shadow:0 0 0 3px rgb(var(--vm-accent-rgb) / .13);}
+.adv-group{display:flex;flex-direction:column;gap:10px;margin-top:18px;}
+.adv-group-head{display:flex;align-items:flex-start;gap:11px;padding:0 2px 2px;}
+.adv-group-icon{width:34px;height:34px;display:flex;align-items:center;justify-content:center;border-radius:11px;
+  background:rgb(var(--vm-accent-rgb) / .09);border:1px solid rgb(var(--vm-accent-rgb) / .18);color:var(--vm-accent);}
+.adv-group-title{font-size:14px;font-weight:800;color:var(--vm-text);}
+.adv-group-sub{margin-top:2px;font-size:12px;color:rgba(211,222,239,.62);line-height:1.4;}
+.adv-param-row[data-supported="false"]{display:none;}
+.power-timeout-panel{display:flex;flex-direction:column;gap:16px;}
+.power-timeout-heading{display:flex;align-items:flex-start;gap:12px;}
+.power-timeout-heading-icon{width:40px;height:40px;display:flex;align-items:center;justify-content:center;flex:0 0 40px;
+  border-radius:13px;background:rgb(var(--vm-accent-rgb) / .1);border:1px solid rgb(var(--vm-accent-rgb) / .2);color:var(--vm-accent);}
+.power-timeout-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;}
+.power-timeout-card{padding:16px;border:1px solid rgba(255,255,255,.09);border-radius:16px;background:rgba(255,255,255,.025);}
+.power-timeout-card-head{display:flex;align-items:flex-start;gap:10px;margin-bottom:14px;}
+.power-timeout-card-head>.material-symbols-outlined{color:var(--vm-accent);font-size:21px;}
+.power-timeout-side{display:grid;grid-template-columns:minmax(100px,.8fr) minmax(145px,1.2fr);align-items:center;gap:12px;padding-top:10px;}
+.power-timeout-side+.power-timeout-side{margin-top:10px;border-top:1px solid rgba(255,255,255,.07);}
+.power-timeout-side-label{display:flex;align-items:center;gap:7px;color:rgba(211,222,239,.72);font-size:12px;font-weight:700;}
+.power-timeout-status{min-height:18px;font-size:12px;color:rgba(211,222,239,.68);}
+.power-timeout-status.is-ok{color:var(--vm-accent);}.power-timeout-status.is-error{color:#ff8585;}
+@media(max-width:760px){.power-timeout-grid{grid-template-columns:1fr}.adv-toolbar,.power-timeout-toolbar{align-items:stretch;flex-direction:column}
+  .adv-plan-field,.power-timeout-plan-field{min-width:0;width:100%}.power-timeout-side{grid-template-columns:1fr;gap:7px}}
 @keyframes advSlideIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 .adv-panel>*{animation:advSlideIn .28s ease both;}
 
@@ -107,6 +146,213 @@
     }
 
     // ══════════════════════════════════════════════════════════════════════════
+    // PLAN CATALOG + DISPLAY/SLEEP TIMEOUTS
+    // ══════════════════════════════════════════════════════════════════════════
+
+    async function refreshPlanCatalog() {
+        try {
+            const plans = await Host.call('listPowerPlans');
+            powerPlans = Array.isArray(plans) ? plans : [];
+            const active = powerPlans.find(p => p && p.isActive);
+            activePlanGuid = active ? active.guid : activePlanGuid;
+            fillPlanSelect('power-timeout-plan-select', timeoutParams?.planGuid || activePlanGuid);
+            fillPlanSelect('adv-plan-select', advParams?.planGuid || activePlanGuid);
+            return powerPlans;
+        } catch (err) {
+            console.error('listPowerPlans failed', err);
+            return powerPlans;
+        }
+    }
+
+    function planLabel(plan) {
+        if (!plan) return '';
+        const name = plan.name || plan.planId || plan.guid || '';
+        return name + (plan.isActive ? ' · ' + t('power_plan_active') : '');
+    }
+
+    function fillPlanSelect(id, selectedGuid) {
+        const select = document.getElementById(id);
+        if (!select || !powerPlans.length) return;
+        const wanted = selectedGuid || activePlanGuid || powerPlans[0]?.guid;
+        select.innerHTML = '';
+        powerPlans.forEach(plan => {
+            const option = document.createElement('option');
+            option.value = plan.guid;
+            option.textContent = planLabel(plan);
+            option.selected = plan.guid === wanted;
+            select.appendChild(option);
+        });
+        if (wanted && [...select.options].some(o => o.value === wanted)) select.value = wanted;
+    }
+
+    function formatTimeout(seconds) {
+        const value = Math.max(0, Number(seconds) || 0);
+        if (value === 0) return t('power_timeout_never');
+        if (value % 3600 === 0) {
+            const hours = value / 3600;
+            return t(hours === 1 ? 'power_timeout_hour' : 'power_timeout_hours').replace('{n}', hours);
+        }
+        if (value % 60 === 0) {
+            const minutes = value / 60;
+            return t(minutes === 1 ? 'power_timeout_minute' : 'power_timeout_minutes').replace('{n}', minutes);
+        }
+        return t('power_timeout_seconds').replace('{n}', value);
+    }
+
+    function fillTimeoutSelect(id, currentValue) {
+        const select = document.getElementById(id);
+        if (!select) return;
+        const base = [0, 60, 120, 300, 600, 900, 1200, 1800, 2700, 3600, 7200, 10800, 14400];
+        const value = Math.max(0, Number(currentValue) || 0);
+        const values = base.includes(value) ? base : [...base, value].sort((a, b) => a - b);
+        select.innerHTML = values.map(v => `<option value="${v}">${esc(formatTimeout(v))}</option>`).join('');
+        select.value = String(value);
+    }
+
+    function mountTimeoutUi() {
+        if (timeoutMounted) return;
+        ensureAdvStyles();
+        const mount = document.getElementById('power-timeouts-mount');
+        if (!mount) return;
+        mount.innerHTML = `
+<div class="power-timeout-panel" id="power-timeout-panel">
+  <div class="power-timeout-heading">
+    <span class="power-timeout-heading-icon"><span class="material-symbols-outlined">schedule</span></span>
+    <div><h3 class="text-title-md text-on-surface font-semibold" id="power-timeout-title"></h3>
+    <p class="text-label-sm text-on-surface-variant mt-1" id="power-timeout-sub"></p></div>
+  </div>
+  <div class="power-timeout-toolbar">
+    <label class="power-timeout-plan-field"><span class="text-label-sm text-on-surface-variant" id="power-timeout-plan-label"></span>
+      <select class="power-timeout-select" id="power-timeout-plan-select"></select>
+    </label>
+    <span class="text-label-sm text-on-surface-variant" id="power-timeout-plan-note"></span>
+  </div>
+  <div class="power-timeout-grid">
+    ${buildTimeoutCard('display','desktop_windows')}
+    ${buildTimeoutCard('sleep','bedtime')}
+  </div>
+  <div class="power-timeout-status" id="power-timeout-status" role="status" aria-live="polite"></div>
+</div>`;
+        timeoutMounted = true;
+        refreshTimeoutLabels();
+        checkBatteryPresence();
+    }
+
+    function buildTimeoutCard(key, icon) {
+        return `<div class="power-timeout-card">
+  <div class="power-timeout-card-head"><span class="material-symbols-outlined">${icon}</span><div>
+    <p class="text-body-md text-on-surface font-semibold" id="power-timeout-${key}-title"></p>
+    <p class="text-label-sm text-on-surface-variant mt-1" id="power-timeout-${key}-sub"></p>
+  </div></div>
+  <label class="power-timeout-side"><span class="power-timeout-side-label"><span class="material-symbols-outlined text-[17px]">power</span><span id="power-timeout-${key}-ac-label"></span></span>
+    <select class="power-timeout-select" id="power-timeout-${key}-ac" data-timeout-key="${key}"></select></label>
+  <label class="power-timeout-side timeout-dc-section"><span class="power-timeout-side-label"><span class="material-symbols-outlined text-[17px]">battery_5_bar</span><span id="power-timeout-${key}-dc-label"></span></span>
+    <select class="power-timeout-select" id="power-timeout-${key}-dc" data-timeout-key="${key}"></select></label>
+</div>`;
+    }
+
+    function refreshTimeoutLabels() {
+        const map = {
+            'power-timeout-title': 'power_timeout_title',
+            'power-timeout-sub': 'power_timeout_sub',
+            'power-timeout-plan-label': 'power_timeout_plan',
+            'power-timeout-plan-note': 'power_timeout_plan_note',
+            'power-timeout-display-title': 'power_timeout_display',
+            'power-timeout-display-sub': 'power_timeout_display_sub',
+            'power-timeout-sleep-title': 'power_timeout_sleep',
+            'power-timeout-sleep-sub': 'power_timeout_sleep_sub',
+        };
+        Object.entries(map).forEach(([id, key]) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = t(key);
+        });
+        ['display','sleep'].forEach(key => {
+            const ac = document.getElementById(`power-timeout-${key}-ac-label`);
+            const dc = document.getElementById(`power-timeout-${key}-dc-label`);
+            if (ac) ac.textContent = t('adv_ac');
+            if (dc) dc.textContent = t('adv_dc');
+        });
+        if (timeoutParams) applyTimeoutParams(timeoutParams);
+        fillPlanSelect('power-timeout-plan-select', timeoutParams?.planGuid || activePlanGuid);
+    }
+
+    function applyTimeoutParams(params) {
+        timeoutParams = params;
+        fillPlanSelect('power-timeout-plan-select', params.planGuid);
+        fillTimeoutSelect('power-timeout-display-ac', params.displayTimeoutAc);
+        fillTimeoutSelect('power-timeout-display-dc', params.displayTimeoutDc);
+        fillTimeoutSelect('power-timeout-sleep-ac', params.sleepTimeoutAc);
+        fillTimeoutSelect('power-timeout-sleep-dc', params.sleepTimeoutDc);
+    }
+
+    function showTimeoutStatus(message, isError) {
+        const el = document.getElementById('power-timeout-status');
+        if (!el) return;
+        el.textContent = message || '';
+        el.className = 'power-timeout-status ' + (isError ? 'is-error' : 'is-ok');
+        clearTimeout(timeoutSaveTimer);
+        timeoutSaveTimer = setTimeout(() => {
+            el.textContent = '';
+            el.className = 'power-timeout-status';
+        }, 3200);
+    }
+
+    async function loadTimeoutParams(planGuid) {
+        try {
+            const guid = planGuid || document.getElementById('power-timeout-plan-select')?.value || activePlanGuid;
+            const params = await Host.call('getPlanTimeouts', guid ? { planGuid: guid } : {});
+            if (params?.error) throw new Error(params.error);
+            applyTimeoutParams(params);
+        } catch (err) {
+            showTimeoutStatus(t('power_timeout_load_err'), true);
+            console.error('getPlanTimeouts failed', err);
+        }
+    }
+
+    async function saveTimeoutParam(key) {
+        if (!timeoutParams) return;
+        const ac = document.getElementById(`power-timeout-${key}-ac`);
+        const dc = document.getElementById(`power-timeout-${key}-dc`);
+        if (!ac || !dc) return;
+        try {
+            const result = await Host.call('setPlanParameter', {
+                planGuid: timeoutParams.planGuid,
+                settingKey: key === 'display' ? 'displayTimeout' : 'sleepTimeout',
+                acValue: Number(ac.value),
+                dcValue: Number(dc.value),
+            });
+            if (!result?.success) throw new Error('powercfg rejected setting');
+            showTimeoutStatus(t('power_timeout_saved'), false);
+        } catch (err) {
+            showTimeoutStatus(t('power_timeout_save_err'), true);
+            await loadTimeoutParams(timeoutParams.planGuid);
+        }
+    }
+
+    function wireTimeoutUi() {
+        if (timeoutWired) return;
+        document.addEventListener('change', e => {
+            const el = e.target;
+            if (el?.id === 'power-timeout-plan-select') {
+                timeoutFollowActive = el.value === activePlanGuid;
+                timeoutParams = null;
+                loadTimeoutParams(el.value);
+                return;
+            }
+            const key = el?.dataset?.timeoutKey;
+            if (key === 'display' || key === 'sleep') saveTimeoutParam(key);
+        });
+        timeoutWired = true;
+    }
+
+    async function activateTimeoutPanel() {
+        mountTimeoutUi();
+        wireTimeoutUi();
+        await refreshPlanCatalog();
+        if (!timeoutParams) await loadTimeoutParams(activePlanGuid);
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
     // ADVANCED PARAMS — mount / render / wire
     // ══════════════════════════════════════════════════════════════════════════
 
@@ -123,45 +369,50 @@
     }
 
     function buildAdvHtml() {
+        const boostOptions = [0,1,2,3,4,5,6].map(v => ({v, k:`adv_boost_${v}`}));
+        const pcieOptions = [{v:0,k:'adv_pcie_0'},{v:1,k:'adv_pcie_1'},{v:2,k:'adv_pcie_2'}];
+        const diskOptions = [
+            {v:0,k:'power_timeout_never'}, {v:60,k:'adv_disk_1m'}, {v:300,k:'adv_disk_5m'},
+            {v:600,k:'adv_disk_10m'}, {v:1200,k:'adv_disk_20m'}, {v:1800,k:'adv_disk_30m'}, {v:3600,k:'adv_disk_60m'}
+        ];
+        const wakeOptions = [{v:0,k:'adv_wake_0'},{v:1,k:'adv_wake_1'},{v:2,k:'adv_wake_2'}];
         return `
 <div class="adv-panel relative z-10" id="adv-panel">
-  <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-md mb-lg">
-    <p class="text-body-md text-on-surface-variant max-w-2xl" id="adv-sub-text"></p>
-    <div class="flex items-center gap-sm flex-shrink-0">
-      <span class="adv-plan-badge" id="adv-plan-badge">
-        <span class="material-symbols-outlined text-[15px]">bolt</span>
-        <span id="adv-plan-name">&hellip;</span>
-      </span>
+  <p class="text-body-md text-on-surface-variant mb-md" id="adv-sub-text"></p>
+  <div class="adv-toolbar mb-md">
+    <label class="adv-plan-field"><span class="text-label-sm text-on-surface-variant" id="adv-plan-label"></span>
+      <select class="adv-plan-select" id="adv-plan-select"></select>
+    </label>
+    <div class="flex items-center gap-sm" id="adv-toggle-dc-row">
+      <div class="mini-toggle cursor-pointer" id="adv-toggle-dc" data-on="false"><div class="mini-toggle-knob"></div></div>
+      <span class="text-body-sm text-on-surface" id="adv-show-dc-label"></span>
     </div>
   </div>
-
-  <!-- DC toggle -->
-  <div class="flex items-center gap-sm mb-lg" id="adv-toggle-dc-row">
-    <div class="mini-toggle cursor-pointer" id="adv-toggle-dc" data-on="false">
-      <div class="mini-toggle-knob"></div>
-    </div>
-    <span class="text-body-md text-on-surface" id="adv-show-dc-label"></span>
-  </div>
-
-  <!-- Status bar (feedback after save) -->
   <div class="adv-status-bar opacity-0" id="adv-status-bar"></div>
-  <p class="text-label-sm text-on-surface-variant mt-1 mb-lg hidden" id="adv-status-msg"></p>
-
-  <!-- Loading state -->
+  <p class="text-label-sm text-on-surface-variant mt-1 mb-md hidden" id="adv-status-msg"></p>
   <div id="adv-loading" class="text-body-md text-on-surface-variant opacity-70 py-6 text-center">
     <span class="material-symbols-outlined text-secondary-container animate-spin inline-block">refresh</span>
   </div>
-
-  <!-- Parameter rows (hidden until loaded) -->
-  <div class="space-y-sm hidden" id="adv-rows">
-    ${buildParamRow('processorMin', 'slider', 0, 100, 5, 'adv-proc-min', 'adv-proc-min-sub', '%')}
-    ${buildParamRow('processorMax', 'slider', 0, 100, 100, 'adv-proc-max', 'adv-proc-max-sub', '%')}
-    ${buildParamRow('boostMode',    'select', 0, 4, 2, 'adv-boost', 'adv-boost-sub', '',
-      [{v:0,k:'adv_boost_0'},{v:1,k:'adv_boost_1'},{v:2,k:'adv_boost_2'},{v:4,k:'adv_boost_4'}])}
-    ${buildParamRow('pcieLinkState','select', 0, 2, 0, 'adv-pcie', 'adv-pcie-sub', '',
-      [{v:0,k:'adv_pcie_0'},{v:1,k:'adv_pcie_1'},{v:2,k:'adv_pcie_2'}])}
+  <div class="hidden" id="adv-rows">
+    ${buildAdvGroup('developer_board','adv_group_cpu','adv_group_cpu_sub', `
+      ${buildParamRow('processorMin', 'slider', 0, 100, 5, 'adv-proc-min', 'adv-proc-min-sub', '%')}
+      ${buildParamRow('processorMax', 'slider', 0, 100, 100, 'adv-proc-max', 'adv-proc-max-sub', '%')}
+      ${buildParamRow('processorEpp', 'slider', 0, 100, 50, 'adv-epp', 'adv-epp-sub', '%')}
+      ${buildParamRow('boostMode', 'select', 0, 6, 2, 'adv-boost', 'adv-boost-sub', '', boostOptions)}
+      ${buildParamRow('coreParkingMin', 'slider', 0, 100, 10, 'adv-core-parking', 'adv-core-parking-sub', '%')}`)}
+    ${buildAdvGroup('memory_alt','adv_group_devices','adv_group_devices_sub', `
+      ${buildParamRow('pcieLinkState', 'select', 0, 2, 0, 'adv-pcie', 'adv-pcie-sub', '', pcieOptions)}
+      ${buildParamRow('diskIdle', 'select', 0, 3600, 0, 'adv-disk', 'adv-disk-sub', '', diskOptions)}
+      ${buildParamRow('wakeTimers', 'select', 0, 2, 2, 'adv-wake', 'adv-wake-sub', '', wakeOptions)}`)}
   </div>
 </div>`;
+    }
+
+    function buildAdvGroup(icon, titleKey, subKey, content) {
+        return `<section class="adv-group">
+  <div class="adv-group-head"><span class="adv-group-icon material-symbols-outlined">${icon}</span><div>
+    <p class="adv-group-title" data-adv-i18n="${titleKey}"></p><p class="adv-group-sub" data-adv-i18n="${subKey}"></p>
+  </div></div>${content}</section>`;
     }
 
     /**
@@ -218,37 +469,51 @@
     function refreshAdvLabels() {
         const map = {
             'adv-sub-text': 'adv_sub',
+            'adv-plan-label': 'adv_plan_editing',
             'adv-show-dc-label': 'adv_show_dc',
             'adv-lbl-processorMin': 'adv_proc_min', 'adv-sub-processorMin': 'adv_proc_min_sub',
             'adv-lbl-processorMax': 'adv_proc_max', 'adv-sub-processorMax': 'adv_proc_max_sub',
-            'adv-lbl-boostMode':    'adv_boost',    'adv-sub-boostMode':    'adv_boost_sub',
-            'adv-lbl-pcieLinkState':'adv_pcie',     'adv-sub-pcieLinkState':'adv_pcie_sub',
+            'adv-lbl-processorEpp': 'adv_epp', 'adv-sub-processorEpp': 'adv_epp_sub',
+            'adv-lbl-boostMode': 'adv_boost', 'adv-sub-boostMode': 'adv_boost_sub',
+            'adv-lbl-coreParkingMin': 'adv_core_parking', 'adv-sub-coreParkingMin': 'adv_core_parking_sub',
+            'adv-lbl-pcieLinkState': 'adv_pcie', 'adv-sub-pcieLinkState': 'adv_pcie_sub',
+            'adv-lbl-diskIdle': 'adv_disk', 'adv-sub-diskIdle': 'adv_disk_sub',
+            'adv-lbl-wakeTimers': 'adv_wake', 'adv-sub-wakeTimers': 'adv_wake_sub',
         };
         Object.entries(map).forEach(([id, key]) => {
             const el = document.getElementById(id);
             if (el) el.textContent = t(key);
         });
-        // AC/DC column tags
-        ['processorMin','processorMax','boostMode','pcieLinkState'].forEach(k => {
+        document.querySelectorAll('[data-adv-i18n]').forEach(el => {
+            el.textContent = t(el.dataset.advI18n);
+        });
+
+        const keys = ['processorMin','processorMax','processorEpp','boostMode','coreParkingMin','pcieLinkState','diskIdle','wakeTimers'];
+        keys.forEach(k => {
             const ac = document.getElementById(`adv-ac-tag-${k}`);
             const dc = document.getElementById(`adv-dc-tag-${k}`);
             if (ac) ac.textContent = t('adv_ac');
             if (dc) dc.textContent = t('adv_dc');
         });
-        // Select option labels
-        const boostOpts = [{v:0,k:'adv_boost_0'},{v:1,k:'adv_boost_1'},{v:2,k:'adv_boost_2'},{v:4,k:'adv_boost_4'}];
-        const pcieOpts  = [{v:0,k:'adv_pcie_0'},{v:1,k:'adv_pcie_1'},{v:2,k:'adv_pcie_2'}];
+
+        const optionGroups = {
+            boostMode: [0,1,2,3,4,5,6].map(v => ({v,k:`adv_boost_${v}`})),
+            pcieLinkState: [{v:0,k:'adv_pcie_0'},{v:1,k:'adv_pcie_1'},{v:2,k:'adv_pcie_2'}],
+            diskIdle: [
+                {v:0,k:'power_timeout_never'},{v:60,k:'adv_disk_1m'},{v:300,k:'adv_disk_5m'},
+                {v:600,k:'adv_disk_10m'},{v:1200,k:'adv_disk_20m'},{v:1800,k:'adv_disk_30m'},{v:3600,k:'adv_disk_60m'}
+            ],
+            wakeTimers: [{v:0,k:'adv_wake_0'},{v:1,k:'adv_wake_1'},{v:2,k:'adv_wake_2'}],
+        };
         ['ac','dc'].forEach(side => {
-            boostOpts.forEach(o => {
-                const el = document.getElementById(`adv-opt-boostMode-${side}-${o.v}`);
-                if (el) el.textContent = t(o.k);
-            });
-            pcieOpts.forEach(o => {
-                const el = document.getElementById(`adv-opt-pcieLinkState-${side}-${o.v}`);
-                if (el) el.textContent = t(o.k);
+            Object.entries(optionGroups).forEach(([key, options]) => {
+                options.forEach(o => {
+                    const el = document.getElementById(`adv-opt-${key}-${side}-${o.v}`);
+                    if (el) el.textContent = t(o.k);
+                });
             });
         });
-        // Update DC toggle
+        fillPlanSelect('adv-plan-select', advParams?.planGuid || activePlanGuid);
         updateDcVisibility();
     }
 
@@ -264,6 +529,11 @@
         const info = window.VoltSystemInfo;
         if (info && typeof info.hasBattery === 'boolean') {
             applyBatteryPresence(info.hasBattery);
+        } else if (hasBattery == null && Host.available && !checkBatteryPresence._loading) {
+            checkBatteryPresence._loading = true;
+            Host.call('getSystemInfo').then(systemInfo => {
+                if (systemInfo && typeof systemInfo.hasBattery === 'boolean') applyBatteryPresence(systemInfo.hasBattery);
+            }).catch(() => {}).finally(() => { checkBatteryPresence._loading = false; });
         }
         if (!checkBatteryPresence._wired) {
             checkBatteryPresence._wired = true;
@@ -280,15 +550,20 @@
         }
     }
 
-    function applyBatteryPresence(hasBattery) {
-        const toggleRow = document.getElementById('adv-toggle-dc-row');
-        if (!toggleRow) return;
+    function applyBatteryPresence(value) {
+        if (typeof value === 'boolean') hasBattery = value;
         const hide = hasBattery === false;
-        toggleRow.classList.toggle('hidden', hide);
-        toggleRow.style.display = hide ? 'none' : '';
-        toggleRow.setAttribute('aria-hidden', hide ? 'true' : 'false');
+        const toggleRow = document.getElementById('adv-toggle-dc-row');
+        if (toggleRow) {
+            toggleRow.classList.toggle('hidden', hide);
+            toggleRow.style.display = hide ? 'none' : '';
+            toggleRow.setAttribute('aria-hidden', hide ? 'true' : 'false');
+        }
+        document.querySelectorAll('.timeout-dc-section').forEach(el => {
+            el.classList.toggle('hidden', hide);
+            el.style.display = hide ? 'none' : '';
+        });
         if (hide) {
-            // Force DC sections closed on desktop — no battery values to edit.
             advShowDc = false;
             updateDcVisibility();
         }
@@ -297,20 +572,37 @@
     /** Populate controls from the loaded PlanParameterSet */
     function applyAdvParams(params) {
         advParams = params;
-        const planName = document.getElementById('adv-plan-name');
-        if (planName) planName.textContent = params.planName || params.planGuid || '—';
+        fillPlanSelect('adv-plan-select', params.planGuid);
 
         setSliderOrSelect('processorMin', 'ac', params.processorMinAc, 0, 100, '%');
         setSliderOrSelect('processorMin', 'dc', params.processorMinDc, 0, 100, '%');
         setSliderOrSelect('processorMax', 'ac', params.processorMaxAc, 0, 100, '%');
         setSliderOrSelect('processorMax', 'dc', params.processorMaxDc, 0, 100, '%');
-        setSliderOrSelect('boostMode',    'ac', params.boostModeAc,    0, 4, '');
-        setSliderOrSelect('boostMode',    'dc', params.boostModeDc,    0, 4, '');
-        setSliderOrSelect('pcieLinkState','ac', params.pcieLinkStateAc, 0, 2, '');
-        setSliderOrSelect('pcieLinkState','dc', params.pcieLinkStateDc, 0, 2, '');
+        setSliderOrSelect('processorEpp', 'ac', params.processorEppAc, 0, 100, '%');
+        setSliderOrSelect('processorEpp', 'dc', params.processorEppDc, 0, 100, '%');
+        setSliderOrSelect('boostMode', 'ac', params.boostModeAc, 0, 6, '');
+        setSliderOrSelect('boostMode', 'dc', params.boostModeDc, 0, 6, '');
+        setSliderOrSelect('coreParkingMin', 'ac', params.coreParkingMinAc, 0, 100, '%');
+        setSliderOrSelect('coreParkingMin', 'dc', params.coreParkingMinDc, 0, 100, '%');
+        setSliderOrSelect('pcieLinkState', 'ac', params.pcieLinkStateAc, 0, 2, '');
+        setSliderOrSelect('pcieLinkState', 'dc', params.pcieLinkStateDc, 0, 2, '');
+        setSliderOrSelect('diskIdle', 'ac', params.diskIdleAc, 0, 3600, '');
+        setSliderOrSelect('diskIdle', 'dc', params.diskIdleDc, 0, 3600, '');
+        setSliderOrSelect('wakeTimers', 'ac', params.wakeTimersAc, 0, 2, '');
+        setSliderOrSelect('wakeTimers', 'dc', params.wakeTimersDc, 0, 2, '');
+
+        setAdvSupported('processorEpp', params.processorEppSupported);
+        setAdvSupported('coreParkingMin', params.coreParkingSupported);
+        setAdvSupported('diskIdle', params.diskIdleSupported);
+        setAdvSupported('wakeTimers', params.wakeTimersSupported);
 
         document.getElementById('adv-loading')?.classList.add('hidden');
         document.getElementById('adv-rows')?.classList.remove('hidden');
+    }
+
+    function setAdvSupported(key, supported) {
+        const row = document.getElementById(`adv-row-${key}`);
+        if (row) row.dataset.supported = supported === false ? 'false' : 'true';
     }
 
     function setSliderOrSelect(key, side, value, min, max, unit) {
@@ -323,7 +615,14 @@
             const valEl = document.getElementById(`adv-${key}-${side}-val`);
             if (valEl) valEl.textContent = value + unit;
         } else {
-            el.value = String(value);
+            const stringValue = String(value);
+            if (![...el.options].some(o => o.value === stringValue)) {
+                const option = document.createElement('option');
+                option.value = stringValue;
+                option.textContent = key === 'diskIdle' ? formatTimeout(value) : stringValue;
+                el.appendChild(option);
+            }
+            el.value = stringValue;
         }
     }
 
@@ -341,33 +640,38 @@
         }, 3000);
     }
 
-    async function loadAdvParams() {
+    async function loadAdvParams(planGuid) {
         if (!advParams) {
             document.getElementById('adv-loading')?.classList.remove('hidden');
             document.getElementById('adv-rows')?.classList.add('hidden');
         }
         try {
-            const p = await Host.call('getPlanParameters');
+            const guid = planGuid || document.getElementById('adv-plan-select')?.value || activePlanGuid;
+            const p = await Host.call('getPlanParameters', guid ? { planGuid: guid } : {});
+            if (p?.error) throw new Error(p.error);
             applyAdvParams(p);
         } catch (err) {
-            showAdvStatus(t('adv_save_err') + ' ' + err.message, true);
+            showAdvStatus(t('adv_load_err'), true);
             document.getElementById('adv-loading')?.classList.add('hidden');
             document.getElementById('adv-rows')?.classList.remove('hidden');
+            console.error('getPlanParameters failed', err);
         }
     }
 
     async function saveSingleParam(key, acVal, dcVal) {
         if (!advParams) return;
         try {
-            await Host.call('setPlanParameter', {
+            const result = await Host.call('setPlanParameter', {
                 planGuid: advParams.planGuid,
                 settingKey: key,
                 acValue: acVal,
                 dcValue: dcVal,
             });
+            if (!result?.success) throw new Error('powercfg rejected setting');
             showAdvStatus(t('adv_save_ok'), false);
         } catch (err) {
             showAdvStatus(t('adv_save_err'), true);
+            await loadAdvParams(advParams.planGuid);
         }
     }
 
@@ -394,7 +698,7 @@
             const min = +el.min, max = +el.max, val = +el.value;
             const pct = max > min ? Math.round((val - min) / (max - min) * 100) : 0;
             el.style.setProperty('--pct', pct + '%');
-            const unit = (key === 'processorMin' || key === 'processorMax') ? '%' : '';
+            const unit = ['processorMin','processorMax','processorEpp','coreParkingMin'].includes(key) ? '%' : '';
             const valEl = document.getElementById(`adv-${key}-${side}-val`);
             if (valEl) valEl.textContent = val + unit;
             // Debounced save
@@ -410,6 +714,12 @@
         document.addEventListener('change', e => {
             const el = e.target;
             if (!el || el.tagName !== 'SELECT') return;
+            if (el.id === 'adv-plan-select') {
+                advFollowActive = el.value === activePlanGuid;
+                advParams = null;
+                loadAdvParams(el.value);
+                return;
+            }
             const match = el.id && el.id.match(/^adv-([\w]+)-(ac|dc)$/);
             if (!match) return;
             const [, key] = match;
@@ -740,10 +1050,12 @@
         return mount && mount.closest('.vm-acc-item[data-open="true"]') !== null;
     }
 
-    function activateAdvPanel() {
+    async function activateAdvPanel() {
         mountAdvancedUi();
         wireAdvancedUi();
-        loadAdvParams();
+        await refreshPlanCatalog();
+        const selected = advParams?.planGuid || document.getElementById('adv-plan-select')?.value || activePlanGuid;
+        if (!advParams || (selected && advParams.planGuid !== selected)) await loadAdvParams(selected);
     }
 
     function activateRamPanel() {
@@ -804,18 +1116,14 @@
         }, 20);
     });
 
-    // Also refresh when the power view becomes active (in case panels were already open)
+    // Also refresh when the legacy power view becomes active.
     document.addEventListener('viewchange', e => {
         if (!e.detail || e.detail.view !== 'power') {
             clearInterval(ramAutoRefresh);
             ramAutoRefresh = null;
             return;
         }
-        if (isAccordionOpen('advanced-params-mount')) {
-            mountAdvancedUi();
-            wireAdvancedUi();
-            loadAdvParams();
-        }
+        if (isAccordionOpen('advanced-params-mount')) activateAdvPanel();
         if (isAccordionOpen('ram-cleaner-mount')) {
             mountRamUi();
             wireRamUi();
@@ -826,17 +1134,43 @@
         }
     });
 
-    // Refresh labels on language change
-    document.addEventListener('langchanged', () => {
-        if (advMounted) refreshAdvLabels();
-        if (ramMounted) refreshRamLabels();
+    // Reorganized Power Plans view: Alimentazione owns the timeout editor, while
+    // Advanced parameters are loaded only when that subview is actually opened.
+    document.addEventListener('voltuiviewchanged', e => {
+        if (e?.detail?.view !== 'power-plans') return;
+        activateTimeoutPanel();
+        const advancedPanel = document.querySelector('[data-vm-panel-group="power-plans"][data-vm-panel="advanced"]');
+        if (advancedPanel?.classList.contains('active')) activateAdvPanel();
     });
 
-    // Listen for active plan changes so the editor always shows the right plan
-    Host.on('activePlanChanged', () => {
-        if (isAccordionOpen('advanced-params-mount')) {
-            advParams = null; // force reload
-            loadAdvParams();
+    document.addEventListener('voltuisubviewchanged', e => {
+        if (e?.detail?.group !== 'power-plans') return;
+        if (e.detail.view === 'source') activateTimeoutPanel();
+        if (e.detail.view === 'advanced') activateAdvPanel();
+    });
+
+    // Refresh labels on language change.
+    document.addEventListener('langchanged', () => {
+        if (timeoutMounted) refreshTimeoutLabels();
+        if (advMounted) refreshAdvLabels();
+        if (ramMounted) refreshRamLabels();
+        refreshPlanCatalog();
+    });
+
+    // Keep "follow active plan" behavior until the user explicitly chooses a
+    // different plan from either selector.
+    Host.on('activePlanChanged', async () => {
+        await refreshPlanCatalog();
+        if (timeoutFollowActive) {
+            timeoutParams = null;
+            if (timeoutMounted) await loadTimeoutParams(activePlanGuid);
+        }
+        if (advFollowActive) {
+            advParams = null;
+            const advancedPanel = document.querySelector('[data-vm-panel-group="power-plans"][data-vm-panel="advanced"]');
+            if (isAccordionOpen('advanced-params-mount') || advancedPanel?.classList.contains('active')) {
+                await loadAdvParams(activePlanGuid);
+            }
         }
     });
 

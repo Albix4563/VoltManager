@@ -154,14 +154,14 @@
                 </section>`, true)}
                 ${panel('power-plans', 'source', `<section class="glass-panel rounded-xl p-lg vm-section-card">
                     <p class="text-body-md text-on-surface-variant mb-md" data-vm-i18n="power_source_hint"></p>
+                    <div id="power-timeouts-mount"></div><div class="vm-divider"></div>
                     <div id="vm-power-source" class="vm-stack"></div><div class="vm-divider"></div>
                     <h3 class="vm-section-title"><span class="material-symbols-outlined">bedtime_off</span><span data-vm-i18n="keep_awake_primary"></span></h3>
                     <div id="vm-keep-awake"></div>
                 </section>`, false)}
                 ${panel('power-plans', 'advanced', `<section class="glass-panel rounded-xl p-lg vm-section-card">
-                    <div class="vm-advanced-warning"><span class="material-symbols-outlined">warning</span><span data-vm-i18n="advanced_hint"></span></div>
-                    <details class="vm-advanced-details"><summary><span class="material-symbols-outlined">tune</span><span data-vm-i18n="tab_advanced"></span></summary>
-                    <div id="vm-power-advanced"></div></details>
+                    <div class="vm-advanced-warning"><span class="material-symbols-outlined">info</span><span data-vm-i18n="advanced_hint"></span></div>
+                    <div id="vm-power-advanced"></div>
                 </section>`, false)}
             </div>`);
     }

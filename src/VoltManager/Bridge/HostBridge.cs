@@ -267,6 +267,9 @@ public class HostBridge
             case "getActivePlan":
                 return await Task.Run(() => _power.GetActivePlan());
 
+            case "listPowerPlans":
+                return await Task.Run(() => _planParams.ListPlans());
+
             case "getKeepAwakeState":
                 return _app.Awake.GetState();
 
@@ -660,6 +663,13 @@ public class HostBridge
 
             case "cancelScheduledPowerAction":
                 return _app.ScheduledPowerActions.Cancel();
+
+            case "getPlanTimeouts":
+            {
+                string? guid = payload.TryGetProperty("planGuid", out var guidEl)
+                    ? guidEl.GetString() : null;
+                return await Task.Run(() => _planParams.GetPlanTimeouts(guid));
+            }
 
             case "getPlanParameters":
             {

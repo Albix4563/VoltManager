@@ -380,14 +380,14 @@
     gap: 10px;
     margin-bottom: 16px;
     padding: 13px 15px;
-    border: 1px solid color-mix(in srgb, #ffc857 30%, transparent);
+    border: 1px solid color-mix(in srgb, var(--vm-accent) 24%, transparent);
     border-radius: 14px;
     color: var(--md-sys-color-on-surface-variant, #b7c0cf);
-    background: color-mix(in srgb, #ffc857 8%, transparent);
+    background: color-mix(in srgb, var(--vm-accent) 6%, transparent);
 }
 
 .vm-advanced-warning .material-symbols-outlined {
-    color: #ffc857;
+    color: var(--vm-accent);
 }
 
 .vm-advanced-details {

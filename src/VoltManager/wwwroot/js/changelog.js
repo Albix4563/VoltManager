@@ -173,7 +173,7 @@
         const link = document.createElement('link');
         link.id = 'vm-ui-reorganization-style';
         link.rel = 'stylesheet';
-        link.href = 'css/ui-reorganization.css?v=responsive2';
+        link.href = 'css/ui-reorganization.css?v=powerux2';
         const themeStyles = document.querySelector('link[href*="theme-colors.css"]');
         document.head.insertBefore(link, themeStyles || null);
     }
@@ -199,8 +199,8 @@
         window.__voltUiReorganizationLoading = true;
         addStyle();
         try {
-            await loadScript('js/ui-reorganization.i18n.js?v=nav-reorg1');
-            await loadScript('js/ui-reorganization.layout.js?v=nav-reorg1');
+            await loadScript('js/ui-reorganization.i18n.js?v=powerux2');
+            await loadScript('js/ui-reorganization.layout.js?v=powerux2');
             await loadScript('js/ui-reorganization.js?v=ram1');
             await loadScript('js/ui-reorganization.status.js?v=nav-reorg1');
         } catch (error) {

@@ -275,7 +275,7 @@
     // power/advanced only matter on Automation (and settings panels). Keep them
     // out of cold-start parse/compile. changelog.js stays eager: it also boots
     // the UI-reorg modules used across the shell.
-    const deferredPowerScripts = ['js/power.js?v=ram1', 'js/advanced.js?v=ram1'];
+    const deferredPowerScripts = ['js/power.js?v=ram1', 'js/advanced.js?v=powerux2'];
     const loadedScripts = new Set();
     function loadScriptOnce(src) {
         if (loadedScripts.has(src) || document.querySelector('script[data-vm-lazy="' + src + '"]')) {
