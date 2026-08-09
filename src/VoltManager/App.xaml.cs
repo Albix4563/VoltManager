@@ -5,6 +5,7 @@ using System.Windows;
 using System.Windows.Shell;
 using System.Windows.Threading;
 using Microsoft.Web.WebView2.Core;
+using VoltManager.Fans;
 using VoltManager.Localization;
 using VoltManager.Models;
 using VoltManager.Services;
@@ -26,6 +27,7 @@ public partial class App : Application
     public PowerPlanService Power { get; private set; } = null!;
     public PowerAwakeService Awake { get; private set; } = null!;
     public MonitorService Monitor { get; private set; } = null!;
+    public FanManagementService Fans { get; private set; } = null!;
     public UpdateService Updates { get; private set; } = null!;
     public StartupService AutoStart { get; private set; } = null!;
     public AutomationEngine Automation { get; private set; } = null!;
@@ -151,6 +153,7 @@ public partial class App : Application
         Power = new PowerPlanService(Settings);
         Awake = new PowerAwakeService(Settings);
         Monitor = new MonitorService();
+        Fans = new FanManagementService(Monitor);
         Mark("MonitorService");
         Updates = new UpdateService(Settings);
         AutoStart = new StartupService();

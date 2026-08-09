@@ -43,11 +43,17 @@ public record MetricsSnapshot
 
 public record SensorReading
 {
+    [JsonPropertyName("identifier")] public string? Identifier { get; init; }
     [JsonPropertyName("hardware")] public string Hardware { get; init; } = "";  // device name
     [JsonPropertyName("category")] public string Category { get; init; } = "";  // cpu|gpu|storage|motherboard
     [JsonPropertyName("name")] public string Name { get; init; } = "";
     [JsonPropertyName("type")] public string Type { get; init; } = "";          // temp|fan
     [JsonPropertyName("value")] public double Value { get; init; }
+    [JsonPropertyName("controlAvailable")] public bool ControlAvailable { get; init; }
+    [JsonPropertyName("controlMode")] public string? ControlMode { get; init; }
+    [JsonPropertyName("controlPercent")] public double? ControlPercent { get; init; }
+    [JsonPropertyName("controlMin")] public double? ControlMin { get; init; }
+    [JsonPropertyName("controlMax")] public double? ControlMax { get; init; }
 }
 
 public record SystemInfo

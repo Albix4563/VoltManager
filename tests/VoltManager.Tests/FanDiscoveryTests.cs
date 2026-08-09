@@ -1,0 +1,120 @@
+using VoltManager.Fans;
+using VoltManager.Models;
+using Xunit;
+
+namespace VoltManager.Tests;
+
+public class FanDiscoveryTests
+{
+    [Fact]
+    public void BuildTopology_classifies_known_fan_roles_without_inventing_control()
+    {
+        var metrics = new MetricsSnapshot
+        {
+            SensorsAvailable = true,
+            Sensors = new List<SensorReading>
+            {
+                new() { Hardware = "Nuvoton NCT6798D", Category = "motherboard", Name = "CPU Fan", Type = "fan", Value = 1240 },
+                new() { Hardware = "Nuvoton NCT6798D", Category = "motherboard", Name = "SYS_FAN3", Type = "fan", Value = 840 },
+                new() { Hardware = "Nuvoton NCT6798D", Category = "motherboard", Name = "AIO Pump", Type = "fan", Value = 2410 },
+                new() { Hardware = "NVIDIA GeForce RTX", Category = "gpu", Name = "GPU Fan 1", Type = "fan", Value = 1580 },
+                new() { Hardware = "AMD Ryzen", Category = "cpu", Name = "CPU Package", Type = "temp", Value = 63.0 },
+                new() { Hardware = "NVIDIA GeForce RTX", Category = "gpu", Name = "GPU Core", Type = "temp", Value = 67.0 },
+            }
+        };
+
+        var topology = new FanDiscoveryService().BuildTopology(metrics);
+
+        Assert.Equal(4, topology.Devices.Count);
+        Assert.Equal(FanRole.CpuFan, topology.Devices.Single(x => x.SensorName == "CPU Fan").Role);
+        Assert.Equal(FanRole.CaseFan, topology.Devices.Single(x => x.SensorName == "SYS_FAN3").Role);
+        Assert.Equal(FanRole.Pump, topology.Devices.Single(x => x.SensorName == "AIO Pump").Role);
+        Assert.Equal(FanRole.GpuFan, topology.Devices.Single(x => x.SensorName == "GPU Fan 1").Role);
+        Assert.All(topology.Devices, fan =>
+        {
+            Assert.False(fan.Capabilities.ControlWritable);
+            Assert.Equal(FanControlState.MonitorOnly, fan.ControlState);
+        });
+    }
+
+    [Fact]
+    public void BuildTopology_keeps_unknown_fans_unknown_and_assigns_unique_ids()
+    {
+        var metrics = new MetricsSnapshot
+        {
+            SensorsAvailable = true,
+            Sensors = new List<SensorReading>
+            {
+                new() { Hardware = "Generic SuperIO", Category = "motherboard", Name = "Fan #1", Type = "fan", Value = 900 },
+                new() { Hardware = "Generic SuperIO", Category = "motherboard", Name = "Fan #1", Type = "fan", Value = 910 },
+            }
+        };
+
+        var topology = new FanDiscoveryService().BuildTopology(metrics);
+
+        Assert.Equal(2, topology.Devices.Count);
+        Assert.All(topology.Devices, fan => Assert.Equal(FanRole.Unknown, fan.Role));
+        Assert.Equal(2, topology.Devices.Select(x => x.Id).Distinct(StringComparer.Ordinal).Count());
+    }
+
+    [Fact]
+    public void BuildTopology_reports_direct_lhm_control_telemetry_but_keeps_writes_safety_blocked()
+    {
+        var metrics = new MetricsSnapshot
+        {
+            SensorsAvailable = true,
+            Sensors = new List<SensorReading>
+            {
+                new()
+                {
+                    Identifier = "/lpc/nct6798d/fan/0",
+                    Hardware = "Nuvoton NCT6798D",
+                    Category = "motherboard",
+                    Name = "CPU Fan",
+                    Type = "fan",
+                    Value = 1350,
+                    ControlAvailable = true,
+                    ControlMode = "Software",
+                    ControlPercent = 52,
+                    ControlMin = 0,
+                    ControlMax = 100,
+                }
+            }
+        };
+
+        var fan = Assert.Single(new FanDiscoveryService().BuildTopology(metrics).Devices);
+
+        Assert.True(fan.Capabilities.ControlReadable);
+        Assert.False(fan.Capabilities.ControlWritable);
+        Assert.True(fan.Capabilities.CanRestoreDefault);
+        Assert.Equal(52, fan.Telemetry.ControlPercent);
+        Assert.Equal(FanControlState.SafetyBlocked, fan.ControlState);
+        Assert.Contains("lpc/nct6798d/fan/0", fan.HardwareId, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void BuildTopology_associates_cpu_and_gpu_temperature_sources_by_role()
+    {
+        var metrics = new MetricsSnapshot
+        {
+            SensorsAvailable = true,
+            Sensors = new List<SensorReading>
+            {
+                new() { Hardware = "Board", Category = "motherboard", Name = "CPU Fan", Type = "fan", Value = 1100 },
+                new() { Hardware = "GPU A", Category = "gpu", Name = "GPU Fan", Type = "fan", Value = 1200 },
+                new() { Hardware = "CPU A", Category = "cpu", Name = "CPU Package", Type = "temp", Value = 55 },
+                new() { Hardware = "CPU A", Category = "cpu", Name = "Core Max", Type = "temp", Value = 58 },
+                new() { Hardware = "GPU A", Category = "gpu", Name = "GPU Core", Type = "temp", Value = 64 },
+                new() { Hardware = "GPU A", Category = "gpu", Name = "GPU Hot Spot", Type = "temp", Value = 76 },
+            }
+        };
+
+        var topology = new FanDiscoveryService().BuildTopology(metrics);
+        var cpu = topology.Devices.Single(x => x.Role == FanRole.CpuFan);
+        var gpu = topology.Devices.Single(x => x.Role == FanRole.GpuFan);
+
+        Assert.All(cpu.AvailableTemperatureSensors, sensor => Assert.Equal("cpu", sensor.Category));
+        Assert.All(gpu.AvailableTemperatureSensors, sensor => Assert.Equal("gpu", sensor.Category));
+        Assert.Contains(gpu.AvailableTemperatureSensors, sensor => sensor.Name == "GPU Hot Spot");
+    }
+}

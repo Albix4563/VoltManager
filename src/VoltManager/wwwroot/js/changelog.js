@@ -199,8 +199,8 @@
         window.__voltUiReorganizationLoading = true;
         addStyle();
         try {
-            await loadScript('js/ui-reorganization.i18n.js?v=powerux2');
-            await loadScript('js/ui-reorganization.layout.js?v=powerux2');
+            await loadScript('js/ui-reorganization.i18n.js?v=fans1');
+            await loadScript('js/ui-reorganization.layout.js?v=fans1');
             await loadScript('js/ui-reorganization.js?v=ram1');
             await loadScript('js/ui-reorganization.status.js?v=nav-reorg1');
         } catch (error) {

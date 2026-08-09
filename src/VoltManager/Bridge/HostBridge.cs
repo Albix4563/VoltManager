@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Diagnostics;
+using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Win32;
@@ -165,6 +166,100 @@ public class HostBridge
             case "getSystemInfo":
                 // WMI (GPU/CPU fallback) can stall; keep first render off the UI thread.
                 return await Task.Run(() => _hardware.GetSystemInfo());
+
+            case "getFanTopology":
+                // Uses Monitor.Latest only; this does not open another hardware monitor or write to fan controllers.
+                return await Task.Run(() => _app.Fans.GetTopology());
+
+            case "renameFan":
+            {
+                string fanId = payload.GetProperty("fanId").GetString() ?? "";
+                string? alias = payload.TryGetProperty("alias", out var aliasElement) && aliasElement.ValueKind != JsonValueKind.Null
+                    ? aliasElement.GetString()
+                    : null;
+                return await Task.Run(() => _app.Fans.RenameFan(fanId, alias));
+            }
+
+            case "listFanProfiles":
+                return await Task.Run(() => _app.Fans.ListProfiles());
+
+            case "getFanProfile":
+            {
+                string profileId = payload.GetProperty("profileId").GetString() ?? "";
+                return await Task.Run(() => _app.Fans.GetProfile(profileId));
+            }
+
+            case "saveCurrentFanProfile":
+            {
+                string name = payload.GetProperty("name").GetString() ?? "";
+                return await Task.Run(() => _app.Fans.SaveCurrentProfile(name));
+            }
+
+            case "renameFanProfile":
+            {
+                string profileId = payload.GetProperty("profileId").GetString() ?? "";
+                string name = payload.GetProperty("name").GetString() ?? "";
+                return await Task.Run(() => _app.Fans.RenameProfile(profileId, name));
+            }
+
+            case "duplicateFanProfile":
+            {
+                string profileId = payload.GetProperty("profileId").GetString() ?? "";
+                string? name = payload.TryGetProperty("name", out var nameElement) && nameElement.ValueKind != JsonValueKind.Null
+                    ? nameElement.GetString()
+                    : null;
+                return await Task.Run(() => _app.Fans.DuplicateProfile(profileId, name));
+            }
+
+            case "deleteFanProfile":
+            {
+                string profileId = payload.GetProperty("profileId").GetString() ?? "";
+                bool deleted = await Task.Run(() => _app.Fans.DeleteProfile(profileId));
+                return new { success = deleted };
+            }
+
+            case "analyzeFanProfileCompatibility":
+            {
+                string profileId = payload.GetProperty("profileId").GetString() ?? "";
+                return await Task.Run(() => _app.Fans.AnalyzeProfile(profileId));
+            }
+
+            case "importFanProfile":
+            {
+                var dialog = new OpenFileDialog
+                {
+                    Title = "Import fan profile",
+                    Filter = "VoltManager fan profile (*.json)|*.json|JSON files (*.json)|*.json",
+                    Multiselect = false,
+                    CheckFileExists = true,
+                };
+                if (dialog.ShowDialog() != true)
+                    return new { canceled = true };
+                var imported = await Task.Run(() => _app.Fans.ImportProfile(dialog.FileName));
+                return new
+                {
+                    canceled = false,
+                    profile = imported.Profile,
+                    compatibility = imported.Compatibility,
+                };
+            }
+
+            case "exportFanProfile":
+            {
+                string profileId = payload.GetProperty("profileId").GetString() ?? "";
+                var dialog = new SaveFileDialog
+                {
+                    Title = "Export fan profile",
+                    FileName = "voltmanager-fan-profile.json",
+                    DefaultExt = ".json",
+                    AddExtension = true,
+                    Filter = "VoltManager fan profile (*.json)|*.json|JSON files (*.json)|*.json",
+                };
+                if (dialog.ShowDialog() != true)
+                    return new { canceled = true };
+                string exported = await Task.Run(() => _app.Fans.ExportProfile(profileId, dialog.FileName));
+                return new { canceled = false, fileName = Path.GetFileName(exported) };
+            }
 
             case "getBatteryHealth":
                 return await Task.Run(() => _batteryHealth.GetHealth());

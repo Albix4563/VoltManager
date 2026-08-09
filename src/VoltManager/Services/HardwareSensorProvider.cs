@@ -118,13 +118,26 @@ public class HardwareSensorProvider : IDisposable
             };
             if (type.Length == 0) continue;
             if (!SensorAggregation.IsLiveReading(type, sensor.Name, value)) continue;
+
+            // A writable control is only considered related when LibreHardwareMonitor
+            // exposes it directly on this exact fan sensor. Never pair fan/control
+            // channels by list position or by a guessed header index.
+            IControl? control = sensor.SensorType == SensorType.Fan ? sensor.Control : null;
+            bool softwareMode = control?.ControlMode == ControlMode.Software;
+
             readings.Add(new SensorReading
             {
+                Identifier = sensor.Identifier.ToString(),
                 Hardware = hardware.Name,
                 Category = category,
                 Name = sensor.Name,
                 Type = type,
                 Value = Math.Round(value, type == "clock" ? 0 : (type == "temp" ? 1 : 0)),
+                ControlAvailable = control != null,
+                ControlMode = control?.ControlMode.ToString(),
+                ControlPercent = softwareMode ? Math.Round(control!.SoftwareValue, 1) : null,
+                ControlMin = control != null ? Math.Round(control.MinSoftwareValue, 1) : null,
+                ControlMax = control != null ? Math.Round(control.MaxSoftwareValue, 1) : null,
             });
         }
     }
