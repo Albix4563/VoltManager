@@ -15,11 +15,13 @@
 }
 
 .vm-fan-toolbar {
-    display: flex;
+    display: grid;
+    grid-template-columns: minmax(220px, 280px) minmax(0, 1fr) auto;
+    grid-template-areas: "profile primary utility";
     align-items: center;
-    gap: 12px;
-    min-height: 54px;
-    padding: 10px 12px;
+    gap: 10px 14px;
+    min-height: 64px;
+    padding: 12px;
     border: 1px solid var(--fan-line);
     border-radius: 16px;
     background: linear-gradient(120deg,
@@ -29,11 +31,18 @@
 }
 
 .vm-fan-toolbar__profile {
-    display: flex;
+    grid-area: profile;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
     align-items: center;
     gap: 10px;
     min-width: 0;
-    flex: 1;
+}
+
+.vm-fan-toolbar__select {
+    width: 100%;
+    min-width: 0;
+    max-width: none;
 }
 
 .vm-fan-toolbar__label,
@@ -83,15 +92,27 @@
     display: flex;
     align-items: center;
     gap: 8px;
+    min-width: 0;
     flex-wrap: wrap;
+}
+
+.vm-fan-toolbar__actions--primary {
+    grid-area: primary;
+    justify-content: flex-start;
+}
+
+.vm-fan-toolbar__actions--utility {
+    grid-area: utility;
     justify-content: flex-end;
 }
 
 .vm-fan-button {
     display: inline-flex;
+    flex: 0 0 auto;
     align-items: center;
     justify-content: center;
     gap: 7px;
+    white-space: nowrap;
     min-height: 36px;
     padding: 0 12px;
     border: 1px solid var(--fan-line);
@@ -120,6 +141,7 @@
 
 .vm-fan-global-state {
     display: inline-flex;
+    flex: 0 0 auto;
     align-items: center;
     gap: 7px;
     min-height: 28px;
@@ -777,15 +799,39 @@
 .vm-fan-muted { color:var(--vm-muted); font-size:10px; }
 
 @media (max-width: 1180px) {
+    .vm-fan-toolbar {
+        grid-template-columns: minmax(220px, 260px) minmax(0, 1fr);
+        grid-template-areas:
+            "profile primary"
+            "profile utility";
+        align-items: center;
+    }
+    .vm-fan-toolbar__profile {
+        grid-template-columns: 1fr;
+        align-self: stretch;
+        align-content: center;
+        gap: 6px;
+    }
+    .vm-fan-toolbar__actions--primary,
+    .vm-fan-toolbar__actions--utility { justify-content: flex-end; }
     .vm-fan-layout { grid-template-columns: 1fr; }
     .vm-fan-stage { min-height: 330px; }
 }
 
 @media (max-width: 760px) {
-    .vm-fan-toolbar { align-items: stretch; flex-direction: column; }
-    .vm-fan-toolbar__profile { align-items: stretch; flex-direction: column; }
+    .vm-fan-toolbar {
+        grid-template-columns: 1fr;
+        grid-template-areas:
+            "profile"
+            "primary"
+            "utility";
+        align-items: stretch;
+    }
+    .vm-fan-toolbar__profile { grid-template-columns: 1fr; align-items: stretch; }
     .vm-fan-select { max-width: none; width: 100%; }
-    .vm-fan-toolbar__actions { justify-content: flex-start; }
+    .vm-fan-toolbar__actions--primary,
+    .vm-fan-toolbar__actions--utility { justify-content: flex-start; }
+    .vm-fan-global-state { order: -1; }
     .vm-fan-stage { grid-template-columns: 1fr; padding-top: 18px; }
     .vm-fan-model-wrap { min-height: 250px; }
     .vm-fan-visual-data { padding: 0 6px 12px; }

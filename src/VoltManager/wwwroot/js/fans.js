@@ -164,9 +164,19 @@
         const selected=selectedProfileSummary(), anyControl=devices().some(isControllable), sensors=state.topology&&state.topology.sensorsAvailable;
         const stateName=!sensors?'offline':anyControl?'control':'readonly', stateText=!sensors?t('unavailable'):anyControl?t('controlAvailable'):t('readOnly');
         const options=[`<option value="">${esc(t('noProfile'))}</option>`].concat(state.profiles.map(p=>`<option value="${esc(p.id)}"${p.id===state.selectedProfileId?' selected':''}>${esc(p.name)} · ${p.fanCount}</option>`)).join('');
-        return `<div class="vm-fan-toolbar"><div class="vm-fan-toolbar__profile"><span class="vm-fan-toolbar__label">${esc(t('profile'))}</span><select class="vm-fan-select" id="vm-fan-profile-select">${options}</select><span class="vm-fan-global-state" data-state="${stateName}"><span class="vm-fan-state-dot"></span>${esc(stateText)}</span></div><div class="vm-fan-toolbar__actions">
-            ${tool('save-profile','save',t('saveSetup'),true)}${tool('apply-profile','play_arrow',t('applyProfile'),!!selected)}${tool('compatibility','rule',t('compatibility'),!!selected)}${tool('groups','hub',t('groups'),true)}${tool('rename-profile','edit',t('rename'),!!selected)}${tool('duplicate-profile','content_copy',t('duplicate'),!!selected)}${tool('delete-profile','delete',t('remove'),!!selected,'vm-fan-button--danger')}${tool('import-profile','file_open',t('import'),true)}${tool('export-profile','ios_share',t('export'),!!selected)}${tool('refresh','refresh',t('refresh'),true,'vm-fan-button--accent')}
-        </div></div>`;
+        return `<div class="vm-fan-toolbar">
+            <div class="vm-fan-toolbar__profile">
+                <span class="vm-fan-toolbar__label">${esc(t('profile'))}</span>
+                <select class="vm-fan-select vm-fan-toolbar__select" id="vm-fan-profile-select" aria-label="${esc(t('profile'))}">${options}</select>
+            </div>
+            <div class="vm-fan-toolbar__actions vm-fan-toolbar__actions--primary">
+                ${tool('save-profile','save',t('saveSetup'),true)}${tool('apply-profile','play_arrow',t('applyProfile'),!!selected)}${tool('compatibility','rule',t('compatibility'),!!selected)}${tool('groups','hub',t('groups'),true)}${tool('rename-profile','edit',t('rename'),!!selected)}${tool('duplicate-profile','content_copy',t('duplicate'),!!selected)}${tool('delete-profile','delete',t('remove'),!!selected,'vm-fan-button--danger')}
+            </div>
+            <div class="vm-fan-toolbar__actions vm-fan-toolbar__actions--utility">
+                <span class="vm-fan-global-state" data-state="${stateName}"><span class="vm-fan-state-dot"></span>${esc(stateText)}</span>
+                ${tool('import-profile','file_open',t('import'),true)}${tool('export-profile','ios_share',t('export'),!!selected)}${tool('refresh','refresh',t('refresh'),true,'vm-fan-button--accent')}
+            </div>
+        </div>`;
     }
     function tool(action,icon,label,enabled,cls){return `<button type="button" class="vm-fan-button ${cls||''}" data-fan-action="${action}" ${enabled?'':'disabled'} title="${esc(label)}"><span class="material-symbols-outlined">${icon}</span><span>${esc(label)}</span></button>`;}
 
