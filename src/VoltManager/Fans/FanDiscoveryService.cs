@@ -11,6 +11,17 @@ namespace VoltManager.Fans;
 /// </summary>
 public sealed class FanDiscoveryService
 {
+    private readonly Func<bool> _softwareControlAllowed;
+
+    public FanDiscoveryService(bool allowSoftwareControl = true)
+        : this(() => allowSoftwareControl)
+    {
+    }
+
+    public FanDiscoveryService(Func<bool> softwareControlAllowed)
+    {
+        _softwareControlAllowed = softwareControlAllowed ?? throw new ArgumentNullException(nameof(softwareControlAllowed));
+    }
     public FanTopology BuildTopology(
         MetricsSnapshot metrics,
         IReadOnlyDictionary<string, string>? aliases = null,
@@ -46,7 +57,10 @@ public sealed class FanDiscoveryService
                 classification.Role,
                 sensor.Hardware,
                 temperatureSensors);
-            FanCapabilities capabilities = BuildCapabilities(sensor);
+            FanCapabilities capabilities = BuildCapabilities(sensor, _softwareControlAllowed());
+            bool telemetryStale = DateTime.UtcNow - metrics.TimestampUtc > TimeSpan.FromSeconds(8);
+            FanControlState controlState = DetermineControlState(classification.Role, capabilities, availableTemperatures, telemetryStale, externalSoftware);
+            string? safetyReason = DetermineSafetyReason(classification.Role, capabilities, availableTemperatures, telemetryStale, externalSoftware);
 
             devices.Add(new FanDevice
             {
@@ -56,21 +70,23 @@ public sealed class FanDiscoveryService
                 HardwareName = sensor.Hardware,
                 SensorName = sensor.Name,
                 HeaderName = headerName,
+                ControlIdentifier = sensor.ControlIdentifier,
                 DisplayName = string.IsNullOrWhiteSpace(alias) ? BuildDisplayName(sensor, classification.Role) : alias.Trim(),
                 UserName = string.IsNullOrWhiteSpace(alias) ? null : alias.Trim(),
                 ChannelIndex = ParseTrailingIndex(sensor.Name),
                 Role = classification.Role,
                 RoleConfidence = classification.Confidence,
                 RoleEvidence = classification.Evidence,
-                ControlState = sensor.ControlAvailable ? FanControlState.SafetyBlocked : FanControlState.MonitorOnly,
+                ControlState = controlState,
+                SafetyReason = safetyReason,
                 Capabilities = capabilities,
                 Telemetry = new FanTelemetry
                 {
                     Rpm = sensor.Value,
                     ControlPercent = sensor.ControlPercent,
                     ReferenceTemperature = SelectReferenceTemperature(classification.Role, availableTemperatures),
-                    LastUpdatedUtc = DateTime.UtcNow,
-                    IsStale = false,
+                    LastUpdatedUtc = metrics.TimestampUtc,
+                    IsStale = DateTime.UtcNow - metrics.TimestampUtc > TimeSpan.FromSeconds(8),
                 },
                 AvailableTemperatureSensors = availableTemperatures,
             });
@@ -103,6 +119,7 @@ public sealed class FanDiscoveryService
         return new FanTemperatureSensor
         {
             Id = "temp-" + ShortHash(key),
+            HardwareIdentifier = sensor.Identifier,
             Hardware = sensor.Hardware,
             Category = sensor.Category,
             Name = sensor.Name,
@@ -110,26 +127,86 @@ public sealed class FanDiscoveryService
         };
     }
 
-    private static FanCapabilities BuildCapabilities(SensorReading sensor)
+    private static FanCapabilities BuildCapabilities(SensorReading sensor, bool allowSoftwareControl)
     {
         if (!sensor.ControlAvailable) return FanCapabilities.MonitorOnly;
 
-        // LibreHardwareMonitor confirms that this exact sensor has an IControl object,
-        // so min/max/default can be reported. Writes remain safety-blocked in this
-        // phase because IControl's numeric range is not a physical minimum-RPM proof.
+        if (!allowSoftwareControl)
+        {
+            return new FanCapabilities
+            {
+                RpmReadable = true,
+                ControlReadable = sensor.ControlPercent.HasValue,
+                ControlWritable = false,
+                FixedControlSupported = false,
+                SoftwareCurveSupported = false,
+                FanStopSupported = false,
+                CanRestoreDefault = false,
+                MinimumControl = sensor.ControlMin,
+                MaximumControl = sensor.ControlMax,
+                Backend = "libre-hardware-monitor-readonly",
+            };
+        }
+
+        // LHM exposes an explicit IControl channel. Fan-stop remains false because
+        // the generic interface provides a numeric range but no semantic declaration
+        // that a zero value is a supported stop mode.
         return new FanCapabilities
         {
             RpmReadable = true,
             ControlReadable = sensor.ControlPercent.HasValue,
-            ControlWritable = false,
-            FixedControlSupported = false,
-            SoftwareCurveSupported = false,
+            ControlWritable = true,
+            FixedControlSupported = true,
+            SoftwareCurveSupported = true,
             FanStopSupported = false,
             CanRestoreDefault = true,
             MinimumControl = sensor.ControlMin,
             MaximumControl = sensor.ControlMax,
             Backend = "libre-hardware-monitor",
         };
+    }
+
+    private static FanControlState DetermineControlState(
+        FanRole role,
+        FanCapabilities capabilities,
+        IReadOnlyList<FanTemperatureSensor> temperatures,
+        bool telemetryStale,
+        IReadOnlyList<FanExternalSoftwareNotice>? externalSoftware)
+    {
+        if (!capabilities.ControlWritable) return FanControlState.MonitorOnly;
+        if (externalSoftware?.Any(x => x.BlocksControl) == true) return FanControlState.ExternalControllerDetected;
+        if (temperatures.Count == 0 || telemetryStale) return FanControlState.SensorUnavailable;
+        if (role == FanRole.Pump) return FanControlState.SafetyBlocked;
+        if (capabilities.MinimumControl is not { } min || min <= 0 && !capabilities.FanStopSupported)
+            return FanControlState.SafetyBlocked;
+        if (capabilities.MaximumControl is not { } max || max <= min)
+            return FanControlState.SafetyBlocked;
+        return FanControlState.ControlAvailable;
+    }
+
+    private static string? DetermineSafetyReason(
+        FanRole role,
+        FanCapabilities capabilities,
+        IReadOnlyList<FanTemperatureSensor> temperatures,
+        bool telemetryStale,
+        IReadOnlyList<FanExternalSoftwareNotice>? externalSoftware)
+    {
+        if (!capabilities.ControlWritable) return null;
+        if (externalSoftware?.Any(x => x.BlocksControl) == true)
+            return "An external hardware/fan utility is active; VoltManager is not taking control.";
+        if (temperatures.Count == 0)
+            return "No compatible live temperature sensor is available, so software fan control is suspended.";
+        if (telemetryStale)
+            return "Temperature telemetry is stale, so software fan control is suspended until fresh readings return.";
+        if (role == FanRole.Pump)
+            return "Pump control requires backend-specific verified pump limits and remains read-only.";
+        if (capabilities.MinimumControl is not { } min)
+            return "The backend did not expose a minimum control limit.";
+        if (min <= 0 && !capabilities.FanStopSupported)
+            return "The backend exposes a zero minimum but does not explicitly declare Fan Stop support.";
+        if (capabilities.MaximumControl is not { } max || max <= min)
+            return "The backend exposed an invalid control range.";
+        return null;
     }
 
     private static List<FanTemperatureSensor> SelectAvailableTemperatures(
@@ -189,6 +266,10 @@ public sealed class FanDiscoveryService
         string name = Normalize(sensor.Name);
         if (string.Equals(sensor.Category, "gpu", StringComparison.OrdinalIgnoreCase))
             return (FanRole.GpuFan, FanDetectionConfidence.Confirmed, "Fan sensor belongs to a GPU hardware node.");
+
+        string hardware = Normalize(sensor.Hardware);
+        if (ContainsAny(hardware, "corsair commander", "aquaero", "aquacomputer", "nzxt", "l-connect", "lian li", "arctic fan controller"))
+            return (FanRole.ExternalControllerFan, FanDetectionConfidence.High, "Fan sensor belongs to a recognized external fan/controller hardware node.");
 
         if (ContainsAny(name, "pump", "aio pump", "water pump"))
             return (FanRole.Pump, FanDetectionConfidence.High, "Fan sensor name identifies a pump channel.");

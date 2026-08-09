@@ -14,6 +14,7 @@ public class LibreHardwareMonitorFanControlContractTests
 
         Assert.Contains("Control", sensorProperties);
         Assert.Contains("Identifier", sensorProperties);
+        Assert.Contains("Index", sensorProperties);
         Assert.Contains("SetDefault", controlMethods);
         Assert.Contains("SetSoftware", controlMethods);
         Assert.Contains("MinSoftwareValue", controlProperties);

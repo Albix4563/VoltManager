@@ -75,7 +75,7 @@ public class MonitorService : IDisposable
             : snapshot.ByPid;
     }
 
-    public MonitorService()
+    public MonitorService(IHardwareAccess? hardwareAccess = null)
     {
         // No WMI/GetSystemInfo on the startup path: cores + RAM from free OS APIs.
         _ramTotalGb = HardwareInfoService.ReadInstalledRamGb();
@@ -84,7 +84,7 @@ public class MonitorService : IDisposable
             ? 10
             : _ramTotalGb < 16 || cores <= 4 ? 6 : 3;
         _gpu = new GpuCounterProvider();
-        _sensors = new HardwareSensorProvider();
+        _sensors = new HardwareSensorProvider(hardwareAccess);
         _cpuCounter = TryCreate("Processor", "% Processor Time", "_Total");
         _diskCounter = TryCreate("PhysicalDisk", "% Disk Time", "_Total");
         _cpuCounter?.NextValue(); // prime: first NextValue() always returns 0
@@ -202,6 +202,7 @@ public class MonitorService : IDisposable
 
             Latest = new MetricsSnapshot
             {
+                TimestampUtc = DateTime.UtcNow,
                 Cpu = Math.Round(cpu, 1),
                 Gpu = gpu,
                 GpuAvailable = _gpu.GpuAvailable,

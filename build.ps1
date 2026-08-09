@@ -7,9 +7,10 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $root                 = Split-Path -Parent $MyInvocation.MyCommand.Path
-$publishDir           = Join-Path $root 'publish'
-$supervisorPublishDir = Join-Path $root 'publish-supervisor'
-$distDir              = Join-Path $root 'dist'
+$publishDir              = Join-Path $root 'publish'
+$supervisorPublishDir    = Join-Path $root 'publish-supervisor'
+$hardwareServicePublishDir = Join-Path $root 'publish-hardware-service'
+$distDir                 = Join-Path $root 'dist'
 $setupDir             = Join-Path $root 'src\VoltManager.Setup'
 $payloadDir           = Join-Path $setupDir 'Payload'
 
@@ -44,10 +45,29 @@ if ($LASTEXITCODE -ne 0) { throw 'Supervisor publish failed.' }
     -Source $supervisorPublishDir `
     -Destination $publishDir
 Remove-Item -Recurse -Force $supervisorPublishDir
-Write-Host ("Published app + supervisor to: " + $publishDir) -ForegroundColor Green
 
-# 2b. Jump-list helper (net48, asInvoker) copied next to the main exe
-Write-Host '[2b]  dotnet build VoltManager.PlanSwitch' -ForegroundColor Cyan
+# 2b. Publish the isolated hardware service as a self-contained single file.
+# The app only enables software fan writes when this process is available.
+Write-Host '[2b]  dotnet publish hardware service' -ForegroundColor Cyan
+if (Test-Path $hardwareServicePublishDir) { Remove-Item -Recurse -Force $hardwareServicePublishDir }
+dotnet publish (Join-Path $root 'src\VoltManager.HardwareService\VoltManager.HardwareService.csproj') `
+    -c Release -r win-x64 --self-contained true `
+    -p:PublishSingleFile=true `
+    -p:PublishReadyToRun=true `
+    -p:IncludeNativeLibrariesForSelfExtract=true `
+    -p:Version=$Version `
+    -p:AssemblyVersion="$Version.0" `
+    -p:FileVersion="$Version.0" `
+    -o $hardwareServicePublishDir
+if ($LASTEXITCODE -ne 0) { throw 'Hardware service publish failed.' }
+& (Join-Path $root 'scripts\Copy-HardwareServicePayload.ps1') `
+    -Source $hardwareServicePublishDir `
+    -Destination $publishDir
+Remove-Item -Recurse -Force $hardwareServicePublishDir
+Write-Host ("Published app + supervisor + hardware service to: " + $publishDir) -ForegroundColor Green
+
+# 2c. Jump-list helper (net48, asInvoker) copied next to the main exe
+Write-Host '[2c]  dotnet build VoltManager.PlanSwitch' -ForegroundColor Cyan
 $planSwitchOut = Join-Path $root 'publish-planswitch'
 if (Test-Path $planSwitchOut) { Remove-Item -Recurse -Force $planSwitchOut }
 dotnet build (Join-Path $root 'src\VoltManager.PlanSwitch\VoltManager.PlanSwitch.csproj') `

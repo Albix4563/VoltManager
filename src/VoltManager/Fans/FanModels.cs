@@ -93,6 +93,7 @@ public sealed record FanTelemetry
 public sealed record FanTemperatureSensor
 {
     public string Id { get; init; } = "";
+    public string? HardwareIdentifier { get; init; }
     public string Hardware { get; init; } = "";
     public string Category { get; init; } = "";
     public string Name { get; init; } = "";
@@ -107,6 +108,7 @@ public sealed record FanDevice
     public string HardwareName { get; init; } = "";
     public string SensorName { get; init; } = "";
     public string? HeaderName { get; init; }
+    public string? ControlIdentifier { get; init; }
     public string DisplayName { get; init; } = "";
     public string? UserName { get; init; }
     public int? ChannelIndex { get; init; }
@@ -114,6 +116,7 @@ public sealed record FanDevice
     public FanDetectionConfidence RoleConfidence { get; init; }
     public string RoleEvidence { get; init; } = "";
     public FanControlState ControlState { get; init; }
+    public string? SafetyReason { get; init; }
     public FanCapabilities Capabilities { get; init; } = FanCapabilities.MonitorOnly;
     public FanTelemetry Telemetry { get; init; } = new();
     public List<FanTemperatureSensor> AvailableTemperatureSensors { get; init; } = new();
@@ -123,6 +126,7 @@ public sealed record FanExternalSoftwareNotice
 {
     public string SoftwareName { get; init; } = "";
     public string ProcessName { get; init; } = "";
+    public string? ServiceName { get; init; }
     public FanConflictConfidence Confidence { get; init; }
     public string Evidence { get; init; } = "";
     public bool BlocksControl { get; init; }
@@ -133,7 +137,7 @@ public sealed record FanTopology
     public string Revision { get; init; } = "none";
     public DateTime GeneratedAtUtc { get; init; } = DateTime.UtcNow;
     public bool SensorsAvailable { get; init; }
-    public bool AnyControlAvailable => Devices.Any(x => x.Capabilities.ControlWritable);
+    public bool AnyControlAvailable => Devices.Any(x => x.ControlState == FanControlState.ControlAvailable);
     public List<FanDevice> Devices { get; init; } = new();
     public List<FanExternalSoftwareNotice> ExternalSoftware { get; init; } = new();
 }
@@ -148,8 +152,16 @@ public sealed class FanConfiguration
 {
     public FanMode Mode { get; set; } = FanMode.Automatic;
     public string? SensorId { get; set; }
+    public FanTemperatureSensorHint? SensorHint { get; set; }
     public double? FixedControlPercent { get; set; }
     public List<FanCurvePoint> Curve { get; set; } = new();
+}
+
+public sealed class FanTemperatureSensorHint
+{
+    public string? Hardware { get; set; }
+    public string? Category { get; set; }
+    public string? Name { get; set; }
 }
 
 public sealed class FanMatchHints
@@ -199,6 +211,8 @@ public sealed record FanProfileCompatibilityItem
     public FanProfileMatchStatus Status { get; init; }
     public string? MatchedFanId { get; init; }
     public List<string> CandidateFanIds { get; init; } = new();
+    public string? MatchedSensorId { get; init; }
+    public List<string> CandidateSensorIds { get; init; } = new();
     public string Reason { get; init; } = "";
 }
 
@@ -220,6 +234,80 @@ public sealed record FanProfileSummary
 }
 
 public sealed record FanProfileValidationResult(bool Valid, IReadOnlyList<string> Errors);
+
+public sealed record FanSafetyPolicyInfo
+{
+    public double RampStartTemperature { get; init; }
+    public double StrongRampTemperature { get; init; }
+    public double EmergencyTemperature { get; init; }
+    public bool FanStopRequiresExplicitBackendSupport { get; init; } = true;
+    public bool CurveMustBeMonotonic { get; init; } = true;
+}
+
+public sealed record FanConfigurationPreview
+{
+    public bool Valid { get; init; }
+    public string FanId { get; init; } = "";
+    public double? ReferenceTemperature { get; init; }
+    public double? RequestedControlPercent { get; init; }
+    public double? EffectiveControlPercent { get; init; }
+    public bool SafetyOverrideActive { get; init; }
+    public List<string> Warnings { get; init; } = new();
+    public List<string> Errors { get; init; } = new();
+}
+
+public sealed record FanApplyResult
+{
+    public bool Success { get; init; }
+    public string Code { get; init; } = "";
+    public string Message { get; init; } = "";
+    public string FanId { get; init; } = "";
+    public FanMode Mode { get; init; }
+    public double? AppliedControlPercent { get; init; }
+    public bool SafetyOverrideActive { get; init; }
+}
+
+public sealed record FanControlSessionSnapshot
+{
+    public string FanId { get; init; } = "";
+    public FanMode Mode { get; init; }
+    public string? SensorId { get; init; }
+    public FanConfiguration? Configuration { get; init; }
+    public double? LastAppliedControlPercent { get; init; }
+    public DateTime LastUpdatedUtc { get; init; }
+    public string Status { get; init; } = "";
+}
+
+public sealed record FanControlRuntimeState
+{
+    public DateTime UpdatedAtUtc { get; init; } = DateTime.UtcNow;
+    public List<FanControlSessionSnapshot> Sessions { get; init; } = new();
+    public string? LastError { get; init; }
+}
+
+public sealed class FanProfileApplyMapping
+{
+    public string ProfileFanId { get; set; } = "";
+    public string LocalFanId { get; set; } = "";
+    public string? LocalSensorId { get; set; }
+}
+
+public sealed class FanProfileSaveRequest
+{
+    public string? ProfileId { get; set; }
+    public string Name { get; set; } = "";
+    public Dictionary<string, FanConfiguration> Configurations { get; set; } = new(StringComparer.Ordinal);
+    public List<FanProfileGroup> Groups { get; set; } = new();
+    public Dictionary<string, string> UiPreferences { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+}
+
+public sealed record FanProfileApplyResult
+{
+    public bool Success { get; init; }
+    public string Code { get; init; } = "";
+    public string Message { get; init; } = "";
+    public List<FanApplyResult> FanResults { get; init; } = new();
+}
 
 public static class FanProfileValidator
 {

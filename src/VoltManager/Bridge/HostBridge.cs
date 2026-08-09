@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Win32;
 using Microsoft.Web.WebView2.Wpf;
+using VoltManager.Fans;
 using VoltManager.Localization;
 using VoltManager.Models;
 using VoltManager.Services;
@@ -95,6 +96,7 @@ public class HostBridge
         _app.AppProfiles.ActivityChanged += state => PushEvent("appPowerProfileActivityChanged", state);
         _app.PowerPlanConflictDetected += notice => PushEvent("powerPlanConflictDetected", notice);
         _app.StandbyAutoCleaner.AutoCleaned += freshMem => PushEvent("standbyAutoCleaned", freshMem);
+        _app.Fans.ControlStateChanged += state => PushEvent("fanControlChanged", state);
     }
 
     private bool _pushEventFaulted;
@@ -168,8 +170,51 @@ public class HostBridge
                 return await Task.Run(() => _hardware.GetSystemInfo());
 
             case "getFanTopology":
-                // Uses Monitor.Latest only; this does not open another hardware monitor or write to fan controllers.
                 return await Task.Run(() => _app.Fans.GetTopology());
+
+            case "getFanControlState":
+                return _app.Fans.ControlState;
+
+            case "getFanSafetyPolicy":
+                return _app.Fans.SafetyPolicyInfo;
+
+            case "getFanPresets":
+            {
+                string fanId = payload.GetProperty("fanId").GetString() ?? "";
+                return await Task.Run(() => _app.Fans.GetPresets(fanId));
+            }
+
+            case "previewFanConfiguration":
+            {
+                string fanId = payload.GetProperty("fanId").GetString() ?? "";
+                FanConfiguration configuration = payload.GetProperty("configuration").Deserialize<FanConfiguration>(JsonOpts)
+                    ?? throw new ArgumentException("Fan configuration payload is required.");
+                return await Task.Run(() => _app.Fans.PreviewConfiguration(fanId, configuration));
+            }
+
+            case "applyFanConfiguration":
+            {
+                string topologyRevision = payload.GetProperty("topologyRevision").GetString() ?? "";
+                string fanId = payload.GetProperty("fanId").GetString() ?? "";
+                FanConfiguration configuration = payload.GetProperty("configuration").Deserialize<FanConfiguration>(JsonOpts)
+                    ?? throw new ArgumentException("Fan configuration payload is required.");
+                return await Task.Run(() => _app.Fans.ApplyConfiguration(topologyRevision, fanId, configuration));
+            }
+
+            case "restoreFanDefault":
+            {
+                string fanId = payload.GetProperty("fanId").GetString() ?? "";
+                return await Task.Run(() => _app.Fans.RestoreDefault(fanId));
+            }
+
+            case "applyFanGroupConfiguration":
+            {
+                string topologyRevision = payload.GetProperty("topologyRevision").GetString() ?? "";
+                List<string> fanIds = payload.GetProperty("fanIds").Deserialize<List<string>>(JsonOpts) ?? new List<string>();
+                FanConfiguration configuration = payload.GetProperty("configuration").Deserialize<FanConfiguration>(JsonOpts)
+                    ?? throw new ArgumentException("Fan configuration payload is required.");
+                return await Task.Run(() => _app.Fans.ApplyGroupConfiguration(topologyRevision, fanIds, configuration));
+            }
 
             case "renameFan":
             {
@@ -193,6 +238,22 @@ public class HostBridge
             {
                 string name = payload.GetProperty("name").GetString() ?? "";
                 return await Task.Run(() => _app.Fans.SaveCurrentProfile(name));
+            }
+
+            case "saveFanProfile":
+            {
+                FanProfileSaveRequest request = payload.Deserialize<FanProfileSaveRequest>(JsonOpts)
+                    ?? throw new ArgumentException("Fan profile payload is required.");
+                return await Task.Run(() => _app.Fans.SaveProfile(request));
+            }
+
+            case "applyFanProfile":
+            {
+                string profileId = payload.GetProperty("profileId").GetString() ?? "";
+                List<FanProfileApplyMapping>? mappings = payload.TryGetProperty("mappings", out JsonElement mappingElement)
+                    ? mappingElement.Deserialize<List<FanProfileApplyMapping>>(JsonOpts)
+                    : null;
+                return await Task.Run(() => _app.Fans.ApplyProfile(profileId, mappings));
             }
 
             case "renameFanProfile":

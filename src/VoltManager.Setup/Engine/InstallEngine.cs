@@ -298,7 +298,7 @@ namespace VoltManager.Setup.Engine
 
         private static bool StopRunningInstalledProcesses(string installDir)
         {
-            foreach (string processName in new[] { "VoltManager.Supervisor", "VoltManager" })
+            foreach (string processName in new[] { "VoltManager.HardwareService", "VoltManager.Supervisor", "VoltManager" })
             {
                 foreach (Process process in Process.GetProcessesByName(processName))
                 {
@@ -324,7 +324,8 @@ namespace VoltManager.Setup.Engine
 
             Thread.Sleep(300);
             return !AnyProcessRunningFromDirectory("VoltManager", installDir) &&
-                   !AnyProcessRunningFromDirectory("VoltManager.Supervisor", installDir);
+                   !AnyProcessRunningFromDirectory("VoltManager.Supervisor", installDir) &&
+                   !AnyProcessRunningFromDirectory("VoltManager.HardwareService", installDir);
         }
 
         private static bool AnyProcessRunningFromDirectory(string processName, string directory)

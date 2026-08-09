@@ -4,161 +4,28 @@ using VoltManager.Models;
 namespace VoltManager.Services;
 
 /// <summary>
-/// Temperature/fan sensors via LibreHardwareMonitor. Init is async (ring0 driver
-/// load can take seconds); Read() serves a cached report refreshed at most every
-/// <see cref="UpdateIntervalSeconds"/> because LHM updates (SMART, SuperIO) are
-/// far heavier than perf counters. Degrades to Available=false, never throws.
+/// Monitoring facade over the shared HardwareAccessCoordinator. When created
+/// standalone it owns a coordinator; the application injects one shared instance
+/// so monitoring and fan control never open competing LibreHardwareMonitor sessions.
 /// </summary>
-public class HardwareSensorProvider : IDisposable
+public sealed class HardwareSensorProvider : IDisposable
 {
-    private const int UpdateIntervalSeconds = 3;
+    private readonly IHardwareAccess _access;
+    private readonly bool _ownsAccess;
 
-    private Computer? _computer;
-    private SensorReport _last = SensorReport.Empty;
-    private DateTime _lastUpdateUtc = DateTime.MinValue;
-    private readonly object _gate = new();
-    private volatile bool _ready;
-    private bool _disposed;
-    private bool _readFaulted; // throttles per-update read-failure logging
+    public bool Available => _access.Available;
 
-    public bool Available { get; private set; }
-
-    public HardwareSensorProvider()
+    public HardwareSensorProvider(IHardwareAccess? access = null)
     {
-        Task.Run(InitComputer);
+        _ownsAccess = access == null;
+        _access = access ?? new HardwareAccessCoordinator();
     }
 
-    private void InitComputer()
-    {
-        try
-        {
-            var computer = new Computer
-            {
-                IsCpuEnabled = true,
-                IsGpuEnabled = true,
-                IsMotherboardEnabled = true,
-                IsStorageEnabled = true,
-                IsControllerEnabled = true,
-                IsMemoryEnabled = true,
-            };
-            computer.Open();
-            lock (_gate)
-            {
-                if (_disposed)
-                {
-                    TryClose(computer);
-                    return;
-                }
-                _computer = computer;
-                Available = true;
-                _ready = true;
-            }
-        }
-        catch (Exception ex)
-        {
-            // VM, blocked driver, etc.: sensors stay unavailable. One-shot init,
-            // so log once — explains why temp/clock badges show N/D.
-            Logger.Warn("Hardware sensors unavailable: " + ex.Message);
-        }
-    }
-
-    public SensorReport Read()
-    {
-        if (!_ready) return _last;
-        lock (_gate)
-        {
-            if (_computer == null) return _last;
-            if ((DateTime.UtcNow - _lastUpdateUtc).TotalSeconds < UpdateIntervalSeconds) return _last;
-            _lastUpdateUtc = DateTime.UtcNow;
-            try
-            {
-                var readings = new List<SensorReading>();
-                foreach (var hardware in _computer.Hardware)
-                {
-                    hardware.Update();
-                    Collect(hardware, readings);
-                    foreach (var sub in hardware.SubHardware)
-                    {
-                        sub.Update();
-                        Collect(sub, readings);
-                    }
-                }
-                _last = new SensorReport
-                {
-                    CpuTemp = SensorAggregation.SelectCpuTemp(readings),
-                    GpuTemp = SensorAggregation.SelectGpuTemp(readings),
-                    CpuClock = SensorAggregation.SelectCpuClock(readings),
-                    RamClock = SensorAggregation.SelectRamClock(readings),
-                    Readings = readings,
-                };
-                _readFaulted = false;
-            }
-            catch (Exception ex)
-            {
-                // Keep last good report; never break the metrics loop. Log the
-                // first failure of a streak so a persistent sensor fault is visible.
-                _readFaulted = Logger.WarnOnce(_readFaulted, "Sensor update failed", ex);
-            }
-            return _last;
-        }
-    }
-
-    private static void Collect(IHardware hardware, List<SensorReading> readings)
-    {
-        string category = SensorAggregation.MapCategory(hardware.HardwareType);
-        foreach (var sensor in hardware.Sensors)
-        {
-            if (sensor.Value is not { } value || float.IsNaN(value)) continue;
-            string type = sensor.SensorType switch
-            {
-                SensorType.Temperature => "temp",
-                SensorType.Fan => "fan",
-                SensorType.Clock => "clock",
-                _ => "",
-            };
-            if (type.Length == 0) continue;
-            if (!SensorAggregation.IsLiveReading(type, sensor.Name, value)) continue;
-
-            // A writable control is only considered related when LibreHardwareMonitor
-            // exposes it directly on this exact fan sensor. Never pair fan/control
-            // channels by list position or by a guessed header index.
-            IControl? control = sensor.SensorType == SensorType.Fan ? sensor.Control : null;
-            bool softwareMode = control?.ControlMode == ControlMode.Software;
-
-            readings.Add(new SensorReading
-            {
-                Identifier = sensor.Identifier.ToString(),
-                Hardware = hardware.Name,
-                Category = category,
-                Name = sensor.Name,
-                Type = type,
-                Value = Math.Round(value, type == "clock" ? 0 : (type == "temp" ? 1 : 0)),
-                ControlAvailable = control != null,
-                ControlMode = control?.ControlMode.ToString(),
-                ControlPercent = softwareMode ? Math.Round(control!.SoftwareValue, 1) : null,
-                ControlMin = control != null ? Math.Round(control.MinSoftwareValue, 1) : null,
-                ControlMax = control != null ? Math.Round(control.MaxSoftwareValue, 1) : null,
-            });
-        }
-    }
-
-    private static void TryClose(Computer computer)
-    {
-        try { computer.Close(); } catch { }
-    }
+    public SensorReport Read() => _access.Read();
 
     public void Dispose()
     {
-        lock (_gate)
-        {
-            _disposed = true;
-            _ready = false;
-            if (_computer != null)
-            {
-                TryClose(_computer);
-                _computer = null;
-            }
-        }
+        if (_ownsAccess) _access.Dispose();
     }
 }
 
@@ -185,10 +52,9 @@ public static class SensorAggregation
         _ => "motherboard", // Motherboard, SuperIO, EmbeddedController, coolers...
     };
 
-    // Failed reads surface as 0 °C (e.g. Lucienne APUs where LHM cannot read the
-    // SMU), and NVMe "Warning/Critical Temperature" are static thresholds, not
-    // live data. Both would mislead the dashboard. 0 RPM stays: stopped fan is real.
-    // 0 MHz clocks are also non-live (parked reporting / failed read).
+    // Failed reads surface as 0 °C (e.g. APUs where the source cannot read a
+    // sensor), and warning/critical temperatures are static thresholds, not live
+    // data. 0 RPM stays because a stopped fan can be a valid live reading.
     public static bool IsLiveReading(string type, string name, float value)
     {
         if (type == "temp")
@@ -264,7 +130,6 @@ public static class SensorAggregation
     public static double? EffectiveCpuMhz(double baseMhz, double processorPerformancePct)
     {
         if (baseMhz <= 0 || processorPerformancePct <= 0) return null;
-        // Cap at 10x base — guards against counter glitches, covers extreme turbo.
         double mhz = baseMhz * (processorPerformancePct / 100.0);
         if (mhz < 100 || mhz > baseMhz * 10) return null;
         return Math.Round(mhz, 0);

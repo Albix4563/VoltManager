@@ -5,6 +5,7 @@ using System.Windows;
 using System.Windows.Shell;
 using System.Windows.Threading;
 using Microsoft.Web.WebView2.Core;
+using Microsoft.Win32;
 using VoltManager.Fans;
 using VoltManager.Localization;
 using VoltManager.Models;
@@ -26,6 +27,7 @@ public partial class App : Application
     public SettingsService Settings { get; private set; } = null!;
     public PowerPlanService Power { get; private set; } = null!;
     public PowerAwakeService Awake { get; private set; } = null!;
+    public IHardwareAccess HardwareAccess { get; private set; } = null!;
     public MonitorService Monitor { get; private set; } = null!;
     public FanManagementService Fans { get; private set; } = null!;
     public UpdateService Updates { get; private set; } = null!;
@@ -152,8 +154,11 @@ public partial class App : Application
         Theme.SetTheme(Settings.Current.ThemeColor);
         Power = new PowerPlanService(Settings);
         Awake = new PowerAwakeService(Settings);
-        Monitor = new MonitorService();
-        Fans = new FanManagementService(Monitor);
+        HardwareAccess = (IHardwareAccess?)HardwareServiceClient.TryStart()
+            ?? new HardwareAccessCoordinator(controlWritesAllowed: false);
+        Monitor = new MonitorService(HardwareAccess);
+        Fans = new FanManagementService(Monitor, HardwareAccess);
+        SystemEvents.PowerModeChanged += OnSystemPowerModeChanged;
         Mark("MonitorService");
         Updates = new UpdateService(Settings);
         AutoStart = new StartupService();
@@ -917,6 +922,26 @@ public partial class App : Application
         _ => "",
     };
 
+    private void OnSystemPowerModeChanged(object sender, PowerModeChangedEventArgs e)
+    {
+        try
+        {
+            if (e.Mode == PowerModes.Suspend)
+            {
+                Fans.SuspendControl();
+            }
+            else if (e.Mode == PowerModes.Resume)
+            {
+                HardwareAccess.Invalidate();
+                Fans.ResumeControl();
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn("Fan suspend/resume handling failed: " + ex.Message);
+        }
+    }
+
     public void ExitApp()
     {
         // Each step is independent: one failing teardown must not skip the
@@ -925,7 +950,10 @@ public partial class App : Application
         SafeCleanup("metrics handler", () => Monitor.MetricsUpdated -= OnMetricsSampled);
         SafeCleanup("plan poll timer", () => _planPollTimer?.Dispose());
         SafeCleanup("battery history timer", () => _batteryHistoryTimer?.Dispose());
+        SafeCleanup("power mode handler", () => SystemEvents.PowerModeChanged -= OnSystemPowerModeChanged);
+        SafeCleanup("fan management", Fans.Dispose);
         SafeCleanup("monitor", Monitor.Dispose);
+        SafeCleanup("hardware access", HardwareAccess.Dispose);
         SafeCleanup("heavy apps", HeavyApps.Dispose);
         SafeCleanup("app profiles", AppProfiles.Dispose);
         SafeCleanup("keep awake", Awake.Dispose);

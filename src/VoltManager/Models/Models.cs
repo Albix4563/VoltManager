@@ -26,6 +26,7 @@ public enum PlanId
 
 public record MetricsSnapshot
 {
+    [JsonPropertyName("timestampUtc")] public DateTime TimestampUtc { get; init; } = DateTime.UtcNow;
     [JsonPropertyName("cpu")] public double Cpu { get; init; }
     [JsonPropertyName("gpu")] public double Gpu { get; init; }
     [JsonPropertyName("gpuAvailable")] public bool GpuAvailable { get; init; }
@@ -50,6 +51,7 @@ public record SensorReading
     [JsonPropertyName("type")] public string Type { get; init; } = "";          // temp|fan
     [JsonPropertyName("value")] public double Value { get; init; }
     [JsonPropertyName("controlAvailable")] public bool ControlAvailable { get; init; }
+    [JsonPropertyName("controlIdentifier")] public string? ControlIdentifier { get; init; }
     [JsonPropertyName("controlMode")] public string? ControlMode { get; init; }
     [JsonPropertyName("controlPercent")] public double? ControlPercent { get; init; }
     [JsonPropertyName("controlMin")] public double? ControlMin { get; init; }

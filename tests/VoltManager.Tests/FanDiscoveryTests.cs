@@ -58,7 +58,7 @@ public class FanDiscoveryTests
     }
 
     [Fact]
-    public void BuildTopology_reports_direct_lhm_control_telemetry_but_keeps_writes_safety_blocked()
+    public void BuildTopology_reports_lhm_control_capability_but_blocks_zero_minimum_without_fan_stop_semantics()
     {
         var metrics = new MetricsSnapshot
         {
@@ -74,22 +74,109 @@ public class FanDiscoveryTests
                     Type = "fan",
                     Value = 1350,
                     ControlAvailable = true,
+                    ControlIdentifier = "/lpc/nct6798d/control/0",
                     ControlMode = "Software",
                     ControlPercent = 52,
                     ControlMin = 0,
                     ControlMax = 100,
-                }
+                },
+                new() { Identifier = "/cpu/temp/0", Hardware = "CPU", Category = "cpu", Name = "CPU Package", Type = "temp", Value = 61 },
             }
         };
 
         var fan = Assert.Single(new FanDiscoveryService().BuildTopology(metrics).Devices);
 
         Assert.True(fan.Capabilities.ControlReadable);
-        Assert.False(fan.Capabilities.ControlWritable);
+        Assert.True(fan.Capabilities.ControlWritable);
         Assert.True(fan.Capabilities.CanRestoreDefault);
         Assert.Equal(52, fan.Telemetry.ControlPercent);
         Assert.Equal(FanControlState.SafetyBlocked, fan.ControlState);
+        Assert.Equal("/lpc/nct6798d/control/0", fan.ControlIdentifier);
         Assert.Contains("lpc/nct6798d/fan/0", fan.HardwareId, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void BuildTopology_reacts_dynamically_when_isolated_control_transport_becomes_unavailable()
+    {
+        bool writesAllowed = true;
+        var discovery = new FanDiscoveryService(() => writesAllowed);
+        var metrics = new MetricsSnapshot
+        {
+            SensorsAvailable = true,
+            Sensors = new List<SensorReading>
+            {
+                new() { Identifier = "/fan/0", ControlIdentifier = "/control/0", Hardware = "Board", Category = "motherboard", Name = "CPU Fan", Type = "fan", Value = 1200, ControlAvailable = true, ControlMin = 25, ControlMax = 100 },
+                new() { Identifier = "/cpu/temp/0", Hardware = "CPU", Category = "cpu", Name = "CPU Package", Type = "temp", Value = 60 },
+            }
+        };
+
+        Assert.True(Assert.Single(discovery.BuildTopology(metrics).Devices).Capabilities.ControlWritable);
+        writesAllowed = false;
+        FanDevice degraded = Assert.Single(discovery.BuildTopology(metrics).Devices);
+
+        Assert.False(degraded.Capabilities.ControlWritable);
+        Assert.Equal(FanControlState.MonitorOnly, degraded.ControlState);
+    }
+
+    [Fact]
+    public void BuildTopology_degrades_control_to_read_only_when_isolated_hardware_service_is_unavailable()
+    {
+        var metrics = new MetricsSnapshot
+        {
+            SensorsAvailable = true,
+            Sensors = new List<SensorReading>
+            {
+                new() { Identifier = "/fan/0", ControlIdentifier = "/control/0", Hardware = "Board", Category = "motherboard", Name = "CPU Fan", Type = "fan", Value = 1200, ControlAvailable = true, ControlMin = 25, ControlMax = 100 },
+                new() { Identifier = "/cpu/temp/0", Hardware = "CPU", Category = "cpu", Name = "CPU Package", Type = "temp", Value = 60 },
+            }
+        };
+
+        var fan = Assert.Single(new FanDiscoveryService(allowSoftwareControl: false).BuildTopology(metrics).Devices);
+
+        Assert.False(fan.Capabilities.ControlWritable);
+        Assert.False(fan.Capabilities.SoftwareCurveSupported);
+        Assert.False(fan.Capabilities.CanRestoreDefault);
+        Assert.Equal(FanControlState.MonitorOnly, fan.ControlState);
+        Assert.Contains("readonly", fan.Capabilities.Backend, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void BuildTopology_marks_writable_fan_sensor_unavailable_when_thermal_telemetry_is_stale()
+    {
+        var metrics = new MetricsSnapshot
+        {
+            TimestampUtc = DateTime.UtcNow - TimeSpan.FromSeconds(20),
+            SensorsAvailable = true,
+            Sensors = new List<SensorReading>
+            {
+                new() { Identifier = "/fan/0", ControlIdentifier = "/control/0", Hardware = "Board", Category = "motherboard", Name = "CPU Fan", Type = "fan", Value = 1200, ControlAvailable = true, ControlMin = 25, ControlMax = 100 },
+                new() { Identifier = "/cpu/temp/0", Hardware = "CPU", Category = "cpu", Name = "CPU Package", Type = "temp", Value = 60 },
+            }
+        };
+
+        var fan = Assert.Single(new FanDiscoveryService().BuildTopology(metrics).Devices);
+
+        Assert.Equal(FanControlState.SensorUnavailable, fan.ControlState);
+        Assert.True(fan.Telemetry.IsStale);
+        Assert.Contains("stale", fan.SafetyReason!, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void BuildTopology_marks_writable_fan_sensor_unavailable_when_no_temperature_source_exists()
+    {
+        var metrics = new MetricsSnapshot
+        {
+            SensorsAvailable = true,
+            Sensors = new List<SensorReading>
+            {
+                new() { Identifier = "/fan/0", ControlIdentifier = "/control/0", Hardware = "Board", Category = "motherboard", Name = "SYS_FAN1", Type = "fan", Value = 900, ControlAvailable = true, ControlMin = 25, ControlMax = 100 },
+            }
+        };
+
+        var fan = Assert.Single(new FanDiscoveryService().BuildTopology(metrics).Devices);
+
+        Assert.Equal(FanControlState.SensorUnavailable, fan.ControlState);
+        Assert.Contains("temperature", fan.SafetyReason!, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
