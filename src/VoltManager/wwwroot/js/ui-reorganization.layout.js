@@ -286,11 +286,12 @@
 
     api.positionIndicator = function (link) {
         const indicator = api.el('nav-indicator');
-        const list = api.el('nav-list');
-        if (!indicator || !list || !link) return;
-        const listRect = list.getBoundingClientRect();
+        if (!indicator || !link) return;
+        const parent = indicator.offsetParent || indicator.parentElement;
+        if (!parent) return;
+        const parentRect = parent.getBoundingClientRect();
         const linkRect = link.getBoundingClientRect();
-        indicator.style.top = (linkRect.top - listRect.top) + 'px';
+        indicator.style.top = (linkRect.top - parentRect.top) + 'px';
         indicator.style.height = linkRect.height + 'px';
     };
 })();
