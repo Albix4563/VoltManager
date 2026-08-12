@@ -15,14 +15,22 @@
   <img src="https://img.shields.io/badge/Architecture-x64-555555" alt="Architecture" />
   <img src="https://img.shields.io/badge/Lingue-IT%20%2F%20EN%20%2F%20ES%20%2F%20ZH-orange" alt="Languages" />
   <img src="https://img.shields.io/badge/.NET-8-512BD4?logo=dotnet&logoColor=white" alt=".NET" />
+  <a href="https://voltmanager.freebuff.app/"><img src="https://img.shields.io/badge/Sito%20ufficiale-voltmanager.freebuff.app-512BD4?logo=globe&logoColor=white" alt="Sito ufficiale" /></a>
 </p>
 
 <p align="center">
+  <a href="#sito-ufficiale">Sito ufficiale</a> ·
   <a href="#installazione">Installazione</a> ·
   <a href="#cosa-puoi-fare">Cosa puoi fare</a> ·
   <a href="#primo-avvio">Primo avvio</a> ·
   <a href="#risoluzione-dei-problemi">Problemi comuni</a>
 </p>
+
+---
+
+## Sito ufficiale
+
+Il sito ufficiale dell'app è **[https://voltmanager.freebuff.app/](https://voltmanager.freebuff.app/)** — fonte ufficiale per download, informazioni e novità su VoltManager.
 
 ---
 
@@ -80,6 +88,8 @@ Non serve essere esperti di sistemi: le funzioni automatiche sono opzionali e si
 ---
 
 ## Installazione
+
+> 💡 **Download ufficiale:** la pagina ufficiale dell'app è [voltmanager.freebuff.app](https://voltmanager.freebuff.app/); i file firmati sono disponibili anche dalla pagina [Releases](../../releases).
 
 ### Installer (consigliato)
 
