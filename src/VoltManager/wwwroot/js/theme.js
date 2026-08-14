@@ -72,5 +72,14 @@
         apply,
     };
 
-    apply(document.documentElement.dataset.themeColor);
+    // MainWindow injects ThemeWebState before the HTML document is parsed. Use
+    // that native source of truth for the first paint; the hard-coded Blue data
+    // attribute remains only as a defensive fallback if bootstrap registration
+    // fails or the page is opened outside the desktop host.
+    const bootstrapState = window.__voltThemeState || null;
+    apply(
+        bootstrapState && bootstrapState.themeColor
+            ? bootstrapState.themeColor
+            : document.documentElement.dataset.themeColor,
+        bootstrapState && bootstrapState.palette);
 })();
