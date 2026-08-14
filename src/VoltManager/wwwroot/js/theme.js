@@ -36,8 +36,24 @@
         root.setProperty('--vm-accent-text', palette.onPrimary);
         root.setProperty('--vm-on-accent', palette.onPrimary);
         root.setProperty('--vm-accent-rgb', toRgbChannels(palette.primary));
-        root.setProperty('--md-sys-color-secondary-container', palette.primary);
+
+        // Legacy Material-style tokens are still consumed by the reorganized UI.
+        // Keep them explicitly synchronized so no component can fall back to the
+        // old navy/cyan prototype palette when a non-blue theme is selected.
+        root.setProperty('--md-sys-color-background', palette.background);
+        root.setProperty('--md-sys-color-surface', palette.surface);
+        root.setProperty('--md-sys-color-surface-container-lowest', palette.background);
+        root.setProperty('--md-sys-color-surface-container-low', palette.surface);
+        root.setProperty('--md-sys-color-surface-container', palette.surface);
         root.setProperty('--md-sys-color-surface-container-high', palette.surfaceElevated);
+        root.setProperty('--md-sys-color-surface-container-highest', palette.surfaceElevated);
+        root.setProperty('--md-sys-color-on-surface', palette.text);
+        root.setProperty('--md-sys-color-on-surface-variant', palette.mutedText);
+        root.setProperty('--md-sys-color-outline', palette.border);
+        root.setProperty('--md-sys-color-outline-variant', palette.border);
+        root.setProperty('--md-sys-color-secondary', palette.secondary);
+        root.setProperty('--md-sys-color-secondary-container', palette.primary);
+        root.setProperty('--md-sys-color-on-secondary-container', palette.onPrimary);
     }
 
     function apply(themeColor, palette) {

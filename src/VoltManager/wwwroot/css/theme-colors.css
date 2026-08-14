@@ -17,8 +17,24 @@
     --vm-accent-text: #0f172a;
     --vm-on-accent: #0f172a;
     --vm-accent-rgb: 59 130 246;
-    --md-sys-color-secondary-container: var(--vm-accent);
+
+    /* Compatibility bridge for the reorganized/legacy UI. These semantic
+       aliases must resolve through the active VoltManager palette instead of
+       falling back to the old navy/cyan prototype colors. */
+    --md-sys-color-background: var(--vm-bg);
+    --md-sys-color-surface: var(--vm-surface);
+    --md-sys-color-surface-container-lowest: var(--vm-bg-deep);
+    --md-sys-color-surface-container-low: var(--vm-surface-low);
+    --md-sys-color-surface-container: var(--vm-panel);
     --md-sys-color-surface-container-high: var(--vm-surface-high);
+    --md-sys-color-surface-container-highest: var(--vm-card);
+    --md-sys-color-on-surface: var(--vm-text);
+    --md-sys-color-on-surface-variant: var(--vm-muted);
+    --md-sys-color-outline: var(--vm-border);
+    --md-sys-color-outline-variant: var(--vm-border);
+    --md-sys-color-secondary: var(--vm-accent-dim);
+    --md-sys-color-secondary-container: var(--vm-accent);
+    --md-sys-color-on-secondary-container: var(--vm-on-accent);
     color-scheme: dark;
 }
 
@@ -147,6 +163,21 @@ option {
     color: var(--vm-text) !important;
 }
 
+/* The legacy select arrows are inline cyan SVGs. A two-gradient chevron keeps
+   the same affordance while inheriting the selected theme color. */
+#lang-select,
+#font-select,
+#welcome-lang-select {
+    background-image:
+        linear-gradient(45deg, transparent 50%, var(--vm-accent-dim) 50%),
+        linear-gradient(135deg, var(--vm-accent-dim) 50%, transparent 50%) !important;
+    background-position:
+        calc(100% - 17px) 50%,
+        calc(100% - 12px) 50% !important;
+    background-size: 5px 5px, 5px 5px !important;
+    background-repeat: no-repeat !important;
+}
+
 .toggle-checkbox:checked + .toggle-label,
 .toggle-large:checked + .toggle-label-large,
 .mini-toggle[data-on=true] {
@@ -182,6 +213,156 @@ option {
 
 .btn-ghost:hover {
     background: rgb(var(--vm-accent-rgb) / .12) !important;
+}
+
+/* Reorganized navigation and the old power sub-navigation both remain mounted
+   in parts of the application. Their containers must use semantic surfaces,
+   never prototype navy/cyan values. */
+.vm-subnav,
+.schedule-mode-tabs,
+.vm-widget-filters {
+    background: color-mix(in srgb, var(--vm-surface) 76%, transparent) !important;
+    border-color: color-mix(in srgb, var(--vm-border) 78%, transparent) !important;
+}
+
+.pm-subnav {
+    background: color-mix(in srgb, var(--vm-surface-high) 92%, transparent) !important;
+    border-color: color-mix(in srgb, var(--vm-border) 72%, transparent) !important;
+}
+
+.pm-seg {
+    color: var(--vm-muted) !important;
+}
+
+.pm-seg:hover {
+    color: var(--vm-text) !important;
+}
+
+.pm-seg.active {
+    background: rgb(var(--vm-accent-rgb) / .12) !important;
+    border-color: rgb(var(--vm-accent-rgb) / .40) !important;
+    color: var(--vm-accent) !important;
+    box-shadow: 0 0 16px rgb(var(--vm-accent-rgb) / .12), inset 0 0 0 1px rgb(var(--vm-accent-rgb) / .08) !important;
+}
+
+.vm-scrim,
+html[data-perf="lite"] .vm-scrim,
+html[data-perf-tier="lite"] .vm-scrim,
+html[data-perf-tier="balanced"] .vm-scrim {
+    background: color-mix(in srgb, var(--vm-bg) 84%, transparent) !important;
+}
+
+/* Desktop widgets are separate WebView pages but receive the same palette.
+   Their old fixed navy shell otherwise remains blue under every theme. */
+.desktop-widget {
+    background:
+        linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,0) 42%),
+        linear-gradient(165deg,
+            color-mix(in srgb, var(--vm-surface-high) 92%, transparent),
+            color-mix(in srgb, var(--vm-bg) 88%, transparent)) !important;
+    border-color: color-mix(in srgb, var(--vm-border) 78%, transparent) !important;
+}
+
+.widget-action {
+    color: var(--vm-muted) !important;
+}
+
+.widget-action:hover,
+.widget-action[data-on=true] {
+    color: var(--vm-accent) !important;
+}
+
+.widget-muted,
+.widget-stat label,
+.calendar-head span,
+.empty-note,
+.calendar-day,
+.plan-option {
+    color: var(--vm-muted) !important;
+}
+
+.plan-option:hover {
+    color: var(--vm-text) !important;
+}
+
+.plan-option.is-active {
+    color: var(--vm-accent) !important;
+}
+
+.calendar-day.is-today {
+    background: var(--vm-accent) !important;
+    color: var(--vm-on-accent) !important;
+}
+
+/* Runtime-injected feature CSS is appended after this stylesheet. The theme
+   bridge therefore owns these theme-sensitive fills with !important while
+   leaving semantic warning/error/success colors untouched. */
+.startup-summary-card {
+    background: linear-gradient(135deg,
+        color-mix(in srgb, var(--vm-surface-high) 72%, transparent),
+        color-mix(in srgb, var(--vm-bg) 62%, transparent)) !important;
+}
+
+.startup-card {
+    background: linear-gradient(135deg,
+        color-mix(in srgb, var(--vm-surface-high) 66%, transparent),
+        color-mix(in srgb, var(--vm-bg) 54%, transparent)) !important;
+}
+
+.startup-card:hover {
+    background: linear-gradient(135deg,
+        color-mix(in srgb, var(--vm-surface-high) 82%, transparent),
+        color-mix(in srgb, var(--vm-bg) 66%, transparent)) !important;
+}
+
+.startup-switch:not([data-state="on"]):not([data-on="true"]) .startup-switch__track {
+    background: linear-gradient(135deg,
+        color-mix(in srgb, var(--vm-surface-high) 92%, var(--vm-muted) 8%),
+        color-mix(in srgb, var(--vm-surface) 92%, transparent)) !important;
+}
+
+.startup-switch:not([data-state="on"]):not([data-on="true"]) .startup-switch__knob {
+    background: linear-gradient(135deg, var(--vm-text), var(--vm-muted)) !important;
+    color: var(--vm-bg-deep) !important;
+}
+
+.startup-switch__label-on {
+    color: var(--vm-on-accent) !important;
+}
+
+.startup-switch[data-state="on"] .startup-switch__knob,
+.startup-switch[data-on="true"] .startup-switch__knob {
+    color: var(--vm-on-accent) !important;
+}
+
+.app-profile-panel,
+.heavy-app-panel,
+.keep-awake-panel {
+    background: linear-gradient(135deg,
+        color-mix(in srgb, var(--vm-surface-high) 82%, transparent),
+        color-mix(in srgb, var(--vm-bg) 68%, transparent)) !important;
+}
+
+#power-plan-conflict-toast {
+    background: linear-gradient(135deg,
+        color-mix(in srgb, var(--vm-surface-high) 96%, transparent),
+        color-mix(in srgb, var(--vm-bg) 96%, transparent)) !important;
+    color: var(--vm-text) !important;
+}
+
+#power-plan-conflict-toast > div > span,
+#power-plan-conflict-toast > button {
+    color: var(--vm-muted) !important;
+}
+
+.adv-col-dc {
+    background: color-mix(in srgb, var(--vm-muted) 10%, transparent) !important;
+    border-color: color-mix(in srgb, var(--vm-muted) 28%, transparent) !important;
+    color: var(--vm-muted) !important;
+}
+
+.adv-slider::-webkit-slider-thumb {
+    background: linear-gradient(135deg, var(--vm-text), var(--vm-muted)) !important;
 }
 
 .ambient-glow,
