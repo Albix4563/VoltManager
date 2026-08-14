@@ -156,6 +156,13 @@ html[data-perf-tier="balanced"] .vm-scrim{
 .side-nav .mt-sm{
   transition: opacity .16s ease, max-width .28s ease, margin .28s ease, padding .28s ease;
 }
+/* Keep nav labels single-line: while the 280ms rail width transition runs the
+   rail is momentarily narrow, and wrapping text would inflate the measured
+   link height, misplacing the glowing nav indicator. */
+.side-nav .nav-item span:not(.material-symbols-outlined),
+.side-nav .nav-section-label{
+  white-space: nowrap;
+}
 
 /* Collapsed rail: icons only, labels tuck away */
 body.sidebar-collapsed .side-nav{

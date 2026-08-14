@@ -846,7 +846,11 @@
         Host.call('minimizeToTray').catch(() => {});
     });
 
-    // Collapsible side rail: icons remain, labels compact away.
+    document.getElementById('side-nav')?.addEventListener('transitionend', (e) => { if (e.target.id === 'side-nav' && e.propertyName === 'width') _sidebarReposition(); }); // Collapsible side rail: re-measure glow after the 280ms width transition
+    const _sidebarReposition = () => {
+        const activeLink = document.querySelector('#nav-list a.text-secondary-container[data-view]') || getNavLinks()[0];
+        if (activeLink) positionIndicator(activeLink);
+    };
     (function wireSidebarCollapse() {
         const KEY = 'volt.sidebarCollapsed';
         const nav = document.getElementById('side-nav');
