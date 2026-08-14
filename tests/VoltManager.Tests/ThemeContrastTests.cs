@@ -7,6 +7,8 @@ namespace VoltManager.Tests;
 
 public class ThemeContrastTests
 {
+    private const double MinimumTextContrast = 4.5;
+
     [Fact]
     public void Tray_menu_uses_complete_native_style_instead_of_partial_theme_overrides()
     {
@@ -18,16 +20,55 @@ public class ThemeContrastTests
     }
 
     [Fact]
-    public void Highlighted_menu_text_meets_contrast_for_every_theme()
+    public void Accent_text_meets_contrast_for_primary_and_hover_in_every_theme()
     {
         foreach (var theme in Enum.GetValues<AppThemeColor>())
         {
             var palette = ThemeService.GetPalette(theme);
-            double ratio = ContrastRatio(palette.Hover, palette.OnPrimary);
 
-            Assert.True(ratio >= 4.5,
-                $"{theme}: contrasto {ratio:F2}:1 tra Hover e OnPrimary");
+            AssertContrast(theme, "Primary/OnPrimary", palette.Primary, palette.OnPrimary);
+            AssertContrast(theme, "Hover/OnPrimary", palette.Hover, palette.OnPrimary);
         }
+    }
+
+    [Fact]
+    public void Surface_text_meets_contrast_in_every_theme()
+    {
+        foreach (var theme in Enum.GetValues<AppThemeColor>())
+        {
+            var palette = ThemeService.GetPalette(theme);
+
+            AssertContrast(theme, "Background/Text", palette.Background, palette.Text);
+            AssertContrast(theme, "Surface/Text", palette.Surface, palette.Text);
+            AssertContrast(theme, "SurfaceElevated/Text", palette.SurfaceElevated, palette.Text);
+            AssertContrast(theme, "Background/MutedText", palette.Background, palette.MutedText);
+            AssertContrast(theme, "Surface/MutedText", palette.Surface, palette.MutedText);
+            AssertContrast(theme, "SurfaceElevated/MutedText", palette.SurfaceElevated, palette.MutedText);
+        }
+    }
+
+    [Fact]
+    public void Every_theme_has_distinct_tinted_surfaces()
+    {
+        var palettes = Enum.GetValues<AppThemeColor>()
+            .Select(ThemeService.GetPalette)
+            .ToArray();
+
+        Assert.Equal(palettes.Length, palettes.Select(p => p.Background).Distinct().Count());
+        Assert.Equal(palettes.Length, palettes.Select(p => p.Surface).Distinct().Count());
+        Assert.Equal(palettes.Length, palettes.Select(p => p.SurfaceElevated).Distinct().Count());
+    }
+
+    private static void AssertContrast(
+        AppThemeColor theme,
+        string pair,
+        Color background,
+        Color foreground)
+    {
+        double ratio = ContrastRatio(background, foreground);
+        Assert.True(
+            ratio >= MinimumTextContrast,
+            $"{theme}: contrasto {ratio:F2}:1 per {pair}; minimo richiesto {MinimumTextContrast:F1}:1");
     }
 
     private static string LocateAppXaml()

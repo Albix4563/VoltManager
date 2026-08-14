@@ -3,15 +3,15 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              ShutdownMode="OnExplicitShutdown">
     <Application.Resources>
-        <SolidColorBrush x:Key="ThemeBackgroundBrush" Color="#0B1120" />
-        <SolidColorBrush x:Key="ThemeSurfaceBrush" Color="#111827" />
-        <SolidColorBrush x:Key="ThemeSurfaceElevatedBrush" Color="#1E293B" />
+        <SolidColorBrush x:Key="ThemeBackgroundBrush" Color="#0F1A31" />
+        <SolidColorBrush x:Key="ThemeSurfaceBrush" Color="#162540" />
+        <SolidColorBrush x:Key="ThemeSurfaceElevatedBrush" Color="#233759" />
         <SolidColorBrush x:Key="ThemePrimaryBrush" Color="#3B82F6" />
         <SolidColorBrush x:Key="ThemeSecondaryBrush" Color="#60A5FA" />
-        <SolidColorBrush x:Key="ThemeHoverBrush" Color="#2563EB" />
+        <SolidColorBrush x:Key="ThemeHoverBrush" Color="#60A5FA" />
         <SolidColorBrush x:Key="ThemeTextBrush" Color="#F8FAFC" />
         <SolidColorBrush x:Key="ThemeMutedTextBrush" Color="#CBD5E1" />
-        <SolidColorBrush x:Key="ThemeBorderBrush" Color="#2F578B" />
+        <SolidColorBrush x:Key="ThemeBorderBrush" Color="#2F5BA4" />
         <SolidColorBrush x:Key="ThemeOnPrimaryBrush" Color="#0F172A" />
     </Application.Resources>
 </Application>
