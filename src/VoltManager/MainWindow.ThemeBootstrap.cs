@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Windows;
 using Microsoft.Web.WebView2.Core;
 using VoltManager.Models;
+using VoltManager.Services;
 
 namespace VoltManager;
 
@@ -145,7 +146,7 @@ public partial class MainWindow
         }
     }
 
-    private void OnThemeBootstrapThemeChanged(AppThemeColor _)
+    private void OnThemeBootstrapThemeChanged(AppThemeColor themeColor)
     {
         // Keep the document-created script current too. This matters when the
         // window is parked to about:blank in the tray and later reloads index.html.
