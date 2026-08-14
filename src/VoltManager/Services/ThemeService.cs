@@ -43,6 +43,17 @@ public sealed record ThemeWebState(
 /// </summary>
 public sealed class ThemeService
 {
+    private const double MinimumTextContrast = 4.5;
+    private const double BackgroundTintWeight = 0.08;
+    private const double SurfaceTintWeight = 0.12;
+    private const double ElevatedSurfaceTintWeight = 0.16;
+
+    private static readonly Color BaseBackground = Color.FromRgb(11, 17, 32);
+    private static readonly Color BaseSurface = Color.FromRgb(17, 24, 39);
+    private static readonly Color BaseSurfaceElevated = Color.FromRgb(30, 41, 59);
+    private static readonly Color PrimaryText = Color.FromRgb(248, 250, 252);
+    private static readonly Color MutedText = Color.FromRgb(203, 213, 225);
+
     public AppThemeColor CurrentTheme { get; private set; } = AppThemeColor.Blue;
     public ThemePalette CurrentPalette { get; private set; } = GetPalette(AppThemeColor.Blue);
 
@@ -93,9 +104,15 @@ public sealed class ThemeService
         Color secondary,
         Color hover)
     {
-        var background = Color.FromRgb(11, 17, 32);
-        var surface = Color.FromRgb(17, 24, 39);
-        var surfaceElevated = Color.FromRgb(30, 41, 59);
+        // Keep the established dark visual language, but tint each semantic surface
+        // with the selected accent. Increasing tint with elevation gives the whole
+        // application a theme identity without sacrificing text readability.
+        var background = Blend(BaseBackground, primary, BackgroundTintWeight);
+        var surface = Blend(BaseSurface, primary, SurfaceTintWeight);
+        var surfaceElevated = Blend(BaseSurfaceElevated, primary, ElevatedSurfaceTintWeight);
+
+        var onPrimary = BestContrastingText(primary);
+        var accessibleHover = ResolveAccessibleHover(hover, secondary, onPrimary);
 
         return new ThemePalette(
             themeColor,
@@ -104,11 +121,36 @@ public sealed class ThemeService
             surfaceElevated,
             primary,
             secondary,
-            hover,
-            Color.FromRgb(248, 250, 252),
-            Color.FromRgb(203, 213, 225),
+            accessibleHover,
+            PrimaryText,
+            MutedText,
             Blend(surfaceElevated, primary, 0.48),
-            BestContrastingText(hover));
+            onPrimary);
+    }
+
+    private static Color ResolveAccessibleHover(Color preferredHover, Color secondary, Color foreground)
+    {
+        if (ContrastRatio(preferredHover, foreground) >= MinimumTextContrast)
+            return preferredHover;
+
+        // The existing secondary colors are intentionally lighter companions to
+        // the primary accent and are a better hover fallback than changing text
+        // color between pointer states.
+        if (ContrastRatio(secondary, foreground) >= MinimumTextContrast)
+            return secondary;
+
+        // Defensive fallback for future/custom palettes: move the candidate toward
+        // the luminance extreme that increases contrast while preserving as much hue
+        // as possible.
+        var target = RelativeLuminance(foreground) > 0.5 ? Colors.Black : Colors.White;
+        for (double weight = 0.10; weight <= 1.0; weight += 0.10)
+        {
+            var candidate = Blend(preferredHover, target, weight);
+            if (ContrastRatio(candidate, foreground) >= MinimumTextContrast)
+                return candidate;
+        }
+
+        return target;
     }
 
     private static Color BestContrastingText(Color background)
