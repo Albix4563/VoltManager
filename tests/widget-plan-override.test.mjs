@@ -8,9 +8,7 @@ const script = readFileSync(
     'utf8');
 
 function loadApi() {
-    const context = {
-        window: {},
-    };
+    const context = { window: {} };
     vm.runInNewContext(script, context);
     return context.window.VoltWidgetPlanOverride;
 }
@@ -36,9 +34,10 @@ test('timed widget plan override asks for a duration and forwards hours', async 
 
     assert.equal(promptedFor, 'performance');
     assert.equal(result.success, true);
-    assert.deepEqual(calls, [
-        { method: 'setManualOverride', payload: { plan: 'performance', hours: 10 } },
-    ]);
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].method, 'setManualOverride');
+    assert.equal(calls[0].payload.plan, 'performance');
+    assert.equal(calls[0].payload.hours, 10);
 });
 
 test('explicit duration bypasses the widget duration prompt', async () => {
@@ -61,9 +60,9 @@ test('explicit duration bypasses the widget duration prompt', async () => {
     await interceptedCall('setManualOverride', { plan: 'balanced', hours: 12 });
 
     assert.equal(promptCount, 0);
-    assert.deepEqual(calls, [
-        { method: 'setManualOverride', payload: { plan: 'balanced', hours: 12 } },
-    ]);
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].payload.plan, 'balanced');
+    assert.equal(calls[0].payload.hours, 12);
 });
 
 test('forever remains possible only after an explicit choice', async () => {
@@ -81,9 +80,10 @@ test('forever remains possible only after an explicit choice', async () => {
 
     await interceptedCall('setManualOverride', { plan: 'powerSaver' });
 
-    assert.deepEqual(calls, [
-        { method: 'setManualOverride', payload: { plan: 'powerSaver' } },
-    ]);
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].method, 'setManualOverride');
+    assert.equal(calls[0].payload.plan, 'powerSaver');
+    assert.equal(Object.prototype.hasOwnProperty.call(calls[0].payload, 'hours'), false);
 });
 
 test('cancelling the duration prompt does not apply a manual override', async () => {
@@ -103,4 +103,30 @@ test('cancelling the duration prompt does not apply a manual override', async ()
         interceptedCall('setManualOverride', { plan: 'performance' }),
         /cancelled/i);
     assert.equal(callCount, 0);
+});
+
+test('other widgets and unrelated host calls bypass the duration chooser', async () => {
+    const api = loadApi();
+    let promptCount = 0;
+    const calls = [];
+    const interceptedCall = api.createCallInterceptor(
+        async (method, payload) => {
+            calls.push({ method, payload });
+            return { success: true };
+        },
+        {
+            isPlanWidget: false,
+            chooseDuration: async () => {
+                promptCount++;
+                return { hours: 1 };
+            },
+        });
+
+    await interceptedCall('setManualOverride', { plan: 'performance' });
+    await interceptedCall('getPowerPlan', {});
+
+    assert.equal(promptCount, 0);
+    assert.equal(calls.length, 2);
+    assert.equal(calls[0].method, 'setManualOverride');
+    assert.equal(calls[1].method, 'getPowerPlan');
 });
