@@ -6,6 +6,10 @@ const reorgCss = readFileSync(
   new URL('../src/VoltManager/wwwroot/css/ui-reorganization.css', import.meta.url),
   'utf8'
 );
+const reorgLayoutJs = readFileSync(
+  new URL('../src/VoltManager/wwwroot/js/ui-reorganization.layout.js', import.meta.url),
+  'utf8'
+);
 
 function rule(css, selector) {
   const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -15,7 +19,14 @@ function rule(css, selector) {
 }
 
 test('process subview does not animate the whole live panel when it becomes active', () => {
-  const body = rule(reorgCss, '#vm-monitoring-processes.vm-subview.active');
+  assert.match(
+    reorgLayoutJs,
+    /panel\('monitoring',\s*'processes',/,
+    'layout must keep processes in the monitoring process subview'
+  );
+
+  const selector = '.vm-subview[data-vm-panel-group="monitoring"][data-vm-panel="processes"].active';
+  const body = rule(reorgCss, selector);
   assert.match(body, /animation\s*:\s*none/);
   assert.match(body, /transform\s*:\s*none/);
 });
