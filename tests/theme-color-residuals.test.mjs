@@ -6,6 +6,10 @@ const themeCss = readFileSync(
   new URL('../src/VoltManager/wwwroot/css/theme-colors.css', import.meta.url),
   'utf8'
 );
+const widgetOverrideCss = readFileSync(
+  new URL('../src/VoltManager/wwwroot/css/widget-plan-override.css', import.meta.url),
+  'utf8'
+);
 
 function expectThemeOwned(selector, requiredTokens) {
   const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -31,4 +35,10 @@ test('legacy neutral controls no longer keep fixed navy fills', () => {
 
 test('successful update state uses the selected accent instead of prototype cyan', () => {
   expectThemeOwned('#update-status.ok', [/--vm-accent/]);
+});
+
+test('widget power-plan override uses the live palette instead of the prototype navy shell', () => {
+  assert.match(widgetOverrideCss, /\.widget-override-overlay\s*\{[^}]*--vm-bg/s);
+  assert.match(widgetOverrideCss, /\.widget-override-dialog\s*\{[^}]*--vm-surface-high[^}]*--vm-surface/s);
+  assert.doesNotMatch(widgetOverrideCss, /rgba\(34,\s*50,\s*86|rgba\(14,\s*26,\s*46|rgba\(5,\s*12,\s*24/);
 });
