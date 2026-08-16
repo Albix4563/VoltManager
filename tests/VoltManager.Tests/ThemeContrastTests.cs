@@ -112,15 +112,23 @@ public class ThemeContrastTests
         // fills after switching away from the Blue theme.
         string[] expectedSelectors =
         {
+            ".segmented-control-bg {",
             ".vm-subnav,",
             ".pm-subnav {",
             ".pm-seg.active {",
+            ".toggle-label-large {",
+            ".mini-toggle {",
             ".desktop-widget {",
             ".startup-summary-card {",
             ".startup-card {",
             ".app-profile-panel,",
             "#power-plan-conflict-toast {",
             ".adv-col-dc {",
+            ".processes-card {",
+            ".process-row {",
+            ".process-rank {",
+            ".process-meter {",
+            "#update-status.ok {",
             "#lang-select,",
             "#font-select,",
             "#welcome-lang-select {",
@@ -128,6 +136,19 @@ public class ThemeContrastTests
 
         foreach (string selector in expectedSelectors)
             Assert.Contains(selector, css);
+    }
+
+    [Fact]
+    public void Widget_power_plan_override_does_not_use_prototype_navy_surfaces()
+    {
+        string css = LocateWebAsset("css", "widget-plan-override.css");
+
+        Assert.Contains("var(--vm-bg)", css);
+        Assert.Contains("var(--vm-surface-high)", css);
+        Assert.Contains("var(--vm-surface)", css);
+        Assert.DoesNotContain("rgba(34, 50, 86", css);
+        Assert.DoesNotContain("rgba(14, 26, 46", css);
+        Assert.DoesNotContain("rgba(5, 12, 24", css);
     }
 
     private static void AssertContrast(
