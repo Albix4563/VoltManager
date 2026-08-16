@@ -17,6 +17,11 @@
     inset 0 1px 0 rgba(255,255,255,.06),
     0 12px 30px -20px rgba(0,0,0,.62);
 }
+.glass-modal {
+  box-shadow:
+    0 25px 50px -12px rgba(0,0,0,.5),
+    0 4px 20px rgb(var(--vm-accent-rgb) / .05);
+}
 
 /* ---------- 2. Progress tracks — inset depth ----------
    The .h-3 bar tracks reused the old card colour (#1E2A4A); against
@@ -56,6 +61,12 @@
 }
 ::-webkit-scrollbar-thumb:hover{
   background: linear-gradient(180deg, rgb(var(--vm-accent-rgb) / .58), rgb(var(--vm-accent-rgb) / .3));
+}
+.changelog-scroll::-webkit-scrollbar-thumb{
+  background: color-mix(in srgb, var(--vm-border) 82%, var(--vm-accent) 18%);
+}
+.changelog-scroll::-webkit-scrollbar-thumb:hover{
+  background: color-mix(in srgb, var(--vm-border) 66%, var(--vm-accent) 34%);
 }
 
 /* ---------- 6. Visible keyboard focus (accessibility floor) ----------

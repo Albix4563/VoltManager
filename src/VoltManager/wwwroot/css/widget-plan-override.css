@@ -7,7 +7,7 @@
   justify-content: center;
   padding: 7px;
   box-sizing: border-box;
-  background: rgba(5, 12, 24, .84);
+  background: color-mix(in srgb, var(--vm-bg) 84%, transparent);
   backdrop-filter: blur(6px);
 }
 
@@ -18,9 +18,11 @@
   padding: 9px;
   overflow: hidden;
   box-sizing: border-box;
-  border: 1px solid rgba(255, 255, 255, .14);
+  border: 1px solid color-mix(in srgb, var(--vm-border) 72%, transparent);
   border-radius: 13px;
-  background: linear-gradient(165deg, rgba(34, 50, 86, .98), rgba(14, 26, 46, .98));
+  background: linear-gradient(165deg,
+    color-mix(in srgb, var(--vm-surface-high) 98%, transparent),
+    color-mix(in srgb, var(--vm-surface) 98%, transparent));
   box-shadow: 0 12px 36px rgba(0, 0, 0, .30), inset 0 1px 0 rgba(255, 255, 255, .08);
 }
 
@@ -49,7 +51,7 @@
 .widget-override-plan,
 .widget-override-warning {
   overflow: hidden;
-  color: rgba(198, 198, 206, .76);
+  color: var(--vm-muted);
   font-size: 9px;
   font-weight: 600;
   line-height: 1.2;
@@ -74,10 +76,10 @@
   align-items: center;
   justify-content: center;
   padding: 0;
-  border: 1px solid rgba(255, 255, 255, .10);
+  border: 1px solid color-mix(in srgb, var(--vm-border) 70%, transparent);
   border-radius: 8px;
-  background: rgba(255, 255, 255, .045);
-  color: rgba(212, 228, 250, .78);
+  background: color-mix(in srgb, var(--vm-surface-high) 74%, transparent);
+  color: var(--vm-muted);
   font: inherit;
   font-size: 17px;
   line-height: 1;
@@ -100,10 +102,10 @@
   min-width: 0;
   min-height: 30px;
   padding: 5px 4px;
-  border: 1px solid rgba(255, 255, 255, .10);
+  border: 1px solid color-mix(in srgb, var(--vm-border) 70%, transparent);
   border-radius: 9px;
-  background: rgba(255, 255, 255, .055);
-  color: rgba(212, 228, 250, .88);
+  background: color-mix(in srgb, var(--vm-surface-high) 72%, transparent);
+  color: var(--vm-text);
   font: inherit;
   font-size: 10px;
   font-weight: 700;

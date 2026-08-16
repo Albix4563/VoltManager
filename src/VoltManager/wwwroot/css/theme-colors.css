@@ -64,6 +64,14 @@ body,
     background-color: var(--vm-surface-high) !important;
 }
 
+/* Segmented controls are legacy components whose shell still carries the old
+   prototype navy in app.css. Keep the shell and its selected pill on the same
+   live semantic surface so a theme switch recolors the complete control. */
+.segmented-control-bg {
+    background: color-mix(in srgb, var(--vm-surface-high) 72%, transparent) !important;
+    border-color: color-mix(in srgb, var(--vm-border) 72%, transparent) !important;
+}
+
 .bg-surface-container\/70,
 .glass-panel,
 .glass-modal {
@@ -178,6 +186,29 @@ option {
     background-repeat: no-repeat !important;
 }
 
+/* Off-state tracks were still fixed to the original navy palette. Keep their
+   neutral appearance, but derive it from the current theme surface. */
+.toggle-label {
+    background: color-mix(in srgb, var(--vm-surface-high) 88%, var(--vm-muted) 12%) !important;
+    border-color: var(--vm-border) !important;
+}
+
+.toggle-label-large {
+    background: color-mix(in srgb, var(--vm-surface-high) 88%, var(--vm-muted) 12%) !important;
+    border-color: var(--vm-border) !important;
+}
+
+.mini-toggle {
+    background: color-mix(in srgb, var(--vm-surface-high) 88%, var(--vm-muted) 12%) !important;
+    border-color: var(--vm-border) !important;
+}
+
+.toggle-label::after,
+.toggle-label-large::after,
+.mini-toggle-knob {
+    background: var(--vm-muted) !important;
+}
+
 .toggle-checkbox:checked + .toggle-label,
 .toggle-large:checked + .toggle-label-large,
 .mini-toggle[data-on=true] {
@@ -213,6 +244,10 @@ option {
 
 .btn-ghost:hover {
     background: rgb(var(--vm-accent-rgb) / .12) !important;
+}
+
+#update-status.ok {
+    color: var(--vm-accent) !important;
 }
 
 /* Reorganized navigation and the old power sub-navigation both remain mounted
@@ -394,6 +429,51 @@ html[data-perf-tier="balanced"] .vm-scrim {
 
 .theme-accent-hover-shadow:hover {
     box-shadow: 0 0 15px rgb(var(--vm-accent-rgb) / .3) !important;
+}
+
+/* Process monitoring is built on an older card style whose opaque navy parent
+   made every translucent row look blue. Theme the parent, rows, rank badges
+   and meter tracks; load/accent indicators below stay driven by the same live
+   accent tokens. */
+.processes-card {
+    background: linear-gradient(145deg,
+        color-mix(in srgb, var(--vm-surface-high) 92%, transparent),
+        color-mix(in srgb, var(--vm-surface) 78%, transparent)) !important;
+    border-color: var(--vm-border) !important;
+}
+
+.processes-card:hover {
+    box-shadow: inset 1px 1px 0 rgba(255,255,255,.08),
+        0 10px 28px -14px rgb(var(--vm-accent-rgb) / .24) !important;
+}
+
+.process-row {
+    border-color: color-mix(in srgb, var(--vm-border) 52%, transparent) !important;
+    background: linear-gradient(135deg,
+        color-mix(in srgb, var(--vm-surface-high) 72%, transparent),
+        color-mix(in srgb, var(--vm-surface) 60%, transparent)) !important;
+}
+
+.process-row:hover {
+    border-color: rgb(var(--vm-accent-rgb) / .24) !important;
+    background: linear-gradient(135deg,
+        rgb(var(--vm-accent-rgb) / .08),
+        color-mix(in srgb, var(--vm-surface-high) 70%, transparent)) !important;
+}
+
+.process-rank {
+    border-color: rgb(var(--vm-accent-rgb) / .22) !important;
+    background: rgb(var(--vm-accent-rgb) / .10) !important;
+    color: var(--vm-accent) !important;
+}
+
+.process-meter {
+    background: color-mix(in srgb, var(--vm-bg) 78%, transparent) !important;
+    border-color: color-mix(in srgb, var(--vm-border) 45%, transparent) !important;
+}
+
+.process-ram .process-value {
+    color: var(--vm-muted) !important;
 }
 
 .processes-card::before,
