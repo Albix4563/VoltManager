@@ -6,6 +6,10 @@ const themeCss = readFileSync(
   new URL('../src/VoltManager/wwwroot/css/theme-colors.css', import.meta.url),
   'utf8'
 );
+const polishCss = readFileSync(
+  new URL('../src/VoltManager/wwwroot/css/polish.css', import.meta.url),
+  'utf8'
+);
 const widgetOverrideCss = readFileSync(
   new URL('../src/VoltManager/wwwroot/css/widget-plan-override.css', import.meta.url),
   'utf8'
@@ -35,6 +39,11 @@ test('legacy neutral controls no longer keep fixed navy fills', () => {
 
 test('successful update state uses the selected accent instead of prototype cyan', () => {
   expectThemeOwned('#update-status.ok', [/--vm-accent/]);
+});
+
+test('shared modal glow and changelog scrollbar follow the selected accent', () => {
+  assert.match(polishCss, /\.glass-modal\s*\{[^}]*--vm-accent-rgb/s);
+  assert.match(polishCss, /\.changelog-scroll::\-webkit-scrollbar-thumb\s*\{[^}]*--vm-border/s);
 });
 
 test('widget power-plan override uses the live palette instead of the prototype navy shell', () => {
