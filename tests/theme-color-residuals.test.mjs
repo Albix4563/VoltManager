@@ -30,5 +30,5 @@ test('legacy neutral controls no longer keep fixed navy fills', () => {
 });
 
 test('successful update state uses the selected accent instead of prototype cyan', () => {
-  expectThemeOwned('#update-status\\.ok', [/--vm-accent/]);
+  expectThemeOwned('#update-status.ok', [/--vm-accent/]);
 });
