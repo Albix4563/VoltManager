@@ -320,6 +320,21 @@
     to { opacity: 1; transform: translateY(0); }
 }
 
+/* The process panel is a live surface: eight rows refresh together and each
+   row owns two animated meters. Keeping the entire subview in a transform
+   animation while those child transforms update makes WebView2 repeatedly
+   rebuild compositor layers, which presents as a brief flash/fragmentation.
+   Keep other tab transitions intact, but make this high-churn panel stable. */
+#vm-monitoring-processes.vm-subview.active {
+    animation: none;
+    transform: none;
+}
+
+#vm-monitoring-processes .process-meter-fill {
+    transition: none;
+    will-change: auto;
+}
+
 .vm-subview > :first-child {
     margin-top: 0;
 }
