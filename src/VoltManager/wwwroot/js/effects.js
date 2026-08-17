@@ -168,7 +168,13 @@
     spotEl.style.setProperty('--my', ((spotY - r.top) / r.height * 100).toFixed(1) + '%');
   }
   function onPointerMove(e) {
-    const card = e.target.closest && e.target.closest('.glass-card, .glass-panel');
+    let card = e.target.closest && e.target.closest('.glass-card, .glass-panel');
+    // Processes is a large live surface: its rows and meters are refreshed while
+    // the pointer moves. Rewriting spotlight coordinates on that same surface
+    // invalidates a large raster area every frame in WebView2, which can expose
+    // black compositor tiles when the window is maximized. Keep the static
+    // theme/hover treatment, but opt this one high-churn card out of pointer FX.
+    if (card && card.classList.contains('processes-card')) card = null;
     if (card !== spotEl) {
       if (spotEl) spotEl.classList.remove('fx-spot');
       spotEl = card;

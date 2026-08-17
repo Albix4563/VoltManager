@@ -202,3 +202,14 @@ button .material-symbols-outlined,
   font-weight: 600;
 }
 
+/* ---------- 9. Process monitor compositor stability ----------
+   The process rows update live while the pointer moves across them. Moving a
+   row into a transient transform layer at the same time forces WebView2 to
+   repeatedly recompose live child meters. Keep the existing border/background
+   hover feedback, but never move the live row itself. */
+#vm-monitoring-processes .process-row {
+  transition: border-color .18s ease, background .18s ease, box-shadow .18s ease;
+}
+#vm-monitoring-processes .process-row:hover {
+  transform: none;
+}
