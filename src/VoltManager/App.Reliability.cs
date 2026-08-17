@@ -25,10 +25,11 @@ public partial class App
         Exit += OnReliabilityExit;
         AppDomain.CurrentDomain.UnhandledException += OnReliabilityDomainUnhandledException;
 
-        // Adaptive resource management shares the application's existing lifecycle
-        // instead of adding a second partial constructor. Initialization itself is
-        // deferred until StartupCore has created Monitor/HeavyApps/MainWindow.
-        Startup += OnAdaptiveResourceStartup;
+        // App.OnStartup owns startup directly rather than relying on the Startup event.
+        // Queue adaptive initialization on the dispatcher so StartupCore has synchronously
+        // created Monitor/HeavyApps/MainWindow before this runs.
+        Dispatcher.BeginInvoke(DispatcherPriority.ContextIdle,
+            new Action(InitializeAdaptiveResourceManagement));
         Exit += OnAdaptiveResourceExit;
     }
 
