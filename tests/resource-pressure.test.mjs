@@ -21,9 +21,10 @@ test('frontend consumes one host resource profile signal', () => {
   assert.match(perfGuard, /resourceprofilechange/);
 });
 
-test('gaming and critical profiles stop continuous motion', () => {
-  assert.match(effectsJs, /dataset\.resourceProfile/);
-  assert.match(effectsJs, /resourceprofilechange/);
-  assert.match(effectsCss, /data-resource-profile=["']gaming["']/);
-  assert.match(effectsCss, /data-resource-profile=["']critical["']/);
+test('gaming and critical profiles reuse the proven lite rendering path', () => {
+  assert.match(perfGuard, /profile === 'gaming' \|\| profile === 'critical'/);
+  assert.match(perfGuard, /dataset\.perf\s*=\s*effectiveLite \? 'lite'/);
+  assert.match(effectsJs, /dataset\.perf === 'lite'/);
+  assert.match(effectsCss, /data-perf="lite"/);
+  assert.match(perfGuard, /VoltFx\.stopMotion/);
 });
