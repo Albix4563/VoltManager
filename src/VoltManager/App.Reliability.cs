@@ -24,6 +24,13 @@ public partial class App
         DispatcherUnhandledException += OnReliabilityDispatcherUnhandledException;
         Exit += OnReliabilityExit;
         AppDomain.CurrentDomain.UnhandledException += OnReliabilityDomainUnhandledException;
+
+        // App.OnStartup owns startup directly rather than relying on the Startup event.
+        // Queue adaptive initialization on the dispatcher so StartupCore has synchronously
+        // created Monitor/HeavyApps/MainWindow before this runs.
+        Dispatcher.BeginInvoke(DispatcherPriority.ContextIdle,
+            new Action(InitializeAdaptiveResourceManagement));
+        Exit += OnAdaptiveResourceExit;
     }
 
     private void OnReliabilityDispatcherUnhandledException(

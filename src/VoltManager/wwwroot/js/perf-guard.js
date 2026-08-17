@@ -1,12 +1,15 @@
 /**
  * Perf guard: (1) hardware tier at boot from RAM+cores → data-perf-tier;
- * (2) RAM-pressure lite at runtime → data-perf=lite. effects.css/js read both.
+ * (2) RAM-pressure lite at runtime; (3) host resource profile → one semantic
+ * data-resource-profile signal. effects.css/js continue to consume data-perf=lite,
+ * so gaming/critical reuse the same proven low-cost rendering path.
  */
 (function () {
-  // ponytail: hysteresis band so the flag can't flap around a single threshold.
-  const ON = 85;  // enter lite mode at/above this system RAM %
-  const OFF = 75; // leave lite mode at/below this %
-  let lite = false;
+  const ON = 85;  // enter RAM-pressure lite mode at/above this system RAM %
+  const OFF = 75; // leave RAM-pressure lite mode at/below this %
+  let ramLite = false;
+  let resourceLite = false;
+  let effectiveLite = false;
 
   // Pure decision: rise past ON enters, fall past OFF leaves,
   // in between hold the current state.
@@ -43,12 +46,42 @@
     classify(16, NaN) === 'full',
     'perf-guard classify broken');
 
-  function applyLite(next) {
-    if (next === lite) return;
-    lite = next;
-    document.documentElement.dataset.perf = lite ? 'lite' : '';
-    if (lite && window.VoltFx && window.VoltFx.stopMotion) window.VoltFx.stopMotion();
-    document.dispatchEvent(new CustomEvent('perfmodechange', { detail: { lite } }));
+  function syncEffectiveLite() {
+    const next = ramLite || resourceLite;
+    if (next === effectiveLite) return;
+    effectiveLite = next;
+    document.documentElement.dataset.perf = effectiveLite ? 'lite' : '';
+    if (effectiveLite && window.VoltFx && window.VoltFx.stopMotion) window.VoltFx.stopMotion();
+    document.dispatchEvent(new CustomEvent('perfmodechange', {
+      detail: { lite: effectiveLite, ramLite, resourceLite }
+    }));
+  }
+
+  function applyRamLite(next) {
+    if (next === ramLite) return;
+    ramLite = next;
+    syncEffectiveLite();
+  }
+
+  function applyResourceProfile(state) {
+    if (!state) return;
+    const candidate = String(state.profile || 'full').toLowerCase();
+    const profile = ['full', 'balanced', 'gaming', 'critical'].includes(candidate)
+      ? candidate
+      : 'full';
+    const previous = document.documentElement.dataset.resourceProfile || '';
+    document.documentElement.dataset.resourceProfile = profile;
+    window.VoltResourceProfile = Object.assign({}, state, { profile });
+
+    resourceLite = profile === 'gaming' || profile === 'critical';
+    syncEffectiveLite();
+    if (resourceLite && window.VoltFx && window.VoltFx.stopMotion) window.VoltFx.stopMotion();
+
+    if (previous !== profile) {
+      document.dispatchEvent(new CustomEvent('resourceprofilechange', {
+        detail: window.VoltResourceProfile
+      }));
+    }
   }
 
   function applyTier(info) {
@@ -59,6 +92,9 @@
     document.dispatchEvent(new CustomEvent('perftierchange', { detail: { tier } }));
   }
 
+  document.documentElement.dataset.resourceProfile =
+    document.documentElement.dataset.resourceProfile || 'full';
+
   if (window.VoltSystemInfo) applyTier(window.VoltSystemInfo);
   document.addEventListener('systeminfoloaded', function (e) {
     applyTier(e.detail || window.VoltSystemInfo);
@@ -67,7 +103,8 @@
   if (window.Host && Host.on) {
     Host.on('metrics', function (m) {
       if (!m || typeof m.ramPct !== 'number') return;
-      applyLite(decide(lite, m.ramPct));
+      applyRamLite(decide(ramLite, m.ramPct));
     });
+    Host.on('resourceProfileChanged', applyResourceProfile);
   }
 })();

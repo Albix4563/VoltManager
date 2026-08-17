@@ -8,6 +8,13 @@
     const listeners = new Map();
     let nextId = 1;
 
+    // getTopProcesses is display-only elastic work. Keep its latest result so a
+    // dashboard timer cannot force native process enumeration more often than the
+    // host resource policy permits. Safety/thermal/fan RPCs never pass this gate.
+    let topProcessesCache = [];
+    let topProcessesLastCallAt = 0;
+    let topProcessesInFlight = null;
+
     const hasWebView = !!(window.chrome && window.chrome.webview);
 
     if (hasWebView) {
@@ -37,23 +44,60 @@
         });
     }
 
+    function rawCall(method, payload) {
+        if (!hasWebView) {
+            return Promise.reject(new Error('Bridge non disponibile (anteprima browser)'));
+        }
+        return new Promise((resolve, reject) => {
+            const id = 'rpc-' + (nextId++);
+            pending.set(id, { resolve, reject });
+            window.chrome.webview.postMessage({ id, method, payload: payload || {} });
+            setTimeout(() => {
+                if (pending.has(id)) {
+                    pending.delete(id);
+                    reject(new Error('Timeout: ' + method));
+                }
+            }, 120000);
+        });
+    }
+
+    function topProcessPolicy() {
+        const state = window.VoltResourceProfile;
+        if (!state) return { allowed: true, intervalMs: 0 };
+        if (state.allowProcessPolling === false) return { allowed: false, intervalMs: 0 };
+        const intervalMs = Number(state.processPollingIntervalMs);
+        return {
+            allowed: true,
+            intervalMs: Number.isFinite(intervalMs) && intervalMs > 0 ? intervalMs : 0,
+        };
+    }
+
+    function callTopProcesses(payload) {
+        const policy = topProcessPolicy();
+        if (!policy.allowed) return Promise.resolve(topProcessesCache);
+
+        const now = Date.now();
+        if (topProcessesInFlight) return topProcessesInFlight;
+        if (policy.intervalMs > 0 && topProcessesLastCallAt > 0 &&
+            now - topProcessesLastCallAt < policy.intervalMs) {
+            return Promise.resolve(topProcessesCache);
+        }
+
+        topProcessesLastCallAt = now;
+        topProcessesInFlight = rawCall('getTopProcesses', payload)
+            .then(result => {
+                if (Array.isArray(result)) topProcessesCache = result;
+                return result;
+            })
+            .finally(() => { topProcessesInFlight = null; });
+        return topProcessesInFlight;
+    }
+
     window.Host = {
         available: hasWebView,
         call(method, payload) {
-            if (!hasWebView) {
-                return Promise.reject(new Error('Bridge non disponibile (anteprima browser)'));
-            }
-            return new Promise((resolve, reject) => {
-                const id = 'rpc-' + (nextId++);
-                pending.set(id, { resolve, reject });
-                window.chrome.webview.postMessage({ id, method, payload: payload || {} });
-                setTimeout(() => {
-                    if (pending.has(id)) {
-                        pending.delete(id);
-                        reject(new Error('Timeout: ' + method));
-                    }
-                }, 120000);
-            });
+            if (method === 'getTopProcesses') return callTopProcesses(payload);
+            return rawCall(method, payload);
         },
         on(eventName, handler) {
             if (!listeners.has(eventName)) listeners.set(eventName, []);
