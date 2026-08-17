@@ -6,6 +6,10 @@ const perfGuard = readFileSync(
   new URL('../src/VoltManager/wwwroot/js/perf-guard.js', import.meta.url),
   'utf8'
 );
+const bridge = readFileSync(
+  new URL('../src/VoltManager/wwwroot/js/bridge.js', import.meta.url),
+  'utf8'
+);
 const effectsJs = readFileSync(
   new URL('../src/VoltManager/wwwroot/js/effects.js', import.meta.url),
   'utf8'
@@ -27,4 +31,13 @@ test('gaming and critical profiles reuse the proven lite rendering path', () => 
   assert.match(effectsJs, /dataset\.perf === 'lite'/);
   assert.match(effectsCss, /data-perf="lite"/);
   assert.match(perfGuard, /VoltFx\.stopMotion/);
+});
+
+test('top-process RPC is elastic while safety RPCs remain ungated', () => {
+  assert.match(bridge, /method === 'getTopProcesses'/);
+  assert.match(bridge, /allowProcessPolling === false/);
+  assert.match(bridge, /processPollingIntervalMs/);
+  assert.match(bridge, /return rawCall\(method, payload\)/);
+  assert.doesNotMatch(bridge, /method === 'getFan/);
+  assert.doesNotMatch(bridge, /method === 'getFanControlState'\) return callTopProcesses/);
 });
