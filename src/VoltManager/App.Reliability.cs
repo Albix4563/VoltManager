@@ -24,6 +24,12 @@ public partial class App
         DispatcherUnhandledException += OnReliabilityDispatcherUnhandledException;
         Exit += OnReliabilityExit;
         AppDomain.CurrentDomain.UnhandledException += OnReliabilityDomainUnhandledException;
+
+        // Adaptive resource management shares the application's existing lifecycle
+        // instead of adding a second partial constructor. Initialization itself is
+        // deferred until StartupCore has created Monitor/HeavyApps/MainWindow.
+        Startup += OnAdaptiveResourceStartup;
+        Exit += OnAdaptiveResourceExit;
     }
 
     private void OnReliabilityDispatcherUnhandledException(
