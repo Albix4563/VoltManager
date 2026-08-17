@@ -1,5 +1,4 @@
 using System.Windows;
-using System.Windows.Threading;
 using VoltManager.Models;
 using VoltManager.Performance;
 
@@ -10,14 +9,6 @@ public partial class App
     private bool _adaptiveResourcesInitialized;
 
     public ResourcePressureCoordinator ResourcePressure { get; private set; } = null!;
-
-    private void OnAdaptiveResourceStartup(object sender, StartupEventArgs e)
-    {
-        // base.OnStartup raises Startup before StartupCore finishes creating services.
-        // Queue initialization so it runs only after the synchronous startup path returns.
-        Dispatcher.BeginInvoke(DispatcherPriority.ContextIdle,
-            new Action(InitializeAdaptiveResourceManagement));
-    }
 
     private void InitializeAdaptiveResourceManagement()
     {
