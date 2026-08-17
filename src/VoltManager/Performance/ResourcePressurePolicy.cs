@@ -2,7 +2,7 @@ using VoltManager.Models;
 
 namespace VoltManager.Performance;
 
-/// <summary>Pure thresholds and cadence policy for elastic work.</summary>
+/// <summary>Pure thresholds and transition policy for adaptive resource pressure.</summary>
 public static class ResourcePressurePolicy
 {
     public const double CriticalRamEnterPct = 92;
@@ -26,12 +26,4 @@ public static class ResourcePressurePolicy
         if (metrics.GpuAvailable && metrics.Gpu >= CriticalGpuPct) return true;
         return metrics.GpuAvailable && metrics.Cpu >= 90 && metrics.Gpu >= 90;
     }
-
-    public static TimeSpan ElasticProcessScanFloor(ResourceProfile profile) => profile switch
-    {
-        ResourceProfile.Balanced => TimeSpan.FromSeconds(6),
-        ResourceProfile.Gaming => TimeSpan.FromSeconds(10),
-        ResourceProfile.Critical => Timeout.InfiniteTimeSpan,
-        _ => TimeSpan.Zero,
-    };
 }
