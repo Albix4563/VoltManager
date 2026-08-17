@@ -4,6 +4,7 @@ using System.Windows.Threading;
 using Microsoft.Web.WebView2.Core;
 using VoltManager.Models;
 using VoltManager.Performance;
+using VoltManager.Services;
 
 namespace VoltManager;
 
