@@ -25,6 +25,7 @@ public partial class MainWindow
         WebView.CoreWebView2InitializationCompleted += OnAdaptiveCoreWebViewInitialized;
         Closed += OnAdaptiveWindowClosed;
 
+        AttachAdaptiveNavigationCore(WebView.CoreWebView2);
         SyncAdaptiveVisibility();
         ScheduleAdaptiveMetricsHook();
     }
@@ -32,17 +33,23 @@ public partial class MainWindow
     private void OnAdaptiveCoreWebViewInitialized(object? sender, CoreWebView2InitializationCompletedEventArgs e)
     {
         if (!e.IsSuccess) return;
-        var core = WebView.CoreWebView2;
-        if (core != null && !ReferenceEquals(core, _adaptiveNavigationCore))
-        {
-            _adaptiveNavigationCore = core;
-            core.NavigationCompleted += OnAdaptiveNavigationCompleted;
-        }
+        AttachAdaptiveNavigationCore(WebView.CoreWebView2);
 
         // WireWebViewCore subscribes the legacy metrics handler immediately after
         // EnsureCoreWebView2Async completes. ApplicationIdle runs after that continuation,
         // allowing us to atomically replace it with the coalescing publisher.
         ScheduleAdaptiveMetricsHook();
+    }
+
+    private void AttachAdaptiveNavigationCore(CoreWebView2? core)
+    {
+        if (core == null || ReferenceEquals(core, _adaptiveNavigationCore)) return;
+        if (_adaptiveNavigationCore != null)
+        {
+            try { _adaptiveNavigationCore.NavigationCompleted -= OnAdaptiveNavigationCompleted; } catch { }
+        }
+        _adaptiveNavigationCore = core;
+        core.NavigationCompleted += OnAdaptiveNavigationCompleted;
     }
 
     private void OnAdaptiveNavigationCompleted(object? sender, CoreWebView2NavigationCompletedEventArgs e)
