@@ -11,16 +11,10 @@ public partial class App
 
     public ResourcePressureCoordinator ResourcePressure { get; private set; } = null!;
 
-    public App()
+    private void OnAdaptiveResourceStartup(object sender, StartupEventArgs e)
     {
         // base.OnStartup raises Startup before StartupCore finishes creating services.
         // Queue initialization so it runs only after the synchronous startup path returns.
-        Startup += OnAdaptiveResourceStartup;
-        Exit += OnAdaptiveResourceExit;
-    }
-
-    private void OnAdaptiveResourceStartup(object sender, StartupEventArgs e)
-    {
         Dispatcher.BeginInvoke(DispatcherPriority.ContextIdle,
             new Action(InitializeAdaptiveResourceManagement));
     }
