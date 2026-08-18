@@ -60,6 +60,16 @@ public sealed class ResourcePressureTests
     }
 
     [Fact]
+    public void SingleNonGameCpuSpike_DoesNotEnterCritical()
+    {
+        var coordinator = new ResourcePressureCoordinator(8);
+        var t0 = DateTime.UnixEpoch;
+        Assert.Equal(ResourceProfile.Full, coordinator.Observe(Metrics(cpu: 98), false, t0).Profile);
+        Assert.Equal(ResourceProfile.Full, coordinator.Observe(Metrics(cpu: 40), false, t0.AddSeconds(1)).Profile);
+        Assert.Equal(ResourceProfile.Full, coordinator.Observe(Metrics(cpu: 98), false, t0.AddSeconds(2)).Profile);
+    }
+
+    [Fact]
     public void SustainedGameLoad_EntersCriticalAfterHysteresis()
     {
         var coordinator = new ResourcePressureCoordinator(8);
@@ -69,6 +79,23 @@ public sealed class ResourcePressureTests
         var state = coordinator.Observe(Metrics(cpu: 98), true, t0.AddSeconds(5));
         Assert.Equal(ResourceProfile.Critical, state.Profile);
         Assert.Equal("game_load", state.Reason);
+    }
+
+    [Theory]
+    [InlineData(98, 20)]
+    [InlineData(30, 98)]
+    [InlineData(90, 90)]
+    public void SustainedNonGameExtremeLoad_EntersCriticalAfterHysteresis(double cpu, double gpu)
+    {
+        var coordinator = new ResourcePressureCoordinator(8);
+        var t0 = DateTime.UnixEpoch;
+        Assert.Equal(ResourceProfile.Full, coordinator.Observe(Metrics(cpu: cpu, gpu: gpu), false, t0).Profile);
+        Assert.Equal(ResourceProfile.Full, coordinator.Observe(Metrics(cpu: cpu, gpu: gpu), false, t0.AddSeconds(4)).Profile);
+
+        var state = coordinator.Observe(Metrics(cpu: cpu, gpu: gpu), false, t0.AddSeconds(5));
+        Assert.Equal(ResourceProfile.Critical, state.Profile);
+        Assert.Equal("system_load", state.Reason);
+        Assert.False(state.GameActive);
     }
 
     [Fact]
@@ -85,6 +112,23 @@ public sealed class ResourcePressureTests
             coordinator.Observe(Metrics(cpu: 30), true, t0.AddSeconds(20)).Profile);
         Assert.Equal(ResourceProfile.Gaming,
             coordinator.Observe(Metrics(cpu: 30), true, t0.AddSeconds(21)).Profile);
+    }
+
+    [Fact]
+    public void CriticalSystemLoad_RequiresClearWindowBeforeRecovery()
+    {
+        var coordinator = new ResourcePressureCoordinator(8);
+        var t0 = DateTime.UnixEpoch;
+        coordinator.Observe(Metrics(cpu: 98), false, t0);
+        coordinator.Observe(Metrics(cpu: 98), false, t0.AddSeconds(5));
+
+        Assert.Equal(ResourceProfile.Critical,
+            coordinator.Observe(Metrics(cpu: 30), false, t0.AddSeconds(6)).Profile);
+        Assert.Equal(ResourceProfile.Critical,
+            coordinator.Observe(Metrics(cpu: 30), false, t0.AddSeconds(20)).Profile);
+        var recovered = coordinator.Observe(Metrics(cpu: 30), false, t0.AddSeconds(21));
+        Assert.Equal(ResourceProfile.Full, recovered.Profile);
+        Assert.Equal("normal", recovered.Reason);
     }
 
     [Fact]
