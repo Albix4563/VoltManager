@@ -140,10 +140,6 @@ public partial class MainWindow : Window
         {
             WireWebViewCore(firstBoot: !_hostEventsWired);
             _webViewReady = true;
-
-            // Prefer Low even while visible: this dashboard is a long-lived local page,
-            // not a multi-tab browser. Chromium then keeps a tighter working set.
-            SetWebViewMemoryLevel(low: true);
         }
         catch (Exception ex)
         {
@@ -655,9 +651,8 @@ public partial class MainWindow : Window
         Hide();
         ShowInTaskbar = false;
         _webViewVisible = false;
-        // Immediate: tell Chromium to shrink + park. Delayed: drop the page so
-        // long tray sessions don't keep a 300MB+ WebView group alive.
-        SetWebViewMemoryLevel(low: true);
+        // Suspending is the single WebView2 memory policy while hidden. It pauses
+        // script timers/animations and lowers renderer memory without mixing APIs.
         TrySuspendWebView();
         ScheduleTrayTeardown();
     }
@@ -673,7 +668,6 @@ public partial class MainWindow : Window
         {
             await EnsureWebViewAsync();
             ResumeWebView();
-            SetWebViewMemoryLevel(low: true);
             // If tray teardown blanked the page, put the dashboard back.
             try
             {
@@ -689,23 +683,11 @@ public partial class MainWindow : Window
         });
     }
 
-    private void SetWebViewMemoryLevel(bool low)
-    {
-        try
-        {
-            if (WebView.CoreWebView2 is { } core)
-                core.MemoryUsageTargetLevel = low
-                    ? CoreWebView2MemoryUsageTargetLevel.Low
-                    : CoreWebView2MemoryUsageTargetLevel.Normal;
-        }
-        catch (Exception ex) { Logger.Warn("Could not set WebView2 memory level: " + ex.Message); }
-    }
-
     private void TrySuspendWebView()
     {
         try
         {
-            // Best-effort: free renderer memory while parked in the tray.
+            // Best-effort: pause renderer work and let WebView2 lower its own memory target.
             _ = WebView.CoreWebView2?.TrySuspendAsync();
         }
         catch (Exception ex) { Logger.Warn("WebView TrySuspend failed: " + ex.Message); }
@@ -727,10 +709,9 @@ public partial class MainWindow : Window
                 if (_webViewVisible || _exiting) return;
                 try
                 {
-                    // about:blank drops DOM/JS heap + most GPU tiles; CoreWebView2
-                    // stays so the next open is a cheap Navigate, not a full env init.
+                    // Navigate auto-resumes a suspended WebView. Re-suspend immediately
+                    // after dropping DOM/JS heap + most GPU tiles to keep the tray state lean.
                     WebView.CoreWebView2?.Navigate("about:blank");
-                    SetWebViewMemoryLevel(low: true);
                     TrySuspendWebView();
                     Logger.Info("WebView blanked after tray park.");
                 }

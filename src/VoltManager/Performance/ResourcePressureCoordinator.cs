@@ -43,7 +43,7 @@ public sealed class ResourcePressureCoordinator
 
             var baseline = ResourcePressurePolicy.BaselineProfile(metrics.RamTotalGb, _logicalCores);
             bool memoryCritical = metrics.RamPct >= ResourcePressurePolicy.CriticalRamEnterPct;
-            bool extremeGameLoad = ResourcePressurePolicy.IsExtremeGameLoad(metrics, effectiveGameActive);
+            bool extremeSystemLoad = ResourcePressurePolicy.IsExtremeSystemLoad(metrics);
             ResourceProfile profile;
             string reason;
 
@@ -56,7 +56,7 @@ public sealed class ResourcePressureCoordinator
             }
             else if (_current.Profile == ResourceProfile.Critical)
             {
-                bool clear = metrics.RamPct <= ResourcePressurePolicy.CriticalRamExitPct && !extremeGameLoad;
+                bool clear = metrics.RamPct <= ResourcePressurePolicy.CriticalRamExitPct && !extremeSystemLoad;
                 if (clear)
                 {
                     _criticalClearSinceUtc ??= now;
@@ -76,10 +76,12 @@ public sealed class ResourcePressureCoordinator
                 {
                     _criticalClearSinceUtc = null;
                     profile = ResourceProfile.Critical;
-                    reason = extremeGameLoad ? "game_load" : "memory_pressure";
+                    reason = extremeSystemLoad
+                        ? effectiveGameActive ? "game_load" : "system_load"
+                        : "memory_pressure";
                 }
             }
-            else if (extremeGameLoad)
+            else if (extremeSystemLoad)
             {
                 _criticalCandidateSinceUtc ??= now;
                 if (now - _criticalCandidateSinceUtc >= ResourcePressurePolicy.CriticalEnterDelay)
@@ -87,12 +89,12 @@ public sealed class ResourcePressureCoordinator
                     _criticalCandidateSinceUtc = null;
                     _criticalClearSinceUtc = null;
                     profile = ResourceProfile.Critical;
-                    reason = "game_load";
+                    reason = effectiveGameActive ? "game_load" : "system_load";
                 }
                 else
                 {
-                    profile = ResourceProfile.Gaming;
-                    reason = "game_active";
+                    profile = effectiveGameActive ? ResourceProfile.Gaming : baseline;
+                    reason = effectiveGameActive ? "game_active" : BaselineReason(baseline);
                 }
             }
             else
