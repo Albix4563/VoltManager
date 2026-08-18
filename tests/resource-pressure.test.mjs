@@ -18,6 +18,10 @@ const effectsCss = readFileSync(
   new URL('../src/VoltManager/wwwroot/css/effects.css', import.meta.url),
   'utf8'
 );
+const mainWindowHost = readFileSync(
+  new URL('../src/VoltManager/MainWindow.xaml.cs', import.meta.url),
+  'utf8'
+);
 
 test('frontend consumes one host resource profile signal', () => {
   assert.match(perfGuard, /Host\.on\(['"]resourceProfileChanged['"]/);
@@ -40,4 +44,11 @@ test('top-process RPC is elastic while safety RPCs remain ungated', () => {
   assert.match(bridge, /return rawCall\(method, payload\)/);
   assert.doesNotMatch(bridge, /method === 'getFan/);
   assert.doesNotMatch(bridge, /method === 'getFanControlState'\) return callTopProcesses/);
+});
+
+test('WebView lifecycle uses suspend-resume without mixing manual memory target levels', () => {
+  assert.match(mainWindowHost, /TrySuspendWebView\(\)/);
+  assert.match(mainWindowHost, /ResumeWebView\(\)/);
+  assert.doesNotMatch(mainWindowHost, /MemoryUsageTargetLevel/);
+  assert.doesNotMatch(mainWindowHost, /SetWebViewMemoryLevel/);
 });
