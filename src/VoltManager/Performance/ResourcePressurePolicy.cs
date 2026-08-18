@@ -19,11 +19,13 @@ public static class ResourcePressurePolicy
             ? ResourceProfile.Balanced
             : ResourceProfile.Full;
 
-    public static bool IsExtremeGameLoad(MetricsSnapshot metrics, bool gameActive)
+    public static bool IsExtremeSystemLoad(MetricsSnapshot metrics)
     {
-        if (!gameActive) return false;
         if (metrics.Cpu >= CriticalCpuPct) return true;
         if (metrics.GpuAvailable && metrics.Gpu >= CriticalGpuPct) return true;
         return metrics.GpuAvailable && metrics.Cpu >= 90 && metrics.Gpu >= 90;
     }
+
+    public static bool IsExtremeGameLoad(MetricsSnapshot metrics, bool gameActive)
+        => gameActive && IsExtremeSystemLoad(metrics);
 }
