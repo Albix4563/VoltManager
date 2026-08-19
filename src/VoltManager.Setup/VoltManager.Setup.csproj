@@ -21,6 +21,7 @@
     <Compile Include="..\Shared\AppThemeColor.cs" Link="Models\AppThemeColor.cs" />
     <Compile Include="..\Shared\AppThemeColorPalette.cs" Link="Models\AppThemeColorPalette.cs" />
     <Compile Include="..\Shared\WebView2UpdateCacheCleaner.cs" Link="Engine\WebView2UpdateCacheCleaner.cs" />
+    <Compile Include="..\VoltManager\Services\VoltManagerArtifacts.cs" Link="Engine\VoltManagerArtifacts.cs" />
   </ItemGroup>
 
   <!-- Payload files embedded during build (absent at dev time — project still compiles) -->
