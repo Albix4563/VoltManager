@@ -189,6 +189,7 @@ public partial class WidgetWindow : Window
 
     private void ApplyNativeBounds(IntPtr hwnd, int x, int y, int width, int height)
     {
+        RECT actual = default;
         bool positioned = SetWindowPos(
             hwnd,
             IntPtr.Zero,
@@ -199,7 +200,7 @@ public partial class WidgetWindow : Window
             SwpNoActivate | SwpNoZOrder);
         int setWindowPosError = positioned ? 0 : Marshal.GetLastWin32Error();
 
-        if (!positioned || !GetWindowRect(hwnd, out var actual) ||
+        if (!positioned || !GetWindowRect(hwnd, out actual) ||
             !NativeBoundsMatch(actual, x, y, width, height))
         {
             // Some Windows/display-driver combinations can accept SetWindowPos without the
