@@ -13,7 +13,7 @@ namespace VoltManager.Services
     {
         public const string AppName = "VoltManager";
         public const string StartupTaskName = "VoltManagerAutostart";
-        public const string UninstallShutdownEventName = "VoltManager_Uninstall_Shutdown_Event";
+        private const string UninstallShutdownEvent = "VoltManager_Uninstall_Shutdown_Event";
         public const string UninstallRegistryKey = @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\VoltManager";
         public const string LegacyUninstallRegistryKey = @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{B7E64C0A-52D1-4E2B-9C0F-VOLTMGR00001}_is1";
 
@@ -37,6 +37,7 @@ namespace VoltManager.Services
 
         public static string[] ProcessNames => (string[])OwnedProcessNames.Clone();
         public static string[] TempArtifactFileNames => (string[])OwnedTempArtifactFileNames.Clone();
+        public static string UninstallShutdownEventName => UninstallShutdownEvent;
 
         public static string AppDataDirectory => Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
