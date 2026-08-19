@@ -44,15 +44,15 @@ namespace VoltManager.Setup.Engine
             try
             {
                 using (var process = Process.GetProcessById(waitPid))
-                    await Task.Run(() => process.WaitForExit(30_000), ct);
+                {
+                    bool exited = await Task.Run(() => process.WaitForExit(30_000), ct);
+                    if (!exited)
+                        throw new InvalidOperationException("VoltManager did not exit before the update timeout.");
+                }
             }
             catch (ArgumentException)
             {
                 // Process already exited.
-            }
-            catch (InvalidOperationException)
-            {
-                // Process already exited between lookup and wait.
             }
         }
     }
