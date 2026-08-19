@@ -22,6 +22,7 @@ public partial class WidgetWindow : Window
     private const int WS_EX_TOOLWINDOW = 0x00000080;
     private const uint SwpNoActivate = 0x0010;
     private const uint SwpNoZOrder = 0x0004;
+    private const int NativeBoundsTolerancePx = 2;
 
     private readonly App _app;
     private readonly WidgetManager _manager;
@@ -175,7 +176,7 @@ public partial class WidgetWindow : Window
             int y = (int)Math.Round(placement.FinalBounds.Y);
             int w = (int)Math.Round(placement.FinalBounds.Width);
             int h = (int)Math.Round(placement.FinalBounds.Height);
-            SetWindowPos(hwnd, IntPtr.Zero, x, y, w, h, SwpNoActivate | SwpNoZOrder);
+            ApplyNativeBounds(hwnd, x, y, w, h);
             ApplyRoundedRegion();
             if (sizeChanged)
                 WebView.CoreWebView2?.Navigate(WidgetUrl());
@@ -185,6 +186,52 @@ public partial class WidgetWindow : Window
             _applyingPlacement = false;
         }
     }
+
+    private void ApplyNativeBounds(IntPtr hwnd, int x, int y, int width, int height)
+    {
+        RECT actual = default;
+        bool positioned = SetWindowPos(
+            hwnd,
+            IntPtr.Zero,
+            x,
+            y,
+            width,
+            height,
+            SwpNoActivate | SwpNoZOrder);
+        int setWindowPosError = positioned ? 0 : Marshal.GetLastWin32Error();
+
+        if (!positioned || !GetWindowRect(hwnd, out actual) ||
+            !NativeBoundsMatch(actual, x, y, width, height))
+        {
+            // Some Windows/display-driver combinations can accept SetWindowPos without the
+            // HWND ending up at the requested geometry. Verify the postcondition and use a
+            // second Win32 path instead of silently keeping stale widget bounds.
+            bool moved = MoveWindow(hwnd, x, y, width, height, true);
+            int moveWindowError = moved ? 0 : Marshal.GetLastWin32Error();
+
+            if (!moved || !GetWindowRect(hwnd, out actual) ||
+                !NativeBoundsMatch(actual, x, y, width, height))
+            {
+                Logger.Warn(
+                    $"Widget '{_type}' native placement failed. " +
+                    $"Requested=({x},{y},{width},{height}), " +
+                    $"Actual=({actual.Left},{actual.Top},{actual.Right - actual.Left},{actual.Bottom - actual.Top}), " +
+                    $"SetWindowPosError={setWindowPosError}, MoveWindowError={moveWindowError}.");
+            }
+            else
+            {
+                Logger.Warn(
+                    $"Widget '{_type}' placement required MoveWindow fallback " +
+                    $"(SetWindowPosError={setWindowPosError}).");
+            }
+        }
+    }
+
+    private static bool NativeBoundsMatch(RECT rect, int x, int y, int width, int height)
+        => Math.Abs(rect.Left - x) <= NativeBoundsTolerancePx
+            && Math.Abs(rect.Top - y) <= NativeBoundsTolerancePx
+            && Math.Abs((rect.Right - rect.Left) - width) <= NativeBoundsTolerancePx
+            && Math.Abs((rect.Bottom - rect.Top) - height) <= NativeBoundsTolerancePx;
 
     private string WidgetUrl() =>
         "https://app.local/widgets.html?w=" + Uri.EscapeDataString(_type) +
@@ -287,11 +334,15 @@ public partial class WidgetWindow : Window
     [DllImport("user32.dll")]
     private static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
 
-    [DllImport("user32.dll")]
+    [DllImport("user32.dll", SetLastError = true)]
     private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter,
         int x, int y, int cx, int cy, uint uFlags);
 
-    [DllImport("user32.dll")]
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool MoveWindow(IntPtr hWnd, int x, int y,
+        int nWidth, int nHeight, bool bRepaint);
+
+    [DllImport("user32.dll", SetLastError = true)]
     private static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
 
     [StructLayout(LayoutKind.Sequential)]
