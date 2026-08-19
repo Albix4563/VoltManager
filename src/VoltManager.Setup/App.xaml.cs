@@ -71,7 +71,7 @@ namespace VoltManager.Setup
             int exit = 0;
             try
             {
-                await engine.UpdateAsync(pid, GetVersion());
+                await new UpdateInstallCoordinator(engine).UpdateAsync(pid, GetVersion());
             }
             catch
             {
