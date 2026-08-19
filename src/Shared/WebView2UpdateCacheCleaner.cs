@@ -36,6 +36,9 @@ namespace VoltManager.Services
 
             for (int attempt = 1; attempt <= MaxAttempts; attempt++)
             {
+                if (!Directory.Exists(userDataDirectory))
+                    return true;
+
                 try
                 {
                     MakeWritableTree(userDataDirectory);
