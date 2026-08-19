@@ -10,7 +10,7 @@ const widgetWindow = readFileSync(
 test('widget native placement is verified and has a corrective fallback', () => {
   assert.match(
     widgetWindow,
-    /SetWindowPos\(hwnd,[\s\S]*?if\s*\(![\s\S]*?GetWindowRect\(hwnd,[\s\S]*?MoveWindow\(hwnd,/,
+    /SetWindowPos\(\s*hwnd,[\s\S]*?if\s*\(![\s\S]*?GetWindowRect\(hwnd,[\s\S]*?MoveWindow\(hwnd,/,
     'ApplyPlacement must verify the native bounds and retry with MoveWindow when SetWindowPos does not apply them'
   );
 
