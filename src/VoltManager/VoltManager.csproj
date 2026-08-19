@@ -28,6 +28,7 @@
   <ItemGroup>
     <Compile Include="..\Shared\AppThemeColor.cs" Link="Models\AppThemeColor.Enum.cs" />
     <Compile Include="..\Shared\AppThemeColorPalette.cs" Link="Models\AppThemeColorPalette.cs" />
+    <Compile Include="..\Shared\WebView2UpdateCacheCleaner.cs" Link="Services\WebView2UpdateCacheCleaner.Shared.cs" />
   </ItemGroup>
 
   <ItemGroup>
