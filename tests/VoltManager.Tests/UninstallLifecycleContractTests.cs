@@ -32,6 +32,7 @@ public sealed class UninstallLifecycleContractTests
         Assert.Contains("VoltManagerPayload.zip", tempNames);
         Assert.Contains("MicrosoftEdgeWebview2Setup.exe", tempNames);
         Assert.Contains("vmgr_update_cleanup.bat", tempNames);
+        Assert.Contains("vmgr_uninstall_cleanup.bat", tempNames);
     }
 
     [Fact]
@@ -52,10 +53,14 @@ public sealed class UninstallLifecycleContractTests
         {
             string update = Path.Combine(root, "VoltManagerUpdate.exe");
             string payload = Path.Combine(root, "VoltManagerPayload.zip");
+            string updateCleanup = Path.Combine(root, "vmgr_update_cleanup.bat");
+            string uninstallCleanup = Path.Combine(root, "vmgr_uninstall_cleanup.bat");
             string unrelated = Path.Combine(root, "keep-me.txt");
             string currentUninstaller = Path.Combine(root, "VoltManagerUninstall.exe");
             File.WriteAllText(update, "stale");
             File.WriteAllText(payload, "stale");
+            File.WriteAllText(updateCleanup, "stale");
+            File.WriteAllText(uninstallCleanup, "stale");
             File.WriteAllText(unrelated, "user-owned");
             File.WriteAllText(currentUninstaller, "running-self-placeholder");
 
@@ -64,6 +69,8 @@ public sealed class UninstallLifecycleContractTests
 
             Assert.False(File.Exists(update));
             Assert.False(File.Exists(payload));
+            Assert.False(File.Exists(updateCleanup));
+            Assert.False(File.Exists(uninstallCleanup));
             Assert.True(File.Exists(unrelated));
             Assert.True(File.Exists(currentUninstaller));
         }
