@@ -15,7 +15,6 @@ namespace VoltManager;
 
 public partial class MainWindow : Window
 {
-    private static readonly TimeSpan AutoUpdateInitialDelay = TimeSpan.FromMinutes(30);
     private readonly App _app;
     private Task<CoreWebView2Environment>? _webViewEnvironment;
     private HostBridge? _bridge;
@@ -93,6 +92,7 @@ public partial class MainWindow : Window
             _bridge?.PushEvent("languageChanged", new { language = code, locale = culture.Name });
         });
         LocalizeTrayMenu();
+        InitializeAutoUpdateLifecycle();
 
         if (startMinimized)
         {
@@ -206,13 +206,12 @@ public partial class MainWindow : Window
             };
             // When a game/heavy app session ends, apply any update that was deferred mid-session.
             _app.HeavyApps.ActivityChanged += OnHeavyAppActivityChangedForUpdates;
-            StartAutoUpdateLoop();
             _hostEventsWired = true;
         }
 
         core.ProcessFailed += OnWebViewProcessFailed;
 
-        bool startupCheckDone = false;
+        bool startupToastDone = false;
         core.NavigationCompleted += (_, args) =>
         {
             if (!args.IsSuccess) return;
@@ -223,12 +222,10 @@ public partial class MainWindow : Window
                 Logger.Info($"NavigationCompleted in {_navStopwatch.ElapsedMilliseconds}ms (source={src})");
                 _navStopwatch.Reset();
             }
-            if (startupCheckDone) return;
-            startupCheckDone = true;
+            if (startupToastDone) return;
+            startupToastDone = true;
             if (_justUpdated)
                 _ = PushUpdatedToastAsync();
-            else
-                _ = CheckForUpdatesOnStartupAsync();
         };
 
         NavigateToAppDocument(core);
@@ -414,43 +411,23 @@ public partial class MainWindow : Window
         await Task.Delay(TimeSpan.FromSeconds(2));
         string ver = _app.Updates.CurrentVersion;
         _bridge?.PushEvent("appUpdated", new { version = ver });
-        // After toast, run regular update check in background.
+    }
+
+    private void InitializeAutoUpdateLifecycle()
+    {
+        _app.Settings.Current.AutoUpdates ??= new AutoUpdateSettings();
+        if (_app.Settings.Current.AutoUpdates.IntervalMinutes != UpdateSchedulePolicy.AutomaticCheckIntervalMinutes)
+        {
+            _app.Settings.Current.AutoUpdates.IntervalMinutes = UpdateSchedulePolicy.AutomaticCheckIntervalMinutes;
+            _app.Settings.Save();
+        }
+
+        StartAutoUpdateLoop();
         _ = CheckForUpdatesOnStartupAsync();
     }
 
-    private async Task CheckForUpdatesOnStartupAsync()
-    {
-        try
-        {
-            // Small delay so JS event handlers are registered before the push.
-            await Task.Delay(TimeSpan.FromSeconds(3));
-            var autoUpdates = _app.Settings.Current.AutoUpdates;
-            if (autoUpdates is not { Enabled: true }) return;
-
-            var info = await _app.Updates.CheckForUpdatesAsync();
-            if (!info.UpdateAvailable || string.IsNullOrWhiteSpace(info.DownloadUrl)) return;
-            if (IsUpdateSuppressed(info, respectSnooze: true)) return;
-
-            // Never restart / prompt while a game is running — retry after the session ends.
-            if (_app.IsHeavyAppSessionActive())
-            {
-                if (ShouldInstallUpdatesSilently())
-                    _app.DeferUpdateUntilGameEnds(info.DownloadUrl);
-                Logger.Info("Startup update deferred: game/heavy app session active.");
-                return;
-            }
-
-            if (ShouldInstallUpdatesSilently())
-                await DownloadAndInstallUpdateAsync(info.DownloadUrl);
-            else
-                _bridge?.PushEvent("updateAvailable", info);
-        }
-        catch (Exception ex)
-        {
-            // Offline or rate-limited: stay silent, manual check remains available.
-            Logger.Warn("Startup update check failed: " + ex.Message);
-        }
-    }
+    private Task CheckForUpdatesOnStartupAsync()
+        => RunAutoUpdateCheckAsync();
 
     private void StartAutoUpdateLoop()
     {
@@ -458,16 +435,11 @@ public partial class MainWindow : Window
         _autoUpdateTimer = new System.Threading.Timer(_ =>
         {
             _ = Dispatcher.InvokeAsync(async () => await RunAutoUpdateCheckAsync());
-        }, null, AutoUpdateInitialDelay, interval);
+        }, null, interval, interval);
     }
 
-    private TimeSpan GetAutoUpdateInterval()
-    {
-        int minutes = _app.Settings.Current.AutoUpdates?.IntervalMinutes ?? 30;
-        if (minutes < 5) minutes = 30;
-        if (minutes > 1440) minutes = 1440;
-        return TimeSpan.FromMinutes(minutes);
-    }
+    private static TimeSpan GetAutoUpdateInterval()
+        => UpdateSchedulePolicy.AutomaticCheckInterval;
 
     private async Task RunAutoUpdateCheckAsync()
     {
@@ -476,8 +448,7 @@ public partial class MainWindow : Window
         try
         {
             var autoUpdates = _app.Settings.Current.AutoUpdates;
-            if (autoUpdates is not { Enabled: true }) return;
-            if (autoUpdates.SnoozedUntilUtc is DateTime snoozedUntil && snoozedUntil > DateTime.UtcNow) return;
+            if (!UpdateSchedulePolicy.IsAutomaticCheckAllowed(autoUpdates, DateTime.UtcNow)) return;
 
             var info = await _app.Updates.CheckForUpdatesAsync();
             if (!info.UpdateAvailable || string.IsNullOrWhiteSpace(info.DownloadUrl)) return;
@@ -494,8 +465,8 @@ public partial class MainWindow : Window
 
             if (ShouldInstallUpdatesSilently())
                 await DownloadAndInstallUpdateAsync(info.DownloadUrl);
-            else if (IsAppInForeground())
-                _bridge?.PushEvent("updateAvailable", info);
+            else if (IsAppInForeground() && _bridge != null)
+                _bridge.PushEvent("updateAvailable", info);
             else
                 await ShowBackgroundUpdatePromptAsync(info);
         }
@@ -615,7 +586,7 @@ public partial class MainWindow : Window
 
     private void SnoozeUpdate(int minutes)
     {
-        minutes = Math.Clamp(minutes, 5, 1440);
+        minutes = UpdateSchedulePolicy.NormalizeSnoozeMinutes(minutes);
         _app.Settings.Current.AutoUpdates ??= new AutoUpdateSettings();
         _app.Settings.Current.AutoUpdates.SnoozedUntilUtc = DateTime.UtcNow.AddMinutes(minutes);
         _app.Settings.Save();
