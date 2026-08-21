@@ -28,6 +28,15 @@ test('settings copy reports the fifteen-minute automatic cadence', () => {
     assert.match(uiSource, /ogni 15 minuti/);
 });
 
+test('automatic update lifecycle starts before the minimized-tray branch', () => {
+    const lifecycleIndex = mainWindowSource.indexOf('InitializeAutoUpdateLifecycle();');
+    const minimizedIndex = mainWindowSource.indexOf('if (startMinimized)');
+    assert.ok(lifecycleIndex >= 0, 'startup update lifecycle must be initialized');
+    assert.ok(minimizedIndex >= 0, 'minimized startup branch must exist');
+    assert.ok(lifecycleIndex < minimizedIndex, 'update lifecycle must not wait for WebView/tray restore');
+    assert.match(mainWindowSource, /StartAutoUpdateLoop\(\);\s*_ = CheckForUpdatesOnStartupAsync\(\);/s);
+});
+
 test('main WebView injects the suspension settings module after navigation', () => {
     assert.match(mainWindowSource, /LoadUpdateSuspensionUi\(core\)/);
     assert.match(mainWindowSource, /update-suspension\.js\?v=suspend1/);
