@@ -91,6 +91,7 @@ public partial class MainWindow : Window
             _app.Widgets.PushLanguage();
             _bridge?.PushEvent("languageChanged", new { language = code, locale = culture.Name });
         });
+        _app.HeavyApps.ActivityChanged += OnHeavyAppActivityChangedForUpdates;
         LocalizeTrayMenu();
         InitializeAutoUpdateLifecycle();
 
@@ -204,8 +205,6 @@ public partial class MainWindow : Window
                 _bridge?.PushEvent("scheduledPowerActionChanged", state);
                 Dispatcher.Invoke(() => RefreshScheduledPowerTrayState(state));
             };
-            // When a game/heavy app session ends, apply any update that was deferred mid-session.
-            _app.HeavyApps.ActivityChanged += OnHeavyAppActivityChangedForUpdates;
             _hostEventsWired = true;
         }
 
@@ -217,10 +216,14 @@ public partial class MainWindow : Window
             if (!args.IsSuccess) return;
             _rendererReloadCount = 0; // a clean load means the renderer recovered
             string src = core.Source ?? "";
-            if (!src.StartsWith("about:", StringComparison.OrdinalIgnoreCase) && _navStopwatch.IsRunning)
+            if (!src.StartsWith("about:", StringComparison.OrdinalIgnoreCase))
             {
-                Logger.Info($"NavigationCompleted in {_navStopwatch.ElapsedMilliseconds}ms (source={src})");
-                _navStopwatch.Reset();
+                if (_navStopwatch.IsRunning)
+                {
+                    Logger.Info($"NavigationCompleted in {_navStopwatch.ElapsedMilliseconds}ms (source={src})");
+                    _navStopwatch.Reset();
+                }
+                LoadUpdateSuspensionUi(core);
             }
             if (startupToastDone) return;
             startupToastDone = true;
@@ -235,6 +238,14 @@ public partial class MainWindow : Window
     {
         _navStopwatch.Restart();
         core.Navigate("https://app.local/index.html?v=" + AppDocumentVersion);
+    }
+
+    private static void LoadUpdateSuspensionUi(CoreWebView2 core)
+    {
+        _ = core.ExecuteScriptAsync(
+            "(()=>{if(document.querySelector('script[data-update-suspension]'))return;" +
+            "const s=document.createElement('script');s.dataset.updateSuspension='true';" +
+            "s.src='js/update-suspension.js?v=suspend1';document.head.appendChild(s);})();");
     }
 
     private void OnWebViewProcessFailed(object? sender, CoreWebView2ProcessFailedEventArgs e)
