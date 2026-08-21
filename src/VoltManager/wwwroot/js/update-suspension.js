@@ -294,10 +294,15 @@
         }
     }
 
-    document.addEventListener('settingsloaded', mount);
-    document.addEventListener('langchanged', refreshLabels);
-    document.addEventListener('DOMContentLoaded', () => {
+    function initializeWhenReady() {
         syncAutomaticCheckCopy();
         if (window.__voltSettings) mount();
-    });
+    }
+
+    document.addEventListener('settingsloaded', mount);
+    document.addEventListener('langchanged', refreshLabels);
+    if (document.readyState === 'loading')
+        document.addEventListener('DOMContentLoaded', initializeWhenReady, { once: true });
+    else
+        initializeWhenReady();
 })();
