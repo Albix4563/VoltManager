@@ -599,7 +599,7 @@ public class HostBridge
                 int minutes = payload.TryGetProperty("minutes", out var minutesEl) && minutesEl.ValueKind == JsonValueKind.Number
                     ? minutesEl.GetInt32()
                     : 30;
-                minutes = Math.Clamp(minutes, 5, 1440);
+                minutes = UpdateSchedulePolicy.NormalizeSnoozeMinutes(minutes);
                 _settings.Current.AutoUpdates ??= new AutoUpdateSettings();
                 _settings.Current.AutoUpdates.SnoozedUntilUtc = DateTime.UtcNow.AddMinutes(minutes);
                 _settings.Save();
