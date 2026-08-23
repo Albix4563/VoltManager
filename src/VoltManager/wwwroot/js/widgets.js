@@ -10,6 +10,7 @@
     let switchingPlan = false;
     let keepAwake = false;
     let settingKeepAwake = false;
+    let clockTimer = null;
     let locale = (window.I18n && I18n.getLocale ? I18n.getLocale() : 'it-IT');
     document.documentElement.dataset.size = size;
 
@@ -133,7 +134,8 @@
             if (dateEl) dateEl.textContent = new Intl.DateTimeFormat(locale, { weekday: 'long', day: '2-digit', month: 'long' }).format(now);
         }
         tick();
-        setInterval(tick, 1000);
+        if (clockTimer != null) clearInterval(clockTimer);
+        clockTimer = setInterval(tick, 1000);
     }
 
     function startCalendar() {

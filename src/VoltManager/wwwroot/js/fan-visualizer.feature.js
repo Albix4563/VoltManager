@@ -58,6 +58,7 @@
     class Renderer {
         constructor(canvas, options) {
             this.canvas=canvas; this.options=options||{}; this.angle=0; this.fanAngle=0; this.last=0; this.raf=0;
+            this.reducedMotion=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)');
             this.gl=canvas.getContext('webgl', { alpha:true, antialias:true, powerPreference:'low-power' });
             if (!this.gl) throw new Error('WebGL unavailable');
             const gl=this.gl;
@@ -112,7 +113,7 @@
         frame(now){
             if(!this.canvas.isConnected){this.destroy();return;}
             const dt=Math.min(.05,(now-this.last)/1000||0); this.last=now;
-            const reduced=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            const reduced=this.reducedMotion&&this.reducedMotion.matches;
             if(!reduced) this.angle+=dt*.18;
             const rpm=Math.max(0,Number(this.options.rpm)||0);
             if(!reduced&&rpm>0) this.fanAngle=(this.fanAngle+dt*Math.min(30,Math.max(1.2,rpm/110)))%(Math.PI*2);

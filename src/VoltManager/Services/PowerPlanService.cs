@@ -1,4 +1,6 @@
+using System.ComponentModel;
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using VoltManager.Models;
 
@@ -18,10 +20,45 @@ public class PowerPlanService
         RegexOptions.Compiled);
 
     private readonly SettingsService _settings;
+    private readonly Func<Guid?> _readActiveScheme;
+    private readonly Func<string, string> _runPowercfg;
+    private bool _activeSchemeReadFaulted;
 
     public PowerPlanService(SettingsService settings)
+        : this(settings, ReadActiveScheme, RunPowercfg)
+    {
+    }
+
+    internal PowerPlanService(
+        SettingsService settings,
+        Func<Guid?> readActiveScheme,
+        Func<string, string> runPowercfg)
     {
         _settings = settings;
+        _readActiveScheme = readActiveScheme;
+        _runPowercfg = runPowercfg;
+    }
+
+    [DllImport("powrprof.dll")]
+    private static extern uint PowerGetActiveScheme(IntPtr userRootPowerKey, out IntPtr activePolicyGuid);
+
+    [DllImport("kernel32.dll")]
+    private static extern IntPtr LocalFree(IntPtr memory);
+
+    private static Guid? ReadActiveScheme()
+    {
+        IntPtr pointer = IntPtr.Zero;
+        uint error = PowerGetActiveScheme(IntPtr.Zero, out pointer);
+        try
+        {
+            if (error != 0)
+                throw new Win32Exception(unchecked((int)error));
+            return Marshal.PtrToStructure<Guid>(pointer);
+        }
+        finally
+        {
+            if (pointer != IntPtr.Zero) LocalFree(pointer);
+        }
     }
 
     public static string RunPowercfg(string args)
@@ -120,17 +157,35 @@ public class PowerPlanService
 
     public PowerPlan? GetActivePlan()
     {
-        var output = RunPowercfg("/getactivescheme");
-        var m = GuidRegex.Match(output);
-        if (!m.Success) return null;
-        string guid = m.Groups["guid"].Value.ToLowerInvariant();
-        return new PowerPlan
+        try
         {
-            Guid = guid,
-            Name = m.Groups["name"].Success ? m.Groups["name"].Value.Trim() : "",
-            IsActive = true,
-            PlanId = ResolvePlanId(guid, _settings.Current.PlanGuidMap),
-        };
+            string? guid = _readActiveScheme()?.ToString("D").ToLowerInvariant();
+            if (guid == null) return null;
+            _activeSchemeReadFaulted = false;
+            PlanId? planId = ResolvePlanId(guid, _settings.Current.PlanGuidMap);
+            string name = "";
+            if (planId == null)
+            {
+                var match = GuidRegex.Match(_runPowercfg("/getactivescheme"));
+                if (match.Success && match.Groups["guid"].Value.Equals(guid, StringComparison.OrdinalIgnoreCase))
+                    name = match.Groups["name"].Success ? match.Groups["name"].Value.Trim() : "";
+            }
+            return new PowerPlan
+            {
+                Guid = guid,
+                Name = name,
+                IsActive = true,
+                PlanId = planId,
+            };
+        }
+        catch (Exception ex)
+        {
+            _activeSchemeReadFaulted = Logger.WarnOnce(
+                _activeSchemeReadFaulted,
+                "Native active power plan query failed",
+                ex);
+            return null;
+        }
     }
 
     /// <summary>Checks all three canonical plans exist (directly or via guid map).</summary>
