@@ -26,15 +26,28 @@ public class FanExternalConflictDetectorTests
     [Fact]
     public void Process_plus_matching_service_raises_confidence_without_claiming_header_ownership()
     {
-        var notices = new FanExternalConflictDetector().DetectFromEvidenceForTests(
-            new[] { "ArmouryCrate.UserSessionHelper" },
-            new[] { "ArmouryCrateService" });
+        var notices = new FanExternalConflictDetector(
+            () => new[] { "ArmouryCrate.UserSessionHelper" },
+            () => new[] { ("ArmouryCrateService", "ArmouryCrateService") })
+            .Scan(force: true);
 
         var notice = Assert.Single(notices);
         Assert.Equal(FanConflictConfidence.High, notice.Confidence);
         Assert.True(notice.BlocksControl);
         Assert.NotNull(notice.ServiceName);
         Assert.DoesNotContain("confirmed", notice.Evidence, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Scan_preserves_service_name_while_matching_its_display_name()
+    {
+        var detector = new FanExternalConflictDetector(
+            () => Array.Empty<string>(),
+            () => new[] { ("VendorService FanControl", "VendorService") });
+
+        var notice = Assert.Single(detector.Scan(force: true));
+
+        Assert.Equal("VendorService", notice.ServiceName);
     }
 
     [Fact]

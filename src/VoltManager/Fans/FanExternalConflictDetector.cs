@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Management;
 using VoltManager.Services;
 
@@ -13,9 +12,25 @@ namespace VoltManager.Fans;
 public sealed class FanExternalConflictDetector
 {
     private static readonly TimeSpan CacheDuration = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan ProcessSnapshotMaxAge = TimeSpan.FromSeconds(4);
     private readonly object _cacheGate = new();
+    private readonly Func<IEnumerable<string>> _readProcessNames;
+    private readonly Func<IEnumerable<(string Searchable, string Name)>> _readServices;
     private DateTime _lastScanUtc = DateTime.MinValue;
     private IReadOnlyList<FanExternalSoftwareNotice> _lastResult = Array.Empty<FanExternalSoftwareNotice>();
+
+    public FanExternalConflictDetector()
+        : this(ReadProcesses, ReadRunningServiceNames)
+    {
+    }
+
+    internal FanExternalConflictDetector(
+        Func<IEnumerable<string>> readProcessNames,
+        Func<IEnumerable<(string Searchable, string Name)>> readServices)
+    {
+        _readProcessNames = readProcessNames;
+        _readServices = readServices;
+    }
 
     private static readonly KnownUtility[] KnownUtilities =
     {
@@ -48,9 +63,11 @@ public sealed class FanExternalConflictDetector
 
         try
         {
-            var evidence = new List<Evidence>();
-            evidence.AddRange(ReadProcesses());
-            evidence.AddRange(ReadRunningServices());
+            var evidence = _readProcessNames()
+                .SelectMany(name => Match(name, EvidenceType.Process, name))
+                .Concat(_readServices()
+                    .SelectMany(service => Match(service.Searchable, EvidenceType.Service, service.Name)))
+                .ToList();
             IReadOnlyList<FanExternalSoftwareNotice> result = MergeEvidence(evidence);
 
             lock (_cacheGate)
@@ -76,58 +93,40 @@ public sealed class FanExternalConflictDetector
             .ToList());
     }
 
-    internal IReadOnlyList<FanExternalSoftwareNotice> DetectFromEvidenceForTests(
-        IEnumerable<string> processNames,
-        IEnumerable<string> serviceNames)
-    {
-        var evidence = processNames.SelectMany(name => Match(name, EvidenceType.Process, name))
-            .Concat(serviceNames.SelectMany(name => Match(name, EvidenceType.Service, name)))
-            .ToList();
-        return MergeEvidence(evidence);
-    }
+    private static IEnumerable<string> ReadProcesses()
+        => ProcessSnapshotProvider.Get(ProcessSnapshotMaxAge).Processes
+            .Select(process => process.Name)
+            .Where(name => !string.IsNullOrWhiteSpace(name));
 
-    private static IEnumerable<Evidence> ReadProcesses()
+    private static IEnumerable<(string Searchable, string Name)> ReadRunningServiceNames()
     {
-        foreach (Process process in Process.GetProcesses())
-        {
-            string? name = null;
-            try { name = process.ProcessName; }
-            catch { }
-            finally { process.Dispose(); }
-            if (string.IsNullOrWhiteSpace(name)) continue;
-            foreach (Evidence item in Match(name, EvidenceType.Process, name)) yield return item;
-        }
-    }
-
-    private static IReadOnlyList<Evidence> ReadRunningServices()
-    {
-        var evidence = new List<Evidence>();
         ManagementObjectCollection? results = null;
         try
         {
             using var searcher = new ManagementObjectSearcher(
                 "SELECT Name, DisplayName FROM Win32_Service WHERE State='Running'");
             results = searcher.Get();
+            var names = new List<(string, string)>();
             foreach (ManagementObject service in results)
             {
                 using (service)
                 {
                     string name = Convert.ToString(service["Name"]) ?? "";
                     string display = Convert.ToString(service["DisplayName"]) ?? "";
-                    string searchable = name + " " + display;
-                    evidence.AddRange(Match(searchable, EvidenceType.Service, name));
+                    names.Add((name + " " + display, name));
                 }
             }
+            return names;
         }
         catch (Exception ex)
         {
             Logger.Warn("Fan controller service scan unavailable: " + ex.Message);
+            return Array.Empty<(string, string)>();
         }
         finally
         {
             results?.Dispose();
         }
-        return evidence;
     }
 
     private static IEnumerable<Evidence> Match(string value, EvidenceType type, string sourceName)

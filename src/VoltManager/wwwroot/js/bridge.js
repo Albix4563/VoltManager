@@ -31,8 +31,9 @@
                 return;
             }
             if (msg.id && pending.has(msg.id)) {
-                const { resolve, reject } = pending.get(msg.id);
+                const { resolve, reject, timeout } = pending.get(msg.id);
                 pending.delete(msg.id);
+                clearTimeout(timeout);
                 if (msg.ok) resolve(msg.result);
                 else {
                     var err = new Error(msg.error || 'Bridge error');
@@ -50,14 +51,14 @@
         }
         return new Promise((resolve, reject) => {
             const id = 'rpc-' + (nextId++);
-            pending.set(id, { resolve, reject });
-            window.chrome.webview.postMessage({ id, method, payload: payload || {} });
-            setTimeout(() => {
+            const timeout = setTimeout(() => {
                 if (pending.has(id)) {
                     pending.delete(id);
                     reject(new Error('Timeout: ' + method));
                 }
             }, 120000);
+            pending.set(id, { resolve, reject, timeout });
+            window.chrome.webview.postMessage({ id, method, payload: payload || {} });
         });
     }
 
