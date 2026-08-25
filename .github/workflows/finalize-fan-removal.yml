@@ -1,0 +1,71 @@
+name: Finalize deprecated cooling removal
+
+on:
+  push:
+    branches:
+      - remove-fans-cooling
+
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: remove-fans-cooling
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Finalize model cleanup
+        run: python scripts/finalize-fan-removal.py
+
+      - name: Verify no legacy subsystem identifiers
+        shell: pwsh
+        run: |
+          git grep -n -i -P '\bfans?\b|\bcooling\b|ventol|raffredd|ControlAvailable|ControlIdentifier|ControlMode|ControlPercent|ControlMin|ControlMax|ControlWritesAllowed|getFan|setFan|restoreFan|FanManagement|fanControl' -- ':!LICENSE' ':!scripts/finalize-fan-removal.py' ':!.github/workflows/finalize-fan-removal.yml'
+          $code = $LASTEXITCODE
+          if ($code -eq 0) { throw 'Legacy cooling subsystem references remain.' }
+          if ($code -ne 1) { exit $code }
+          Write-Host 'No legacy cooling subsystem identifiers remain.'
+          exit 0
+
+      - name: Restore
+        run: dotnet restore VoltManager.sln
+
+      - name: Build
+        run: dotnet build VoltManager.sln -c Release --no-restore -v:minimal
+
+      - name: Test .NET
+        run: dotnet test tests/VoltManager.Tests/VoltManager.Tests.csproj -c Release --no-build --no-restore -v:minimal
+
+      - name: Test JavaScript
+        run: node --test tests/*.test.mjs
+
+      - name: Check JavaScript syntax
+        shell: pwsh
+        run: |
+          foreach ($file in Get-ChildItem src/VoltManager/wwwroot/js/*.js) {
+            node --check $file.FullName
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+
+      - name: Package smoke test
+        shell: pwsh
+        run: .\build.ps1 -SkipTests -SkipInstaller
+
+      - name: Commit final verified cleanup
+        shell: pwsh
+        run: |
+          Remove-Item scripts/finalize-fan-removal.py
+          Remove-Item .github/workflows/finalize-fan-removal.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'refactor: remove remaining legacy control fields'
+          git push origin HEAD:remove-fans-cooling
