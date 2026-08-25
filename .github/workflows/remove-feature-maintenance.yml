@@ -27,11 +27,12 @@ jobs:
         run: |
           python scripts/remove-fans-cooling.py
           python scripts/remove-fans-residuals.py
+          python scripts/remove-fans-build-fixes.py
 
       - name: Check residual feature references
         shell: pwsh
         run: |
-          git grep -n -i -P '\bfans?\b|\bcooling\b|ventol|raffredd' -- ':!LICENSE' ':!scripts/remove-fans-cooling.py' ':!scripts/remove-fans-residuals.py' ':!.github/workflows/remove-feature-maintenance.yml'
+          git grep -n -i -P '\bfans?\b|\bcooling\b|ventol|raffredd' -- ':!LICENSE' ':!scripts/remove-fans-cooling.py' ':!scripts/remove-fans-residuals.py' ':!scripts/remove-fans-build-fixes.py' ':!.github/workflows/remove-feature-maintenance.yml'
           $code = $LASTEXITCODE
           if ($code -eq 0) { throw 'Residual fan/cooling references remain.' }
           if ($code -ne 1) { exit $code }
@@ -67,6 +68,7 @@ jobs:
         run: |
           Remove-Item scripts/remove-fans-cooling.py
           Remove-Item scripts/remove-fans-residuals.py
+          Remove-Item scripts/remove-fans-build-fixes.py
           Remove-Item .github/workflows/remove-feature-maintenance.yml
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
