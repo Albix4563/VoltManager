@@ -50,12 +50,6 @@ public record SensorReading
     [JsonPropertyName("name")] public string Name { get; init; } = "";
     [JsonPropertyName("type")] public string Type { get; init; } = "";          // temp|clock
     [JsonPropertyName("value")] public double Value { get; init; }
-    [JsonPropertyName("controlAvailable")] public bool ControlAvailable { get; init; }
-    [JsonPropertyName("controlIdentifier")] public string? ControlIdentifier { get; init; }
-    [JsonPropertyName("controlMode")] public string? ControlMode { get; init; }
-    [JsonPropertyName("controlPercent")] public double? ControlPercent { get; init; }
-    [JsonPropertyName("controlMin")] public double? ControlMin { get; init; }
-    [JsonPropertyName("controlMax")] public double? ControlMax { get; init; }
 }
 
 public record SystemInfo
