@@ -49,7 +49,7 @@ public static class SensorAggregation
         HardwareType.GpuNvidia or HardwareType.GpuAmd or HardwareType.GpuIntel => "gpu",
         HardwareType.Storage => "storage",
         HardwareType.Memory => "memory",
-        _ => "motherboard", // Motherboard, SuperIO, EmbeddedController, coolers...
+        _ => "motherboard", // Motherboard, SuperIO, EmbeddedController and other sensor hosts.
     };
 
     // Failed reads surface as 0 °C (e.g. APUs where the source cannot read a
