@@ -6,11 +6,7 @@ using System.Text.Json;
 
 namespace VoltManager.Services;
 
-/// <summary>
-/// Named-pipe client for the isolated hardware process. The child process owns
-/// LibreHardwareMonitor and restores every software-owned fan channel if this
-/// parent process exits unexpectedly.
-/// </summary>
+/// <summary>Named-pipe client for the isolated hardware sensor process.</summary>
 public sealed class HardwareServiceClient : IHardwareAccess
 {
     private static readonly TimeSpan RpcTimeout = TimeSpan.FromSeconds(8);
@@ -33,7 +29,6 @@ public sealed class HardwareServiceClient : IHardwareAccess
     private long _nextId;
 
     public bool Available => !_disposed && ((_pipe.IsConnected && _hardwareAvailable) || (_fallback?.Available ?? false));
-    public bool ControlWritesAllowed => !_disposed && !_rpcFaulted && _fallback == null && _pipe.IsConnected && !_process.HasExited;
 
     private HardwareServiceClient(NamedPipeClientStream pipe, Process process)
     {
@@ -48,7 +43,7 @@ public sealed class HardwareServiceClient : IHardwareAccess
         string executable = Path.Combine(AppContext.BaseDirectory, "VoltManager.HardwareService.exe");
         if (!File.Exists(executable))
         {
-            Logger.Warn("Hardware service executable not found; fan control will remain read-only.");
+            Logger.Warn("Hardware service executable not found; using in-process monitoring.");
             return null;
         }
 
@@ -85,7 +80,7 @@ public sealed class HardwareServiceClient : IHardwareAccess
         }
         catch (Exception ex)
         {
-            Logger.Warn("Hardware service unavailable; fan control will remain read-only: " + ex.Message);
+            Logger.Warn("Hardware service unavailable; using in-process monitoring: " + ex.Message);
             try { pipe?.Dispose(); } catch { }
             try { if (process is { HasExited: false }) process.Kill(entireProcessTree: true); } catch { }
             try { process?.Dispose(); } catch { }
@@ -98,7 +93,7 @@ public sealed class HardwareServiceClient : IHardwareAccess
         HardwareReadEnvelope? envelope = Call<HardwareReadEnvelope>("read", new { force });
         if (envelope == null)
         {
-            EnsureReadOnlyFallbackIfServiceExited();
+            EnsureFallbackIfServiceExited();
             if (_fallback != null) _last = _fallback.Read(force);
             return _last;
         }
@@ -107,17 +102,6 @@ public sealed class HardwareServiceClient : IHardwareAccess
         if (envelope.Report != null) _last = envelope.Report;
         return _last;
     }
-
-    public HardwareFanControlDescriptor? GetFanControl(string controlIdentifier) =>
-        Call<HardwareFanControlDescriptor>("getFanControl", new { controlIdentifier });
-
-    public HardwareFanControlResult SetFanSoftware(string controlIdentifier, double percent) =>
-        Call<HardwareFanControlResult>("setFanSoftware", new { controlIdentifier, percent })
-        ?? HardwareFanControlResult.Fail("hardware_service_unavailable", "The hardware service did not return a fan-control result.");
-
-    public HardwareFanControlResult RestoreFanDefault(string controlIdentifier) =>
-        Call<HardwareFanControlResult>("restoreFanDefault", new { controlIdentifier })
-        ?? HardwareFanControlResult.Fail("hardware_service_unavailable", "The hardware service did not return a restore result.");
 
     public void Invalidate()
     {
@@ -185,24 +169,20 @@ public sealed class HardwareServiceClient : IHardwareAccess
             try { _writer.Dispose(); } catch { }
             try { _reader.Dispose(); } catch { }
             try { _pipe.Dispose(); } catch { }
-            try
-            {
-                if (!_process.HasExited) _process.WaitForExit(1000);
-            }
-            catch { }
+            try { if (!_process.HasExited) _process.WaitForExit(1000); } catch { }
             try { _process.Dispose(); } catch { }
             try { _fallback?.Dispose(); } catch { }
         }
     }
 
-    private void EnsureReadOnlyFallbackIfServiceExited()
+    private void EnsureFallbackIfServiceExited()
     {
         if (_fallback != null || _disposed) return;
         try
         {
             if (!_process.HasExited) return;
-            _fallback = new HardwareAccessCoordinator(controlWritesAllowed: false);
-            Logger.Warn("Hardware service exited; continuing with read-only in-process monitoring.");
+            _fallback = new HardwareAccessCoordinator();
+            Logger.Warn("Hardware service exited; continuing with in-process monitoring.");
         }
         catch { }
     }

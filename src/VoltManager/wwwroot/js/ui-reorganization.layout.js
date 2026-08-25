@@ -142,11 +142,6 @@
             </div>`);
     }
 
-    function cooling() {
-        return view('cooling', 'cooling_title', 'cooling_subtitle',
-            '<div id="vm-fan-center" class="vm-fan-center" aria-live="polite"></div>');
-    }
-
     function powerPlans() {
         return view('power-plans', 'power_title', 'power_subtitle',
             subnav('power-plans', [
@@ -235,7 +230,7 @@
         if (!main || api.el('view-overview')) return;
         const first = main.querySelector('.view');
         const fragment = document.createDocumentFragment();
-        [overview(), monitoring(), cooling(), powerPlans(), automations(), systemTools(), widgets(), settings()]
+        [overview(), monitoring(), powerPlans(), automations(), systemTools(), widgets(), settings()]
             .forEach(section => fragment.appendChild(section));
         if (first) main.insertBefore(fragment, first);
         else main.appendChild(fragment);
@@ -252,7 +247,7 @@
             data-view="${id}" href="#${id}"><span class="material-symbols-outlined">${icon}</span><span class="text-body-md" data-vm-i18n="${label}"></span></a></li>`;
         nav.innerHTML = `
             <li class="nav-section-label is-first" aria-hidden="true" data-vm-i18n="nav_main"></li>
-            ${item('overview', 'dashboard', 'nav_overview')}${item('monitoring', 'monitoring', 'nav_monitoring')}${item('cooling', 'mode_fan', 'nav_cooling')}
+            ${item('overview', 'dashboard', 'nav_overview')}${item('monitoring', 'monitoring', 'nav_monitoring')}
             <li class="nav-section-label" aria-hidden="true" data-vm-i18n="nav_energy"></li>
             ${item('power-plans', 'bolt', 'nav_power_plans')}${item('automations', 'automation', 'nav_automations')}
             <li class="nav-section-label" aria-hidden="true" data-vm-i18n="nav_system"></li>

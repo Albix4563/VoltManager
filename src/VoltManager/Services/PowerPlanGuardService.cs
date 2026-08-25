@@ -48,7 +48,7 @@ public sealed class PowerPlanGuardService
     private static readonly string[] ProbablePowerManagerMarkers =
     {
         "power", "battery", "energy", "performance", "optimizer", "tuning", "boost", "turbo",
-        "eco", "profile", "thermal", "fancontrol"
+        "eco", "profile", "thermal"
     };
 
     private readonly TimeSpan _notificationInterval;

@@ -46,7 +46,7 @@
 
     let gpuUnavailableShown = false;
 
-    // ----- Temperatures & fans -----
+    // ----- Temperatures -----
     const CATEGORY_ORDER = ['cpu', 'gpu', 'storage', 'motherboard'];
 
     // No reading -> hide the badge entirely instead of showing a useless N/D.
@@ -62,7 +62,7 @@
 
     function formatSensor(s) {
         if (s.type === 'clock') return Math.round(s.value) + ' MHz';
-        return s.type === 'fan' ? Math.round(s.value) + ' RPM' : Math.round(s.value) + '°C';
+        return Math.round(s.value) + '°C';
     }
 
     // DOM is rebuilt only when the sensor set changes (cached key); per-tick we

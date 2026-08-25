@@ -24,7 +24,7 @@ public partial class App
 
         // Prime from the latest sample when available; otherwise the first monitor tick
         // establishes the profile. This subscription is additive and never alters the
-        // MonitorService interval used by fan/thermal/power automation.
+        // MonitorService interval used by thermal and power automation.
         if (Monitor.Latest.RamTotalGb > 0)
             ResourcePressure.Observe(Monitor.Latest, HeavyApps.Current.GameActive);
 

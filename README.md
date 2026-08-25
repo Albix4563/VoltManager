@@ -70,7 +70,6 @@ Non serve essere esperti di sistemi: le funzioni automatiche sono opzionali e si
 
 **Monitoraggio e desktop**
 
-- **Dashboard hardware** — CPU, GPU, RAM, disco, temperature, frequenze, ventole e processi principali (quando i driver le espongono).
 - **Widget desktop** — orologio, calendario, utilizzo, temperature, alimentazione e piani energetici.
 - **Interfaccia multilingua** — italiano, inglese, spagnolo e cinese semplificato.
 
@@ -182,7 +181,6 @@ Gli installer e i pacchetti ufficiali includono anche un bootstrapper se il runt
 
 ### Una metrica mostra “N/D”
 
-Alcune temperature, ventole, dati GPU o batteria non sono disponibili su tutti i PC (dipende da driver e firmware). Le altre funzioni continuano a funzionare normalmente.
 
 ### Il piano energetico non cambia
 

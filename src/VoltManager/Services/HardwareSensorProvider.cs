@@ -6,7 +6,7 @@ namespace VoltManager.Services;
 /// <summary>
 /// Monitoring facade over the shared HardwareAccessCoordinator. When created
 /// standalone it owns a coordinator; the application injects one shared instance
-/// so monitoring and fan control never open competing LibreHardwareMonitor sessions.
+/// so monitoring reuses the same LibreHardwareMonitor session.
 /// </summary>
 public sealed class HardwareSensorProvider : IDisposable
 {
@@ -54,7 +54,7 @@ public static class SensorAggregation
 
     // Failed reads surface as 0 °C (e.g. APUs where the source cannot read a
     // sensor), and warning/critical temperatures are static thresholds, not live
-    // data. 0 RPM stays because a stopped fan can be a valid live reading.
+    // data.
     public static bool IsLiveReading(string type, string name, float value)
     {
         if (type == "temp")
