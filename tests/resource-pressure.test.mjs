@@ -42,8 +42,6 @@ test('top-process RPC is elastic while safety RPCs remain ungated', () => {
   assert.match(bridge, /allowProcessPolling === false/);
   assert.match(bridge, /processPollingIntervalMs/);
   assert.match(bridge, /return rawCall\(method, payload\)/);
-  assert.doesNotMatch(bridge, /method === 'getFan/);
-  assert.doesNotMatch(bridge, /method === 'getFanControlState'\) return callTopProcesses/);
 });
 
 test('WebView lifecycle uses suspend-resume without mixing manual memory target levels', () => {

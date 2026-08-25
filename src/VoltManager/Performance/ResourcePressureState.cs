@@ -13,7 +13,7 @@ public enum ResourceProfile
 
 /// <summary>
 /// Operational resource state for elastic VoltManager work. Safety-critical sampling,
-/// fan control and thermal automation do not depend on this profile.
+/// thermal automation does not depend on this profile.
 /// </summary>
 public sealed record ResourcePressureState
 {

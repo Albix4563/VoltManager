@@ -48,7 +48,7 @@ public record SensorReading
     [JsonPropertyName("hardware")] public string Hardware { get; init; } = "";  // device name
     [JsonPropertyName("category")] public string Category { get; init; } = "";  // cpu|gpu|storage|motherboard
     [JsonPropertyName("name")] public string Name { get; init; } = "";
-    [JsonPropertyName("type")] public string Type { get; init; } = "";          // temp|fan
+    [JsonPropertyName("type")] public string Type { get; init; } = "";          // temp|clock
     [JsonPropertyName("value")] public double Value { get; init; }
     [JsonPropertyName("controlAvailable")] public bool ControlAvailable { get; init; }
     [JsonPropertyName("controlIdentifier")] public string? ControlIdentifier { get; init; }

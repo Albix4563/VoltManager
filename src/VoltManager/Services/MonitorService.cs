@@ -254,7 +254,7 @@ public class MonitorService : IDisposable
         catch { return 0; }
     }
 
-    // Prefer live temps/fans; drop secondary clocks. Hard ceiling keeps the
+    // Prefer live temperatures; drop secondary clocks. Hard ceiling keeps the
     // metrics JSON (and the dashboard sensor DOM) bounded on busy machines.
     private const int MaxUiSensors = 32;
 
@@ -267,7 +267,7 @@ public class MonitorService : IDisposable
         var preferred = new List<SensorReading>(Math.Min(MaxUiSensors, readings.Count));
         foreach (var r in readings)
         {
-            if (r.Type is "temp" or "fan") preferred.Add(r);
+            if (r.Type == "temp") preferred.Add(r);
             if (preferred.Count >= MaxUiSensors) return preferred;
         }
         // Fill remainder with clocks only if we still have room (rare).

@@ -5,7 +5,6 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Win32;
 using Microsoft.Web.WebView2.Wpf;
-using VoltManager.Fans;
 using VoltManager.Localization;
 using VoltManager.Models;
 using VoltManager.Services;
@@ -96,7 +95,6 @@ public class HostBridge
         _app.AppProfiles.ActivityChanged += state => PushEvent("appPowerProfileActivityChanged", state);
         _app.PowerPlanConflictDetected += notice => PushEvent("powerPlanConflictDetected", notice);
         _app.StandbyAutoCleaner.AutoCleaned += freshMem => PushEvent("standbyAutoCleaned", freshMem);
-        _app.Fans.ControlStateChanged += state => PushEvent("fanControlChanged", state);
     }
 
     private bool _pushEventFaulted;
@@ -168,159 +166,6 @@ public class HostBridge
             case "getSystemInfo":
                 // WMI (GPU/CPU fallback) can stall; keep first render off the UI thread.
                 return await Task.Run(() => _hardware.GetSystemInfo());
-
-            case "getFanTopology":
-                return await Task.Run(() => _app.Fans.GetTopology());
-
-            case "getFanControlState":
-                return _app.Fans.ControlState;
-
-            case "getFanSafetyPolicy":
-                return _app.Fans.SafetyPolicyInfo;
-
-            case "getFanPresets":
-            {
-                string fanId = payload.GetProperty("fanId").GetString() ?? "";
-                return await Task.Run(() => _app.Fans.GetPresets(fanId));
-            }
-
-            case "previewFanConfiguration":
-            {
-                string fanId = payload.GetProperty("fanId").GetString() ?? "";
-                FanConfiguration configuration = payload.GetProperty("configuration").Deserialize<FanConfiguration>(JsonOpts)
-                    ?? throw new ArgumentException("Fan configuration payload is required.");
-                return await Task.Run(() => _app.Fans.PreviewConfiguration(fanId, configuration));
-            }
-
-            case "applyFanConfiguration":
-            {
-                string topologyRevision = payload.GetProperty("topologyRevision").GetString() ?? "";
-                string fanId = payload.GetProperty("fanId").GetString() ?? "";
-                FanConfiguration configuration = payload.GetProperty("configuration").Deserialize<FanConfiguration>(JsonOpts)
-                    ?? throw new ArgumentException("Fan configuration payload is required.");
-                return await Task.Run(() => _app.Fans.ApplyConfiguration(topologyRevision, fanId, configuration));
-            }
-
-            case "restoreFanDefault":
-            {
-                string fanId = payload.GetProperty("fanId").GetString() ?? "";
-                return await Task.Run(() => _app.Fans.RestoreDefault(fanId));
-            }
-
-            case "applyFanGroupConfiguration":
-            {
-                string topologyRevision = payload.GetProperty("topologyRevision").GetString() ?? "";
-                List<string> fanIds = payload.GetProperty("fanIds").Deserialize<List<string>>(JsonOpts) ?? new List<string>();
-                FanConfiguration configuration = payload.GetProperty("configuration").Deserialize<FanConfiguration>(JsonOpts)
-                    ?? throw new ArgumentException("Fan configuration payload is required.");
-                return await Task.Run(() => _app.Fans.ApplyGroupConfiguration(topologyRevision, fanIds, configuration));
-            }
-
-            case "renameFan":
-            {
-                string fanId = payload.GetProperty("fanId").GetString() ?? "";
-                string? alias = payload.TryGetProperty("alias", out var aliasElement) && aliasElement.ValueKind != JsonValueKind.Null
-                    ? aliasElement.GetString()
-                    : null;
-                return await Task.Run(() => _app.Fans.RenameFan(fanId, alias));
-            }
-
-            case "listFanProfiles":
-                return await Task.Run(() => _app.Fans.ListProfiles());
-
-            case "getFanProfile":
-            {
-                string profileId = payload.GetProperty("profileId").GetString() ?? "";
-                return await Task.Run(() => _app.Fans.GetProfile(profileId));
-            }
-
-            case "saveCurrentFanProfile":
-            {
-                string name = payload.GetProperty("name").GetString() ?? "";
-                return await Task.Run(() => _app.Fans.SaveCurrentProfile(name));
-            }
-
-            case "saveFanProfile":
-            {
-                FanProfileSaveRequest request = payload.Deserialize<FanProfileSaveRequest>(JsonOpts)
-                    ?? throw new ArgumentException("Fan profile payload is required.");
-                return await Task.Run(() => _app.Fans.SaveProfile(request));
-            }
-
-            case "applyFanProfile":
-            {
-                string profileId = payload.GetProperty("profileId").GetString() ?? "";
-                List<FanProfileApplyMapping>? mappings = payload.TryGetProperty("mappings", out JsonElement mappingElement)
-                    ? mappingElement.Deserialize<List<FanProfileApplyMapping>>(JsonOpts)
-                    : null;
-                return await Task.Run(() => _app.Fans.ApplyProfile(profileId, mappings));
-            }
-
-            case "renameFanProfile":
-            {
-                string profileId = payload.GetProperty("profileId").GetString() ?? "";
-                string name = payload.GetProperty("name").GetString() ?? "";
-                return await Task.Run(() => _app.Fans.RenameProfile(profileId, name));
-            }
-
-            case "duplicateFanProfile":
-            {
-                string profileId = payload.GetProperty("profileId").GetString() ?? "";
-                string? name = payload.TryGetProperty("name", out var nameElement) && nameElement.ValueKind != JsonValueKind.Null
-                    ? nameElement.GetString()
-                    : null;
-                return await Task.Run(() => _app.Fans.DuplicateProfile(profileId, name));
-            }
-
-            case "deleteFanProfile":
-            {
-                string profileId = payload.GetProperty("profileId").GetString() ?? "";
-                bool deleted = await Task.Run(() => _app.Fans.DeleteProfile(profileId));
-                return new { success = deleted };
-            }
-
-            case "analyzeFanProfileCompatibility":
-            {
-                string profileId = payload.GetProperty("profileId").GetString() ?? "";
-                return await Task.Run(() => _app.Fans.AnalyzeProfile(profileId));
-            }
-
-            case "importFanProfile":
-            {
-                var dialog = new OpenFileDialog
-                {
-                    Title = "Import fan profile",
-                    Filter = "VoltManager fan profile (*.json)|*.json|JSON files (*.json)|*.json",
-                    Multiselect = false,
-                    CheckFileExists = true,
-                };
-                if (dialog.ShowDialog() != true)
-                    return new { canceled = true };
-                var imported = await Task.Run(() => _app.Fans.ImportProfile(dialog.FileName));
-                return new
-                {
-                    canceled = false,
-                    profile = imported.Profile,
-                    compatibility = imported.Compatibility,
-                };
-            }
-
-            case "exportFanProfile":
-            {
-                string profileId = payload.GetProperty("profileId").GetString() ?? "";
-                var dialog = new SaveFileDialog
-                {
-                    Title = "Export fan profile",
-                    FileName = "voltmanager-fan-profile.json",
-                    DefaultExt = ".json",
-                    AddExtension = true,
-                    Filter = "VoltManager fan profile (*.json)|*.json|JSON files (*.json)|*.json",
-                };
-                if (dialog.ShowDialog() != true)
-                    return new { canceled = true };
-                string exported = await Task.Run(() => _app.Fans.ExportProfile(profileId, dialog.FileName));
-                return new { canceled = false, fileName = Path.GetFileName(exported) };
-            }
 
             case "getBatteryHealth":
                 return await Task.Run(() => _batteryHealth.GetHealth());

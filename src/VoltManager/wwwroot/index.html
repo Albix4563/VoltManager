@@ -9,7 +9,6 @@
 <link href="css/polish.css?v=fontfix2" rel="stylesheet"/>
 <link href="css/effects.css?v=ram3" rel="stylesheet"/>
 <link href="css/theme-colors.css?v=color1" rel="stylesheet"/>
-<link href="css/fans.css?v=fans2" rel="stylesheet"/>
 <script src="js/theme.js?v=color1"></script>
 <style>
 @keyframes slideInRight{from{transform:translateX(110%);opacity:0}to{transform:translateX(0);opacity:1}}
@@ -274,11 +273,11 @@
         </div>
       </section>
 
-      <!-- Temperatures & Fans (hidden until live sensors exist) -->
+      <!-- Temperatures (hidden until live sensors exist) -->
       <section class="mt-8 hidden" id="temp-section">
         <h3 class="text-title-lg text-on-surface mb-4 flex items-center gap-2">
           <span class="material-symbols-outlined text-secondary-container">device_thermostat</span>
-          <span data-i18n="dash_temps_title">Temperatures &amp; Fans</span>
+          <span data-i18n="dash_temps_title">Temperatures</span>
         </h3>
         <div class="glass-card rounded-xl p-6">
           <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-x-8 gap-y-6" id="sensor-list"></div>
@@ -1236,10 +1235,8 @@
 <script src="js/welcome.js?v=silentupdate1"></script>
 <script src="js/tour.js?v=nav-reorg1"></script>
 <script src="js/tips.js?v=tips1"></script>
-<script src="js/changelog.js?v=fans1"></script>
+<script src="js/changelog.js?v=changelog1"></script>
 <script src="js/setup.js?v=temps1"></script>
-<script src="js/fan-visualizer.js?v=fans2"></script>
-<script src="js/fans.js?v=fans2"></script>
 <!-- power.js / advanced.js: lazy-loaded on first open of power/settings (app.js) -->
 </body>
 </html>

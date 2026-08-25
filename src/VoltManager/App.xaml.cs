@@ -6,7 +6,6 @@ using System.Windows.Shell;
 using System.Windows.Threading;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Win32;
-using VoltManager.Fans;
 using VoltManager.Localization;
 using VoltManager.Models;
 using VoltManager.Services;
@@ -29,7 +28,6 @@ public partial class App : Application
     public PowerAwakeService Awake { get; private set; } = null!;
     public IHardwareAccess HardwareAccess { get; private set; } = null!;
     public MonitorService Monitor { get; private set; } = null!;
-    public FanManagementService Fans { get; private set; } = null!;
     public UpdateService Updates { get; private set; } = null!;
     public StartupService AutoStart { get; private set; } = null!;
     public AutomationEngine Automation { get; private set; } = null!;
@@ -155,9 +153,8 @@ public partial class App : Application
         Power = new PowerPlanService(Settings);
         Awake = new PowerAwakeService(Settings);
         HardwareAccess = (IHardwareAccess?)HardwareServiceClient.TryStart()
-            ?? new HardwareAccessCoordinator(controlWritesAllowed: false);
+            ?? new HardwareAccessCoordinator();
         Monitor = new MonitorService(HardwareAccess);
-        Fans = new FanManagementService(Monitor, HardwareAccess);
         SystemEvents.PowerModeChanged += OnSystemPowerModeChanged;
         Mark("MonitorService");
         Updates = new UpdateService(Settings);
@@ -924,21 +921,14 @@ public partial class App : Application
 
     private void OnSystemPowerModeChanged(object sender, PowerModeChangedEventArgs e)
     {
+        if (e.Mode != PowerModes.Resume) return;
         try
         {
-            if (e.Mode == PowerModes.Suspend)
-            {
-                Fans.SuspendControl();
-            }
-            else if (e.Mode == PowerModes.Resume)
-            {
-                HardwareAccess.Invalidate();
-                Fans.ResumeControl();
-            }
+            HardwareAccess.Invalidate();
         }
         catch (Exception ex)
         {
-            Logger.Warn("Fan suspend/resume handling failed: " + ex.Message);
+            Logger.Warn("Hardware resume handling failed: " + ex.Message);
         }
     }
 
@@ -951,7 +941,6 @@ public partial class App : Application
         SafeCleanup("plan poll timer", () => _planPollTimer?.Dispose());
         SafeCleanup("battery history timer", () => _batteryHistoryTimer?.Dispose());
         SafeCleanup("power mode handler", () => SystemEvents.PowerModeChanged -= OnSystemPowerModeChanged);
-        SafeCleanup("fan management", Fans.Dispose);
         SafeCleanup("monitor", Monitor.Dispose);
         SafeCleanup("hardware access", HardwareAccess.Dispose);
         SafeCleanup("heavy apps", HeavyApps.Dispose);

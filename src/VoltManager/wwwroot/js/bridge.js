@@ -10,7 +10,7 @@
 
     // getTopProcesses is display-only elastic work. Keep its latest result so a
     // dashboard timer cannot force native process enumeration more often than the
-    // host resource policy permits. Safety/thermal/fan RPCs never pass this gate.
+    // host resource policy permits. Safety and thermal RPCs never pass this gate.
     let topProcessesCache = [];
     let topProcessesLastCallAt = 0;
     let topProcessesInFlight = null;

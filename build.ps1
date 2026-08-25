@@ -47,7 +47,7 @@ if ($LASTEXITCODE -ne 0) { throw 'Supervisor publish failed.' }
 Remove-Item -Recurse -Force $supervisorPublishDir
 
 # 2b. Publish the isolated hardware service as a self-contained single file.
-# The app only enables software fan writes when this process is available.
+# The app prefers this isolated process for hardware sensor reads.
 Write-Host '[2b]  dotnet publish hardware service' -ForegroundColor Cyan
 if (Test-Path $hardwareServicePublishDir) { Remove-Item -Recurse -Force $hardwareServicePublishDir }
 dotnet publish (Join-Path $root 'src\VoltManager.HardwareService\VoltManager.HardwareService.csproj') `
