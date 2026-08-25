@@ -32,8 +32,11 @@ jobs:
         shell: pwsh
         run: |
           git grep -n -i -P '\bfans?\b|\bcooling\b|ventol|raffredd' -- ':!LICENSE' ':!scripts/remove-fans-cooling.py' ':!scripts/remove-fans-residuals.py' ':!.github/workflows/remove-feature-maintenance.yml'
-          if ($LASTEXITCODE -eq 0) { throw 'Residual fan/cooling references remain.' }
-          if ($LASTEXITCODE -ne 1) { exit $LASTEXITCODE }
+          $code = $LASTEXITCODE
+          if ($code -eq 0) { throw 'Residual fan/cooling references remain.' }
+          if ($code -ne 1) { exit $code }
+          Write-Host 'No fan/cooling feature references remain.'
+          exit 0
 
       - name: Restore
         run: dotnet restore VoltManager.sln
