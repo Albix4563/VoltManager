@@ -20,7 +20,4 @@ public static class UpdateSchedulePolicy
 
     public static int NormalizeSnoozeMinutes(int minutes)
         => Math.Clamp(minutes, 5, MaxSnoozeMinutes);
-
-    public static bool IsSupportedSuspensionDays(int days)
-        => days is 1 or 5 or 7 or 12;
 }
