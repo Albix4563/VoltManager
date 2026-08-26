@@ -130,7 +130,6 @@ internal sealed class DisplayService : IDisposable
                 string device = info.szDevice?.TrimEnd('\0') ?? "";
                 int number = ParseDisplayNumber(device);
                 monitors.Add(new NativeMonitor(
-                    hMonitor,
                     device,
                     number,
                     new PixelRect(
@@ -248,7 +247,6 @@ internal sealed class DisplayService : IDisposable
 
     private sealed class NativeMonitor
     {
-        public IntPtr Handle;
         public string Device;
         public int Number;
         public PixelRect WorkArea;
@@ -256,10 +254,9 @@ internal sealed class DisplayService : IDisposable
         public double DpiScaleY;
         public bool IsPrimary;
 
-        public NativeMonitor(IntPtr handle, string device, int number, PixelRect workArea,
+        public NativeMonitor(string device, int number, PixelRect workArea,
             double dpiScaleX, double dpiScaleY, bool isPrimary)
         {
-            Handle = handle;
             Device = device;
             Number = number;
             WorkArea = workArea;
