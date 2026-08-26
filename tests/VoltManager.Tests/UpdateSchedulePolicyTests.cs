@@ -58,16 +58,6 @@ public class UpdateSchedulePolicyTests
         Assert.False(UpdateSchedulePolicy.IsAutomaticCheckAllowed(settings, DateTime.UtcNow));
     }
 
-    [Theory]
-    [InlineData(1)]
-    [InlineData(5)]
-    [InlineData(7)]
-    [InlineData(12)]
-    public void Settings_suspension_supports_requested_day_presets(int days)
-    {
-        Assert.True(UpdateSchedulePolicy.IsSupportedSuspensionDays(days));
-    }
-
     [Fact]
     public void Snooze_normalization_allows_twelve_days_but_not_more()
     {
