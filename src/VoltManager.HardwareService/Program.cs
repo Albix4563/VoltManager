@@ -76,7 +76,7 @@ internal static class Program
             "ping" => new { ready = true },
             "read" => hardware.Read(payload.TryGetProperty("force", out JsonElement force) && force.ValueKind == JsonValueKind.True),
             "invalidate" => hardware.Invalidate(),
-            "shutdown" => hardware.Shutdown(),
+            "shutdown" => new { success = true },
             _ => throw new InvalidOperationException("Unknown hardware service method: " + request.Method),
         };
     }
@@ -148,8 +148,6 @@ internal sealed class HardwareHost : IDisposable
         lock (_gate) _lastUpdateUtc = DateTime.MinValue;
         return new { success = true };
     }
-
-    public object Shutdown() => new { success = true };
 
     private void Initialize()
     {

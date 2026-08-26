@@ -152,13 +152,6 @@ public class HostBridge
         });
     }
 
-    private void Reply(string id, bool ok, object? result)
-    {
-        PostReplyJson(ok
-            ? BridgeRpc.FormatSuccess(id, result)
-            : BridgeRpc.FormatFailure(id, result?.ToString()));
-    }
-
     private async Task<object?> DispatchAsync(string method, JsonElement payload)
     {
         switch (method)

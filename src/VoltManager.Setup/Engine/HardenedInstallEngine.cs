@@ -155,6 +155,7 @@ namespace VoltManager.Setup.Engine
 
             // Fallback ordering matters: stop launch/restart sources first, then
             // the UI process. HardwareService is left alive briefly so its parent
+            // watcher can observe the UI exit and terminate naturally.
             ForceStopProcess("VoltManagerPlanSwitch", installDir);
             ForceStopProcess("VoltManager.Supervisor", installDir);
             ForceStopProcess("VoltManager", installDir);
