@@ -8,8 +8,8 @@ namespace VoltManager.Services;
 /// <summary>Configurable metrics loop on a background timer. Degrades per-metric on counter failure.</summary>
 public class MonitorService : IDisposable
 {
-    private readonly PerformanceCounter? _cpuCounter;
-    private readonly PerformanceCounter? _diskCounter;
+    private PerformanceCounter? _cpuCounter;
+    private PerformanceCounter? _diskCounter;
     private PerformanceCounter? _cpuFreqCounter;
     private PerformanceCounter? _cpuPerfCounter;
     private readonly GpuCounterProvider _gpu;
@@ -85,13 +85,29 @@ public class MonitorService : IDisposable
             : _ramTotalGb < 16 || cores <= 4 ? 6 : 3;
         _gpu = new GpuCounterProvider();
         _sensors = new HardwareSensorProvider(hardwareAccess);
-        _cpuCounter = TryCreate("Processor", "% Processor Time", "_Total");
-        _diskCounter = TryCreate("PhysicalDisk", "% Disk Time", "_Total");
-        _cpuCounter?.NextValue(); // prime: first NextValue() always returns 0
-        _diskCounter?.NextValue();
-        // Processor Information PERFLIB enumeration is expensive cold — background init
-        // mirrors HardwareSensorProvider / GpuCounterProvider.
+        // PERFLIB can block for seconds on a cold Windows boot. Metrics degrade to zero
+        // until the counters are ready, just like the existing GPU/clock providers.
+        Task.Run(InitBaseCounters);
         Task.Run(InitCpuInfoCounters);
+    }
+
+    private void InitBaseCounters()
+    {
+        var cpu = TryCreate("Processor", "% Processor Time", "_Total");
+        var disk = TryCreate("PhysicalDisk", "% Disk Time", "_Total");
+        cpu?.NextValue();
+        disk?.NextValue();
+        lock (_cpuInfoGate)
+        {
+            if (_disposed)
+            {
+                cpu?.Dispose();
+                disk?.Dispose();
+                return;
+            }
+            _cpuCounter = cpu;
+            _diskCounter = disk;
+        }
     }
 
     private void InitCpuInfoCounters()
@@ -480,6 +496,8 @@ public class MonitorService : IDisposable
             _diskCounter?.Dispose();
             _cpuFreqCounter?.Dispose();
             _cpuPerfCounter?.Dispose();
+            _cpuCounter = null;
+            _diskCounter = null;
             _cpuFreqCounter = null;
             _cpuPerfCounter = null;
         }

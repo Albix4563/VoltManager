@@ -50,3 +50,7 @@ test('WebView lifecycle uses suspend-resume without mixing manual memory target 
   assert.doesNotMatch(mainWindowHost, /MemoryUsageTargetLevel/);
   assert.doesNotMatch(mainWindowHost, /SetWebViewMemoryLevel/);
 });
+
+test('tray-only startup schedules the existing working-set trim', () => {
+  assert.match(mainWindowHost, /if \(startMinimized\)[\s\S]*?Hide\(\);\s*ScheduleWorkingSetTrim\(\);/);
+});

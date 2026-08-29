@@ -14,6 +14,58 @@ public interface IHardwareAccess : IDisposable
     void Invalidate();
 }
 
+/// <summary>Keeps slow hardware discovery off the UI startup path.</summary>
+internal sealed class DeferredHardwareAccess : IHardwareAccess
+{
+    private readonly Task<IHardwareAccess> _access;
+    private int _disposed;
+
+    public DeferredHardwareAccess(Func<IHardwareAccess> factory)
+    {
+        _access = Task.Run(() =>
+        {
+            try { return factory(); }
+            catch (Exception ex)
+            {
+                Logger.Warn("Deferred hardware initialization failed; using in-process monitoring: " + ex.Message);
+                return new HardwareAccessCoordinator();
+            }
+        });
+    }
+
+    public bool Available =>
+        Volatile.Read(ref _disposed) == 0 &&
+        _access.IsCompletedSuccessfully &&
+        _access.Result.Available;
+
+    public SensorReport Read(bool force = false) =>
+        Volatile.Read(ref _disposed) == 0 && _access.IsCompletedSuccessfully
+            ? _access.Result.Read(force)
+            : SensorReport.Empty;
+
+    public void Invalidate()
+    {
+        if (Volatile.Read(ref _disposed) == 0 && _access.IsCompletedSuccessfully)
+            _access.Result.Invalidate();
+    }
+
+    public void Dispose()
+    {
+        if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
+        if (_access.IsCompletedSuccessfully)
+        {
+            _access.Result.Dispose();
+            return;
+        }
+
+        _ = _access.ContinueWith(
+            task => { if (task.IsCompletedSuccessfully) task.Result.Dispose(); },
+            CancellationToken.None,
+            TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default);
+    }
+}
+
 public sealed class HardwareAccessCoordinator : IHardwareAccess
 {
     private static readonly TimeSpan UpdateInterval = TimeSpan.FromSeconds(2);

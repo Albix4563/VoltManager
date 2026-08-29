@@ -152,8 +152,8 @@ public partial class App : Application
         Theme.SetTheme(Settings.Current.ThemeColor);
         Power = new PowerPlanService(Settings);
         Awake = new PowerAwakeService(Settings);
-        HardwareAccess = (IHardwareAccess?)HardwareServiceClient.TryStart()
-            ?? new HardwareAccessCoordinator();
+        HardwareAccess = new DeferredHardwareAccess(() =>
+            (IHardwareAccess?)HardwareServiceClient.TryStart() ?? new HardwareAccessCoordinator());
         Monitor = new MonitorService(HardwareAccess);
         SystemEvents.PowerModeChanged += OnSystemPowerModeChanged;
         Mark("MonitorService");
