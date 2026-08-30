@@ -124,6 +124,7 @@ internal static class Program
 internal sealed class HardwareHost : IDisposable
 {
     private static readonly TimeSpan UpdateInterval = TimeSpan.FromSeconds(2);
+    private const int MaxUiSensors = 32;
     private readonly object _gate = new();
     private Computer? _computer;
     private SensorReportDto _last = new();
@@ -198,7 +199,7 @@ internal sealed class HardwareHost : IDisposable
                 GpuTemp = SelectTemperature(readings, "gpu", "GPU Core", "GPU Hot Spot", "Temperature"),
                 CpuClock = SelectClock(readings, "cpu"),
                 RamClock = SelectMemoryClock(readings),
-                Readings = readings,
+                Readings = CapReadingsForUi(readings),
             };
         }
         catch { }
@@ -279,6 +280,26 @@ internal sealed class HardwareHost : IDisposable
                 && !ContainsAny(x.Name, "Controller", "Fabric", "Uncore", "Infinity"))
             .ToList();
         return clocks.Count == 0 ? null : clocks.Max(x => x.Value);
+    }
+
+    private static List<SensorReadingDto> CapReadingsForUi(List<SensorReadingDto> readings)
+    {
+        if (readings.Count == 0) return readings;
+        if (readings.Count <= MaxUiSensors && readings.TrueForAll(r => r.Type is not "clock"))
+            return readings;
+
+        var preferred = new List<SensorReadingDto>(Math.Min(MaxUiSensors, readings.Count));
+        foreach (var reading in readings)
+        {
+            if (reading.Type == "temp") preferred.Add(reading);
+            if (preferred.Count >= MaxUiSensors) return preferred;
+        }
+        foreach (var reading in readings)
+        {
+            if (reading.Type == "clock") preferred.Add(reading);
+            if (preferred.Count >= MaxUiSensors) break;
+        }
+        return preferred;
     }
 
     private static bool ContainsAny(string value, params string[] tokens) =>

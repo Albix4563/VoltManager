@@ -10,6 +10,7 @@ namespace VoltManager.Services;
 public sealed class HardwareServiceClient : IHardwareAccess
 {
     private static readonly TimeSpan RpcTimeout = TimeSpan.FromSeconds(8);
+    private static readonly TimeSpan ReadCacheInterval = TimeSpan.FromSeconds(2);
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -27,8 +28,10 @@ public sealed class HardwareServiceClient : IHardwareAccess
     private bool _rpcFaulted;
     private bool _disposed;
     private long _nextId;
+    private DateTime _lastReadUtc = DateTime.MinValue;
 
     public bool Available => !_disposed && ((_pipe.IsConnected && _hardwareAvailable) || (_fallback?.Available ?? false));
+    internal long RequestCount => Interlocked.Read(ref _nextId);
 
     private HardwareServiceClient(NamedPipeClientStream pipe, Process process)
     {
@@ -90,25 +93,46 @@ public sealed class HardwareServiceClient : IHardwareAccess
 
     public SensorReport Read(bool force = false)
     {
-        HardwareReadEnvelope? envelope = Call<HardwareReadEnvelope>("read", new { force });
-        if (envelope == null)
+        lock (_gate)
         {
-            EnsureFallbackIfServiceExited();
-            if (_fallback != null) _last = _fallback.Read(force);
+            if (_disposed) return _last;
+
+            DateTime nowUtc = DateTime.UtcNow;
+            if (!force && IsReadFresh(_lastReadUtc, nowUtc)) return _last;
+
+            HardwareReadEnvelope? envelope = Call<HardwareReadEnvelope>("read", new { force });
+            if (envelope == null)
+            {
+                EnsureFallbackIfServiceExited();
+                if (_fallback != null)
+                {
+                    _last = _fallback.Read(force);
+                    _lastReadUtc = nowUtc;
+                }
+                return _last;
+            }
+
+            _rpcFaulted = false;
+            _hardwareAvailable = envelope.Available;
+            if (envelope.Report != null) _last = envelope.Report;
+            _lastReadUtc = nowUtc;
             return _last;
         }
-        _rpcFaulted = false;
-        _hardwareAvailable = envelope.Available;
-        if (envelope.Report != null) _last = envelope.Report;
-        return _last;
     }
 
     public void Invalidate()
     {
-        _ = Call<object>("invalidate", null);
-        _fallback?.Invalidate();
-        _last = SensorReport.Empty;
+        lock (_gate)
+        {
+            _lastReadUtc = DateTime.MinValue;
+            _ = Call<object>("invalidate", null);
+            _fallback?.Invalidate();
+            _last = SensorReport.Empty;
+        }
     }
+
+    internal static bool IsReadFresh(DateTime lastReadUtc, DateTime nowUtc)
+        => lastReadUtc != DateTime.MinValue && nowUtc - lastReadUtc < ReadCacheInterval;
 
     private T? Call<T>(string method, object? payload)
     {

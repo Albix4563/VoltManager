@@ -117,6 +117,7 @@ public sealed class AppPowerProfileService : IDisposable
             try
             {
                 if (process.Pid == Environment.ProcessId) continue;
+                if (!CouldMatchProcessName(process.Name, rulesByFileName)) continue;
 
                 string path = ProcessSnapshotProvider.GetPath(process);
                 if (string.IsNullOrWhiteSpace(path)) continue;
@@ -188,6 +189,23 @@ public sealed class AppPowerProfileService : IDisposable
 
         rule = null!;
         return false;
+    }
+
+    internal static bool CouldMatchProcessName(
+        string processName,
+        IReadOnlyDictionary<string, AppPowerProfileRule> rulesByFileName)
+    {
+        if (string.IsNullOrWhiteSpace(processName)) return true;
+
+        string fileName = Path.GetFileName(processName);
+        if (rulesByFileName.ContainsKey(fileName)) return true;
+
+        if (!fileName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) &&
+            rulesByFileName.ContainsKey(fileName + ".exe"))
+            return true;
+
+        string stem = Path.GetFileNameWithoutExtension(fileName);
+        return rulesByFileName.ContainsKey(stem);
     }
 
     private void Publish(AppPowerProfileState next)

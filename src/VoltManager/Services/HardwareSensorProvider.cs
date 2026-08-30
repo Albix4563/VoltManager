@@ -43,6 +43,8 @@ public record SensorReport
 /// <summary>Pure sensor-selection logic, kept static.</summary>
 public static class SensorAggregation
 {
+    internal const int MaxUiSensors = 32;
+
     public static string MapCategory(HardwareType type) => type switch
     {
         HardwareType.Cpu => "cpu",
@@ -133,6 +135,26 @@ public static class SensorAggregation
         double mhz = baseMhz * (processorPerformancePct / 100.0);
         if (mhz < 100 || mhz > baseMhz * 10) return null;
         return Math.Round(mhz, 0);
+    }
+
+    internal static List<SensorReading> CapForUi(List<SensorReading> readings)
+    {
+        if (readings.Count == 0) return readings;
+        if (readings.Count <= MaxUiSensors && readings.TrueForAll(r => r.Type is not "clock"))
+            return readings;
+
+        var preferred = new List<SensorReading>(Math.Min(MaxUiSensors, readings.Count));
+        foreach (var reading in readings)
+        {
+            if (reading.Type == "temp") preferred.Add(reading);
+            if (preferred.Count >= MaxUiSensors) return preferred;
+        }
+        foreach (var reading in readings)
+        {
+            if (reading.Type == "clock") preferred.Add(reading);
+            if (preferred.Count >= MaxUiSensors) break;
+        }
+        return preferred;
     }
 
     internal static bool IsNonCoreClock(string name) =>

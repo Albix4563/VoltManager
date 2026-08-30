@@ -9,8 +9,11 @@ namespace VoltManager.Services;
 /// </summary>
 public class GpuCounterProvider : IDisposable
 {
+    private static readonly TimeSpan SampleInterval = TimeSpan.FromSeconds(2);
     private List<PerformanceCounter>? _counters;
     private DateTime _lastRefresh = DateTime.MinValue;
+    private DateTime _lastSampleUtc = DateTime.MinValue;
+    private double _lastValue;
     private bool _readFaulted; // throttles per-counter read-failure logging
     private volatile bool _ready;
     private bool _disposed;
@@ -88,8 +91,10 @@ public class GpuCounterProvider : IDisposable
     {
         if (!_ready) return 0;
         if (!GpuAvailable) return 0;
+        DateTime nowUtc = DateTime.UtcNow;
+        if (IsSampleFresh(_lastSampleUtc, nowUtc)) return _lastValue;
         // GPU engine instances come and go per-process; refresh the set periodically.
-        if ((DateTime.UtcNow - _lastRefresh).TotalSeconds > 10)
+        if ((nowUtc - _lastRefresh).TotalSeconds > 10)
             RefreshCounters();
         if (_counters == null) return 0;
 
@@ -108,9 +113,14 @@ public class GpuCounterProvider : IDisposable
             catch (Exception ex) { anyFailed = true; _readFaulted = Logger.WarnOnce(_readFaulted, "GPU counter read failed", ex); }
         }
         if (!anyFailed) _readFaulted = false;
-        _perProcess = new Gpu3DSnapshot(byPid, DateTime.UtcNow);
-        return Math.Min(100, Math.Round(sum, 1));
+        _lastSampleUtc = nowUtc;
+        _perProcess = new Gpu3DSnapshot(byPid, nowUtc);
+        _lastValue = Math.Min(100, Math.Round(sum, 1));
+        return _lastValue;
     }
+
+    internal static bool IsSampleFresh(DateTime lastSampleUtc, DateTime nowUtc)
+        => lastSampleUtc != DateTime.MinValue && nowUtc - lastSampleUtc < SampleInterval;
 
     private void DisposeCounters()
     {

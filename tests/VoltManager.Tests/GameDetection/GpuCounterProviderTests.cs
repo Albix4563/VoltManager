@@ -59,4 +59,14 @@ public class GpuCounterProviderTests
 
         Assert.Equal(100, map[9184]);
     }
+
+    [Fact]
+    public void Gpu_sample_is_reused_for_two_seconds()
+    {
+        var t0 = DateTime.UnixEpoch;
+
+        Assert.False(GpuCounterProvider.IsSampleFresh(DateTime.MinValue, t0));
+        Assert.True(GpuCounterProvider.IsSampleFresh(t0, t0.AddMilliseconds(1999)));
+        Assert.False(GpuCounterProvider.IsSampleFresh(t0, t0.AddSeconds(2)));
+    }
 }

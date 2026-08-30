@@ -111,7 +111,7 @@ public sealed class HardwareAccessCoordinator : IHardwareAccess
                     GpuTemp = SensorAggregation.SelectGpuTemp(readings),
                     CpuClock = SensorAggregation.SelectCpuClock(readings),
                     RamClock = SensorAggregation.SelectRamClock(readings),
-                    Readings = readings,
+                    Readings = SensorAggregation.CapForUi(readings),
                 };
                 _readFaulted = false;
             }

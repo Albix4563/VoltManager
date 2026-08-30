@@ -44,6 +44,7 @@ public record HeavyAppDetectionState
 public sealed class HeavyAppDetectionService : IDisposable
 {
     private static readonly TimeSpan ScanInterval = TimeSpan.FromSeconds(5);
+    internal static readonly TimeSpan GpuPreferencesCacheDuration = TimeSpan.FromSeconds(30);
     // Accepts a snapshot captured by any other scanner within this window, so the
     // three loops normally share a single system-wide enumeration.
     private static readonly TimeSpan SnapshotMaxAge = TimeSpan.FromSeconds(4);
@@ -60,6 +61,9 @@ public sealed class HeavyAppDetectionService : IDisposable
     // alt-tabbed/minimized and Windows trims its memory). A sticky PID is dropped only when the
     // process no longer appears in the enumeration, i.e. it has actually exited.
     private readonly Dictionary<int, DetectedHeavyApp> _sticky = new();
+    private HashSet<string> _cachedGpuHighPerformancePaths = new(StringComparer.OrdinalIgnoreCase);
+    private DateTime _gpuPreferencesRefreshAfterUtc = DateTime.MinValue;
+    private static readonly HashSet<string> EmptyGpuPreferencePaths = new(StringComparer.OrdinalIgnoreCase);
 
     public event Action<HeavyAppDetectionState>? ActivityChanged;
 
@@ -131,9 +135,10 @@ public sealed class HeavyAppDetectionService : IDisposable
             return;
         }
 
+        DateTime scanNowUtc = DateTime.UtcNow;
         var gpuHighPerformancePaths = config.UseWindowsGpuPreferences
-            ? ReadWindowsHighPerformanceGpuPreferences()
-            : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            ? GetCachedGpuPreferences(scanNowUtc, ReadWindowsHighPerformanceGpuPreferences)
+            : EmptyGpuPreferencePaths;
 
         var snapshot = ProcessSnapshotProvider.Get(SnapshotMaxAge);
         var processGraph = new ProcessGraph(snapshot.Processes);
@@ -143,7 +148,6 @@ public sealed class HeavyAppDetectionService : IDisposable
         int? foregroundPid = ForegroundProcessProbe.TryGetForegroundProcessId();
         bool d3dFullscreenActive = ForegroundProcessProbe.IsD3dFullscreenActive();
         var gpu3D = ReadGpu3DByProcessSafe();
-        DateTime scanNowUtc = DateTime.UtcNow;
         var detected = new List<DetectedHeavyApp>();
         var observed = new List<ObservedHeavyProcess>();
         foreach (var process in snapshot.Processes)
@@ -985,6 +989,28 @@ public sealed class HeavyAppDetectionService : IDisposable
             // Registry may be unavailable or blocked; fall back to path/resource heuristics.
         }
         return paths;
+    }
+
+    internal HashSet<string> GetCachedGpuPreferences(
+        DateTime nowUtc,
+        Func<HashSet<string>> reader)
+    {
+        lock (_lock)
+        {
+            if (nowUtc < _gpuPreferencesRefreshAfterUtc)
+                return _cachedGpuHighPerformancePaths;
+        }
+
+        HashSet<string> fresh = reader();
+        lock (_lock)
+        {
+            if (nowUtc >= _gpuPreferencesRefreshAfterUtc)
+            {
+                _cachedGpuHighPerformancePaths = fresh;
+                _gpuPreferencesRefreshAfterUtc = nowUtc + GpuPreferencesCacheDuration;
+            }
+            return _cachedGpuHighPerformancePaths;
+        }
     }
 
     public static string NormalizePath(string path) => ProcessPathResolver.Normalize(path);

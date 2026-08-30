@@ -231,8 +231,7 @@ public class MonitorService : IDisposable
                 CpuClock = finalCpuClock,
                 RamClock = finalRamClock,
                 SensorsAvailable = _sensors.Available,
-                // Cap list pushed 1×/s to the WebView — full LHM dumps allocate hard.
-                Sensors = CapSensorsForUi(sensors.Readings),
+                Sensors = sensors.Readings,
             };
             MetricsUpdated?.Invoke(Latest);
 
@@ -268,31 +267,6 @@ public class MonitorService : IDisposable
     {
         try { return c?.NextValue() ?? 0; }
         catch { return 0; }
-    }
-
-    // Prefer live temperatures; drop secondary clocks. Hard ceiling keeps the
-    // metrics JSON (and the dashboard sensor DOM) bounded on busy machines.
-    private const int MaxUiSensors = 32;
-
-    private static List<SensorReading> CapSensorsForUi(List<SensorReading> readings)
-    {
-        if (readings.Count == 0) return readings;
-        if (readings.Count <= MaxUiSensors && readings.TrueForAll(r => r.Type is not "clock"))
-            return readings;
-
-        var preferred = new List<SensorReading>(Math.Min(MaxUiSensors, readings.Count));
-        foreach (var r in readings)
-        {
-            if (r.Type == "temp") preferred.Add(r);
-            if (preferred.Count >= MaxUiSensors) return preferred;
-        }
-        // Fill remainder with clocks only if we still have room (rare).
-        foreach (var r in readings)
-        {
-            if (r.Type == "clock") preferred.Add(r);
-            if (preferred.Count >= MaxUiSensors) break;
-        }
-        return preferred;
     }
 
     private (double usedGb, double pct) ReadRam()
