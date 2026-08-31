@@ -1,4 +1,6 @@
 using System.IO;
+using System.Globalization;
+using System.Text;
 using System.Text.Json;
 using VoltManager.Models;
 
@@ -38,6 +40,42 @@ public sealed class BatteryHistoryService
     public IReadOnlyList<BatteryHistorySample> GetHistory()
     {
         lock (_lock) return _samples.ToList();
+    }
+
+    public static IReadOnlyList<BatteryHistorySample> SelectWindow(
+        IReadOnlyList<BatteryHistorySample> samples,
+        DateTime nowUtc,
+        int hours,
+        int maxPoints = 192)
+    {
+        hours = Math.Clamp(hours, 1, 48);
+        maxPoints = Math.Max(2, maxPoints);
+        long cutoff = new DateTimeOffset(nowUtc, TimeSpan.Zero).AddHours(-hours).ToUnixTimeSeconds();
+        var filtered = samples.Where(s => s.T >= cutoff).ToList();
+        if (filtered.Count <= maxPoints) return filtered;
+
+        var slim = new List<BatteryHistorySample>(maxPoints);
+        int last = filtered.Count - 1;
+        for (int i = 0; i < maxPoints; i++)
+            slim.Add(filtered[(int)Math.Round(i * (double)last / (maxPoints - 1))]);
+        return slim;
+    }
+
+    public static string ToCsv(IEnumerable<BatteryHistorySample> samples)
+    {
+        var sb = new StringBuilder("timestamp_utc,battery_percent,watts,on_ac,temperature_c\r\n");
+        foreach (var sample in samples)
+        {
+            string timestamp = DateTimeOffset.FromUnixTimeSeconds(sample.T).UtcDateTime
+                .ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture);
+            sb.Append(timestamp).Append(',')
+                .Append(sample.Pct?.ToString(CultureInfo.InvariantCulture) ?? "").Append(',')
+                .Append(sample.W?.ToString("0.###", CultureInfo.InvariantCulture) ?? "").Append(',')
+                .Append(sample.Ac ? "true" : "false").Append(',')
+                .Append(sample.Temp?.ToString("0.0", CultureInfo.InvariantCulture) ?? "")
+                .Append("\r\n");
+        }
+        return sb.ToString();
     }
 
     /// <summary>

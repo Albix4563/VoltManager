@@ -5,6 +5,12 @@ Il formato segue [Keep a Changelog](https://keepachangelog.com/it/1.1.0/).
 
 ## [Non rilasciato]
 
+### Aggiunto
+
+- **Controllo batteria e automazioni più trasparenti.** La soglia di batteria scarica è ora configurabile; la cronologia batteria offre intervalli 6/24/48 ore, potenza, temperatura, stato AC/DC ed export CSV. La UI mostra inoltre quale automazione sta controllando il piano energetico attivo.
+- **Scorciatoie globali configurabili.** È possibile associare combinazioni globali ai piani energetici, alla modalità automatica e al toggle Mantieni PC attivo.
+- **Profili app estesi.** Ogni profilo per applicazione può richiedere Mantieni PC attivo insieme al piano energetico, senza sovrascrivere la preferenza manuale permanente.
+
 ### Corretto
 
 - **Sidebar — indicatore della voce attiva disallineato durante compress/expand.**

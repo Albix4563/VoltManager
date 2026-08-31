@@ -23,6 +23,7 @@ public sealed class PowerAwakeService : IDisposable
     private IntPtr _requestHandle = IntPtr.Zero;
     private bool _systemRequestApplied;
     private bool _executionRequestApplied;
+    private bool _automationRequested;
     private bool _disposed;
     private string? _lastAutoDisableReason;
     private bool _applyingSettings; // re-entrancy guard for SettingsChanged → Save
@@ -78,6 +79,18 @@ public sealed class PowerAwakeService : IDisposable
         return GetState();
     }
 
+    /// <summary>
+    /// Runtime-only request used by app profiles. It never rewrites the user's
+    /// KeepAwake.Enabled preference and disappears as soon as the profile ends.
+    /// </summary>
+    public KeepAwakeState SetAutomationRequest(bool enabled)
+    {
+        lock (_lock)
+            _automationRequested = enabled;
+        EvaluateSafetyAndApply(forceNotify: true);
+        return GetState();
+    }
+
     private void OnSettingsChanged(AppSettings settings)
     {
         if (_applyingSettings) return;
@@ -98,13 +111,20 @@ public sealed class PowerAwakeService : IDisposable
         KeepAwakeSettings cfg,
         bool? onBattery,
         DateTime nowUtc)
+        => SafetyBlockReason(cfg, automationRequested: false, onBattery, nowUtc);
+
+    internal static string? SafetyBlockReason(
+        KeepAwakeSettings cfg,
+        bool automationRequested,
+        bool? onBattery,
+        DateTime nowUtc)
     {
-        if (!cfg.Enabled) return null;
+        if (!cfg.Enabled && !automationRequested) return null;
 
         if (cfg.AutoDisableOnBattery && onBattery == true)
             return "battery";
 
-        if (cfg.MaxMinutes > 0 && cfg.LastChangedUtc is DateTime started)
+        if (cfg.Enabled && cfg.MaxMinutes > 0 && cfg.LastChangedUtc is DateTime started)
         {
             var elapsed = nowUtc - started;
             if (elapsed.TotalMinutes >= cfg.MaxMinutes)
@@ -133,11 +153,25 @@ public sealed class PowerAwakeService : IDisposable
         try { onBattery = _onBatteryReader(); }
         catch { /* unknown power source: skip battery guard this tick */ }
 
-        string? reason = ShouldAutoDisable(cfg, onBattery, now);
+        bool automationRequested;
+        lock (_lock) automationRequested = _automationRequested;
+        string? reason = SafetyBlockReason(cfg, automationRequested, onBattery, now);
         bool changed = false;
 
         if (reason != null)
         {
+            if (!cfg.Enabled)
+            {
+                lock (_lock)
+                {
+                    _lastAutoDisableReason = reason;
+                    changed = ClearRequestLocked();
+                }
+                if (changed || forceNotify)
+                    StateChanged?.Invoke(GetState());
+                return;
+            }
+
             _applyingSettings = true;
             try
             {
@@ -162,10 +196,7 @@ public sealed class PowerAwakeService : IDisposable
         }
 
         lock (_lock)
-        {
-            bool wantOn = cfg.Enabled;
-            changed = wantOn ? EnsureRequestLocked() : ClearRequestLocked();
-        }
+            changed = (cfg.Enabled || _automationRequested) ? EnsureRequestLocked() : ClearRequestLocked();
 
         if (changed || forceNotify)
             StateChanged?.Invoke(GetState());
@@ -179,8 +210,10 @@ public sealed class PowerAwakeService : IDisposable
         cfg.Normalize();
 
         // If already past timeout or on battery, disable rather than re-applying.
-        string? reason = ShouldAutoDisable(cfg, SafeOnBattery(), _utcNow());
-        if (reason != null && cfg.Enabled)
+        bool automationRequested;
+        lock (_lock) automationRequested = _automationRequested;
+        string? reason = SafetyBlockReason(cfg, automationRequested, SafeOnBattery(), _utcNow());
+        if (reason != null)
         {
             EvaluateSafetyAndApply(forceNotify: true);
             return;
@@ -189,7 +222,7 @@ public sealed class PowerAwakeService : IDisposable
         bool changed;
         lock (_lock)
         {
-            changed = cfg.Enabled ? EnsureRequestLocked() : ClearRequestLocked();
+            changed = (cfg.Enabled || _automationRequested) ? EnsureRequestLocked() : ClearRequestLocked();
         }
 
         if (changed)
@@ -225,6 +258,7 @@ public sealed class PowerAwakeService : IDisposable
         {
             Enabled = cfg.Enabled,
             Applied = _systemRequestApplied,
+            AutomationRequested = _automationRequested,
             LastChangedUtc = cfg.LastChangedUtc,
             Message = message,
             AutoDisableOnBattery = cfg.AutoDisableOnBattery,

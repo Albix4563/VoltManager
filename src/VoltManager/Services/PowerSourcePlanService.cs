@@ -14,8 +14,6 @@ public record PowerSourcePlanDecision
 
 public sealed class PowerSourcePlanService
 {
-    private const int LowBatteryThresholdPercent = 20;
-
     private readonly SettingsService _settings;
     private readonly Func<PowerSourceSnapshot?> _powerSourceReader;
     private readonly object _lock = new();
@@ -47,10 +45,10 @@ public sealed class PowerSourcePlanService
             var cfg = EnsureSettings();
             var source = NormalizeSnapshot(_powerSourceReader());
 
-            if (IsLowBatteryOnDc(source))
+            if (IsLowBatteryOnDc(source, cfg.LowBatteryThresholdPercent))
                 return KeepLowBatterySaver(activePlan, source, manualOverrideActive);
 
-            var planBeforeLowBattery = EndLowBatterySessionIfNeeded(source);
+            var planBeforeLowBattery = EndLowBatterySessionIfNeeded(source, cfg.LowBatteryThresholdPercent);
             if (_lowBatterySessionActive)
                 return KeepLowBatterySaver(activePlan, source, manualOverrideActive);
 
@@ -141,13 +139,13 @@ public sealed class PowerSourcePlanService
         return Decision(target, true, source, manualOverrideActive, target == null ? "low_battery_active" : "low_battery_switch");
     }
 
-    private PlanId? EndLowBatterySessionIfNeeded(PowerSourceSnapshot source)
+    private PlanId? EndLowBatterySessionIfNeeded(PowerSourceSnapshot source, int thresholdPercent)
     {
         if (!_lowBatterySessionActive)
             return null;
 
         bool shouldEnd = source.PluggedIn == true
-            || (source.PluggedIn == false && source.BatteryPercent is >= LowBatteryThresholdPercent);
+            || (source.PluggedIn == false && source.BatteryPercent is int pct && pct >= thresholdPercent);
         if (!shouldEnd)
             return null;
 
@@ -190,6 +188,7 @@ public sealed class PowerSourcePlanService
             PowerSourceKnown = source.PluggedIn != null,
             PluggedIn = source.PluggedIn == true,
             BatteryPercent = source.BatteryPercent,
+            LowBatteryThresholdPercent = cfg.LowBatteryThresholdPercent,
             LowBatteryActive = _lowBatterySessionActive,
             Active = _acSessionActive || _lowBatterySessionActive,
             PluggedPlan = cfg.PluggedPlan,
@@ -213,6 +212,7 @@ public sealed class PowerSourcePlanService
            && a.PowerSourceKnown == b.PowerSourceKnown
            && a.PluggedIn == b.PluggedIn
            && a.BatteryPercent == b.BatteryPercent
+           && a.LowBatteryThresholdPercent == b.LowBatteryThresholdPercent
            && a.LowBatteryActive == b.LowBatteryActive
            && a.Active == b.Active
            && a.PluggedPlan == b.PluggedPlan
@@ -221,8 +221,8 @@ public sealed class PowerSourcePlanService
            && a.ManualOverrideActive == b.ManualOverrideActive
            && a.Message == b.Message;
 
-    private static bool IsLowBatteryOnDc(PowerSourceSnapshot source)
-        => source.PluggedIn == false && source.BatteryPercent is < LowBatteryThresholdPercent;
+    private static bool IsLowBatteryOnDc(PowerSourceSnapshot source, int thresholdPercent)
+        => source.PluggedIn == false && source.BatteryPercent is int pct && pct < thresholdPercent;
 
     private static PowerSourceSnapshot NormalizeSnapshot(PowerSourceSnapshot? source)
         => new(source?.PluggedIn, NormalizeBatteryPercent(source?.BatteryPercent));

@@ -36,6 +36,7 @@
             appProfileDetected: 'Attive',
             appProfileMissing: 'File non trovato',
             appProfileRemove: 'Rimuovi',
+            appProfileKeepAwake: 'Mantieni il PC attivo con questa app',
             heavyTitle: 'Rilevamento giochi e app pesanti',
             heavySub: 'Quando VoltManager rileva un gioco o un carico pesante applica automaticamente il piano scelto, senza creare liste infinite di applicazioni.',
             heavyToggle: 'Attiva rilevamento automatico',
@@ -146,6 +147,7 @@
             appProfileDetected: 'Activas',
             appProfileMissing: 'Archivo no encontrado',
             appProfileRemove: 'Eliminar',
+            appProfileKeepAwake: 'Mantener el PC activo con esta app',
             heavyTitle: 'Detección de juegos y apps pesadas',
             heavySub: 'Cuando VoltManager detecta un juego o carga pesada, aplica automáticamente el plan elegido sin crear listas infinitas de aplicaciones.',
             heavyToggle: 'Activar detección automática',
@@ -256,6 +258,7 @@
             appProfileDetected: 'Active',
             appProfileMissing: 'File not found',
             appProfileRemove: 'Remove',
+            appProfileKeepAwake: 'Keep PC awake with this app',
             heavyTitle: 'Game and heavy app detection',
             heavySub: 'When VoltManager detects a game or heavy workload, it applies the selected plan automatically without maintaining a huge app list.',
             heavyToggle: 'Enable automatic detection',
@@ -366,6 +369,7 @@
             appProfileDetected: '活动中',
             appProfileMissing: '文件未找到',
             appProfileRemove: '移除',
+            appProfileKeepAwake: '此应用运行时保持电脑唤醒',
             heavyTitle: '游戏和重负载应用检测',
             heavySub: '当 VoltManager 检测到游戏或重负载时，会自动应用所选计划，无需维护庞大的应用列表。',
             heavyToggle: '启用自动检测',
@@ -550,6 +554,7 @@
             if (!rule.name) rule.name = appNameFromPath(rule.path);
             if (!planIds.includes(rule.targetPlan)) rule.targetPlan = 'performance';
             rule.enabled = rule.enabled !== false;
+            rule.keepAwake = rule.keepAwake === true;
             return true;
         });
         return cfg;
@@ -725,7 +730,7 @@
 .heavy-rule-row{display:flex;align-items:center;gap:10px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.03);border-radius:10px;padding:6px 6px 6px 10px;}
 .heavy-rule-row .app-profile-icon-btn{width:30px;height:30px;border-radius:8px;flex-shrink:0;}
 .app-profile-list{display:grid;gap:10px;position:relative;z-index:1;}
-.app-profile-row{display:grid;grid-template-columns:minmax(0,1fr) 170px 42px 42px;gap:10px;align-items:center;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.035);border-radius:14px;padding:12px;}
+.app-profile-row{display:grid;grid-template-columns:minmax(0,1fr) 170px 42px 42px 42px;gap:10px;align-items:center;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.035);border-radius:14px;padding:12px;}
 .app-profile-path{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:rgba(211,222,239,.58);font-size:11px;margin-top:3px;}
 .app-profile-icon-btn{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.04);color:rgba(211,222,239,.72);transition:border-color .2s ease,color .2s ease,background .2s ease;}
 .app-profile-icon-btn:hover{border-color:rgb(var(--vm-accent-rgb) / .26);color:var(--vm-accent);background:rgb(var(--vm-accent-rgb) / .08);}
@@ -743,7 +748,7 @@
 .vm-acc-body-inner{overflow:hidden;min-height:0;padding:0 24px;transition:padding .32s cubic-bezier(.4,0,.2,1);}
 .vm-acc-item[data-open="true"] .vm-acc-body-inner{padding:0 24px 24px;}
 .heavy-app-panel-inner,.keep-awake-panel-inner{position:relative;}
-@media (max-width:960px){.heavy-app-grid,.keep-awake-grid,.heavy-rules-grid{grid-template-columns:1fr}.app-profile-row{grid-template-columns:1fr 1fr 38px 38px}}
+@media (max-width:960px){.heavy-app-grid,.keep-awake-grid,.heavy-rules-grid{grid-template-columns:1fr}.app-profile-row{grid-template-columns:1fr 1fr 38px 38px 38px}}
         `.trim();
         document.head.appendChild(style);
     }
@@ -1272,6 +1277,8 @@
                     '<option value="performance"' + (rule.targetPlan === 'performance' ? ' selected' : '') + '>' + esc(tt('plan_performance')) + '</option>' +
                     '<option value="balanced"' + (rule.targetPlan === 'balanced' ? ' selected' : '') + '>' + esc(tt('plan_balanced')) + '</option>' +
                     '<option value="powerSaver"' + (rule.targetPlan === 'powerSaver' ? ' selected' : '') + '>' + esc(tt('plan_powerSaver')) + '</option></select>' +
+                    '<button class="app-profile-icon-btn app-profile-keep-awake' + (rule.keepAwake ? ' text-secondary-container' : '') + '" data-rule-id="' + esc(rule.id) + '" type="button" aria-pressed="' + (rule.keepAwake ? 'true' : 'false') + '" title="' + esc(tt('appProfileKeepAwake')) + '">' +
+                    '<span class="material-symbols-outlined text-[20px]">' + (rule.keepAwake ? 'lock_clock' : 'bedtime') + '</span></button>' +
                     '<button class="app-profile-icon-btn app-profile-toggle-rule" data-rule-id="' + esc(rule.id) + '" type="button" title="' + esc(rule.enabled ? 'On' : 'Off') + '">' +
                     '<span class="material-symbols-outlined text-[20px]">' + (rule.enabled ? 'toggle_on' : 'toggle_off') + '</span></button>' +
                     '<button class="app-profile-icon-btn app-profile-remove-rule" data-rule-id="' + esc(rule.id) + '" type="button" title="' + esc(tt('appProfileRemove')) + '">' +
@@ -1411,7 +1418,8 @@
                         enabled: true,
                         name: appNameFromPath(path),
                         path,
-                        targetPlan: 'performance'
+                        targetPlan: 'performance',
+                        keepAwake: false
                     });
                     syncAppPowerProfileUi();
                     scheduleSave();
@@ -1432,6 +1440,16 @@
                 updateAppPowerProfiles(cfg => {
                     const rule = cfg.rules.find(r => r.id === id);
                     if (rule) rule.enabled = !rule.enabled;
+                });
+                return;
+            }
+
+            const keepAwake = e.target.closest('.app-profile-keep-awake');
+            if (keepAwake && settings) {
+                const id = keepAwake.dataset.ruleId;
+                updateAppPowerProfiles(cfg => {
+                    const rule = cfg.rules.find(r => r.id === id);
+                    if (rule) rule.keepAwake = !rule.keepAwake;
                 });
                 return;
             }

@@ -11,6 +11,7 @@ public record DetectedAppPowerProfile
     [JsonPropertyName("name")] public string Name { get; init; } = "";
     [JsonPropertyName("path")] public string Path { get; init; } = "";
     [JsonPropertyName("targetPlan")] public PlanId TargetPlan { get; init; } = PlanId.Performance;
+    [JsonPropertyName("keepAwake")] public bool KeepAwake { get; init; }
     [JsonPropertyName("fileExists")] public bool FileExists { get; init; }
 }
 
@@ -19,6 +20,7 @@ public record AppPowerProfileState
     [JsonPropertyName("enabled")] public bool Enabled { get; init; }
     [JsonPropertyName("active")] public bool Active { get; init; }
     [JsonPropertyName("targetPlan")] public PlanId? TargetPlan { get; init; }
+    [JsonPropertyName("keepAwakeRequested")] public bool KeepAwakeRequested { get; init; }
     [JsonPropertyName("detectedCount")] public int DetectedCount { get; init; }
     [JsonPropertyName("activeProfiles")] public List<DetectedAppPowerProfile> ActiveProfiles { get; init; } = new();
     [JsonPropertyName("lastScanUtc")] public DateTime LastScanUtc { get; init; } = DateTime.UtcNow;
@@ -135,6 +137,7 @@ public sealed class AppPowerProfileService : IDisposable
                         : rule.Name,
                     Path = path,
                     TargetPlan = rule.TargetPlan,
+                    KeepAwake = rule.KeepAwake,
                     FileExists = File.Exists(rule.Path) || File.Exists(path),
                 });
             }
@@ -157,6 +160,7 @@ public sealed class AppPowerProfileService : IDisposable
             Enabled = config.Enabled,
             Active = unique.Count > 0,
             TargetPlan = unique.Count == 0 ? null : unique.OrderByDescending(p => PlanPriority(p.TargetPlan)).First().TargetPlan,
+            KeepAwakeRequested = unique.Any(p => p.KeepAwake),
             DetectedCount = detected.Count,
             ActiveProfiles = unique,
             LastScanUtc = DateTime.UtcNow,
@@ -226,6 +230,7 @@ public sealed class AppPowerProfileService : IDisposable
         if (previous.Enabled != next.Enabled) return true;
         if (previous.Active != next.Active) return true;
         if (previous.TargetPlan != next.TargetPlan) return true;
+        if (previous.KeepAwakeRequested != next.KeepAwakeRequested) return true;
         if (previous.DetectedCount != next.DetectedCount) return true;
 
         var prevIds = previous.ActiveProfiles.Select(p => p.RuleId).OrderBy(p => p, StringComparer.OrdinalIgnoreCase);

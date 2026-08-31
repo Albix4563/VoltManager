@@ -146,7 +146,9 @@
         const oldPlanCard = plan && plan.closest('section');
         move(plan, $('vm-power-active'));
         move($('manual-override-chip'), $('vm-power-active'), true);
+        move($('active-plan-reason'), $('vm-power-active'), true);
         move($('pref-power-source-plan-home'), $('vm-power-source'), true);
+        move($('pref-low-battery-threshold-home'), $('vm-power-source'), true);
         move($('keep-awake-mount'), $('vm-keep-awake'));
         move($('advanced-params-mount'), $('vm-power-advanced'));
 
@@ -166,7 +168,7 @@
 
         const updateButton = $('btn-check-updates');
         move(updateButton && updateButton.closest('.glass-panel'), $('vm-settings-updates'));
-        ['pref-autostart', 'pref-tray', 'pref-show-welcome', 'pref-show-tour', 'pref-backup']
+        ['pref-autostart', 'pref-tray', 'pref-show-welcome', 'pref-show-tour', 'pref-backup', 'pref-global-hotkeys']
             .forEach(id => move($(id), $('vm-settings-general')));
         ['pref-theme', 'pref-lang', 'pref-font', 'font-specimen-preview']
             .forEach(id => move($(id), $('vm-settings-appearance')));

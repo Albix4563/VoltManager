@@ -170,6 +170,7 @@ public class AppPowerProfileRule
     [JsonPropertyName("name")] public string Name { get; set; } = "";
     [JsonPropertyName("path")] public string Path { get; set; } = "";
     [JsonPropertyName("targetPlan")] public PlanId TargetPlan { get; set; } = PlanId.Performance;
+    [JsonPropertyName("keepAwake")] public bool KeepAwake { get; set; }
 }
 
 public class AppPowerProfileSettings
@@ -207,6 +208,17 @@ public class PowerSourcePlanSettings
     [JsonPropertyName("enabled")] public bool Enabled { get; set; } = true;
     [JsonPropertyName("pluggedPlan")] public PlanId PluggedPlan { get; set; } = PlanId.Performance;
     [JsonPropertyName("unpluggedMode")] public string UnpluggedMode { get; set; } = "previous";
+    [JsonPropertyName("lowBatteryThresholdPercent")] public int LowBatteryThresholdPercent { get; set; } = 20;
+}
+
+public class GlobalHotkeySettings
+{
+    [JsonPropertyName("enabled")] public bool Enabled { get; set; }
+    [JsonPropertyName("powerSaver")] public string PowerSaver { get; set; } = "Ctrl+Alt+1";
+    [JsonPropertyName("balanced")] public string Balanced { get; set; } = "Ctrl+Alt+2";
+    [JsonPropertyName("performance")] public string Performance { get; set; } = "Ctrl+Alt+3";
+    [JsonPropertyName("auto")] public string Auto { get; set; } = "Ctrl+Alt+0";
+    [JsonPropertyName("keepAwakeToggle")] public string KeepAwakeToggle { get; set; } = "Ctrl+Alt+K";
 }
 
 public class CpuAutomationSettings
@@ -322,6 +334,7 @@ public record KeepAwakeState
 {
     [JsonPropertyName("enabled")] public bool Enabled { get; init; }
     [JsonPropertyName("applied")] public bool Applied { get; init; }
+    [JsonPropertyName("automationRequested")] public bool AutomationRequested { get; init; }
     [JsonPropertyName("lastChangedUtc")] public DateTime? LastChangedUtc { get; init; }
     [JsonPropertyName("message")] public string Message { get; init; } = "";
     // Safety options (echoed for the UI)
@@ -339,6 +352,7 @@ public record PowerSourcePlanState
     [JsonPropertyName("powerSourceKnown")] public bool PowerSourceKnown { get; init; }
     [JsonPropertyName("pluggedIn")] public bool PluggedIn { get; init; }
     [JsonPropertyName("batteryPercent")] public int? BatteryPercent { get; init; }
+    [JsonPropertyName("lowBatteryThresholdPercent")] public int LowBatteryThresholdPercent { get; init; } = 20;
     [JsonPropertyName("lowBatteryActive")] public bool LowBatteryActive { get; init; }
     [JsonPropertyName("active")] public bool Active { get; init; }
     [JsonPropertyName("pluggedPlan")] public PlanId PluggedPlan { get; init; } = PlanId.Performance;
@@ -469,6 +483,7 @@ public class AppSettings
     [JsonPropertyName("thermalGuard")] public ThermalGuardSettings ThermalGuard { get; set; } = new();
     [JsonPropertyName("idlePowerGuard")] public IdlePowerGuardSettings IdlePowerGuard { get; set; } = new();
     [JsonPropertyName("cpuAutomation")] public CpuAutomationSettings CpuAutomation { get; set; } = new();
+    [JsonPropertyName("globalHotkeys")] public GlobalHotkeySettings GlobalHotkeys { get; set; } = new();
     [JsonPropertyName("widgets")] public WidgetSettings Widgets { get; set; } = new();
     // duplicatescheme assigns new GUIDs; map canonical plan -> actual GUID on this machine.
     [JsonPropertyName("planGuidMap")] public Dictionary<string, string> PlanGuidMap { get; set; } = new();
@@ -492,6 +507,13 @@ public record PowerPlan
     [JsonPropertyName("guid")] public string Guid { get; init; } = "";
     [JsonPropertyName("name")] public string Name { get; init; } = "";
     [JsonPropertyName("isActive")] public bool IsActive { get; init; }
+}
+
+public record ActivePlanReasonState
+{
+    [JsonPropertyName("source")] public string Source { get; init; } = "system";
+    [JsonPropertyName("detail")] public string Detail { get; init; } = "";
+    [JsonPropertyName("plan")] public PlanId? Plan { get; init; }
 }
 
 public record UpdateInfo

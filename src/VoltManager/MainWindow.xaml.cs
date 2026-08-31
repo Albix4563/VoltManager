@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Threading;
 using System.Windows;
+using System.Windows.Interop;
 using Drawing = System.Drawing;
 using Microsoft.Web.WebView2.Core;
 using VoltManager.Bridge;
@@ -39,6 +40,8 @@ public partial class MainWindow : Window
     private static readonly string AppDocumentVersion =
         typeof(App).Assembly.GetName().Version?.ToString(3) ?? "1.0.0";
     private readonly Stopwatch _navStopwatch = new();
+    private readonly GlobalHotkeyService _globalHotkeys = new();
+    private HwndSource? _hotkeySource;
 
     // After this park time in tray, drop the page to about:blank so Chromium
     // releases DOM/JS/GPU tiles. Reopened UI reloads fresh (same as cold open).
@@ -55,6 +58,7 @@ public partial class MainWindow : Window
         _justUpdated = justUpdated;
         _startMinimized = startMinimized;
         InitializeComponent();
+        SourceInitialized += (_, _) => BindGlobalHotkeys();
         ApplyHostTheme(_app.Theme.CurrentTheme);
         // Tray-only launch: keep Chromium unborn until the user opens the window.
         Loaded += async (_, _) =>
@@ -70,6 +74,8 @@ public partial class MainWindow : Window
             _autoUpdateTimer?.Dispose();
             _trayTeardownTimer?.Dispose();
             _workingSetTrimTimer?.Dispose();
+            _hotkeySource?.RemoveHook(GlobalHotkeyWndProc);
+            _globalHotkeys.Dispose();
         };
         // Fires from timer threads; tooltip lives on the UI thread.
         _app.ActivePlanChanged += p => Dispatcher.Invoke(() =>
@@ -79,6 +85,7 @@ public partial class MainWindow : Window
             _app.Theme.SetTheme(s.ThemeColor);
             // Keep the main WebView font in sync with disk (import/other writers).
             _bridge?.PushEvent("fontChanged", new { font = s.Font });
+            BindGlobalHotkeys();
         });
         _app.Theme.ThemeChanged += themeColor => Dispatcher.Invoke(() =>
         {
@@ -104,6 +111,33 @@ public partial class MainWindow : Window
             Hide();
             ScheduleWorkingSetTrim();
         }
+    }
+
+    private void BindGlobalHotkeys()
+    {
+        var hwnd = new WindowInteropHelper(this).Handle;
+        if (hwnd == IntPtr.Zero) return;
+        _hotkeySource ??= HwndSource.FromHwnd(hwnd);
+        if (_hotkeySource != null && !_hotkeyHookInstalled)
+        {
+            _hotkeySource.AddHook(GlobalHotkeyWndProc);
+            _hotkeyHookInstalled = true;
+        }
+
+        var registrations = _globalHotkeys.Rebind(hwnd, _app.Settings.Current.GlobalHotkeys);
+        _bridge?.PushEvent("globalHotkeysChanged", new { registrations });
+    }
+
+    private bool _hotkeyHookInstalled;
+
+    private IntPtr GlobalHotkeyWndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+    {
+        if (msg != GlobalHotkeyService.WmHotkey || !_globalHotkeys.TryGetCommand(wParam.ToInt32(), out var command))
+            return IntPtr.Zero;
+
+        handled = true;
+        _ = Task.Run(() => _app.ApplyRemoteCommand(command));
+        return IntPtr.Zero;
     }
 
     private async Task EnsureWebViewAsync()

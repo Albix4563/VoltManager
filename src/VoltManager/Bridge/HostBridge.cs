@@ -93,6 +93,7 @@ public class HostBridge
         _updates.DownloadProgress += pct => PushEvent("updateDownloadProgress", new { pct });
         _app.HeavyApps.ActivityChanged += state => PushEvent("heavyAppActivityChanged", state);
         _app.AppProfiles.ActivityChanged += state => PushEvent("appPowerProfileActivityChanged", state);
+        _app.ActivePlanReasonChanged += state => PushEvent("activePlanReasonChanged", state);
         _app.PowerPlanConflictDetected += notice => PushEvent("powerPlanConflictDetected", notice);
         _app.StandbyAutoCleaner.AutoCleaned += freshMem => PushEvent("standbyAutoCleaned", freshMem);
     }
@@ -175,19 +176,13 @@ public class HostBridge
                 });
 
             case "getBatteryHistory":
-                // Sparkline is ~100 CSS-px wide: ship at most 96 points (evenly
-                // sampled) instead of up to 2880. Same visual, far less JSON/GC.
                 return await Task.Run(() =>
                 {
                     var all = _app.BatteryHistory.GetHistory();
-                    const int maxPts = 96;
-                    if (all.Count <= maxPts)
-                        return new { samples = all };
-                    var slim = new List<BatteryHistorySample>(maxPts);
-                    int last = all.Count - 1;
-                    for (int i = 0; i < maxPts; i++)
-                        slim.Add(all[(int)Math.Round(i * (double)last / (maxPts - 1))]);
-                    return new { samples = (IReadOnlyList<BatteryHistorySample>)slim };
+                    int hours = payload.TryGetProperty("hours", out var value) && value.TryGetInt32(out int parsed)
+                        ? parsed
+                        : 48;
+                    return new { samples = BatteryHistoryService.SelectWindow(all, DateTime.UtcNow, hours) };
                 });
 
             case "beginWidgetDrag":
@@ -260,6 +255,9 @@ public class HostBridge
 
             case "getActivePlan":
                 return await Task.Run(() => _power.GetActivePlan());
+
+            case "getActivePlanReason":
+                return _app.GetActivePlanReason();
 
             case "listPowerPlans":
                 return await Task.Run(() => _planParams.ListPlans());
@@ -720,6 +718,25 @@ public class HostBridge
                 if (path == null) return new { success = false, cancelled = true };
                 await Task.Run(() => System.IO.File.WriteAllText(path,
                     JsonSerializer.Serialize(_settings.Current, BackupJsonOpts)));
+                return new { success = true, path };
+            }
+
+            case "exportBatteryHistory":
+            {
+                string? path = await _webView.Dispatcher.InvokeAsync(() =>
+                {
+                    var dialog = new SaveFileDialog
+                    {
+                        Title = "Export battery history",
+                        Filter = "CSV (*.csv)|*.csv|All files (*.*)|*.*",
+                        FileName = $"voltmanager-battery-history-{DateTime.Now:yyyyMMdd-HHmm}.csv",
+                    };
+                    return dialog.ShowDialog() == true ? dialog.FileName : null;
+                });
+                if (path == null) return new { success = false, cancelled = true };
+
+                var csv = await Task.Run(() => BatteryHistoryService.ToCsv(_app.BatteryHistory.GetHistory()));
+                await Task.Run(() => System.IO.File.WriteAllText(path, csv, System.Text.Encoding.UTF8));
                 return new { success = true, path };
             }
 

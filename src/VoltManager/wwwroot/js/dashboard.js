@@ -265,26 +265,21 @@
     const batteryHistoryStats = document.getElementById('battery-history-stats');
     const batteryHistoryLine = document.getElementById('battery-history-line');
     const batteryHistoryArea = document.getElementById('battery-history-area');
+    const batteryHistoryWattLine = document.getElementById('battery-history-watt-line');
+    const batteryHistoryTempLine = document.getElementById('battery-history-temp-line');
+    const batteryHistorySourceStrip = document.getElementById('battery-history-source-strip');
+    const batteryHistoryExport = document.getElementById('battery-history-export');
+    const batteryHistoryRangeButtons = Array.from(document.querySelectorAll('.battery-history-range-btn'));
     let lastBatteryHistory = null;
     let batteryHistoryTimer = null;
     let batteryHistoryPolling = false;
+    let batteryHistoryHours = 24;
 
     function formatHistorySpan(seconds) {
         const h = Math.floor(seconds / 3600);
         const m = Math.floor((seconds % 3600) / 60);
         if (h > 0) return h + 'h' + (m > 0 ? ' ' + m + 'm' : '');
         return Math.max(1, m) + 'm';
-    }
-
-    // Sparkline is ~100px wide: more than ~96 points is pure JSON/DOM waste.
-    function downsample(pts, maxPts) {
-        if (pts.length <= maxPts) return pts;
-        const out = [];
-        const last = pts.length - 1;
-        for (let i = 0; i < maxPts; i++) {
-            out.push(pts[Math.round(i * last / (maxPts - 1))]);
-        }
-        return out;
     }
 
     function renderBatteryHistory(payload) {
@@ -294,7 +289,7 @@
         // Need at least two points to draw a trend; otherwise hide the whole card.
         batteryHistorySection.classList.toggle('hidden', raw.length < 2);
         if (raw.length < 2) return;
-        const pts = downsample(raw, 96);
+        const pts = raw;
 
         const W = 100, H = 32, padY = 2;
         const t0 = pts[0].t;
@@ -312,6 +307,40 @@
         batteryHistoryArea.setAttribute('d',
             d + ' L' + W.toFixed(2) + ' ' + H + ' L0 ' + H + ' Z');
 
+        const watts = pts.filter(s => s.w != null).map(s => Number(s.w)).filter(Number.isFinite);
+        const maxAbsW = Math.max(1, ...watts.map(Math.abs));
+        let wattPath = '';
+        let wattStarted = false;
+        pts.forEach(s => {
+            if (s.w == null) { wattStarted = false; return; }
+            const value = Number(s.w);
+            if (!Number.isFinite(value)) { wattStarted = false; return; }
+            const yW = H / 2 - (value / maxAbsW) * (H / 2 - padY);
+            wattPath += (wattStarted ? 'L' : 'M') + x(s.t).toFixed(2) + ' ' + yW.toFixed(2) + ' ';
+            wattStarted = true;
+        });
+        batteryHistoryWattLine?.setAttribute('d', wattPath.trim());
+
+        let tempPath = '';
+        let tempStarted = false;
+        pts.forEach(s => {
+            if (s.temp == null) { tempStarted = false; return; }
+            const value = Number(s.temp);
+            if (!Number.isFinite(value)) { tempStarted = false; return; }
+            const normalized = Math.max(0, Math.min(1, (value - 20) / 80));
+            const yTemp = H - padY - normalized * (H - padY * 2);
+            tempPath += (tempStarted ? 'L' : 'M') + x(s.t).toFixed(2) + ' ' + yTemp.toFixed(2) + ' ';
+            tempStarted = true;
+        });
+        batteryHistoryTempLine?.setAttribute('d', tempPath.trim());
+
+        if (batteryHistorySourceStrip) {
+            batteryHistorySourceStrip.innerHTML = pts.map(s =>
+                '<span style="flex:1;background:' + (s.ac ? 'var(--vm-accent)' : 'rgba(255,255,255,.16)') + '" title="' +
+                (s.ac ? I18n.t('battery_history_ac') : I18n.t('battery_history_dc')) + '"></span>'
+            ).join('');
+        }
+
         const cur = pts[pts.length - 1].pct;
         batteryHistoryCurrent.textContent = cur + '%';
         batteryHistoryRange.textContent =
@@ -319,10 +348,16 @@
 
         let min = raw[0].pct, max = raw[0].pct;
         for (const s of raw) { if (s.pct < min) min = s.pct; if (s.pct > max) max = s.pct; }
+        const discharge = watts.filter(w => w < 0).map(Math.abs);
+        const temps = pts.filter(s => s.temp != null).map(s => Number(s.temp)).filter(Number.isFinite);
+        const extras = [];
+        if (discharge.length) extras.push(I18n.t('battery_history_avg_power') + ' ' + (discharge.reduce((a, b) => a + b, 0) / discharge.length).toFixed(1) + ' W');
+        if (temps.length) extras.push(I18n.t('battery_history_avg_temp') + ' ' + (temps.reduce((a, b) => a + b, 0) / temps.length).toFixed(1) + ' °C');
         batteryHistoryStats.textContent =
             I18n.t('battery_history_min') + ' ' + min + '% · ' +
             I18n.t('battery_history_max') + ' ' + max + '% · ' +
-            raw.length + ' ' + I18n.t('battery_history_samples');
+            raw.length + ' ' + I18n.t('battery_history_samples') +
+            (extras.length ? ' · ' + extras.join(' · ') : '');
     }
 
     async function pollBatteryHistory() {
@@ -330,7 +365,7 @@
         if (!Host.available || batteryHistoryPolling) return;
         batteryHistoryPolling = true;
         try {
-            const payload = await Host.call('getBatteryHistory');
+            const payload = await Host.call('getBatteryHistory', { hours: batteryHistoryHours });
             renderBatteryHistory(payload);
         } catch (err) {
             console.error('getBatteryHistory failed', err);
@@ -349,6 +384,27 @@
         clearInterval(batteryHistoryTimer);
         batteryHistoryTimer = null;
     }
+
+    batteryHistoryRangeButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            batteryHistoryHours = Number(button.dataset.hours) || 24;
+            batteryHistoryRangeButtons.forEach(b => {
+                const active = b === button;
+                b.classList.toggle('bg-white/10', active);
+                b.classList.toggle('text-secondary-container', active);
+                b.setAttribute('aria-pressed', active ? 'true' : 'false');
+            });
+            pollBatteryHistory();
+        });
+    });
+
+    batteryHistoryExport?.addEventListener('click', async () => {
+        if (!Host.available || batteryHistoryExport.disabled) return;
+        batteryHistoryExport.disabled = true;
+        try { await Host.call('exportBatteryHistory'); }
+        catch (err) { Host.fail(err); }
+        finally { batteryHistoryExport.disabled = false; }
+    });
 
     document.addEventListener('langchanged', () => {
         if (lastBatteryHistory) renderBatteryHistory(lastBatteryHistory);
@@ -649,6 +705,10 @@
     const clearOverrideBtn = document.getElementById('btn-clear-manual-override');
     const powerSourcePlanHome = document.getElementById('pref-power-source-plan-home');
     const powerSourcePlanHomeToggle = document.getElementById('toggle-power-source-plan-home');
+    const lowBatteryThresholdHome = document.getElementById('pref-low-battery-threshold-home');
+    const lowBatteryThresholdInput = document.getElementById('low-battery-threshold-input');
+    const activePlanReasonText = document.getElementById('active-plan-reason-text');
+    const activePlanReasonIcon = document.getElementById('active-plan-reason-icon');
     const gamingModeHome = document.getElementById('pref-gaming-mode-home');
     const gamingModeHomeToggle = document.getElementById('toggle-gaming-mode-home');
     const overrideOverlay = document.getElementById('manual-override-overlay');
@@ -662,6 +722,7 @@
     let pendingPlan = null;
     let pendingForever = false;
     let pendingHours = null;
+    let activePlanReasonState = null;
 
     function reflectPlan(plan) {
         const index = planOrder.indexOf(plan);
@@ -688,6 +749,28 @@
             performance: 'dash_plan_performance',
         }[plan];
         return key ? I18n.t(key) : plan;
+    }
+
+    function renderActivePlanReason(state) {
+        activePlanReasonState = state || { source: 'system', detail: '' };
+        if (!activePlanReasonText) return;
+        const source = activePlanReasonState.source || 'system';
+        const detail = String(activePlanReasonState.detail || '');
+        const map = {
+            manualOverride: ['lock', 'plan_reason_manual'],
+            powerSource: [detail.startsWith('low_battery') ? 'battery_alert' : 'power', detail.startsWith('low_battery') ? 'plan_reason_low_battery' : 'plan_reason_power_source'],
+            thermal: ['device_thermostat', 'plan_reason_thermal'],
+            idle: ['bedtime', 'plan_reason_idle'],
+            appProfile: ['app_shortcut', 'plan_reason_app_profile'],
+            heavyApp: ['sports_esports', 'plan_reason_heavy_app'],
+            cpuAutomation: ['speed', 'plan_reason_cpu'],
+            system: ['settings', 'plan_reason_system'],
+        };
+        const [icon, key] = map[source] || map.system;
+        activePlanReasonIcon.textContent = icon;
+        let text = I18n.t(key);
+        if ((source === 'appProfile' || source === 'heavyApp') && detail) text += ' · ' + detail;
+        activePlanReasonText.textContent = text;
     }
 
     function formatRemaining(expiresAtUtc) {
@@ -736,18 +819,27 @@
 
     function normalizePowerSourcePlan(settings) {
         if (!settings.powerSourcePlan) {
-            settings.powerSourcePlan = { enabled: true, pluggedPlan: 'performance', unpluggedMode: 'previous' };
+            settings.powerSourcePlan = { enabled: true, pluggedPlan: 'performance', unpluggedMode: 'previous', lowBatteryThresholdPercent: 20 };
         }
         settings.powerSourcePlan.enabled = settings.powerSourcePlan.enabled !== false;
+        const threshold = Number(settings.powerSourcePlan.lowBatteryThresholdPercent);
+        settings.powerSourcePlan.lowBatteryThresholdPercent = Number.isFinite(threshold)
+            ? Math.max(5, Math.min(50, Math.round(threshold)))
+            : 20;
         return settings.powerSourcePlan;
     }
 
     function renderPowerSourcePlanState(state) {
         const enabled = state ? !!state.enabled : true;
         setMiniToggle(powerSourcePlanHomeToggle, enabled);
+        if (lowBatteryThresholdInput && state && Number.isFinite(Number(state.lowBatteryThresholdPercent)))
+            lowBatteryThresholdInput.value = String(state.lowBatteryThresholdPercent);
         if (window.__voltSettings) {
             const settings = window.__voltSettings.get ? window.__voltSettings.get() : window.__voltSettings;
-            normalizePowerSourcePlan(settings).enabled = enabled;
+            const cfg = normalizePowerSourcePlan(settings);
+            cfg.enabled = enabled;
+            if (state && Number.isFinite(Number(state.lowBatteryThresholdPercent)))
+                cfg.lowBatteryThresholdPercent = Number(state.lowBatteryThresholdPercent);
         }
     }
 
@@ -881,6 +973,15 @@
         }
     });
 
+    lowBatteryThresholdInput?.addEventListener('change', () => {
+        const value = Math.max(5, Math.min(50, Math.round(Number(lowBatteryThresholdInput.value) || 20)));
+        lowBatteryThresholdInput.value = String(value);
+        if (!window.__voltSettings) return;
+        const settings = window.__voltSettings.get ? window.__voltSettings.get() : window.__voltSettings;
+        normalizePowerSourcePlan(settings).lowBatteryThresholdPercent = value;
+        window.__voltSettings.save?.();
+    });
+
     gamingModeHome?.addEventListener('click', () => {
         const enable = gamingModeHomeToggle?.dataset.on !== 'true';
         setGamingModeFromHome(enable);
@@ -897,6 +998,8 @@
         reflectPlan(data.plan ? data.plan : null);
     });
 
+    Host.on('activePlanReasonChanged', renderActivePlanReason);
+
     Host.on('automationStateChanged', (data) => {
         renderOverrideStatus(data.override);
     });
@@ -911,6 +1014,7 @@
 
     document.addEventListener('langchanged', () => {
         renderOverrideStatus(activeOverride);
+        renderActivePlanReason(activePlanReasonState);
     });
 
     function checkBatteryPresence() {
@@ -942,6 +1046,12 @@
             powerSourcePlanHome.style.display = hide ? 'none' : '';
             powerSourcePlanHome.setAttribute('aria-hidden', hide ? 'true' : 'false');
         }
+        if (lowBatteryThresholdHome) {
+            const hide = present === false;
+            lowBatteryThresholdHome.classList.toggle('hidden', hide);
+            lowBatteryThresholdHome.style.display = hide ? 'none' : '';
+            lowBatteryThresholdHome.setAttribute('aria-hidden', hide ? 'true' : 'false');
+        }
         // No battery -> never poll the firmware power flow (section stays hidden).
         if (present !== false) {
             startPowerFlowPolling();
@@ -962,6 +1072,7 @@
         Host.call('getActivePlan').then(p => {
             if (p && p.planId) reflectPlan(p.planId);
         }).catch(() => {});
+        Host.call('getActivePlanReason').then(renderActivePlanReason).catch(() => renderActivePlanReason(null));
         Host.call('getSettings').then(res => {
             if (res && res.settings) {
                 renderOverrideStatus(res.settings.override);

@@ -65,6 +65,8 @@ public class SettingsService
                         loaded.IdlePowerGuard = new IdlePowerGuardSettings();
                     if (loaded.CpuAutomation == null)
                         loaded.CpuAutomation = new CpuAutomationSettings();
+                    if (loaded.GlobalHotkeys == null)
+                        loaded.GlobalHotkeys = new GlobalHotkeySettings();
                     if (loaded.StandbyAutoCleaner == null)
                         loaded.StandbyAutoCleaner = new StandbyAutoCleanerSettings();
                     if (loaded.Widgets == null)
@@ -75,6 +77,7 @@ public class SettingsService
                     NormalizeAppPowerProfileSettings(loaded.AppPowerProfiles);
                     NormalizeKeepAwakeSettings(loaded.KeepAwake);
                     NormalizePowerSourcePlanSettings(loaded.PowerSourcePlan);
+                    NormalizeGlobalHotkeySettings(loaded.GlobalHotkeys);
                     NormalizeThermalGuardSettings(loaded.ThermalGuard);
                     NormalizeIdlePowerGuardSettings(loaded.IdlePowerGuard);
                     NormalizeCpuAutomationSettings(loaded.CpuAutomation);
@@ -308,11 +311,28 @@ public class SettingsService
         if (!Enum.IsDefined(settings.PluggedPlan))
             settings.PluggedPlan = PlanId.Performance;
 
+        settings.LowBatteryThresholdPercent = Math.Clamp(settings.LowBatteryThresholdPercent, 5, 50);
+
         settings.UnpluggedMode = settings.UnpluggedMode switch
         {
             "previous" => "previous",
             _ => "previous",
         };
+    }
+
+    private static void NormalizeGlobalHotkeySettings(GlobalHotkeySettings settings)
+    {
+        settings.PowerSaver = NormalizeHotkey(settings.PowerSaver, "Ctrl+Alt+1");
+        settings.Balanced = NormalizeHotkey(settings.Balanced, "Ctrl+Alt+2");
+        settings.Performance = NormalizeHotkey(settings.Performance, "Ctrl+Alt+3");
+        settings.Auto = NormalizeHotkey(settings.Auto, "Ctrl+Alt+0");
+        settings.KeepAwakeToggle = NormalizeHotkey(settings.KeepAwakeToggle, "Ctrl+Alt+K");
+    }
+
+    private static string NormalizeHotkey(string? value, string fallback)
+    {
+        value = value?.Trim();
+        return string.IsNullOrWhiteSpace(value) ? fallback : value;
     }
 
     private static void NormalizeThermalGuardSettings(ThermalGuardSettings settings) => settings.Normalize();
@@ -339,6 +359,7 @@ public class SettingsService
             Current.AppPowerProfiles ??= new AppPowerProfileSettings();
             Current.KeepAwake ??= new KeepAwakeSettings();
             Current.PowerSourcePlan ??= new PowerSourcePlanSettings();
+            Current.GlobalHotkeys ??= new GlobalHotkeySettings();
             Current.ThermalGuard ??= new ThermalGuardSettings();
             Current.IdlePowerGuard ??= new IdlePowerGuardSettings();
             Current.CpuAutomation ??= new CpuAutomationSettings();
@@ -350,6 +371,7 @@ public class SettingsService
             NormalizeAppPowerProfileSettings(Current.AppPowerProfiles);
             NormalizeKeepAwakeSettings(Current.KeepAwake);
             NormalizePowerSourcePlanSettings(Current.PowerSourcePlan);
+            NormalizeGlobalHotkeySettings(Current.GlobalHotkeys);
             NormalizeThermalGuardSettings(Current.ThermalGuard);
             NormalizeIdlePowerGuardSettings(Current.IdlePowerGuard);
             NormalizeCpuAutomationSettings(Current.CpuAutomation);

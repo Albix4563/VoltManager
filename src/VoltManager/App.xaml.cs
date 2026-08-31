@@ -60,6 +60,7 @@ public partial class App : Application
     private bool _appProfilePlanSessionActive;
     private PlanId? _planBeforeAppProfileSession;
     private DateTime _appProfileLastActiveUtc;
+    private bool _appProfileKeepAwakeRequested;
     private readonly PowerPlanGuardService _planGuard = new();
     // Grace before tearing down a game session: absorbs transient scan misses so an
     // alt-tabbed/minimized game does not immediately revert the power plan. It does not
@@ -76,7 +77,10 @@ public partial class App : Application
     public event Action<PowerPlan?>? ActivePlanChanged;
     public event Action<ManualOverride?>? ManualOverrideChanged;
     public event Action<CpuAutomationState>? CpuAutomationStateChanged;
+    public event Action<ActivePlanReasonState>? ActivePlanReasonChanged;
     public event Action<PowerPlanConflictNotification>? PowerPlanConflictDetected;
+    private ActivePlanReasonState _lastPublishedPlanReason = new();
+    private ActivePlanReasonState _fallbackPlanReason = new();
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -376,7 +380,7 @@ public partial class App : Application
         });
     }
 
-    private void ApplyRemoteCommand(string key)
+    internal void ApplyRemoteCommand(string key)
     {
         try
         {
@@ -470,6 +474,7 @@ public partial class App : Application
             double avg = Automation.AddSample(metrics.Cpu, now);
             ClearExpiredManualOverride(now);
             _planGuard.RefreshManualOverride(Settings.Current.Override, now);
+            SyncAppProfileKeepAwakeRequest(now);
 
             bool handledByHigherPriority =
                 HandlePowerSourcePlans(now) ||
@@ -483,6 +488,12 @@ public partial class App : Application
                 var target = Automation.Evaluate(avg, now, ActivePlan?.PlanId, Settings.Current);
                 if (target != null && Power.SetActivePlan(target.Value))
                 {
+                    _fallbackPlanReason = new ActivePlanReasonState
+                    {
+                        Source = "cpuAutomation",
+                        Detail = Automation.CandidateRuleId ?? "",
+                        Plan = target.Value,
+                    };
                     var current = Power.GetActivePlan();
                     ActivePlan = current;
                     ActivePlanChanged?.Invoke(current);
@@ -490,6 +501,7 @@ public partial class App : Application
             }
 
             PublishCpuAutomationState(now);
+            PublishActivePlanReason();
         }
         catch (Exception ex)
         {
@@ -600,6 +612,24 @@ public partial class App : Application
         }
 
         return false;
+    }
+
+    private void SyncAppProfileKeepAwakeRequest(DateTime now)
+    {
+        var cfg = Settings.Current.AppPowerProfiles ?? new AppPowerProfileSettings();
+        bool requested = Settings.Current.MasterAutomationEnabled
+            && cfg.Enabled
+            && Settings.Current.Override?.IsActive(now) != true
+            && AppProfiles.Current.Active
+            && AppProfiles.Current.KeepAwakeRequested;
+        SetAppProfileKeepAwakeRequest(requested);
+    }
+
+    private void SetAppProfileKeepAwakeRequest(bool requested)
+    {
+        if (_appProfileKeepAwakeRequested == requested) return;
+        _appProfileKeepAwakeRequested = requested;
+        Awake.SetAutomationRequest(requested);
     }
 
     private bool HandleHeavyAppDetection(DateTime now)
@@ -801,6 +831,7 @@ public partial class App : Application
     {
         _appProfilePlanSessionActive = false;
         _planBeforeAppProfileSession = null;
+        SetAppProfileKeepAwakeRequest(false);
         _heavyAppPlanSessionActive = false;
         _planBeforeHeavyAppSession = null;
 
@@ -820,6 +851,7 @@ public partial class App : Application
         ActivePlanChanged?.Invoke(current);
         ManualOverrideChanged?.Invoke(Settings.Current.Override);
         PublishCpuAutomationState(DateTime.UtcNow);
+        PublishActivePlanReason();
         return true;
     }
 
@@ -829,10 +861,12 @@ public partial class App : Application
         Settings.Current.Override = null;
         Settings.Current.MasterAutomationEnabled = true;
         _planGuard.ClearExpected();
+        _fallbackPlanReason = new ActivePlanReasonState { Plan = ActivePlan?.PlanId };
         Settings.Save();
         Automation.Reset();
         ManualOverrideChanged?.Invoke(null);
         PublishCpuAutomationState(DateTime.UtcNow);
+        PublishActivePlanReason();
     }
 
     public void ClearManualOverride()
@@ -845,6 +879,7 @@ public partial class App : Application
         Automation.Reset();
         ManualOverrideChanged?.Invoke(null);
         PublishCpuAutomationState(DateTime.UtcNow);
+        PublishActivePlanReason();
     }
 
     public HeavyAppDetectionState GetHeavyAppStatus() => HeavyApps.Current;
@@ -886,6 +921,30 @@ public partial class App : Application
     public AppPowerProfileState GetAppPowerProfileStatus() => AppProfiles.Current;
 
     public AppPowerProfileState RefreshAppPowerProfiles() => AppProfiles.Refresh();
+
+    public ActivePlanReasonState GetActivePlanReason()
+    {
+        var expected = _planGuard.Expectation;
+        if (expected != null && expected.Plan == ActivePlan?.PlanId)
+            return new ActivePlanReasonState
+            {
+                Source = expected.Source,
+                Detail = expected.Detail,
+                Plan = expected.Plan,
+            };
+
+        return _fallbackPlanReason.Plan == ActivePlan?.PlanId
+            ? _fallbackPlanReason
+            : new ActivePlanReasonState { Plan = ActivePlan?.PlanId };
+    }
+
+    private void PublishActivePlanReason()
+    {
+        var next = GetActivePlanReason();
+        if (next == _lastPublishedPlanReason) return;
+        _lastPublishedPlanReason = next;
+        ActivePlanReasonChanged?.Invoke(next);
+    }
 
     public PowerSourcePlanState GetPowerSourcePlanState()
         => PowerSourcePlans.RefreshState(Settings.Current.Override?.IsActive(DateTime.UtcNow) == true);

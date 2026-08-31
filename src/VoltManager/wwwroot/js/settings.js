@@ -52,7 +52,19 @@
             min15: '15 minuti', min30: '30 minuti', hour1: '1 ora', hours2: '2 ore',
             updatedToastTitle: 'VoltManager si è aggiornato',
             updatedToastBody: 'Ci sono novità: leggi il changelog per scoprire cosa è cambiato.',
-            updatedToastCta: 'Leggi changelog'
+            updatedToastCta: 'Leggi changelog',
+            hotkeysTitle: 'Scorciatoie globali',
+            hotkeysSub: 'Cambia piano o Mantieni PC attivo senza aprire VoltManager.',
+            hotkeysEnabled: 'Attiva scorciatoie',
+            hotkeysEnabledSub: 'Le combinazioni funzionano anche quando VoltManager è nell’area di notifica.',
+            hotkeySaver: 'Risparmio energetico',
+            hotkeyBalanced: 'Bilanciato',
+            hotkeyPerformance: 'Prestazioni',
+            hotkeyAuto: 'Automatico',
+            hotkeyKeepAwake: 'Attiva/disattiva Mantieni PC attivo',
+            hotkeyHint: 'Seleziona un campo e premi una combinazione con Ctrl, Alt, Shift o Win.',
+            hotkeyInvalid: 'Usa almeno un modificatore più lettera, numero o F1–F12.',
+            hotkeyRegistered: 'scorciatoie registrate'
         },
         es: {
             autoUpdates: 'Búsqueda automática de actualizaciones',
@@ -90,7 +102,19 @@
             min15: '15 minutos', min30: '30 minutos', hour1: '1 hora', hours2: '2 horas',
             updatedToastTitle: 'VoltManager se ha actualizado',
             updatedToastBody: 'Hay novedades. Lee el registro de cambios para ver qué ha cambiado.',
-            updatedToastCta: 'Leer registro de cambios'
+            updatedToastCta: 'Leer registro de cambios',
+            hotkeysTitle: 'Atajos globales',
+            hotkeysSub: 'Cambia el plan o Mantener PC activo sin abrir VoltManager.',
+            hotkeysEnabled: 'Activar atajos',
+            hotkeysEnabledSub: 'Funcionan incluso cuando VoltManager está en el área de notificación.',
+            hotkeySaver: 'Ahorro de energía',
+            hotkeyBalanced: 'Equilibrado',
+            hotkeyPerformance: 'Alto rendimiento',
+            hotkeyAuto: 'Automático',
+            hotkeyKeepAwake: 'Alternar Mantener PC activo',
+            hotkeyHint: 'Selecciona un campo y pulsa una combinación con Ctrl, Alt, Shift o Win.',
+            hotkeyInvalid: 'Usa un modificador y una letra, número o F1–F12.',
+            hotkeyRegistered: 'atajos registrados'
         },
         en: {
             autoUpdates: 'Automatic update checks',
@@ -128,7 +152,19 @@
             min15: '15 minutes', min30: '30 minutes', hour1: '1 hour', hours2: '2 hours',
             updatedToastTitle: 'VoltManager has updated',
             updatedToastBody: 'There are new changes. Read the changelog to see what changed.',
-            updatedToastCta: 'Read changelog'
+            updatedToastCta: 'Read changelog',
+            hotkeysTitle: 'Global shortcuts',
+            hotkeysSub: 'Change power plan or Keep Awake without opening VoltManager.',
+            hotkeysEnabled: 'Enable shortcuts',
+            hotkeysEnabledSub: 'Shortcuts work even while VoltManager is in the notification area.',
+            hotkeySaver: 'Power Saver',
+            hotkeyBalanced: 'Balanced',
+            hotkeyPerformance: 'Performance',
+            hotkeyAuto: 'Automatic',
+            hotkeyKeepAwake: 'Toggle Keep Awake',
+            hotkeyHint: 'Select a field and press a combination with Ctrl, Alt, Shift, or Win.',
+            hotkeyInvalid: 'Use at least one modifier plus a letter, number, or F1–F12.',
+            hotkeyRegistered: 'shortcuts registered'
         },
         zh: {
             autoUpdates: '自动检查更新',
@@ -162,7 +198,19 @@
             snoozed: '更新已推迟。',
             skipped: '将跳过此版本。',
             min15: '15 分钟', min30: '30 分钟', hour1: '1 小时', hours2: '2 小时',
-            updatedToast: 'VoltManager 已成功更新'
+            updatedToast: 'VoltManager 已成功更新',
+            hotkeysTitle: '全局快捷键',
+            hotkeysSub: '无需打开 VoltManager 即可切换电源计划或保持电脑唤醒。',
+            hotkeysEnabled: '启用快捷键',
+            hotkeysEnabledSub: 'VoltManager 位于通知区域时快捷键仍然有效。',
+            hotkeySaver: '节能',
+            hotkeyBalanced: '平衡',
+            hotkeyPerformance: '高性能',
+            hotkeyAuto: '自动',
+            hotkeyKeepAwake: '切换保持唤醒',
+            hotkeyHint: '选择一个字段，然后按下包含 Ctrl、Alt、Shift 或 Win 的组合键。',
+            hotkeyInvalid: '请使用修饰键加字母、数字或 F1–F12。',
+            hotkeyRegistered: '个快捷键已注册'
         }
     };
 
@@ -1323,12 +1371,146 @@
 
     function applyBatteryPresence() { /* power-source plan lives on Home only */ }
 
+    const hotkeyFields = [
+        ['powerSaver', 'hotkeySaver'],
+        ['balanced', 'hotkeyBalanced'],
+        ['performance', 'hotkeyPerformance'],
+        ['auto', 'hotkeyAuto'],
+        ['keepAwakeToggle', 'hotkeyKeepAwake'],
+    ];
+
+    function normalizeGlobalHotkeys(settings) {
+        const defaults = {
+            enabled: false,
+            powerSaver: 'Ctrl+Alt+1',
+            balanced: 'Ctrl+Alt+2',
+            performance: 'Ctrl+Alt+3',
+            auto: 'Ctrl+Alt+0',
+            keepAwakeToggle: 'Ctrl+Alt+K',
+        };
+        if (!settings.globalHotkeys) settings.globalHotkeys = Object.assign({}, defaults);
+        const cfg = settings.globalHotkeys;
+        cfg.enabled = cfg.enabled === true;
+        hotkeyFields.forEach(([field]) => {
+            if (!cfg[field] || !String(cfg[field]).trim()) cfg[field] = defaults[field];
+            else cfg[field] = String(cfg[field]).trim();
+        });
+        return cfg;
+    }
+
+    function refreshGlobalHotkeyLabels() {
+        const title = document.getElementById('global-hotkeys-title');
+        const sub = document.getElementById('global-hotkeys-sub');
+        const main = document.getElementById('global-hotkeys-enabled-label');
+        const mainSub = document.getElementById('global-hotkeys-enabled-sub');
+        const hint = document.getElementById('global-hotkeys-hint');
+        if (title) title.textContent = lt('hotkeysTitle');
+        if (sub) sub.textContent = lt('hotkeysSub');
+        if (main) main.textContent = lt('hotkeysEnabled');
+        if (mainSub) mainSub.textContent = lt('hotkeysEnabledSub');
+        if (hint) hint.textContent = lt('hotkeyHint');
+        hotkeyFields.forEach(([field, key]) => {
+            const label = document.querySelector('[data-hotkey-label="' + field + '"]');
+            if (label) label.textContent = lt(key);
+        });
+    }
+
+    function renderGlobalHotkeys(settings) {
+        const cfg = normalizeGlobalHotkeys(settings);
+        const toggle = document.getElementById('toggle-global-hotkeys');
+        setToggle(toggle, cfg.enabled);
+        toggle?.setAttribute('aria-checked', cfg.enabled ? 'true' : 'false');
+        hotkeyFields.forEach(([field]) => {
+            const input = document.querySelector('[data-hotkey-field="' + field + '"]');
+            if (input && document.activeElement !== input) input.value = cfg[field];
+        });
+    }
+
+    function capturedGesture(event) {
+        const key = String(event.key || '');
+        if (['Control', 'Alt', 'Shift', 'Meta'].includes(key)) return null;
+        const simple = /^[a-z0-9]$/i.test(key) ? key.toUpperCase() : (/^F(?:[1-9]|1[0-2])$/i.test(key) ? key.toUpperCase() : '');
+        if (!simple || !(event.ctrlKey || event.altKey || event.shiftKey || event.metaKey)) return '';
+        const parts = [];
+        if (event.ctrlKey) parts.push('Ctrl');
+        if (event.altKey) parts.push('Alt');
+        if (event.shiftKey) parts.push('Shift');
+        if (event.metaKey) parts.push('Win');
+        parts.push(simple);
+        return parts.join('+');
+    }
+
+    function mountGlobalHotkeysUi(settings) {
+        if (document.getElementById('pref-global-hotkeys')) {
+            renderGlobalHotkeys(settings);
+            refreshGlobalHotkeyLabels();
+            return;
+        }
+
+        const target = document.getElementById('vm-settings-general') || document.getElementById('pref-tray')?.parentElement;
+        if (!target) return;
+        const rows = hotkeyFields.map(([field]) =>
+            '<label class="flex items-center justify-between gap-md rounded-xl border border-white/10 bg-surface-container-low/40 px-3 py-2">' +
+            '<span class="text-label-md text-on-surface" data-hotkey-label="' + field + '"></span>' +
+            '<input readonly data-hotkey-field="' + field + '" class="w-36 max-w-[45%] bg-surface-container-lowest/70 text-secondary-container font-mono border border-white/10 rounded-lg py-2 px-3 text-label-md text-center focus:outline-none focus:border-secondary-container cursor-pointer" />' +
+            '</label>').join('');
+
+        target.insertAdjacentHTML('beforeend',
+            '<div class="glass-panel rounded-xl p-lg mt-md" id="pref-global-hotkeys">' +
+            '<div class="flex flex-col sm:flex-row sm:items-start justify-between gap-md">' +
+            '<div><h3 class="text-title-lg text-on-surface" id="global-hotkeys-title"></h3><p class="text-label-sm text-on-surface-variant mt-1" id="global-hotkeys-sub"></p></div>' +
+            '<div class="mini-toggle shrink-0" id="toggle-global-hotkeys" role="switch" tabindex="0" aria-checked="false"><div class="mini-toggle-knob"></div></div>' +
+            '</div>' +
+            '<div class="mt-md"><p class="text-body-md text-on-surface" id="global-hotkeys-enabled-label"></p><p class="text-label-sm text-on-surface-variant" id="global-hotkeys-enabled-sub"></p></div>' +
+            '<div class="grid grid-cols-1 sm:grid-cols-2 gap-sm mt-md">' + rows + '</div>' +
+            '<p class="text-label-sm text-on-surface-variant mt-md" id="global-hotkeys-hint"></p>' +
+            '<p class="text-label-sm text-secondary-container mt-xs" id="global-hotkeys-status"></p>' +
+            '</div>');
+
+        const toggle = document.getElementById('toggle-global-hotkeys');
+        const flip = () => {
+            const cfg = normalizeGlobalHotkeys(settings);
+            cfg.enabled = !cfg.enabled;
+            renderGlobalHotkeys(settings);
+            window.__voltSettings.save?.();
+        };
+        toggle?.addEventListener('click', flip);
+        toggle?.addEventListener('keydown', event => {
+            if (event.key !== 'Enter' && event.key !== ' ') return;
+            event.preventDefault();
+            flip();
+        });
+
+        document.querySelectorAll('[data-hotkey-field]').forEach(input => {
+            input.addEventListener('keydown', event => {
+                event.preventDefault();
+                event.stopPropagation();
+                const gesture = capturedGesture(event);
+                if (gesture == null) return;
+                const status = document.getElementById('global-hotkeys-status');
+                if (!gesture) {
+                    if (status) status.textContent = lt('hotkeyInvalid');
+                    return;
+                }
+                const cfg = normalizeGlobalHotkeys(settings);
+                cfg[input.dataset.hotkeyField] = gesture;
+                input.value = gesture;
+                if (status) status.textContent = '';
+                window.__voltSettings.save?.();
+            });
+        });
+
+        renderGlobalHotkeys(settings);
+        refreshGlobalHotkeyLabels();
+    }
+
     document.addEventListener('settingsloaded', () => {
         const s = window.__voltSettings;
         if (!s) return;
         const settings = s.get ? s.get() : s;
         setToggle(toggleAutostart, s.startWithWindows);
         setToggle(toggleTray, settings.closeToTray);
+        mountGlobalHotkeysUi(settings);
 
         checkBatteryPresence();
 
@@ -1421,6 +1603,7 @@
     document.addEventListener('langchanged', () => {
         refreshUpdateModalLabels();
         refreshAutoUpdateLabels();
+        refreshGlobalHotkeyLabels();
         if (window.__voltSettings) {
             const settings = window.__voltSettings.get ? window.__voltSettings.get() : window.__voltSettings;
             renderWidgetsState(normalizeWidgetsState(settings.widgets));
@@ -1519,5 +1702,12 @@
         if (!state || !window.__voltSettings) return;
         const settings = window.__voltSettings.get ? window.__voltSettings.get() : window.__voltSettings;
         normalizePowerSourcePlan(settings).enabled = !!state.enabled;
+    });
+
+    Host.on('globalHotkeysChanged', data => {
+        const status = document.getElementById('global-hotkeys-status');
+        if (!status) return;
+        const values = Object.values((data && data.registrations) || {});
+        status.textContent = values.length ? values.filter(Boolean).length + '/' + values.length + ' ' + lt('hotkeyRegistered') : '';
     });
 })();
