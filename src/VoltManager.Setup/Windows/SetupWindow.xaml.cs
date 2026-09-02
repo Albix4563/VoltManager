@@ -40,11 +40,15 @@ namespace VoltManager.Setup.Windows
         {
             try
             {
-                var uri = new Uri("pack://application:,,,/Assets/voltmanager.ico");
-                var decoder = BitmapDecoder.Create(uri, BitmapCreateOptions.None, BitmapCacheOption.OnLoad);
+                var uri = new Uri("/VoltManagerSetup;component/Assets/voltmanager.ico", UriKind.Relative);
+                using var stream = Application.GetResourceStream(uri).Stream;
+                var decoder = BitmapDecoder.Create(stream, BitmapCreateOptions.None, BitmapCacheOption.OnLoad);
                 LogoBrush.ImageSource = decoder.Frames.OrderByDescending(f => f.PixelWidth).First();
             }
-            catch { }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("Unable to load setup logo: " + ex.Message);
+            }
         }
 
         private void BuildSteps()
