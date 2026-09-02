@@ -15,149 +15,99 @@
         UseLayoutRounding="True"
         SnapsToDevicePixels="True">
 
-    <Border Background="{StaticResource WindowBgGradient}" CornerRadius="20">
-        <Border CornerRadius="20" BorderThickness="1.5">
-            <Border.BorderBrush>
-                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                    <GradientStop Color="#40507FB0" Offset="0"/>
-                    <GradientStop Color="#1A2A4A" Offset="1"/>
-                </LinearGradientBrush>
-            </Border.BorderBrush>
-            <Border.Effect>
-                <DropShadowEffect BlurRadius="40" ShadowDepth="0" Color="Black" Opacity="0.8"/>
-            </Border.Effect>
+    <Border Background="{StaticResource WindowBgGradient}" CornerRadius="16"
+            BorderBrush="#334155" BorderThickness="1">
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="34" ShadowDepth="0" Color="Black" Opacity="0.72"/>
+        </Border.Effect>
 
-            <Grid ClipToBounds="True">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="240"/>
-                    <ColumnDefinition Width="*"/>
-                </Grid.ColumnDefinitions>
+        <Grid ClipToBounds="True">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="206"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
 
-                <!-- ═══ Ambient glow blobs (decorative) ═══ -->
-                <Border Grid.Column="1" CornerRadius="0,20,20,0" ClipToBounds="True" IsHitTestVisible="False">
-                    <Canvas>
-                        <Ellipse Width="420" Height="420" Canvas.Right="-160" Canvas.Top="-200"
-                                 Fill="{DynamicResource GlowBlobBrush}" Opacity="0.7"
-                                 Style="{StaticResource FloatAnim}">
-                            <Ellipse.RenderTransform><TranslateTransform/></Ellipse.RenderTransform>
-                        </Ellipse>
-                        <Ellipse Width="320" Height="320" Canvas.Left="-120" Canvas.Bottom="-160"
-                                 Fill="{DynamicResource GlowBlobBrush}" Opacity="0.45"
-                                 Style="{StaticResource FloatAnim}">
-                            <Ellipse.RenderTransform><TranslateTransform/></Ellipse.RenderTransform>
-                        </Ellipse>
-                        <Ellipse Width="200" Height="200" Canvas.Right="60" Canvas.Bottom="40"
-                                 Fill="{DynamicResource GlowBlobBrush}" Opacity="0.3">
-                            <Ellipse.RenderTransform><TranslateTransform/></Ellipse.RenderTransform>
-                        </Ellipse>
-                    </Canvas>
-                </Border>
+            <Border Grid.Column="1" CornerRadius="0,16,16,0" ClipToBounds="True" IsHitTestVisible="False">
+                <Canvas>
+                    <Ellipse Width="300" Height="300" Canvas.Right="-150" Canvas.Top="-180"
+                             Fill="{DynamicResource GlowBlobBrush}" Opacity="0.32"/>
+                </Canvas>
+            </Border>
 
-                <!-- ═══ LEFT SIDEBAR ═══ -->
-                <Border Grid.Column="0" Background="{StaticResource SidebarGradient}"
-                        CornerRadius="20,0,0,20" BorderBrush="#16223F" BorderThickness="0,0,1,0">
-                    <Grid Margin="0,38,0,30">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="*"/>
-                            <RowDefinition Height="Auto"/>
-                        </Grid.RowDefinitions>
-
-                        <!-- Logo -->
-                        <StackPanel Grid.Row="0" HorizontalAlignment="Center" Margin="0,0,0,40">
-                            <Grid Width="90" Height="90" HorizontalAlignment="Center">
-                                <Ellipse Width="90" Height="90" Fill="{DynamicResource GlowBlobBrush}" Opacity="0.85"/>
-                                <Ellipse x:Name="LogoRing" Width="82" Height="82"
-                                         Stroke="{DynamicResource AccentBrush}" StrokeThickness="1.5" Opacity="0.5">
-                                    <Ellipse.Effect>
-                                        <DropShadowEffect Color="{DynamicResource C.Accent}" BlurRadius="22" ShadowDepth="0" Opacity="0.85"/>
-                                    </Ellipse.Effect>
-                                </Ellipse>
-                                <Ellipse Width="66" Height="66" HorizontalAlignment="Center" VerticalAlignment="Center"
-                                         RenderOptions.BitmapScalingMode="HighQuality">
-                                    <Ellipse.Fill>
-                                        <ImageBrush x:Name="LogoBrush" Stretch="Uniform"/>
-                                    </Ellipse.Fill>
-                                </Ellipse>
-                                <Grid.Triggers>
-                                    <EventTrigger RoutedEvent="FrameworkElement.Loaded">
-                                        <BeginStoryboard>
-                                            <Storyboard RepeatBehavior="Forever" AutoReverse="True">
-                                                <DoubleAnimation Storyboard.TargetName="LogoRing"
-                                                                 Storyboard.TargetProperty="Opacity"
-                                                                 From="0.35" To="0.9" Duration="0:0:2.2">
-                                                    <DoubleAnimation.EasingFunction>
-                                                        <SineEase EasingMode="EaseInOut"/>
-                                                    </DoubleAnimation.EasingFunction>
-                                                </DoubleAnimation>
-                                            </Storyboard>
-                                        </BeginStoryboard>
-                                    </EventTrigger>
-                                </Grid.Triggers>
-                            </Grid>
-                            <TextBlock Text="VoltManager" FontSize="18" FontWeight="Bold"
-                                       Foreground="{StaticResource TextPrimaryBrush}"
-                                       HorizontalAlignment="Center" Margin="0,14,0,0"/>
-                            <TextBlock x:Name="VersionText" FontSize="11"
-                                       Foreground="{StaticResource TextFaintBrush}"
-                                       HorizontalAlignment="Center" Margin="0,3,0,0"/>
-                        </StackPanel>
-
-                        <!-- Step indicators -->
-                        <StackPanel Grid.Row="1" Margin="28,0" x:Name="StepPanel"/>
-
-                        <!-- Footer -->
-                        <StackPanel Grid.Row="2" HorizontalAlignment="Center">
-                            <Border Width="50" Height="3" CornerRadius="2" Background="#1A2742" Margin="0,0,0,14"/>
-                            <TextBlock Text="by Albix4563" FontSize="10.5"
-                                       Foreground="{StaticResource TextFaintBrush}"
-                                       HorizontalAlignment="Center"/>
-                        </StackPanel>
-                    </Grid>
-                </Border>
-
-                <!-- ═══ RIGHT CONTENT ═══ -->
-                <Grid Grid.Column="1">
+            <Border Grid.Column="0" Background="{StaticResource SidebarGradient}"
+                    CornerRadius="16,0,0,16" BorderBrush="#22304A" BorderThickness="0,0,1,0">
+                <Grid Margin="24,28,18,24">
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="50"/>
+                        <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
-                        <RowDefinition Height="64"/>
+                        <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
 
-                    <!-- Titlebar -->
-                    <Grid Grid.Row="0" x:Name="TitleBar" Background="Transparent"
-                          MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
-                        <TextBlock x:Name="HeaderText" VerticalAlignment="Center" Margin="36,0,0,0"
-                                   FontSize="12.5" FontWeight="SemiBold"
+                    <StackPanel Grid.Row="0" Margin="0,0,0,34">
+                        <Grid Width="60" Height="60" HorizontalAlignment="Left">
+                            <Ellipse Width="60" Height="60" Fill="#101B34"
+                                     Stroke="{DynamicResource AccentBrush}" StrokeThickness="1"/>
+                            <Ellipse Width="48" Height="48" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                     RenderOptions.BitmapScalingMode="HighQuality">
+                                <Ellipse.Fill>
+                                    <ImageBrush x:Name="LogoBrush" Stretch="Uniform"/>
+                                </Ellipse.Fill>
+                            </Ellipse>
+                        </Grid>
+                        <TextBlock Text="VoltManager" FontSize="17" FontWeight="SemiBold"
+                                   Foreground="{StaticResource TextPrimaryBrush}" Margin="0,12,0,0"/>
+                        <TextBlock x:Name="VersionText" FontFamily="Consolas" FontSize="10.5"
+                                   Foreground="{StaticResource TextFaintBrush}" Margin="0,3,0,0"/>
+                    </StackPanel>
+
+                    <StackPanel Grid.Row="1" x:Name="StepPanel" VerticalAlignment="Top"/>
+
+                    <StackPanel Grid.Row="2">
+                        <Border Height="1" Background="#263550" Margin="0,0,0,12"/>
+                        <TextBlock Text="POWER CONSOLE" FontSize="9.5" FontWeight="SemiBold"
                                    Foreground="{StaticResource TextFaintBrush}"/>
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,2,10,0">
-                            <Button x:Name="BtnMin" Style="{StaticResource MinBtn}"
-                                    Content="—" FontSize="12" Click="BtnMin_Click"/>
-                            <Button x:Name="BtnClose" Style="{StaticResource CloseBtn}"
-                                    Content="✕" Click="BtnClose_Click"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <Grid Grid.Column="1">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="48"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="68"/>
+                </Grid.RowDefinitions>
+
+                <Grid Grid.Row="0" x:Name="TitleBar" Background="Transparent"
+                      MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
+                    <TextBlock x:Name="HeaderText" VerticalAlignment="Center" Margin="36,0,0,0"
+                               FontSize="11.5" FontWeight="SemiBold"
+                               Foreground="{StaticResource TextFaintBrush}"/>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,2,10,0">
+                        <Button x:Name="BtnMin" Style="{StaticResource MinBtn}"
+                                Content="—" FontSize="12" Click="BtnMin_Click"/>
+                        <Button x:Name="BtnClose" Style="{StaticResource CloseBtn}"
+                                Content="✕" Click="BtnClose_Click"/>
+                    </StackPanel>
+                </Grid>
+
+                <ContentControl Grid.Row="1" x:Name="PageHost" Margin="36,4,36,8"
+                                VerticalContentAlignment="Stretch" HorizontalContentAlignment="Stretch"/>
+
+                <Border Grid.Row="2" Background="#080F20" BorderBrush="#22304A"
+                        BorderThickness="0,1,0,0" Padding="36,0">
+                    <Grid>
+                        <Button x:Name="BtnBack" Style="{StaticResource GhostBtn}"
+                                HorizontalAlignment="Left" VerticalAlignment="Center" Visibility="Collapsed"
+                                Click="BtnBack_Click"/>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                            <Button x:Name="BtnCancel" Style="{StaticResource GhostBtn}"
+                                    Margin="0,0,10,0" Click="BtnCancel_Click"/>
+                            <Button x:Name="BtnNext" Style="{StaticResource PrimaryBtn}"
+                                    Click="BtnNext_Click"/>
                         </StackPanel>
                     </Grid>
-
-                    <!-- Page host -->
-                    <ContentControl Grid.Row="1" x:Name="PageHost" Margin="44,8,44,8"
-                                    VerticalContentAlignment="Center"/>
-
-                    <!-- Footer buttons -->
-                    <Border Grid.Row="2" BorderBrush="#1E2C4C" BorderThickness="0,1,0,0" Padding="44,0">
-                        <Grid>
-                            <Button x:Name="BtnBack" Style="{StaticResource GhostBtn}"
-                                    HorizontalAlignment="Left" VerticalAlignment="Center" Visibility="Collapsed"
-                                    Click="BtnBack_Click"/>
-                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                <Button x:Name="BtnCancel" Style="{StaticResource GhostBtn}"
-                                        Margin="0,0,8,0" Click="BtnCancel_Click"/>
-                                <Button x:Name="BtnNext" Style="{StaticResource PrimaryBtn}"
-                                        Click="BtnNext_Click"/>
-                            </StackPanel>
-                        </Grid>
-                    </Border>
-                </Grid>
+                </Border>
             </Grid>
-        </Border>
+        </Grid>
     </Border>
 </Window>

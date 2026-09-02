@@ -115,10 +115,10 @@ namespace VoltManager.Setup
             Resources["C.Accent.Alpha20"] = WithAlpha(primary, 0x20);
             Resources["C.Accent.Transparent"] = WithAlpha(primary, 0x00);
 
-            Resources["BgBrush"] = Brush("#0B1120");
-            Resources["SidebarBrush"] = Brush("#0B1120");
-            Resources["SurfaceBrush"] = Brush("#111827");
-            Resources["PillBrush"] = Brush("#1E293B");
+            Resources["BgBrush"] = Brush("#0A1128");
+            Resources["SidebarBrush"] = Brush("#0A1128");
+            Resources["SurfaceBrush"] = Brush("#16233F");
+            Resources["PillBrush"] = Brush("#16233F");
             Resources["TextBrush"] = Brush("#F8FAFC");
             Resources["TextStrongBrush"] = Brush("#F8FAFC");
             Resources["MutedBrush"] = Brush("#CBD5E1");
@@ -128,8 +128,8 @@ namespace VoltManager.Setup
             Resources["AccentTextBrush"] = Brush("#0F172A");
             Resources["AccentHoverBrush"] = Brush(palette.Secondary);
             Resources["AccentPressedBrush"] = Brush(palette.Hover);
-            Resources["DangerBrush"] = Brush("#E74C3C");
-            Resources["WarningBrush"] = Brush("#F39C12");
+            Resources["DangerBrush"] = Brush("#FF5B4A");
+            Resources["WarningBrush"] = Brush("#F5B042");
         }
 
         private static AppThemeColor ReadSavedThemeColor()

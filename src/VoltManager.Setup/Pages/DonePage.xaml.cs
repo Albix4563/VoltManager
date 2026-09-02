@@ -18,7 +18,10 @@ namespace VoltManager.Setup.Pages
             if (success)
             {
                 IconPath.Data   = (System.Windows.Media.Geometry)FindResource("Icon.CheckCircle");
-                IconPath.Stroke = (System.Windows.Media.Brush)FindResource("AccentBrush");
+                IconPath.Stroke = (System.Windows.Media.Brush)FindResource("SuccessBrush");
+                Ring.Stroke     = (System.Windows.Media.Brush)FindResource("SuccessBrush");
+                StateHalo.Fill  = (System.Windows.Media.Brush)FindResource("GlowBlobSuccessBrush");
+                RingGlow.Color  = System.Windows.Media.Color.FromRgb(0x34, 0xE0, 0xA1);
                 TitleText.Text  = uninstall ? I18n.T("uninst_done") : I18n.T("done_title");
                 SubText.Text    = uninstall ? "" : I18n.T("done_sub");
 
@@ -34,7 +37,8 @@ namespace VoltManager.Setup.Pages
                 IconPath.Data   = (System.Windows.Media.Geometry)FindResource("Icon.XCircle");
                 IconPath.Stroke = (System.Windows.Media.Brush)FindResource("DangerBrush");
                 Ring.Stroke     = (System.Windows.Media.Brush)FindResource("DangerBrush");
-                RingGlow.Color  = System.Windows.Media.Color.FromRgb(0xE7, 0x4C, 0x3C);
+                StateHalo.Fill  = (System.Windows.Media.Brush)FindResource("GlowBlobDangerBrush");
+                RingGlow.Color  = System.Windows.Media.Color.FromRgb(0xFF, 0x5B, 0x4A);
                 TitleText.Text  = I18n.T("done_title_err");
                 if (!string.IsNullOrEmpty(errMsg))
                 {

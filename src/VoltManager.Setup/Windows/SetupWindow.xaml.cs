@@ -62,18 +62,18 @@ namespace VoltManager.Setup.Windows
 
         private Grid BuildStepRow(int idx, string text, bool isLast)
         {
-            var row = new Grid { Margin = new Thickness(0, 0, 0, isLast ? 0 : 6), Tag = idx };
+            var row = new Grid { Height = 56, Tag = idx };
             row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
             var line = new Border
             {
-                Width = 2, Height = 24,
+                Width = 2, Height = 30,
                 CornerRadius = new CornerRadius(1),
                 Background = (Brush)FindResource("BorderBrush"),
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Bottom,
-                Margin = new Thickness(0, 0, 0, -12),
+                Margin = new Thickness(0, 0, 0, -15),
                 Visibility = isLast ? Visibility.Collapsed : Visibility.Visible,
             };
             Grid.SetColumn(line, 0);
@@ -81,19 +81,20 @@ namespace VoltManager.Setup.Windows
 
             var badge = new Border
             {
-                Width = 32, Height = 32,
-                CornerRadius = new CornerRadius(10),
+                Width = 28, Height = 28,
+                CornerRadius = new CornerRadius(14),
                 Background = (Brush)FindResource("SurfaceBrush"),
                 BorderBrush = (Brush)FindResource("BorderBrush"),
-                BorderThickness = new Thickness(1.5),
-                Margin = new Thickness(0, 8, 0, 8),
+                BorderThickness = new Thickness(1),
+                VerticalAlignment = VerticalAlignment.Center,
             };
             Panel.SetZIndex(badge, 1);
 
             var num = new TextBlock
             {
                 Text = (idx + 1).ToString(),
-                FontSize = 12.5, FontWeight = FontWeights.Bold,
+                FontSize = 11, FontWeight = FontWeights.SemiBold,
+                FontFamily = new FontFamily("Consolas"),
                 Foreground = (Brush)FindResource("TextMutedBrush"),
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center,
@@ -104,11 +105,11 @@ namespace VoltManager.Setup.Windows
             var lbl = new TextBlock
             {
                 Text = text,
-                FontSize = 12.5,
+                FontSize = 12,
                 Foreground = (Brush)FindResource("TextMutedBrush"),
                 VerticalAlignment = VerticalAlignment.Center,
                 TextTrimming = TextTrimming.CharacterEllipsis,
-                Margin = new Thickness(14, 0, 0, 0),
+                Margin = new Thickness(12, 0, 0, 0),
             };
             Grid.SetColumn(lbl, 1);
 
@@ -133,18 +134,21 @@ namespace VoltManager.Setup.Windows
 
                 if (active)
                 {
-                    badge.Background = (Brush)FindResource("AccentGradient");
+                    badge.Background = (Brush)FindResource("AccentBrush");
                     badge.BorderBrush = (Brush)FindResource("AccentBrush");
-                    badge.Effect = new DropShadowEffect { Color = accent, BlurRadius = 16, ShadowDepth = 0, Opacity = 0.85 };
+                    badge.BorderThickness = new Thickness(1);
+                    badge.Effect = new DropShadowEffect { Color = accent, BlurRadius = 10, ShadowDepth = 0, Opacity = 0.45 };
+                    num.Text = (i + 1).ToString();
                     num.Foreground = new SolidColorBrush(Color.FromRgb(0x03, 0x10, 0x18));
-                    lbl.Foreground = (Brush)FindResource("AccentBrush");
+                    lbl.Foreground = (Brush)FindResource("TextPrimaryBrush");
                     lbl.FontWeight = FontWeights.SemiBold;
                     line.Background = (Brush)FindResource("BorderBrush");
                 }
                 else if (done)
                 {
-                    badge.Background = new SolidColorBrush(Color.FromArgb(0x30, 0x00, 0xF1, 0xFE));
-                    badge.BorderBrush = (Brush)FindResource("AccentDimBrush");
+                    badge.Background = (Brush)FindResource("AccentSelectionBrush");
+                    badge.BorderBrush = (Brush)FindResource("AccentBrush");
+                    badge.BorderThickness = new Thickness(1);
                     badge.Effect = null;
                     num.Text = "✓";
                     num.Foreground = (Brush)FindResource("AccentBrush");
@@ -156,6 +160,7 @@ namespace VoltManager.Setup.Windows
                 {
                     badge.Background = (Brush)FindResource("SurfaceBrush");
                     badge.BorderBrush = (Brush)FindResource("BorderBrush");
+                    badge.BorderThickness = new Thickness(1);
                     badge.Effect = null;
                     num.Text = (i + 1).ToString();
                     num.Foreground = (Brush)FindResource("TextMutedBrush");
@@ -173,6 +178,7 @@ namespace VoltManager.Setup.Windows
         {
             _current = step;
             BtnBack.Visibility = Visibility.Collapsed;
+            BtnNext.Style = (Style)FindResource(_isUninstall && step == Step.Welcome ? "DangerBtn" : "PrimaryBtn");
 
             if (_isUninstall)
             {
