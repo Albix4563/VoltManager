@@ -405,32 +405,6 @@
     color: var(--vm-accent);
 }
 
-.vm-advanced-details {
-    border: 1px solid color-mix(in srgb, var(--md-sys-color-on-surface, #fff) 10%, transparent);
-    border-radius: 16px;
-    overflow: clip;
-}
-
-.vm-advanced-details > summary {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 15px 17px;
-    color: var(--md-sys-color-on-surface, #edf2fa);
-    background: color-mix(in srgb, var(--md-sys-color-surface-container-low, #10192c) 72%, transparent);
-    cursor: pointer;
-    font-weight: 650;
-    list-style: none;
-}
-
-.vm-advanced-details > summary::-webkit-details-marker {
-    display: none;
-}
-
-.vm-advanced-details[open] > summary {
-    border-bottom: 1px solid color-mix(in srgb, var(--md-sys-color-on-surface, #fff) 9%, transparent);
-}
-
 #vm-power-advanced {
     padding: 16px;
 }

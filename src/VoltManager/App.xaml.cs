@@ -8,6 +8,7 @@ using Microsoft.Web.WebView2.Core;
 using Microsoft.Win32;
 using VoltManager.Localization;
 using VoltManager.Models;
+using VoltManager.Reliability;
 using VoltManager.Services;
 
 namespace VoltManager;
@@ -109,7 +110,7 @@ public partial class App : Application
                     MessageBoxButton.OK, MessageBoxImage.Error);
             }
             catch { /* never let the dialog mask the original failure */ }
-            Shutdown(1);
+            Shutdown(AppExitCodes.StartupFailure);
         }
     }
 

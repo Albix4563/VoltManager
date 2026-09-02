@@ -913,8 +913,6 @@ public partial class MainWindow : Window
 
     // -- Tray schedule menu (dynamic, built in XAML generation or code) --
 
-    private static readonly int[] SchedulePresetMinutes = { 30, 45, 60, 120, 240 };
-
     private void TraySchedulePreset_Click(object sender, RoutedEventArgs e)
     {
         if (sender is not System.Windows.Controls.MenuItem { Tag: string tag })

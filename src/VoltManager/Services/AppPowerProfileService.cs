@@ -238,13 +238,6 @@ public sealed class AppPowerProfileService : IDisposable
         return !prevIds.SequenceEqual(nextIds, StringComparer.OrdinalIgnoreCase);
     }
 
-    public static PlanId? PickTargetPlan(IEnumerable<AppPowerProfileRule> activeRules)
-        => activeRules
-            .Where(r => r.Enabled)
-            .OrderByDescending(r => PlanPriority(r.TargetPlan))
-            .Select(r => (PlanId?)r.TargetPlan)
-            .FirstOrDefault();
-
     public static int PlanPriority(PlanId plan) => plan switch
     {
         PlanId.Performance => 3,

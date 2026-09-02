@@ -310,7 +310,6 @@ html[data-perf-tier="balanced"] .vm-scrim {
 .widget-muted,
 .widget-stat label,
 .calendar-head span,
-.empty-note,
 .calendar-day,
 .plan-option {
     color: var(--vm-muted) !important;
@@ -402,8 +401,7 @@ html[data-perf-tier="balanced"] .vm-scrim {
 
 .ambient-glow,
 .vm-aurora__orb--1,
-.vm-aurora__orb--2,
-.vm-aurora__orb--3 {
+.vm-aurora__orb--2 {
     background: radial-gradient(circle, rgb(var(--vm-accent-rgb) / .16), transparent 68%) !important;
 }
 

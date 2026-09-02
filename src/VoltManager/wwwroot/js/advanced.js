@@ -25,7 +25,6 @@
     let ramStatus        = null;   // current MemoryStatus from backend
     let ramAutoRefresh   = null;   // setInterval handle
     let ramLastClean     = null;   // timestamp of last purge
-    let ramViewActive    = false;
     let advShowDc        = false;  // whether to show battery (DC) column
     let hasBattery       = null;
     let powerPlans       = [];

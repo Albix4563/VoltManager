@@ -355,12 +355,6 @@ html[data-size=large] .power-row strong {
   font-size: 30px;
 }
 
-.empty-note {
-  color: rgba(198,198,206,.70);
-  font-size: 13px;
-  font-weight: 600;
-}
-
 .plan-selector {
   position: relative;
   display: grid;

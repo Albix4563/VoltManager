@@ -1,6 +1,5 @@
 using System.Buffers;
 using System.Collections.Concurrent;
-using System.Diagnostics;
 using System.Runtime.InteropServices;
 
 namespace VoltManager.Services;
@@ -21,28 +20,6 @@ public static class ProcessPathResolver
 
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
     private static extern bool QueryFullProcessImageName(IntPtr hProcess, int dwFlags, char[] lpExeName, ref int lpdwSize);
-
-    public static string TryGetPath(Process process)
-    {
-        // Native query first: MainModule enumerates *every* loaded module of the target
-        // process and throws on protected ones, which costs orders of magnitude more.
-        string native = TryQueryFullProcessImageName(process.Id);
-        if (!string.IsNullOrWhiteSpace(native))
-            return native;
-
-        try
-        {
-            string? main = process.MainModule?.FileName;
-            if (!string.IsNullOrWhiteSpace(main))
-                return main;
-        }
-        catch
-        {
-            // MainModule denied too — caller treats an empty path as "unknown".
-        }
-
-        return "";
-    }
 
     public static string TryQueryFullProcessImageName(int processId)
     {

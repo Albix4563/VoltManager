@@ -103,16 +103,6 @@ public sealed class PowerAwakeService : IDisposable
         catch (Exception ex) { Logger.Warn("Keep-awake guard tick failed: " + ex.Message); }
     }
 
-    /// <summary>
-    /// Pure decision: given settings + battery + now, should keep-awake stay on?
-    /// Returns disable reason or null if it may remain enabled.
-    /// </summary>
-    public static string? ShouldAutoDisable(
-        KeepAwakeSettings cfg,
-        bool? onBattery,
-        DateTime nowUtc)
-        => SafetyBlockReason(cfg, automationRequested: false, onBattery, nowUtc);
-
     internal static string? SafetyBlockReason(
         KeepAwakeSettings cfg,
         bool automationRequested,

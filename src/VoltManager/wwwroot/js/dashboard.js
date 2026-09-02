@@ -480,7 +480,6 @@
     });
 
     // ----- Top Processes -----
-    const processesSection = document.getElementById('processes-section');
     const processesList = document.getElementById('processes-list');
     const PROC_COUNT = 8;
     let procRows = [];

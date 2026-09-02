@@ -26,6 +26,4 @@ public static class ResourcePressurePolicy
         return metrics.GpuAvailable && metrics.Cpu >= 90 && metrics.Gpu >= 90;
     }
 
-    public static bool IsExtremeGameLoad(MetricsSnapshot metrics, bool gameActive)
-        => gameActive && IsExtremeSystemLoad(metrics);
 }

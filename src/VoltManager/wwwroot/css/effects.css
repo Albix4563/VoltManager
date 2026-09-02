@@ -57,11 +57,6 @@
   background: radial-gradient(circle at 60% 40%, rgba(94,124,255,.34), rgba(94,124,255,0) 70%);
   animation: vmOrb2 32s ease-in-out infinite;
 }
-.vm-aurora__orb--3{
-  width: 28vw; height: 28vw; left: 28vw; bottom: -10vw;
-  background: radial-gradient(circle at 50% 50%, rgba(0,210,180,.28), rgba(0,210,180,0) 70%);
-  animation: vmOrb3 38s ease-in-out infinite;
-}
 @keyframes vmOrb1{
   0%,100%{ transform: translate3d(0,0,0) scale(1); }
   33%{ transform: translate3d(8vw,6vh,0) scale(1.12); }
@@ -72,11 +67,6 @@
   40%{ transform: translate3d(-10vw,8vh,0) scale(1.15); }
   70%{ transform: translate3d(-2vw,-6vh,0) scale(.9); }
 }
-@keyframes vmOrb3{
-  0%,100%{ transform: translate3d(0,0,0) scale(1); }
-  50%{ transform: translate3d(6vw,-10vh,0) scale(1.18); }
-}
-
 /* ---------- 2. Card spotlight + hover sheen ---------- */
 /* --mx/--my are written by effects.js on pointermove (0-100%). The radial
    tracks the cursor; a diagonal sheen sweeps once on hover. */
