@@ -1268,9 +1268,17 @@
                 'verdana': 'Verdana, Geneva, sans-serif',
                 'tahoma': 'Tahoma, Verdana, sans-serif',
                 'trebuchet-ms': '"Trebuchet MS", Arial, sans-serif',
+                'candara': 'Candara, Calibri, "Segoe UI", sans-serif',
+                'corbel': 'Corbel, "Segoe UI", sans-serif',
+                'century-gothic': '"Century Gothic", Arial, sans-serif',
+                'franklin-gothic': '"Franklin Gothic Medium", "Arial Narrow", Arial, sans-serif',
                 'georgia': 'Georgia, serif',
+                'cambria': 'Cambria, Georgia, serif',
+                'palatino-linotype': '"Palatino Linotype", Palatino, Georgia, serif',
                 'times-new-roman': '"Times New Roman", Times, serif',
-                'consolas': 'Consolas, "Courier New", monospace'
+                'consolas': 'Consolas, "Courier New", monospace',
+                'courier-new': '"Courier New", Courier, monospace',
+                'lucida-console': '"Lucida Console", Monaco, monospace'
             };
             var key = (font && typeof font === 'string') ? font.trim().toLowerCase() : 'inter';
             normalized = map[key] ? key : 'inter';
