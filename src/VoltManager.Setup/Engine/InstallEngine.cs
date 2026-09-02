@@ -679,24 +679,6 @@ namespace VoltManager.Setup.Engine
             return json.Substring(0, valueStart) + widgetsVal + json.Substring(valueEnd + 1);
         }
 
-        private static string SetObjectBooleanProperty(string objectJson, string propertyName, bool enabled)
-        {
-            string value = enabled ? "true" : "false";
-            int propertyStart = FindJsonProperty(objectJson, propertyName);
-            if (propertyStart >= 0)
-            {
-                int valueStart = FindJsonValueStart(objectJson, propertyStart);
-                int valueEnd = FindJsonValueEnd(objectJson, valueStart);
-                if (valueStart >= 0 && valueEnd >= valueStart)
-                    return objectJson.Substring(0, valueStart) + value + objectJson.Substring(valueEnd + 1);
-            }
-
-            string inner = objectJson.Substring(1, objectJson.Length - 2).Trim();
-            return inner.Length == 0
-                ? "{ \"" + propertyName + "\": " + value + " }"
-                : "{ \"" + propertyName + "\": " + value + ", " + inner + " }";
-        }
-
         private static int FindJsonProperty(string json, string propertyName)
         {
             var match = Regex.Match(json, "\\\"" + Regex.Escape(propertyName) + "\\\"\\s*:", RegexOptions.CultureInvariant);

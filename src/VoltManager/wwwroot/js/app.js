@@ -392,15 +392,6 @@
         document.dispatchEvent(new CustomEvent('navmounted'));
     }
 
-    function switchHtml(id, enabled, extraClass) {
-        const state = enabled ? 'on' : 'off';
-        const idAttr = id ? ' id="' + escAttr(id) + '"' : '';
-        const dataOn = id === 'toggle-scheduled-power' ? ' data-on="' + (enabled ? 'true' : 'false') + '"' : '';
-        return '<button class="startup-switch ' + (extraClass || '') + '"' + idAttr + dataOn + ' data-state="' + state + '" aria-pressed="' + (enabled ? 'true' : 'false') + '" type="button">' +
-            '<span class="startup-switch__track"><span class="startup-switch__label startup-switch__label-on system-switch-on">' + esc(t('on')) + '</span><span class="startup-switch__label startup-switch__label-off system-switch-off">' + esc(t('off')) + '</span><span class="startup-switch__knob"><span class="material-symbols-outlined startup-switch__icon startup-switch__icon-on">check</span><span class="material-symbols-outlined startup-switch__icon startup-switch__icon-off">close</span></span></span>' +
-            '</button>';
-    }
-
     function systemViewHtml() {
         return '<div class="max-w-4xl mx-auto space-y-lg relative z-10 w-full">' +
             '<div class="mb-xl"><h2 class="text-headline-lg text-on-surface mb-xs system-title"></h2><p class="text-body-md text-on-surface-variant system-sub"></p></div>' +

@@ -1876,7 +1876,6 @@ window.I18n = (function() {
 
     // ===== public API =====
 
-    function getMetadata() { return metadata; }
     function getSupportedCodes() { return Object.keys(metadata); }
 
     function normalizeLang(code) {
