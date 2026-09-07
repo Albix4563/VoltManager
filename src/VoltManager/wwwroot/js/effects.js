@@ -153,9 +153,6 @@
       '<span class="vm-aurora__orb vm-aurora__orb--1"></span>' +
       '<span class="vm-aurora__orb vm-aurora__orb--2"></span>';
     main.insertBefore(aurora, main.firstChild);
-    // The legacy static blobs are now redundant under the aurora — drop them.
-    main.querySelectorAll(':scope > .absolute.rounded-full.blur-3xl, :scope > .absolute.blur-\\[100px\\]')
-      .forEach((el) => el.remove());
   }
 
   // ---- Pointer-tracking spotlight (delegated + rAF throttled) ----

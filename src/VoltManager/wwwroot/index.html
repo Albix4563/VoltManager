@@ -361,7 +361,7 @@
             <span class="material-symbols-outlined text-secondary-container">show_chart</span>
             <span data-i18n="battery_history_title">Battery History</span>
           </h3>
-          <div class="flex items-center gap-2 flex-wrap" id="battery-history-actions">
+          <div class="flex items-center gap-2 flex-wrap">
             <div class="flex items-center rounded-lg bg-surface-container-low/60 border border-white/10 p-1" role="group" aria-label="Battery history range">
               <button type="button" class="battery-history-range-btn btn-ghost rounded-md px-3 py-1 text-label-sm" data-hours="6">6h</button>
               <button type="button" class="battery-history-range-btn btn-ghost rounded-md px-3 py-1 text-label-sm bg-white/10 text-secondary-container" data-hours="24">24h</button>
@@ -381,7 +381,7 @@
             </div>
             <span class="text-title-lg font-bold text-on-surface" id="battery-history-current">--%</span>
           </div>
-          <svg id="battery-history-chart" class="w-full" viewBox="0 0 100 32" preserveAspectRatio="none" style="height: 8rem;">
+          <svg class="w-full" viewBox="0 0 100 32" preserveAspectRatio="none" style="height: 8rem;">
             <defs>
               <linearGradient id="battery-history-fill" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stop-color="#00E5FF" stop-opacity="0.35"></stop>
@@ -474,9 +474,9 @@
               </div>
               <div class="flex-1 flex flex-wrap items-center gap-x-xs gap-y-2 text-body-md text-on-surface">
                 <span data-i18n="power_rule_if">Se CPU &lt;</span>
-                <input class="w-12 h-8 bg-surface-container-lowest border-b border-white/20 rounded text-center text-body-md text-secondary-container input-glow transition-all" data-rule="saver" data-field="thresholdPct" id="rule-saver-threshold" max="99" min="1" type="number" value="10"/>
+                <input class="w-12 h-8 bg-surface-container-lowest border-b border-white/20 rounded text-center text-body-md text-secondary-container input-glow transition-all" data-rule="saver" data-field="thresholdPct" max="99" min="1" type="number" value="10"/>
                 <span data-i18n="power_rule_for">% per</span>
-                <input class="w-12 h-8 bg-surface-container-lowest border-b border-white/20 rounded text-center text-body-md text-secondary-container input-glow transition-all" data-rule="saver" data-field="durationMinutes" id="rule-saver-minutes" max="60" min="1" type="number" value="1"/>
+                <input class="w-12 h-8 bg-surface-container-lowest border-b border-white/20 rounded text-center text-body-md text-secondary-container input-glow transition-all" data-rule="saver" data-field="durationMinutes" max="60" min="1" type="number" value="1"/>
                 <span data-i18n="power_rule_min">minuto</span>
                 <span class="mx-2 text-on-surface-variant">→</span>
                 <span class="text-tertiary-fixed font-medium" data-i18n="power_rule_saver">Risparmio Energetico</span>
@@ -500,9 +500,9 @@
               </div>
               <div class="flex-1 flex flex-wrap items-center gap-x-xs gap-y-2 text-body-md text-on-surface">
                 <span data-i18n="power_rule_if_gt">Se CPU &gt;</span>
-                <input class="w-12 h-8 bg-surface-container-lowest border-b border-white/20 rounded text-center text-body-md text-secondary-container input-glow transition-all" data-rule="balanced" data-field="thresholdPct" id="rule-balanced-threshold" max="99" min="1" type="number" value="10"/>
+                <input class="w-12 h-8 bg-surface-container-lowest border-b border-white/20 rounded text-center text-body-md text-secondary-container input-glow transition-all" data-rule="balanced" data-field="thresholdPct" max="99" min="1" type="number" value="10"/>
                 <span data-i18n="power_rule_for">% per</span>
-                <input class="w-12 h-8 bg-surface-container-lowest border-b border-white/20 rounded text-center text-body-md text-secondary-container input-glow transition-all" data-rule="balanced" data-field="durationMinutes" id="rule-balanced-minutes" max="60" min="1" type="number" value="1"/>
+                <input class="w-12 h-8 bg-surface-container-lowest border-b border-white/20 rounded text-center text-body-md text-secondary-container input-glow transition-all" data-rule="balanced" data-field="durationMinutes" max="60" min="1" type="number" value="1"/>
                 <span data-i18n="power_rule_min">minuto</span>
                 <span class="mx-2 text-on-surface-variant">→</span>
                 <span class="text-tertiary-fixed font-medium" data-i18n="power_rule_balanced">Balanced</span>
@@ -526,9 +526,9 @@
               </div>
               <div class="flex-1 flex flex-wrap items-center gap-x-xs gap-y-2 text-body-md text-on-surface">
                 <span data-i18n="power_rule_if_gt">Se CPU &gt;</span>
-                <input class="w-12 h-8 bg-surface-container-lowest border-b border-white/20 rounded text-center text-body-md text-secondary-container input-glow transition-all" data-rule="performance" data-field="thresholdPct" id="rule-performance-threshold" max="99" min="1" type="number" value="50"/>
+                <input class="w-12 h-8 bg-surface-container-lowest border-b border-white/20 rounded text-center text-body-md text-secondary-container input-glow transition-all" data-rule="performance" data-field="thresholdPct" max="99" min="1" type="number" value="50"/>
                 <span data-i18n="power_rule_for">% per</span>
-                <input class="w-12 h-8 bg-surface-container-lowest border-b border-white/20 rounded text-center text-body-md text-secondary-container input-glow transition-all" data-rule="performance" data-field="durationMinutes" id="rule-performance-minutes" max="60" min="1" type="number" value="1"/>
+                <input class="w-12 h-8 bg-surface-container-lowest border-b border-white/20 rounded text-center text-body-md text-secondary-container input-glow transition-all" data-rule="performance" data-field="durationMinutes" max="60" min="1" type="number" value="1"/>
                 <span data-i18n="power_rule_min">minuto</span>
                 <span class="mx-2 text-on-surface-variant">→</span>
                 <span class="text-tertiary-fixed font-medium" data-i18n="power_rule_performance">Performance</span>
@@ -749,7 +749,7 @@
                   </button>
                 </div>
               </div>
-              <div class="flex items-center justify-between group mt-md" id="pref-diagnostics">
+              <div class="flex items-center justify-between group mt-md">
                 <div>
                   <p class="text-body-md text-on-surface group-hover:text-secondary-fixed transition-colors" data-i18n="set_diagnostics">Diagnostica</p>
                   <p class="text-label-sm text-on-surface-variant" data-i18n="set_diagnostics_sub">Esporta report (sistema, piano, batteria, log) o apri la cartella log</p>
@@ -946,7 +946,7 @@
 <!-- ============ CHANNEL RISK WARNING MODAL ============ -->
 <!-- z-index inline: arbitrary Tailwind z-[115] is not in the compiled CSS bundle. -->
 <div class="fixed inset-0 bg-black/60 hidden items-center justify-center" id="channel-warn-overlay" style="z-index:200;">
-  <div class="w-full max-w-md mx-4 glass-modal rounded-2xl overflow-hidden" id="channel-warn-modal" role="dialog" aria-modal="true" aria-labelledby="channel-warn-title">
+  <div class="w-full max-w-md mx-4 glass-modal rounded-2xl overflow-hidden" role="dialog" aria-modal="true" aria-labelledby="channel-warn-title">
     <div class="px-6 py-5 border-b border-white/5 flex items-center gap-3">
       <div class="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
            style="background:color-mix(in srgb,#ffc857 12%,transparent);border:1px solid color-mix(in srgb,#ffc857 30%,transparent);">
@@ -1022,7 +1022,7 @@
 <!-- ============ MANUAL OVERRIDE MODAL ============ -->
 <div class="fixed inset-0 z-[100] vm-scrim hidden items-center justify-center" id="manual-override-overlay">
   <main class="w-full max-w-md px-lg z-10">
-    <div class="glass-modal rounded-3xl p-xl flex flex-col" id="manual-override-modal">
+    <div class="glass-modal rounded-3xl p-xl flex flex-col">
       <div class="flex items-center gap-3 mb-md">
         <div class="w-10 h-10 rounded-lg bg-secondary-container/20 flex items-center justify-center border border-secondary-container/30">
           <span class="material-symbols-outlined text-secondary-container icon-fill">lock</span>
@@ -1049,7 +1049,7 @@
 <div class="fixed inset-0 z-[120] bg-background hidden items-center justify-center" id="welcome-overlay">
   <div class="ambient-glow"></div>
   <main class="w-full max-w-lg px-lg z-10">
-    <div class="glass-modal rounded-3xl p-xl flex flex-col" id="welcome-modal">
+    <div class="glass-modal rounded-3xl p-xl flex flex-col">
 
       <!-- Step 0: Intro -->
       <section class="welcome-step flex flex-col items-center text-center" data-step="0">
@@ -1189,7 +1189,7 @@
       </section>
 
       <!-- Dot indicator -->
-      <div class="flex items-center justify-center gap-xs mt-lg" id="welcome-dots">
+      <div class="flex items-center justify-center gap-xs mt-lg">
         <span class="welcome-dot" data-go="0"></span>
         <span class="welcome-dot" data-go="1"></span>
         <span class="welcome-dot" data-go="2"></span>

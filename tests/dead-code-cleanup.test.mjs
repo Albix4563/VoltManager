@@ -88,6 +88,18 @@ test('unused Tailwind utility rules stay removed from compiled app.css', () => {
         '.right-1\\/4{right:25%}',
         '.to-secondary-container{--tw-gradient-to:#00f1fe var(--tw-gradient-to-position)}',
         '.w-96{width:24rem}',
+        '.left-1\\/4{left:25%}',
+        '.h-\\[500px\\]{height:500px}',
+        '.w-\\[500px\\]{width:500px}',
+        '.from-\\[\\#006a70\\]',
+        '.blur-\\[100px\\]',
+        '.lg\\:col-span-5{',
+        '.lg\\:col-span-7{',
+        '.shadow-\\[0_0_10px_rgba',
+        '.shadow-\\[0_0_20px_rgba',
+        '.shadow-\\[0_0_8px_\\#00f1fe\\]',
+        '.shadow-\\[0_0_8px_rgba',
+        '.hover\\:shadow-\\[0_0_15px_rgba',
     ];
     for (const rule of deadRules) {
         assert.equal(appCss.includes(rule), false, `unused CSS rule must stay removed: ${rule}`);
