@@ -344,37 +344,6 @@ public static class ProcessSnapshotProvider
         return map;
     }
 
-    /// <summary>
-    /// Applies a parent-pid map onto samples that still have ParentPid == 0.
-    /// Pure helper so unit tests can verify merge without live Toolhelp.
-    /// </summary>
-    public static ProcessSample[] ApplyParentProcessIds(
-        IReadOnlyList<ProcessSample> samples,
-        IReadOnlyDictionary<int, int> parentByPid)
-    {
-        if (samples.Count == 0 || parentByPid.Count == 0)
-            return samples is ProcessSample[] arr ? arr : samples.ToArray();
-
-        var result = new ProcessSample[samples.Count];
-        for (int i = 0; i < samples.Count; i++)
-        {
-            var sample = samples[i];
-            if (sample.ParentPid == 0 &&
-                parentByPid.TryGetValue(sample.Pid, out int parent) &&
-                parent > 0 &&
-                parent != sample.Pid)
-            {
-                result[i] = sample with { ParentPid = parent };
-            }
-            else
-            {
-                result[i] = sample;
-            }
-        }
-
-        return result;
-    }
-
     /// <summary>Fallback used only if the native query is unavailable; same data, higher cost.</summary>
     private static ProcessSample[] CaptureManaged()
     {

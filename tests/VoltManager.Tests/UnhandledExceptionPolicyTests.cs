@@ -16,7 +16,6 @@ public class UnhandledExceptionPolicyTests
         var action = UnhandledExceptionPolicy.UiThreadPolicy;
 
         Assert.Equal(UnhandledUiAction.FatalShutdownWithDiagnostic, action);
-        Assert.False(UnhandledExceptionPolicy.KeepsProcessAlive(action));
         Assert.True(UnhandledExceptionPolicy.CapturesCrashDiagnostic(action));
         Assert.True(UnhandledExceptionPolicy.BeginsFatalShutdown(action));
         Assert.Equal(11, AppExitCodes.UnhandledUiException);
@@ -25,10 +24,10 @@ public class UnhandledExceptionPolicyTests
     [Fact]
     public void Recover_and_fatal_are_mutually_exclusive_helpers()
     {
-        Assert.True(UnhandledExceptionPolicy.KeepsProcessAlive(UnhandledUiAction.RecoverKeepAlive));
+        Assert.False(UnhandledExceptionPolicy.CapturesCrashDiagnostic(UnhandledUiAction.RecoverKeepAlive));
         Assert.False(UnhandledExceptionPolicy.BeginsFatalShutdown(UnhandledUiAction.RecoverKeepAlive));
 
-        Assert.False(UnhandledExceptionPolicy.KeepsProcessAlive(UnhandledUiAction.FatalShutdownWithDiagnostic));
+        Assert.True(UnhandledExceptionPolicy.CapturesCrashDiagnostic(UnhandledUiAction.FatalShutdownWithDiagnostic));
         Assert.True(UnhandledExceptionPolicy.BeginsFatalShutdown(UnhandledUiAction.FatalShutdownWithDiagnostic));
     }
 

@@ -24,7 +24,7 @@ public class LocalizationService
     public void Initialize(AppSettings settings)
     {
         var resolved = LanguageResolver.Resolve(settings.Language);
-        ApplyLanguage(resolved, persist: false);
+        ApplyLanguage(resolved);
     }
 
     public void SetLanguage(string code)
@@ -33,10 +33,10 @@ public class LocalizationService
         var normalized = LanguageResolver.Normalize(code);
         if (string.IsNullOrEmpty(normalized)) return;
         if (normalized == _currentLanguage) return; // no loop
-        ApplyLanguage(normalized, persist: true);
+        ApplyLanguage(normalized);
     }
 
-    private void ApplyLanguage(string code, bool persist)
+    private void ApplyLanguage(string code)
     {
         _currentLanguage = code;
         _currentCulture = LanguageResolver.GetCulture(code);

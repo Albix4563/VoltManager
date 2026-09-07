@@ -169,7 +169,7 @@ public class HeavyAppGateTests
         };
 
         HeavyAppDetectionService.MergeStickyDetections(
-            sticky, new[] { heavy, game }, ObservedFor(heavy, game), DateTime.UtcNow);
+            sticky, new[] { heavy, game }, ObservedFor(heavy, game));
 
         Assert.False(sticky.ContainsKey(10));
         Assert.True(sticky.ContainsKey(11));
@@ -192,7 +192,7 @@ public class HeavyAppGateTests
 
         // Still alive but no longer classified this scan (memory trimmed after alt-tab).
         var merged = HeavyAppDetectionService.MergeStickyDetections(
-            sticky, Array.Empty<DetectedHeavyApp>(), ObservedFor(game), DateTime.UtcNow);
+            sticky, Array.Empty<DetectedHeavyApp>(), ObservedFor(game));
 
         Assert.Single(merged);
         Assert.Equal(11, merged[0].ProcessId);

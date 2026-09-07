@@ -135,7 +135,7 @@ public static class WidgetLayout
             foreach (var anchor in candidates)
             {
                 var slots = EnumerateSlots(
-                    effective.WorkArea, widthPx, heightPx, marginX, marginY, gapX, gapY, anchor);
+                    effective.WorkArea, widthPx, heightPx, marginX, marginY, gapY, anchor);
 
                 foreach (var baseBounds in slots)
                 {
@@ -289,7 +289,6 @@ public static class WidgetLayout
         double heightPx,
         double marginX,
         double marginY,
-        double gapX,
         double gapY,
         string anchor)
     {

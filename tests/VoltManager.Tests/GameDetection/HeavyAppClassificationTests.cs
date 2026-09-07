@@ -174,7 +174,6 @@ public class HeavyAppClassificationTests
             sticky,
             Array.Empty<DetectedHeavyApp>(),
             new[] { new ObservedHeavyProcess(3003, path, started, "Wow", 90) },
-            DateTime.UtcNow,
             minWorkingSetMb: 1536);
 
         Assert.Single(merged);
@@ -333,7 +332,6 @@ public class HeavyAppClassificationTests
             sticky,
             Array.Empty<DetectedHeavyApp>(),
             new[] { new ObservedHeavyProcess(4004, path, started, "CoolGame", 80) },
-            DateTime.UtcNow,
             minWorkingSetMb: 1536);
         Assert.Single(minimized);
         Assert.Equal("foregroundActive", minimized[0].Reason);
@@ -341,8 +339,7 @@ public class HeavyAppClassificationTests
         var afterExit = HeavyAppDetectionService.MergeStickyDetections(
             sticky,
             Array.Empty<DetectedHeavyApp>(),
-            Array.Empty<ObservedHeavyProcess>(),
-            DateTime.UtcNow);
+            Array.Empty<ObservedHeavyProcess>());
         Assert.Empty(afterExit);
         Assert.Empty(sticky);
     }
@@ -399,7 +396,6 @@ public class HeavyAppClassificationTests
             sticky,
             Array.Empty<DetectedHeavyApp>(),
             new[] { new ObservedHeavyProcess(1001, path, started, "game", 120) },
-            DateTime.UtcNow,
             minWorkingSetMb: 1536);
 
         Assert.Single(merged);
@@ -426,8 +422,7 @@ public class HeavyAppClassificationTests
         var merged = HeavyAppDetectionService.MergeStickyDetections(
             sticky,
             Array.Empty<DetectedHeavyApp>(),
-            Array.Empty<ObservedHeavyProcess>(),
-            DateTime.UtcNow);
+            Array.Empty<ObservedHeavyProcess>());
 
         Assert.Empty(merged);
         Assert.Empty(sticky);
@@ -461,7 +456,6 @@ public class HeavyAppClassificationTests
             {
                 new ObservedHeavyProcess(5002, shipping, sessionStart.AddSeconds(2), "Title-Win64-Shipping", 600),
             },
-            DateTime.UtcNow,
             minWorkingSetMb: 1536);
 
         Assert.Single(merged);
@@ -509,7 +503,6 @@ public class HeavyAppClassificationTests
                     "Other",
                     900),
             },
-            DateTime.UtcNow,
             minWorkingSetMb: 1536);
 
         Assert.Empty(merged);
@@ -539,8 +532,7 @@ public class HeavyAppClassificationTests
         var merged = HeavyAppDetectionService.MergeStickyDetections(
             sticky,
             Array.Empty<DetectedHeavyApp>(),
-            new[] { new ObservedHeavyProcess(5202, peer, sessionStart.AddSeconds(3), "WowClassic", 700) },
-            DateTime.UtcNow);
+            new[] { new ObservedHeavyProcess(5202, peer, sessionStart.AddSeconds(3), "WowClassic", 700) });
 
         Assert.Single(merged);
         Assert.Equal(5202, merged[0].ProcessId);
@@ -585,8 +577,7 @@ public class HeavyAppClassificationTests
         var merged = HeavyAppDetectionService.MergeStickyDetections(
             sticky,
             Array.Empty<DetectedHeavyApp>(),
-            new[] { new ObservedHeavyProcess(77, path, reuseStart, "game", 1800) },
-            DateTime.UtcNow);
+            new[] { new ObservedHeavyProcess(77, path, reuseStart, "game", 1800) });
 
         Assert.Empty(merged);
         Assert.Empty(sticky);
@@ -611,8 +602,7 @@ public class HeavyAppClassificationTests
         var merged = HeavyAppDetectionService.MergeStickyDetections(
             sticky,
             Array.Empty<DetectedHeavyApp>(),
-            new[] { new ObservedHeavyProcess(42, path, DateTime.UtcNow, "EADesktop", 400) },
-            DateTime.UtcNow);
+            new[] { new ObservedHeavyProcess(42, path, DateTime.UtcNow, "EADesktop", 400) });
 
         Assert.Empty(merged);
         Assert.Empty(sticky);
@@ -640,16 +630,14 @@ public class HeavyAppClassificationTests
         var minimized = HeavyAppDetectionService.MergeStickyDetections(
             sticky,
             Array.Empty<DetectedHeavyApp>(),
-            new[] { new ObservedHeavyProcess(2002, path, started, "CoolGame", 80) },
-            DateTime.UtcNow);
+            new[] { new ObservedHeavyProcess(2002, path, started, "CoolGame", 80) });
         Assert.Single(minimized);
         Assert.Equal("launcherChild", minimized[0].Reason);
 
         var afterExit = HeavyAppDetectionService.MergeStickyDetections(
             sticky,
             Array.Empty<DetectedHeavyApp>(),
-            Array.Empty<ObservedHeavyProcess>(),
-            DateTime.UtcNow);
+            Array.Empty<ObservedHeavyProcess>());
         Assert.Empty(afterExit);
         Assert.Empty(sticky);
     }
@@ -673,7 +661,6 @@ public class HeavyAppClassificationTests
             sticky,
             Array.Empty<DetectedHeavyApp>(),
             new[] { new ObservedHeavyProcess(9, @"C:\Tools\bigtool.exe", DateTime.UtcNow, "bigtool", 200) },
-            DateTime.UtcNow,
             minWorkingSetMb: 1536);
 
         Assert.Empty(merged);

@@ -24,7 +24,6 @@
   <data name="Dialog_WebView2Missing" xml:space="preserve"><value>Runtime WebView2 non trovato. Installa "Microsoft Edge WebView2 Runtime" e riavvia VoltManager.\n\nDettagli: {0}</value></data>
   <data name="Dialog_WebView2SetupFailed" xml:space="preserve"><value>Impossibile inizializzare l'interfaccia di VoltManager.\n\nDettagli: {0}</value></data>
   <data name="Dialog_StartupFailed" xml:space="preserve"><value>VoltManager non è riuscito ad avviarsi.\n\nDettagli salvati nel log:\n{0}\n\nErrore: {1}</value></data>
-  <data name="Dialog_UnexpectedError" xml:space="preserve"><value>Si è verificato un errore imprevisto. VoltManager resta attivo, ma l'ultima operazione potrebbe non essere riuscita.\n\nDettagli salvati nel log:\n{0}\n\nErrore: {1}</value></data>
   <data name="Dialog_UpdateDownloadFailed" xml:space="preserve"><value>Download aggiornamento fallito: {0}</value></data>
   <data name="Dialog_UpdateDeferredGame" xml:space="preserve"><value>C'è un gioco in esecuzione. VoltManager installerà l'aggiornamento dopo la chiusura del gioco.</value></data>
   <data name="Dialog_GamingActivationFailed" xml:space="preserve"><value>Non sono riuscito ad attivare il piano gaming. Verifica che il piano Prestazioni sia disponibile e riprova.</value></data>
@@ -80,9 +79,6 @@
   <data name="Error_MissingPlanGuid" xml:space="preserve"><value>planGuid mancante</value></data>
   <data name="Error_MissingSettingKey" xml:space="preserve"><value>settingKey mancante</value></data>
   <data name="Error_InvalidBackupFile" xml:space="preserve"><value>File di backup non valido</value></data>
-  <data name="Common_OK" xml:space="preserve"><value>OK</value></data>
-  <data name="Common_Yes" xml:space="preserve"><value>Sì</value></data>
-  <data name="Common_No" xml:space="preserve"><value>No</value></data>
   <data name="Common_Cancel" xml:space="preserve"><value>Annulla</value></data>
   <data name="Tray_Schedule" xml:space="preserve"><value>Programma azione PC</value></data>
   <data name="Tray_ScheduleShutdown" xml:space="preserve"><value>Spegni</value></data>
@@ -111,7 +107,6 @@
   <data name="Schedule_MinDelay" xml:space="preserve"><value>La durata deve essere di almeno {0} minuti.</value></data>
   <data name="Schedule_MaxDelay" xml:space="preserve"><value>La durata non può superare {0} giorni.</value></data>
   <data name="Schedule_ScheduledAt" xml:space="preserve"><value>programmato alle</value></data>
-  <data name="Schedule_ExecutionAt" xml:space="preserve"><value>{0} programmato alle {1}</value></data>
   <data name="Dialog_ScheduleExitWarning" xml:space="preserve"><value>È presente un'azione programmata.\n\nUscendo da VoltManager la pianificazione verrà annullata.\n\nVuoi uscire comunque?</value></data>
   <data name="Dialog_ReplaceScheduledAction" xml:space="preserve"><value>Hai già una pianificazione attiva. Sostituirla con la nuova?</value></data>
   <data name="Error_InvalidPowerAction" xml:space="preserve"><value>Azione non valida.</value></data>

@@ -220,7 +220,7 @@ public sealed class HeavyAppDetectionService : IDisposable
         // no-longer-qualifying real game processes (e.g. minimized after alt-tab) as detected.
         lock (_lock)
         {
-            detected = MergeStickyDetections(_sticky, detected, observed, DateTime.UtcNow, config.MinWorkingSetMb);
+            detected = MergeStickyDetections(_sticky, detected, observed, config.MinWorkingSetMb);
         }
 
         var unique = detected
@@ -349,7 +349,7 @@ public sealed class HeavyAppDetectionService : IDisposable
     };
 
     public static List<DetectedHeavyApp> MergeStickyDetections(IDictionary<int, DetectedHeavyApp> sticky,
-        IEnumerable<DetectedHeavyApp> detected, IEnumerable<ObservedHeavyProcess> observed, DateTime nowUtc,
+        IEnumerable<DetectedHeavyApp> detected, IEnumerable<ObservedHeavyProcess> observed,
         int minWorkingSetMb = 1536)
     {
         var detectedList = detected.ToList();
@@ -1304,8 +1304,7 @@ public sealed class HeavyAppDetectionService : IDisposable
                     DateTime.UtcNow,
                     "EADesktop",
                     400),
-            },
-            DateTime.UtcNow);
+            });
         if (merged.Count != 0 || sticky.Count != 0)
             throw new InvalidOperationException("SelfCheck failed [sticky drops ea desktop]: launcher remained sticky");
 
@@ -1334,8 +1333,7 @@ public sealed class HeavyAppDetectionService : IDisposable
                     DateTime.UtcNow,
                     "Title-Win64-Shipping",
                     500),
-            },
-            DateTime.UtcNow);
+            });
         if (handoffMerged.Count != 1 || handoffMerged[0].ProcessId != 92 || !handoffSticky.ContainsKey(92))
             throw new InvalidOperationException("SelfCheck failed [sticky install-root handoff]");
         if (!IsGame(handoffMerged[0]))
@@ -1365,8 +1363,7 @@ public sealed class HeavyAppDetectionService : IDisposable
                     DateTime.UtcNow,
                     "blender",
                     6000),
-            },
-            DateTime.UtcNow);
+            });
         if (heavySticky.Count != 0)
             throw new InvalidOperationException("SelfCheck failed [heavy app never sticky]");
     }

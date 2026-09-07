@@ -790,8 +790,7 @@ public partial class App : Application
         var decision = IdlePowerGuard.Evaluate(
             ActivePlan?.PlanId,
             userOverrideActive,
-            Settings.Current.MasterAutomationEnabled,
-            now);
+            Settings.Current.MasterAutomationEnabled);
 
         if (decision.State.Active)
             _planGuard.SetExpected(decision.State.TargetPlan, "idle", decision.State.Message);

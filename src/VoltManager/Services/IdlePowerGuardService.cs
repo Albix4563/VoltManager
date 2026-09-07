@@ -46,8 +46,7 @@ public sealed class IdlePowerGuardService
     public IdlePowerGuardDecision Evaluate(
         PlanId? activePlan,
         bool manualOverrideActive,
-        bool masterAutomationEnabled,
-        DateTime nowUtc)
+        bool masterAutomationEnabled)
     {
         lock (_lock)
         {

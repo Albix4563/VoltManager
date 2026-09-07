@@ -26,9 +26,6 @@ public static class UnhandledExceptionPolicy
     /// </summary>
     public static UnhandledUiAction UiThreadPolicy { get; } = UnhandledUiAction.FatalShutdownWithDiagnostic;
 
-    public static bool KeepsProcessAlive(UnhandledUiAction action)
-        => action == UnhandledUiAction.RecoverKeepAlive;
-
     public static bool CapturesCrashDiagnostic(UnhandledUiAction action)
         => action == UnhandledUiAction.FatalShutdownWithDiagnostic;
 

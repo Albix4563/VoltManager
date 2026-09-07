@@ -24,7 +24,6 @@
   <data name="Dialog_WebView2Missing" xml:space="preserve"><value>未找到 WebView2 运行时。请安装 "Microsoft Edge WebView2 Runtime" 并重新启动 VoltManager。\n\n详细信息：{0}</value></data>
   <data name="Dialog_WebView2SetupFailed" xml:space="preserve"><value>无法初始化 VoltManager 界面。\n\n详细信息：{0}</value></data>
   <data name="Dialog_StartupFailed" xml:space="preserve"><value>VoltManager 启动失败。\n\n详细信息已保存到日志：\n{0}\n\n错误：{1}</value></data>
-  <data name="Dialog_UnexpectedError" xml:space="preserve"><value>发生意外错误。VoltManager 仍处于活动状态，但上次操作可能未完成。\n\n详细信息已保存到日志：\n{0}\n\n错误：{1}</value></data>
   <data name="Dialog_UpdateDownloadFailed" xml:space="preserve"><value>更新下载失败：{0}</value></data>
   <data name="Dialog_UpdateDeferredGame" xml:space="preserve"><value>检测到游戏正在运行。关闭游戏后，VoltManager 将自动安装更新。</value></data>
   <data name="Dialog_GamingActivationFailed" xml:space="preserve"><value>无法激活游戏模式。请确认高性能计划可用后重试。</value></data>
@@ -80,9 +79,6 @@
   <data name="Error_MissingPlanGuid" xml:space="preserve"><value>planGuid 缺失</value></data>
   <data name="Error_MissingSettingKey" xml:space="preserve"><value>settingKey 缺失</value></data>
   <data name="Error_InvalidBackupFile" xml:space="preserve"><value>无效的备份文件</value></data>
-  <data name="Common_OK" xml:space="preserve"><value>确定</value></data>
-  <data name="Common_Yes" xml:space="preserve"><value>是</value></data>
-  <data name="Common_No" xml:space="preserve"><value>否</value></data>
   <data name="Common_Cancel" xml:space="preserve"><value>取消</value></data>
   <data name="Tray_Schedule" xml:space="preserve"><value>计划电脑操作</value></data>
   <data name="Tray_ScheduleShutdown" xml:space="preserve"><value>关机</value></data>
@@ -111,7 +107,6 @@
   <data name="Schedule_MinDelay" xml:space="preserve"><value>持续时间不能少于 {0} 分钟。</value></data>
   <data name="Schedule_MaxDelay" xml:space="preserve"><value>持续时间不能超过 {0} 天。</value></data>
   <data name="Schedule_ScheduledAt" xml:space="preserve"><value>计划于</value></data>
-  <data name="Schedule_ExecutionAt" xml:space="preserve"><value>{0} 计划于 {1}</value></data>
   <data name="Dialog_ScheduleExitWarning" xml:space="preserve"><value>有一个计划中的操作。\n\n退出 VoltManager 将取消该计划。\n\n仍然退出？</value></data>
   <data name="Dialog_ReplaceScheduledAction" xml:space="preserve"><value>已有一个活动计划。替换成新的吗？</value></data>
   <data name="Error_InvalidPowerAction" xml:space="preserve"><value>不支持的电源操作。</value></data>
