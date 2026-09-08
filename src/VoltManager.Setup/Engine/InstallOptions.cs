@@ -16,6 +16,18 @@ namespace VoltManager.Setup.Engine
         public bool LaunchAfterInstall { get; set; } = true;
 
         /// <summary>
+        /// Release channel chosen in the setup wizard: "stable" (bundled payload,
+        /// already the latest stable) or "preview" (latest -beta build is downloaded
+        /// and installed directly, never stable-then-self-update).
+        /// </summary>
+        public string UpdateChannel { get; set; } = "stable";
+
+        public static string NormalizeChannel(string? channel)
+            => string.Equals(channel?.Trim(), "preview", StringComparison.OrdinalIgnoreCase)
+                ? "preview"
+                : "stable";
+
+        /// <summary>
         /// Default install location shown in the options page and used when the
         /// path field is left blank: %ProgramFiles%\VoltManager.
         /// </summary>

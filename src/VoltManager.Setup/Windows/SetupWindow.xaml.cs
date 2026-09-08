@@ -280,6 +280,7 @@ namespace VoltManager.Setup.Windows
                 if (_opts.EnableWidgets && _opts.EnabledWidgetTypes.Count == 0)
                     _opts.EnableWidgets = false;
                 _opts.LaunchAfterInstall = _options?.LaunchAfterInstall ?? true;
+                _opts.UpdateChannel = _options?.SelectedChannel ?? _opts.UpdateChannel;
                 await _engine.InstallAsync(_opts, App.GetVersion());
             }
             catch (Exception ex) { ok = false; errMsg = ex.Message; }

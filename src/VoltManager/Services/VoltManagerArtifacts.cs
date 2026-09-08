@@ -29,6 +29,8 @@ namespace VoltManager.Services
         {
             "VoltManagerUninstall.exe",
             "VoltManagerUpdate.exe",
+            "VoltManagerPreviewSetup.exe",
+            "VoltManagerPreviewPayload.zip",
             "VoltManagerPayload.zip",
             "MicrosoftEdgeWebview2Setup.exe",
             "vmgr_update_cleanup.bat",

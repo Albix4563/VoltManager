@@ -6,6 +6,7 @@ using System.IO.Compression;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Net.Http;
 using System.Threading;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -48,8 +49,28 @@ namespace VoltManager.Setup.Engine
             await RemoveLegacyInnoInstallAsync(ct);
             ct.ThrowIfCancellationRequested();
 
+            // Preview channel: download the latest Preview (Beta) release and install
+            // its payload directly. The bundled stable payload is never used as a
+            // first step followed by a self-update — that would install the stable
+            // version first and then immediately replace it with the preview build.
+            // Stable channel: the bundled payload already IS the latest stable, so
+            // nothing extra has to be downloaded.
+            string effectiveVersion = version;
+            string? previewPayloadZip = null;
+            if (IsPreviewChannel(opts))
+            {
+                Report(I18n.T("status_download_preview"), 8);
+                PreviewReleaseDownload release = await DownloadLatestPreviewReleaseAsync(
+                    pct => Report(I18n.T("status_download_preview"), 8 + pct * 0.06), ct);
+                ct.ThrowIfCancellationRequested();
+
+                previewPayloadZip = ExtractPreviewPayloadZip(release.ExePath, ct);
+                effectiveVersion = release.Version;
+            }
+            ct.ThrowIfCancellationRequested();
+
             Report(I18n.T("status_extract"), 15);
-            await ExtractPayloadAsync(opts.InstallDir, ct);
+            await ExtractPayloadAsync(opts.InstallDir, ct, previewPayloadZip);
             ct.ThrowIfCancellationRequested();
 
             if (WebView2Missing())
@@ -69,7 +90,7 @@ namespace VoltManager.Setup.Engine
             }
 
             Report(I18n.T("status_registry"), 88);
-            WriteArpEntry(opts.InstallDir, version);
+            WriteArpEntry(opts.InstallDir, effectiveVersion);
             CopyUninstaller(opts.InstallDir);
             WriteInitialAppSettings(opts);
 
@@ -219,7 +240,138 @@ namespace VoltManager.Setup.Engine
             return !Directory.Exists(dir);
         }
 
-        // ── Private helpers ──────────────────────────────────────────────────
+        // ── Private helpers ──────────────────────────────────────────────
+
+        private const string UPDATE_REPO = "Albix4563/power_efficency";
+
+        private static readonly Regex TagRegex = new(
+            "\"tag_name\"\\s*:\\s*\"v?(?<v>[^\"]+)\"",
+            RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+        private static readonly Regex AssetUrlRegex = new(
+            "\"browser_download_url\"\\s*:\\s*\"(?<u>[^\"]+\\.exe)\"",
+            RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+        private sealed class PreviewReleaseDownload
+        {
+            public string ExePath = "";
+            public string Version = "";
+        }
+
+        private static bool IsPreviewChannel(InstallOptions opts)
+            => InstallOptions.NormalizeChannel(opts?.UpdateChannel) == "preview";
+
+        /// <summary>
+        /// Downloads the latest Preview (Beta) release asset (the full setup exe
+        /// embedding that channel's payload.zip) from GitHub. Releases are listed
+        /// newest-first, so the first non-alpha "-beta" tag is the latest preview.
+        /// </summary>
+        private static async Task<PreviewReleaseDownload> DownloadLatestPreviewReleaseAsync(
+            Action<double> onProgress, CancellationToken ct)
+        {
+            try
+            {
+                using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+                http.DefaultRequestHeaders.UserAgent.ParseAdd("VoltManager-Setup");
+                http.DefaultRequestHeaders.Accept.ParseAdd("application/vnd.github+json");
+
+                string releasesJson = await http.GetStringAsync(
+                    "https://api.github.com/repos/" + UPDATE_REPO + "/releases?per_page=20");
+                ct.ThrowIfCancellationRequested();
+
+                MatchCollection tags = TagRegex.Matches(releasesJson);
+                Match? chosen = null;
+                foreach (Match m in tags)
+                {
+                    string v = m.Groups["v"].Value;
+                    if (v.IndexOf("-beta", StringComparison.OrdinalIgnoreCase) >= 0 &&
+                        v.IndexOf("-alpha", StringComparison.OrdinalIgnoreCase) < 0)
+                    {
+                        chosen = m;
+                        break;
+                    }
+                }
+                if (chosen == null)
+                    throw new InvalidOperationException(I18n.T("err_preview_norelease"));
+
+                // The chosen release object spans up to the next tag_name (or the end).
+                int scopeEnd = releasesJson.Length;
+                foreach (Match m in tags)
+                    if (m.Index > chosen.Index) { scopeEnd = m.Index; break; }
+                string scope = releasesJson.Substring(chosen.Index, scopeEnd - chosen.Index);
+
+                Match asset = AssetUrlRegex.Match(scope);
+                if (!asset.Success)
+                    throw new InvalidOperationException(I18n.T("err_preview_noasset"));
+
+                string dest = Path.Combine(Path.GetTempPath(), "VoltManagerPreviewSetup.exe");
+                await DownloadFileAsync(http, asset.Groups["u"].Value, dest, onProgress, ct);
+
+                return new PreviewReleaseDownload
+                {
+                    ExePath = dest,
+                    Version = chosen.Groups["v"].Value,
+                };
+            }
+            catch (OperationCanceledException) { throw; }
+            catch (InvalidOperationException) { throw; }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException(
+                    I18n.T("err_preview_download") + " " + ex.Message, ex);
+            }
+        }
+
+        private static async Task DownloadFileAsync(
+            HttpClient http, string url, string dest, Action<double> onProgress, CancellationToken ct)
+        {
+            using var resp = await http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
+            resp.EnsureSuccessStatusCode();
+            long total = resp.Content.Headers.ContentLength ?? -1;
+
+            using var src = await resp.Content.ReadAsStreamAsync();
+            using var dst = File.Create(dest);
+            var buffer = new byte[81920];
+            long readTotal = 0;
+            int read;
+            while ((read = await src.ReadAsync(buffer, 0, buffer.Length, ct)) > 0)
+            {
+                await dst.WriteAsync(buffer, 0, read, ct);
+                readTotal += read;
+                if (total > 0)
+                    onProgress(Math.Round(readTotal * 100.0 / total, 1));
+            }
+        }
+
+        /// <summary>
+        /// Reads the payload.zip embedded resource out of the downloaded Preview
+        /// setup exe without executing it. Byte-loading avoids locking the temp
+        /// file so it stays deletable.
+        /// </summary>
+        private static string ExtractPreviewPayloadZip(string previewSetupExe, CancellationToken ct)
+        {
+            try
+            {
+                var asm = Assembly.Load(File.ReadAllBytes(previewSetupExe));
+                string? resName = Array.Find(asm.GetManifestResourceNames(),
+                    n => n.EndsWith("payload.zip", StringComparison.OrdinalIgnoreCase));
+                if (resName == null)
+                    throw new InvalidOperationException(I18n.T("err_preview_payload"));
+
+                string zipPath = Path.Combine(Path.GetTempPath(), "VoltManagerPreviewPayload.zip");
+                using (var src = asm.GetManifestResourceStream(resName)!)
+                using (var dst = File.Create(zipPath))
+                    src.CopyToAsync(dst, 81920, ct).GetAwaiter().GetResult();
+                return zipPath;
+            }
+            catch (OperationCanceledException) { throw; }
+            catch (InvalidOperationException) { throw; }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException(
+                    I18n.T("err_preview_payload") + " " + ex.Message, ex);
+            }
+        }
 
         protected void Report(string msg, double pct) => Progress?.Invoke(msg, pct);
 
@@ -328,26 +480,36 @@ namespace VoltManager.Setup.Engine
             await Task.Run(() => p.WaitForExit(60_000), ct);
         }
 
-        private static async Task ExtractPayloadAsync(string destDir, CancellationToken ct)
+        private static async Task ExtractPayloadAsync(string destDir, CancellationToken ct, string? payloadZipPath = null)
         {
             Directory.CreateDirectory(destDir);
 
-            // Extract payload.zip from embedded resources.
-            var asm = Assembly.GetExecutingAssembly();
-            string? resName = Array.Find(asm.GetManifestResourceNames(),
-                n => n.EndsWith("payload.zip", StringComparison.OrdinalIgnoreCase));
+            string tempZip;
+            if (payloadZipPath != null)
+            {
+                // Payload taken from the downloaded Preview release.
+                tempZip = payloadZipPath;
+            }
+            else
+            {
+                // Extract payload.zip from embedded resources.
+                var asm = Assembly.GetExecutingAssembly();
+                string? resName = Array.Find(asm.GetManifestResourceNames(),
+                    n => n.EndsWith("payload.zip", StringComparison.OrdinalIgnoreCase));
 
-            if (resName == null) return; // dev build without payload
+                if (resName == null) return; // dev build without payload
 
-            string tempZip = Path.Combine(Path.GetTempPath(), "VoltManagerPayload.zip");
-            using (var src = asm.GetManifestResourceStream(resName)!)
-            using (var fs = File.Create(tempZip))
-                await src.CopyToAsync(fs, 81920, ct);
+                tempZip = Path.Combine(Path.GetTempPath(), "VoltManagerPayload.zip");
+                using (var src = asm.GetManifestResourceStream(resName)!)
+                using (var fs = File.Create(tempZip))
+                    await src.CopyToAsync(fs, 81920, ct);
+            }
 
             ClearInstallDirectory(destDir);
 
             ZipFile.ExtractToDirectory(tempZip, destDir);
-            try { File.Delete(tempZip); } catch { }
+            if (payloadZipPath == null)
+                try { File.Delete(tempZip); } catch { }
         }
 
         internal static void ClearInstallDirectory(string destDir)
@@ -526,11 +688,53 @@ namespace VoltManager.Setup.Engine
             }
 
             json = SetWidgetsState(json, opts.EnableWidgets, opts.EnabledWidgetTypes);
+            // Persist the wizard's channel choice so in-app updates keep following it.
+            json = SetUpdateChannelState(json, IsPreviewChannel(opts) ? "preview" : "stable");
 
             string tmpPath = settingsPath + ".tmp";
             File.WriteAllText(tmpPath, json);
             File.Copy(tmpPath, settingsPath, overwrite: true);
             try { File.Delete(tmpPath); } catch { }
+        }
+
+        /// <summary>
+        /// Sets "autoUpdates.updateChannel" in settings.json, preserving any other
+        /// property inside the autoUpdates object; inserts the object when missing.
+        /// </summary>
+        private static string SetUpdateChannelState(string json, string channel)
+        {
+            int autoStart = FindJsonProperty(json, "autoUpdates");
+            if (autoStart < 0)
+            {
+                return InsertTopLevelProperty(json,
+                    "\"autoUpdates\": {\"enabled\": true, \"silentInstallEnabled\": true, \"updateChannel\": \"" +
+                    channel + "\", \"intervalMinutes\": 30, \"snoozedUntilUtc\": null, \"skippedVersion\": null}");
+            }
+
+            int valueStart = FindJsonValueStart(json, autoStart);
+            if (valueStart < 0 || json[valueStart] != '{') return json;
+            int valueEnd = FindMatching(json, valueStart, '{', '}');
+            if (valueEnd < valueStart) return json;
+
+            string autoObj = json.Substring(valueStart, valueEnd - valueStart + 1);
+            int ch = FindJsonProperty(autoObj, "updateChannel");
+            if (ch >= 0)
+            {
+                int vStart = FindJsonValueStart(autoObj, ch);
+                int vEnd = vStart >= 0 ? FindJsonValueEnd(autoObj, vStart) : -1;
+                if (vStart >= 0 && vEnd >= vStart)
+                    autoObj = autoObj.Substring(0, vStart) + "\"" + channel + "\"" + autoObj.Substring(vEnd + 1);
+            }
+            else
+            {
+                string channelProp = "\"updateChannel\": \"" + channel + "\"";
+                string inner = autoObj.Substring(1, autoObj.Length - 2).Trim();
+                autoObj = inner.Length == 0
+                    ? "{" + channelProp + "}"
+                    : "{" + channelProp + "," + inner + "}";
+            }
+
+            return json.Substring(0, valueStart) + autoObj + json.Substring(valueEnd + 1);
         }
 
         private static bool LooksLikeJsonObject(string json)

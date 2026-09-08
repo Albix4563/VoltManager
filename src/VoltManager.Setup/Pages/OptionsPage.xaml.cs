@@ -14,6 +14,10 @@ namespace VoltManager.Setup.Pages
         public bool EnableWidgets => ChkWidgets.IsChecked == true;
         public bool LaunchAfterInstall => ChkLaunch.IsChecked == true;
 
+        /// <summary>Chosen release channel: "stable" (default) or "preview".</summary>
+        public string SelectedChannel => InstallOptions.NormalizeChannel(
+            RbnPreview.IsChecked == true ? "preview" : "stable");
+
         /// <summary>Install directory from the UI; never empty (falls back to default).</summary>
         public string GetInstallDir() => InstallOptions.NormalizeInstallDir(TxtDir.Text);
 
@@ -21,6 +25,11 @@ namespace VoltManager.Setup.Pages
         {
             InitializeComponent();
             TitleText.Text    = I18n.T("options_title");
+            LabelChannel.Text = I18n.T("options_channel");
+            RbnStable.Content  = I18n.T("options_channel_stable");
+            RbnPreview.Content = I18n.T("options_channel_preview");
+            DescStable.Text    = I18n.T("options_channel_stable_d");
+            DescPreview.Text   = I18n.T("options_channel_preview_d");
             LabelFolder.Text  = I18n.T("options_folder");
             BtnBrowse.Content = I18n.T("options_browse");
             ChkDesktop.Content  = I18n.T("options_desktop");
@@ -39,6 +48,11 @@ namespace VoltManager.Setup.Pages
             ChkWTemps.Content    = I18n.T("widget_temps");
             ChkWPower.Content    = I18n.T("widget_power");
             ChkWPlans.Content    = I18n.T("widget_plans");
+
+            // Channel choice: stable by default, preview when previously selected.
+            bool preview = InstallOptions.NormalizeChannel(opts.UpdateChannel) == "preview";
+            RbnStable.IsChecked  = !preview;
+            RbnPreview.IsChecked = preview;
 
             // Always show a concrete default path (never leave the field blank).
             ApplyInstallDir(opts.InstallDir);
