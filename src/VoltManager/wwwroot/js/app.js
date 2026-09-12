@@ -273,25 +273,26 @@
         playStagger(c);
     }
 
-    // power/advanced only matter on Automation (and settings panels). Keep them
-    // out of cold-start parse/compile. changelog.js stays eager: it also boots
-    // the UI-reorg modules used across the shell.
-    const deferredPowerScripts = ['js/power.js?v=ram1', 'js/advanced.js?v=powerux2'];
-    const loadedScripts = new Set();
+    // Settings bootstrap is eager; only the advanced editor waits for navigation.
+    const deferredPowerScripts = ['js/advanced.js?v=powerux2'];
+    const loadedScripts = new Map();
     function loadScriptOnce(src) {
-        if (loadedScripts.has(src) || document.querySelector('script[data-vm-lazy="' + src + '"]')) {
-            loadedScripts.add(src);
-            return Promise.resolve();
-        }
-        return new Promise((resolve, reject) => {
+        if (loadedScripts.has(src)) return loadedScripts.get(src);
+        const loading = new Promise((resolve, reject) => {
             const s = document.createElement('script');
             s.src = src;
             s.async = false;
             s.dataset.vmLazy = src;
-            s.onload = () => { loadedScripts.add(src); resolve(); };
-            s.onerror = () => reject(new Error('load failed: ' + src));
+            s.onload = resolve;
+            s.onerror = () => {
+                s.remove();
+                loadedScripts.delete(src);
+                reject(new Error('load failed: ' + src));
+            };
             document.body.appendChild(s);
         });
+        loadedScripts.set(src, loading);
+        return loading;
     }
     function ensurePowerScripts() {
         return deferredPowerScripts.reduce(

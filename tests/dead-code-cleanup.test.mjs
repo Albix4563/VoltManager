@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import vm from 'node:vm';
 
 function source(path) {
     return readFileSync(new URL('../' + path, import.meta.url), 'utf8');
@@ -12,6 +13,18 @@ const i18n = source('src/VoltManager/wwwroot/js/i18n.js');
 const bridge = source('src/VoltManager/Bridge/HostBridge.cs');
 const reorganization = source('src/VoltManager/wwwroot/js/ui-reorganization.js');
 const reorganizationLayout = source('src/VoltManager/wwwroot/js/ui-reorganization.layout.js');
+
+test('dynamically generated widget size keys remain translated in every language', () => {
+    const expected = { en: ['Mini', 'Medium', 'Large'], it: ['Mini', 'Medio', 'Grande'],
+        es: ['Mini', 'Mediano', 'Grande'], zh: ['迷你', '中等', '大型'] };
+    for (const [lang, labels] of Object.entries(expected)) {
+        const context = { window: { addEventListener() {} }, document: { addEventListener() {} },
+            localStorage: { getItem: () => lang } };
+        vm.runInNewContext(i18n, context);
+        ['mini', 'medium', 'large'].forEach((size, index) =>
+            assert.equal(context.window.I18n.t('widget_size_' + size), labels[index]));
+    }
+});
 
 test('legacy Settings auto-shutdown UI stays removed while current scheduling remains wired', () => {
     assert.doesNotMatch(settings, /auto-shutdown-panel|normalizeAutoShutdownSettings|mountAutoShutdownUi|wireAutoShutdownUi/);
@@ -59,9 +72,6 @@ test('orphaned i18n keys stay removed from every language block', () => {
         'widget_plans_sub',
         'widget_position_auto',
         'widget_power_sub',
-        'widget_size_large',
-        'widget_size_medium',
-        'widget_size_mini',
         'widget_temps_sub',
         'widget_usage_sub',
     ];

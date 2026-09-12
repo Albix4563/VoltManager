@@ -474,9 +474,10 @@
               </div>
               <div class="flex-1 flex flex-wrap items-center gap-x-xs gap-y-2 text-body-md text-on-surface">
                 <span data-i18n="power_rule_if">Se CPU &lt;</span>
-                <input class="w-12 h-8 bg-surface-container-lowest border-b border-white/20 rounded text-center text-body-md text-secondary-container input-glow transition-all" data-rule="saver" data-field="thresholdPct" max="99" min="1" type="number" value="10"/>
+                <!-- power.js builds rule-{id}-{threshold,minutes,toggle} IDs when loading and wiring settings. -->
+                <input class="w-12 h-8 bg-surface-container-lowest border-b border-white/20 rounded text-center text-body-md text-secondary-container input-glow transition-all" data-rule="saver" data-field="thresholdPct" id="rule-saver-threshold" max="99" min="1" type="number" value="10"/>
                 <span data-i18n="power_rule_for">% per</span>
-                <input class="w-12 h-8 bg-surface-container-lowest border-b border-white/20 rounded text-center text-body-md text-secondary-container input-glow transition-all" data-rule="saver" data-field="durationMinutes" max="60" min="1" type="number" value="1"/>
+                <input class="w-12 h-8 bg-surface-container-lowest border-b border-white/20 rounded text-center text-body-md text-secondary-container input-glow transition-all" data-rule="saver" data-field="durationMinutes" id="rule-saver-minutes" max="60" min="1" type="number" value="1"/>
                 <span data-i18n="power_rule_min">minuto</span>
                 <span class="mx-2 text-on-surface-variant">→</span>
                 <span class="text-tertiary-fixed font-medium" data-i18n="power_rule_saver">Risparmio Energetico</span>
@@ -500,9 +501,9 @@
               </div>
               <div class="flex-1 flex flex-wrap items-center gap-x-xs gap-y-2 text-body-md text-on-surface">
                 <span data-i18n="power_rule_if_gt">Se CPU &gt;</span>
-                <input class="w-12 h-8 bg-surface-container-lowest border-b border-white/20 rounded text-center text-body-md text-secondary-container input-glow transition-all" data-rule="balanced" data-field="thresholdPct" max="99" min="1" type="number" value="10"/>
+                <input class="w-12 h-8 bg-surface-container-lowest border-b border-white/20 rounded text-center text-body-md text-secondary-container input-glow transition-all" data-rule="balanced" data-field="thresholdPct" id="rule-balanced-threshold" max="99" min="1" type="number" value="10"/>
                 <span data-i18n="power_rule_for">% per</span>
-                <input class="w-12 h-8 bg-surface-container-lowest border-b border-white/20 rounded text-center text-body-md text-secondary-container input-glow transition-all" data-rule="balanced" data-field="durationMinutes" max="60" min="1" type="number" value="1"/>
+                <input class="w-12 h-8 bg-surface-container-lowest border-b border-white/20 rounded text-center text-body-md text-secondary-container input-glow transition-all" data-rule="balanced" data-field="durationMinutes" id="rule-balanced-minutes" max="60" min="1" type="number" value="1"/>
                 <span data-i18n="power_rule_min">minuto</span>
                 <span class="mx-2 text-on-surface-variant">→</span>
                 <span class="text-tertiary-fixed font-medium" data-i18n="power_rule_balanced">Balanced</span>
@@ -526,9 +527,9 @@
               </div>
               <div class="flex-1 flex flex-wrap items-center gap-x-xs gap-y-2 text-body-md text-on-surface">
                 <span data-i18n="power_rule_if_gt">Se CPU &gt;</span>
-                <input class="w-12 h-8 bg-surface-container-lowest border-b border-white/20 rounded text-center text-body-md text-secondary-container input-glow transition-all" data-rule="performance" data-field="thresholdPct" max="99" min="1" type="number" value="50"/>
+                <input class="w-12 h-8 bg-surface-container-lowest border-b border-white/20 rounded text-center text-body-md text-secondary-container input-glow transition-all" data-rule="performance" data-field="thresholdPct" id="rule-performance-threshold" max="99" min="1" type="number" value="50"/>
                 <span data-i18n="power_rule_for">% per</span>
-                <input class="w-12 h-8 bg-surface-container-lowest border-b border-white/20 rounded text-center text-body-md text-secondary-container input-glow transition-all" data-rule="performance" data-field="durationMinutes" max="60" min="1" type="number" value="1"/>
+                <input class="w-12 h-8 bg-surface-container-lowest border-b border-white/20 rounded text-center text-body-md text-secondary-container input-glow transition-all" data-rule="performance" data-field="durationMinutes" id="rule-performance-minutes" max="60" min="1" type="number" value="1"/>
                 <span data-i18n="power_rule_min">minuto</span>
                 <span class="mx-2 text-on-surface-variant">→</span>
                 <span class="text-tertiary-fixed font-medium" data-i18n="power_rule_performance">Performance</span>
@@ -1296,6 +1297,8 @@
 <script src="js/tips.js?v=tips1"></script>
 <script src="js/changelog.js?v=changelog1"></script>
 <script src="js/setup.js?v=temps1"></script>
-<!-- power.js / advanced.js: lazy-loaded on first open of power/settings (app.js) -->
+<!-- Settings bootstrap also wires Home, welcome, appearance and widgets. -->
+<script src="js/power.js?v=ram1"></script>
+<!-- advanced.js: lazy-loaded on first open of power/settings (app.js) -->
 </body>
 </html>
