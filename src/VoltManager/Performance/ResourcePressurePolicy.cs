@@ -13,6 +13,7 @@ public static class ResourcePressurePolicy
     public static readonly TimeSpan CriticalEnterDelay = TimeSpan.FromSeconds(5);
     public static readonly TimeSpan CriticalExitDelay = TimeSpan.FromSeconds(15);
     public static readonly TimeSpan GameExitCooldown = TimeSpan.FromSeconds(15);
+    public static readonly TimeSpan ProtectedWorkloadExitCooldown = TimeSpan.FromSeconds(15);
 
     public static ResourceProfile BaselineProfile(double ramTotalGb, int logicalCores)
         => ramTotalGb < 16 || logicalCores <= 4

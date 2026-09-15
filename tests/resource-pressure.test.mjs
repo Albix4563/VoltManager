@@ -29,8 +29,8 @@ test('frontend consumes one host resource profile signal', () => {
   assert.match(perfGuard, /resourceprofilechange/);
 });
 
-test('gaming and critical profiles reuse the proven lite rendering path', () => {
-  assert.match(perfGuard, /profile === 'gaming' \|\| profile === 'critical'/);
+test('gaming workload and critical profiles reuse the proven lite rendering path', () => {
+  assert.match(perfGuard, /profile === 'gaming' \|\| profile === 'workload' \|\| profile === 'critical'/);
   assert.match(perfGuard, /dataset\.perf\s*=\s*effectiveLite \? 'lite'/);
   assert.match(effectsJs, /dataset\.perf === 'lite'/);
   assert.match(effectsCss, /data-perf="lite"/);

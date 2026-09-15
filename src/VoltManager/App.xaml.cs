@@ -671,7 +671,7 @@ public partial class App : Application
         bool canAutoSwitch = Settings.Current.MasterAutomationEnabled && config.Enabled && !userOverrideActive;
         var state = HeavyApps.Current;
 
-        if (canAutoSwitch && state.Active)
+        if (canAutoSwitch && state.PlanSwitchActive)
         {
             _heavyAppLastActiveUtc = now;
             _heavyAppLastActiveWasGame = state.GameActive;
@@ -988,8 +988,9 @@ public partial class App : Application
 
     public HeavyAppDetectionState RefreshHeavyAppDetection() => HeavyApps.Refresh();
 
-    /// <summary>True when detection reports an active game / heavy app session.</summary>
-    public bool IsHeavyAppSessionActive() => HeavyApps.Current.Active;
+    /// <summary>True while a protected game/workload session, including teardown cooldown, is active.</summary>
+    public bool IsHeavyAppSessionActive()
+        => (ResourcePressure?.Current.ProtectedWorkloadActive ?? false) || HeavyApps.Current.ProtectedWorkloadActive;
 
     /// <summary>
     /// Queues an update install URL for after the current game session ends.

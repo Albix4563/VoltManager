@@ -161,6 +161,8 @@ public class HeavyAppDetectionSettings
     [JsonPropertyName("alwaysGamePaths")] public List<string> AlwaysGamePaths { get; set; } = new();
     /// <summary>Executables or folders that must never be detected. Wins over the include list.</summary>
     [JsonPropertyName("neverGamePaths")] public List<string> NeverGamePaths { get; set; } = new();
+    /// <summary>Exact executable paths whose presence protects resources without changing the power plan.</summary>
+    [JsonPropertyName("priorityApplicationPaths")] public List<string> PriorityApplicationPaths { get; set; } = new();
 }
 
 public class AppPowerProfileRule

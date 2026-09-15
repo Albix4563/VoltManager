@@ -246,6 +246,7 @@ public class SettingsService
 
         settings.AlwaysGamePaths = NormalizeUserPathList(settings.AlwaysGamePaths);
         settings.NeverGamePaths = NormalizeUserPathList(settings.NeverGamePaths);
+        settings.PriorityApplicationPaths = NormalizeExecutablePathList(settings.PriorityApplicationPaths);
     }
 
     // Hand-edited lists: drop blanks, dedupe case-insensitively, and cap so a runaway
@@ -268,6 +269,26 @@ public class SettingsService
             if (normalized.Count >= MaxUserPathEntries) break;
         }
 
+        return normalized;
+    }
+
+    private static List<string> NormalizeExecutablePathList(List<string>? paths)
+    {
+        var normalized = new List<string>();
+        if (paths == null) return normalized;
+
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (string? entry in paths)
+        {
+            string value = Environment.ExpandEnvironmentVariables(entry ?? "").Trim().Trim('"');
+            if (string.IsNullOrWhiteSpace(value) || !Path.IsPathFullyQualified(value)) continue;
+            try { value = Path.GetFullPath(value); }
+            catch { continue; }
+            if (!string.Equals(Path.GetExtension(value), ".exe", StringComparison.OrdinalIgnoreCase)) continue;
+            if (!seen.Add(value)) continue;
+            normalized.Add(value);
+            if (normalized.Count >= MaxUserPathEntries) break;
+        }
         return normalized;
     }
 

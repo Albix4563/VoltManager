@@ -13,6 +13,7 @@ public sealed class ResourcePressureCoordinator
     private DateTime? _criticalCandidateSinceUtc;
     private DateTime? _criticalClearSinceUtc;
     private DateTime? _lastGameActiveUtc;
+    private DateTime? _lastWorkloadActiveUtc;
     private ResourcePressureState _current = new();
 
     public ResourcePressureCoordinator(int? logicalCores = null)
@@ -28,6 +29,13 @@ public sealed class ResourcePressureCoordinator
     public event Action<ResourcePressureState>? StateChanged;
 
     public ResourcePressureState Observe(MetricsSnapshot metrics, bool gameActive, DateTime? nowUtc = null)
+        => Observe(metrics, gameActive, workloadActive: false, nowUtc);
+
+    public ResourcePressureState Observe(
+        MetricsSnapshot metrics,
+        bool gameActive,
+        bool workloadActive,
+        DateTime? nowUtc = null)
     {
         var now = nowUtc ?? DateTime.UtcNow;
         ResourcePressureState next;
@@ -37,9 +45,14 @@ public sealed class ResourcePressureCoordinator
         {
             if (gameActive)
                 _lastGameActiveUtc = now;
+            if (workloadActive)
+                _lastWorkloadActiveUtc = now;
 
             bool effectiveGameActive = gameActive ||
                 (_lastGameActiveUtc is DateTime lastGame && now - lastGame < ResourcePressurePolicy.GameExitCooldown);
+            bool effectiveWorkloadActive = !effectiveGameActive && (workloadActive ||
+                (_lastWorkloadActiveUtc is DateTime lastWorkload &&
+                 now - lastWorkload < ResourcePressurePolicy.ProtectedWorkloadExitCooldown));
 
             var baseline = ResourcePressurePolicy.BaselineProfile(metrics.RamTotalGb, _logicalCores);
             bool memoryCritical = metrics.RamPct >= ResourcePressurePolicy.CriticalRamEnterPct;
@@ -63,8 +76,8 @@ public sealed class ResourcePressureCoordinator
                     if (now - _criticalClearSinceUtc >= ResourcePressurePolicy.CriticalExitDelay)
                     {
                         _criticalClearSinceUtc = null;
-                        profile = effectiveGameActive ? ResourceProfile.Gaming : baseline;
-                        reason = effectiveGameActive ? "game_active" : BaselineReason(baseline);
+                        profile = ActiveProfile(effectiveGameActive, effectiveWorkloadActive, baseline);
+                        reason = ActiveReason(effectiveGameActive, effectiveWorkloadActive, baseline);
                     }
                     else
                     {
@@ -77,7 +90,7 @@ public sealed class ResourcePressureCoordinator
                     _criticalClearSinceUtc = null;
                     profile = ResourceProfile.Critical;
                     reason = extremeSystemLoad
-                        ? effectiveGameActive ? "game_load" : "system_load"
+                        ? LoadReason(effectiveGameActive, effectiveWorkloadActive)
                         : "memory_pressure";
                 }
             }
@@ -89,26 +102,28 @@ public sealed class ResourcePressureCoordinator
                     _criticalCandidateSinceUtc = null;
                     _criticalClearSinceUtc = null;
                     profile = ResourceProfile.Critical;
-                    reason = effectiveGameActive ? "game_load" : "system_load";
+                    reason = LoadReason(effectiveGameActive, effectiveWorkloadActive);
                 }
                 else
                 {
-                    profile = effectiveGameActive ? ResourceProfile.Gaming : baseline;
-                    reason = effectiveGameActive ? "game_active" : BaselineReason(baseline);
+                    profile = ActiveProfile(effectiveGameActive, effectiveWorkloadActive, baseline);
+                    reason = ActiveReason(effectiveGameActive, effectiveWorkloadActive, baseline);
                 }
             }
             else
             {
                 _criticalCandidateSinceUtc = null;
                 _criticalClearSinceUtc = null;
-                profile = effectiveGameActive ? ResourceProfile.Gaming : baseline;
-                reason = effectiveGameActive ? "game_active" : BaselineReason(baseline);
+                profile = ActiveProfile(effectiveGameActive, effectiveWorkloadActive, baseline);
+                reason = ActiveReason(effectiveGameActive, effectiveWorkloadActive, baseline);
             }
 
             next = _current with
             {
                 Profile = profile,
                 GameActive = effectiveGameActive,
+                WorkloadActive = effectiveWorkloadActive,
+                ProtectedWorkloadActive = effectiveGameActive || effectiveWorkloadActive,
                 CpuPercent = metrics.Cpu,
                 GpuPercent = metrics.Gpu,
                 RamPercent = metrics.RamPct,
@@ -146,8 +161,19 @@ public sealed class ResourcePressureCoordinator
     private static bool HasOperationalChange(ResourcePressureState previous, ResourcePressureState next)
         => previous.Profile != next.Profile ||
            previous.GameActive != next.GameActive ||
+           previous.WorkloadActive != next.WorkloadActive ||
+           previous.ProtectedWorkloadActive != next.ProtectedWorkloadActive ||
            previous.UiVisible != next.UiVisible ||
            !string.Equals(previous.Reason, next.Reason, StringComparison.Ordinal);
+
+    private static ResourceProfile ActiveProfile(bool gameActive, bool workloadActive, ResourceProfile baseline)
+        => gameActive ? ResourceProfile.Gaming : workloadActive ? ResourceProfile.Workload : baseline;
+
+    private static string ActiveReason(bool gameActive, bool workloadActive, ResourceProfile baseline)
+        => gameActive ? "game_active" : workloadActive ? "workload_active" : BaselineReason(baseline);
+
+    private static string LoadReason(bool gameActive, bool workloadActive)
+        => gameActive ? "game_load" : workloadActive ? "workload_load" : "system_load";
 
     private static string BaselineReason(ResourceProfile profile)
         => profile == ResourceProfile.Balanced ? "hardware_tier" : "normal";

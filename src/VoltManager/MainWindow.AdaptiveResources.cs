@@ -107,6 +107,7 @@ public partial class MainWindow
         EnsureAdaptiveMetricsHook();
         _adaptiveUiMetricsPublisher.ResetCadence();
         PushAdaptiveResourceProfile(state);
+        ResumeDeferredUpdateWorkAfterProtectedSession(state);
     }
 
     private void PushAdaptiveResourceProfile(ResourcePressureState state)
@@ -117,6 +118,8 @@ public partial class MainWindow
             profile = state.Profile.ToString().ToLowerInvariant(),
             reason = state.Reason,
             gameActive = state.GameActive,
+            workloadActive = state.WorkloadActive,
+            protectedWorkloadActive = state.ProtectedWorkloadActive,
             uiVisible = state.UiVisible,
             metricsIntervalMs = plan.PublishMetrics ? (int)plan.MetricsInterval.TotalMilliseconds : 0,
             allowProcessPolling = plan.AllowProcessPolling,

@@ -100,4 +100,27 @@ public class HeavyAppUserRulesTests
         Assert.Empty(settings.AlwaysGamePaths);
         Assert.Empty(settings.NeverGamePaths);
     }
+
+    [Fact]
+    public void Priority_application_paths_are_exact_executables_and_deduplicated()
+    {
+        var settings = new HeavyAppDetectionSettings
+        {
+            PriorityApplicationPaths = new List<string>
+            {
+                @"C:\Apps\Render.exe",
+                @"c:\apps\RENDER.exe",
+                @"C:\Apps\NotExecutable.txt",
+                "relative.exe",
+            },
+        };
+
+        SettingsService.NormalizeHeavyAppDetectionSettings(settings);
+
+        Assert.Single(settings.PriorityApplicationPaths);
+        Assert.True(HeavyAppDetectionService.MatchesExactExecutablePath(
+            @"C:\Apps\Render.exe", settings.PriorityApplicationPaths));
+        Assert.False(HeavyAppDetectionService.MatchesExactExecutablePath(
+            @"C:\Apps\Child\Render.exe", settings.PriorityApplicationPaths));
+    }
 }

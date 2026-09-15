@@ -8,6 +8,7 @@ public enum ResourceProfile
     Full,
     Balanced,
     Gaming,
+    Workload,
     Critical,
 }
 
@@ -19,6 +20,8 @@ public sealed record ResourcePressureState
 {
     public ResourceProfile Profile { get; init; } = ResourceProfile.Full;
     public bool GameActive { get; init; }
+    public bool WorkloadActive { get; init; }
+    public bool ProtectedWorkloadActive { get; init; }
     public bool UiVisible { get; init; } = true;
     public double CpuPercent { get; init; }
     public double GpuPercent { get; init; }

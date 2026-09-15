@@ -28,6 +28,10 @@ public record HeavyAppDetectionState
 {
     [JsonPropertyName("enabled")] public bool Enabled { get; init; }
     [JsonPropertyName("active")] public bool Active { get; init; }
+    [JsonPropertyName("planSwitchActive")] public bool PlanSwitchActive { get; init; }
+    [JsonPropertyName("workloadActive")] public bool WorkloadActive { get; init; }
+    [JsonPropertyName("protectedWorkloadActive")] public bool ProtectedWorkloadActive { get; init; }
+    [JsonPropertyName("explicitPriorityActive")] public bool ExplicitPriorityActive { get; init; }
     /// <summary>At least one detection passed the game confidence gate this scan.</summary>
     [JsonPropertyName("gameActive")] public bool GameActive { get; init; }
     [JsonPropertyName("targetPlan")] public PlanId TargetPlan { get; init; } = PlanId.Performance;
@@ -125,7 +129,8 @@ public sealed class HeavyAppDetectionService : IDisposable
     private void Scan()
     {
         var config = _settings.Current.HeavyAppDetection ?? new HeavyAppDetectionSettings();
-        if (!config.Enabled)
+        bool hasExplicitPriority = config.PriorityApplicationPaths?.Count > 0;
+        if (!config.Enabled && !hasExplicitPriority)
         {
             lock (_lock) _sticky.Clear();
             Publish(new HeavyAppDetectionState
@@ -165,6 +170,14 @@ public sealed class HeavyAppDetectionService : IDisposable
                 long workingSetMb = Math.Max(0, process.WorkingSetBytes / 1024 / 1024);
                 observed.Add(new ObservedHeavyProcess(process.Pid, path, startedAtUtc, process.Name, workingSetMb));
 
+                bool explicitPriority = MatchesExactExecutablePath(path, config.PriorityApplicationPaths);
+                if (!config.Enabled)
+                {
+                    if (explicitPriority)
+                        detected.Add(CreatePriorityDetection(process, path, startedAtUtc, workingSetMb));
+                    continue;
+                }
+
                 bool hasLauncherAncestor = processGraph.TryFindAncestor(
                     process.Pid,
                     IsLauncherAncestor,
@@ -189,7 +202,12 @@ public sealed class HeavyAppDetectionService : IDisposable
                     isForeground,
                     gpu3DPercent,
                     d3dFullscreen);
-                if (assessment.PrimaryReason == null) continue;
+                if (assessment.PrimaryReason == null)
+                {
+                    if (explicitPriority)
+                        detected.Add(CreatePriorityDetection(process, path, startedAtUtc, workingSetMb));
+                    continue;
+                }
 
                 string? kind = ClassifyKind(
                     assessment, NormalizePath(path), process.Name, process.WorkingSetBytes, config);
@@ -235,11 +253,15 @@ public sealed class HeavyAppDetectionService : IDisposable
 
         Publish(new HeavyAppDetectionState
         {
-            Enabled = true,
+            Enabled = config.Enabled,
             // Heavy non-game apps keep raising the plan exactly as before; only the
             // game flag (sticky + teardown grace) is gated on confidence.
             Active = unique.Count > 0,
             GameActive = detected.Any(IsGame),
+            PlanSwitchActive = detected.Any(app => app.Kind != "priorityApp"),
+            WorkloadActive = detected.Any(app => !IsGame(app)),
+            ProtectedWorkloadActive = detected.Count > 0,
+            ExplicitPriorityActive = detected.Any(app => app.Kind == "priorityApp"),
             TargetPlan = config.TargetPlan,
             DetectedCount = detected.Count,
             ActiveProcesses = unique,
@@ -258,6 +280,24 @@ public sealed class HeavyAppDetectionService : IDisposable
 
     public static bool IsGame(DetectedHeavyApp app)
         => string.Equals(app.Kind, "game", StringComparison.Ordinal);
+
+    private static DetectedHeavyApp CreatePriorityDetection(
+        ProcessSample process,
+        string path,
+        DateTime? startedAtUtc,
+        long workingSetMb)
+        => new()
+        {
+            ProcessId = process.Pid,
+            Name = string.IsNullOrWhiteSpace(process.Name) ? Path.GetFileNameWithoutExtension(path) : process.Name,
+            Path = path,
+            Reason = "priorityApplication",
+            Kind = "priorityApp",
+            WorkingSetMb = workingSetMb,
+            StartedAtUtc = startedAtUtc,
+            ConfidenceScore = 100,
+            ConfidenceLevel = "explicit",
+        };
 
     /// <summary>
     /// Splits detections into the two paths: "game" once the confidence gate is reached
@@ -306,6 +346,10 @@ public sealed class HeavyAppDetectionService : IDisposable
     {
         if (previous.Enabled != next.Enabled) return true;
         if (previous.Active != next.Active) return true;
+        if (previous.PlanSwitchActive != next.PlanSwitchActive) return true;
+        if (previous.WorkloadActive != next.WorkloadActive) return true;
+        if (previous.ProtectedWorkloadActive != next.ProtectedWorkloadActive) return true;
+        if (previous.ExplicitPriorityActive != next.ExplicitPriorityActive) return true;
         if (previous.GameActive != next.GameActive) return true;
         if (previous.TargetPlan != next.TargetPlan) return true;
         if (previous.DetectedCount != next.DetectedCount) return true;
@@ -338,6 +382,7 @@ public sealed class HeavyAppDetectionService : IDisposable
     private static int ReasonPriority(string reason) => reason switch
     {
         "userRule" => 5,
+        "priorityApplication" => 5,
         "windowsGpuPreference" => 4,
         "gameInstallPath" => 3,
         "gameBinaryLayout" => 2,
@@ -746,6 +791,14 @@ public sealed class HeavyAppDetectionService : IDisposable
         }
 
         return false;
+    }
+
+    internal static bool MatchesExactExecutablePath(string path, List<string>? executablePaths)
+    {
+        if (executablePaths == null || executablePaths.Count == 0) return false;
+        string normalized = NormalizePath(path);
+        return executablePaths.Any(entry =>
+            normalized.Equals(NormalizePath(entry), StringComparison.OrdinalIgnoreCase));
     }
 
     /// <summary>

@@ -26,7 +26,7 @@ public partial class App
         // establishes the profile. This subscription is additive and never alters the
         // MonitorService interval used by thermal and power automation.
         if (Monitor.Latest.RamTotalGb > 0)
-            ResourcePressure.Observe(Monitor.Latest, HeavyApps.Current.GameActive);
+            ResourcePressure.Observe(Monitor.Latest, HeavyApps.Current.GameActive, HeavyApps.Current.WorkloadActive);
 
         _mainWindow.InitializeAdaptiveResourceManagement();
         Logger.Info("Adaptive resource management initialized.");
@@ -36,7 +36,7 @@ public partial class App
     {
         try
         {
-            ResourcePressure.Observe(metrics, HeavyApps.Current.GameActive);
+            ResourcePressure.Observe(metrics, HeavyApps.Current.GameActive, HeavyApps.Current.WorkloadActive);
         }
         catch (Exception ex)
         {
@@ -50,7 +50,7 @@ public partial class App
         Widgets.PushResourceProfile(state);
         // Logging only on operational transitions (the coordinator suppresses per-sample noise).
         Logger.Info($"Resource profile: {state.Profile} ({state.Reason}), " +
-                    $"game={state.GameActive}, ui={state.UiVisible}");
+                    $"game={state.GameActive}, workload={state.WorkloadActive}, ui={state.UiVisible}");
     }
 
     private void OnAdaptiveResourceExit(object? sender, ExitEventArgs e)

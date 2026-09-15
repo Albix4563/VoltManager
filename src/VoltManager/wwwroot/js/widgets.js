@@ -492,7 +492,7 @@
     if (type === 'plans') Host.on('activePlanChanged', data => reflectPlanSelector(data && data.plan));
     Host.on('resourceProfileChanged', state => {
         const profile = state && state.profile;
-        if (!['full', 'balanced', 'gaming', 'critical'].includes(profile) || profile === resourceProfile) return;
+        if (!['full', 'balanced', 'gaming', 'workload', 'critical'].includes(profile) || profile === resourceProfile) return;
         resourceProfile = profile;
         document.documentElement.dataset.resourceProfile = profile;
         syncPowerPolling();

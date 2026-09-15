@@ -92,15 +92,19 @@
             reason_gpuActive: 'GPU 3D in uso',
             reason_userRule: 'Regola manuale',
             reason_resourceHeuristic: 'Carico risorse',
+            reason_priorityApplication: 'Applicazione da privilegiare',
             level_confirmed: 'Confermato',
             level_probable: 'Probabile',
             kindGame: 'Gioco',
             kindHeavyApp: 'App pesante',
+            kindPriorityApp: 'App privilegiata',
             heavyScore: 'Punteggio',
             heavyAlwaysTitle: 'Tratta sempre come gioco',
             heavyAlwaysSub: 'Attivano il piano senza analisi.',
             heavyNeverTitle: 'Non è mai un gioco',
             heavyNeverSub: 'Esclusi dalla rilevazione. Vince su ogni altra regola.',
+            heavyPriorityTitle: 'Applicazioni da privilegiare',
+            heavyPrioritySub: 'Riduce il lavoro di VoltManager mentre sono in esecuzione, senza cambiare il piano energetico.',
             heavyRulesAdd: 'Aggiungi',
             heavyRulesEmpty: 'Nessun percorso.',
             heavyRulesRemove: 'Rimuovi',
@@ -203,15 +207,19 @@
             reason_gpuActive: 'GPU 3D en uso',
             reason_userRule: 'Regla manual',
             reason_resourceHeuristic: 'Carga de recursos',
+            reason_priorityApplication: 'Aplicación prioritaria',
             level_confirmed: 'Confirmado',
             level_probable: 'Probable',
             kindGame: 'Juego',
             kindHeavyApp: 'App pesada',
+            kindPriorityApp: 'App prioritaria',
             heavyScore: 'Puntuación',
             heavyAlwaysTitle: 'Tratar siempre como juego',
             heavyAlwaysSub: 'Aplican el plan sin análisis.',
             heavyNeverTitle: 'Nunca es un juego',
             heavyNeverSub: 'Excluidos de la detección. Gana sobre cualquier otra regla.',
+            heavyPriorityTitle: 'Aplicaciones prioritarias',
+            heavyPrioritySub: 'Reduce el trabajo de VoltManager mientras se ejecutan, sin cambiar el plan de energía.',
             heavyRulesAdd: 'Añadir',
             heavyRulesEmpty: 'Ninguna ruta.',
             heavyRulesRemove: 'Quitar',
@@ -314,15 +322,19 @@
             reason_gpuActive: '3D GPU in use',
             reason_userRule: 'Manual rule',
             reason_resourceHeuristic: 'Resource load',
+            reason_priorityApplication: 'Priority application',
             level_confirmed: 'Confirmed',
             level_probable: 'Probable',
             kindGame: 'Game',
             kindHeavyApp: 'Heavy app',
+            kindPriorityApp: 'Priority app',
             heavyScore: 'Score',
             heavyAlwaysTitle: 'Always treat as a game',
             heavyAlwaysSub: 'Switch the plan without any analysis.',
             heavyNeverTitle: 'Never a game',
             heavyNeverSub: 'Excluded from detection. Wins over every other rule.',
+            heavyPriorityTitle: 'Priority applications',
+            heavyPrioritySub: 'Reduces VoltManager work while these executables run, without changing the power plan.',
             heavyRulesAdd: 'Add',
             heavyRulesEmpty: 'No paths yet.',
             heavyRulesRemove: 'Remove',
@@ -425,15 +437,19 @@
             reason_gpuActive: '正在使用 3D GPU',
             reason_userRule: '手动规则',
             reason_resourceHeuristic: '资源负载',
+            reason_priorityApplication: '优先应用',
             level_confirmed: '已确认',
             level_probable: '可能',
             kindGame: '游戏',
             kindHeavyApp: '高负载应用',
+            kindPriorityApp: '优先应用',
             heavyScore: '评分',
             heavyAlwaysTitle: '始终视为游戏',
             heavyAlwaysSub: '无需分析即可切换电源计划。',
             heavyNeverTitle: '从不视为游戏',
             heavyNeverSub: '排除在检测之外，优先于其他所有规则。',
+            heavyPriorityTitle: '优先应用',
+            heavyPrioritySub: '运行这些程序时降低 VoltManager 的资源占用，但不更改电源计划。',
             heavyRulesAdd: '添加',
             heavyRulesEmpty: '暂无路径。',
             heavyRulesRemove: '移除',
@@ -609,6 +625,7 @@
         }
         cfg.alwaysGamePaths = normalizeUserPathList(cfg.alwaysGamePaths);
         cfg.neverGamePaths = normalizeUserPathList(cfg.neverGamePaths);
+        cfg.priorityApplicationPaths = normalizeUserPathList(cfg.priorityApplicationPaths);
         return cfg;
     }
 
@@ -1119,6 +1136,7 @@
             '<div class="heavy-app-list" id="heavy-app-list"></div></aside></div>' +
             '<div class="heavy-rules-grid">' +
             heavyRulesCardHtml('always', 'sports_esports') +
+            heavyRulesCardHtml('priority', 'workspace_premium') +
             heavyRulesCardHtml('never', 'block') +
             '</div></div>';
         refreshPowerLabels();
@@ -1187,7 +1205,10 @@
             'heavy-rules-always-add': 'heavyRulesAdd',
             'heavy-rules-never-title': 'heavyNeverTitle',
             'heavy-rules-never-sub': 'heavyNeverSub',
-            'heavy-rules-never-add': 'heavyRulesAdd'
+            'heavy-rules-never-add': 'heavyRulesAdd',
+            'heavy-rules-priority-title': 'heavyPriorityTitle',
+            'heavy-rules-priority-sub': 'heavyPrioritySub',
+            'heavy-rules-priority-add': 'heavyRulesAdd'
         };
 
         Object.entries(map).forEach(([id, key]) => {
@@ -1411,9 +1432,9 @@
         const list = document.getElementById('heavy-app-list');
         if (!badge || !label || !count || !list) return;
 
-        const active = !!(status && status.active && (!cfg || cfg.enabled));
+        const active = !!(status && status.active);
         badge.dataset.active = active ? 'true' : 'false';
-        label.textContent = cfg && !cfg.enabled ? tt('statusDisabled') : (active ? tt('statusActive') : tt('statusIdle'));
+        label.textContent = cfg && !cfg.enabled && !active ? tt('statusDisabled') : (active ? tt('statusActive') : tt('statusIdle'));
         count.textContent = status && typeof status.detectedCount === 'number' ? String(status.detectedCount) : '0';
 
         const apps = status && Array.isArray(status.activeProcesses) ? status.activeProcesses : [];
@@ -1424,8 +1445,9 @@
 
         list.innerHTML = apps.map(app => {
             const isGame = app.kind === 'game';
+            const isPriority = app.kind === 'priorityApp';
             const level = String(app.confidenceLevel || '');
-            const chip = !isGame ? tt('kindHeavyApp')
+            const chip = isPriority ? tt('kindPriorityApp') : !isGame ? tt('kindHeavyApp')
                 : (level === 'confirmed' || level === 'probable') ? tt('level_' + level) : tt('kindGame');
             const reason = tt('reason_' + app.reason);
             const mb = Number.isFinite(Number(app.workingSetMb)) ? ' · ' + Number(app.workingSetMb) + ' MB' : '';
@@ -1448,7 +1470,7 @@
         if (!settings) return;
         const cfg = normalizeHeavyAppDetection();
 
-        [['always', cfg.alwaysGamePaths], ['never', cfg.neverGamePaths]].forEach(([name, paths]) => {
+        [['always', cfg.alwaysGamePaths], ['priority', cfg.priorityApplicationPaths], ['never', cfg.neverGamePaths]].forEach(([name, paths]) => {
             const list = document.getElementById('heavy-rules-' + name + '-list');
             if (!list) return;
 
@@ -1624,7 +1646,11 @@
                         // A path can only sit in one list: adding it here removes it from the other.
                         cfg.alwaysGamePaths = cfg.alwaysGamePaths.filter(p => !samePath(p, path));
                         cfg.neverGamePaths = cfg.neverGamePaths.filter(p => !samePath(p, path));
-                        (addRule.dataset.list === 'never' ? cfg.neverGamePaths : cfg.alwaysGamePaths).push(path);
+                        cfg.priorityApplicationPaths = cfg.priorityApplicationPaths.filter(p => !samePath(p, path));
+                        const target = addRule.dataset.list === 'never'
+                            ? cfg.neverGamePaths
+                            : addRule.dataset.list === 'priority' ? cfg.priorityApplicationPaths : cfg.alwaysGamePaths;
+                        target.push(path);
                     });
                 } catch (err) {
                     const label = document.getElementById('heavy-app-state-label');
@@ -1643,6 +1669,7 @@
                 const which = removeRule.dataset.list;
                 updateHeavySetting(cfg => {
                     if (which === 'never') cfg.neverGamePaths = cfg.neverGamePaths.filter(p => !samePath(p, path));
+                    else if (which === 'priority') cfg.priorityApplicationPaths = cfg.priorityApplicationPaths.filter(p => !samePath(p, path));
                     else cfg.alwaysGamePaths = cfg.alwaysGamePaths.filter(p => !samePath(p, path));
                 });
                 return;

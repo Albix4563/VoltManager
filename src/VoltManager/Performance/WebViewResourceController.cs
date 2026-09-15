@@ -33,6 +33,8 @@ public sealed class WebViewResourceController
                 TimeSpan.FromSeconds(5), true, true, false, false, Timeout.InfiniteTimeSpan),
             ResourceProfile.Gaming => new WebViewResourcePlan(
                 TimeSpan.FromSeconds(3), true, true, false, true, TimeSpan.FromSeconds(10)),
+            ResourceProfile.Workload => new WebViewResourcePlan(
+                TimeSpan.FromSeconds(3), true, true, false, true, TimeSpan.FromSeconds(10)),
             ResourceProfile.Balanced => new WebViewResourcePlan(
                 TimeSpan.FromSeconds(2), true, true, false, true, TimeSpan.FromSeconds(6)),
             _ => new WebViewResourcePlan(

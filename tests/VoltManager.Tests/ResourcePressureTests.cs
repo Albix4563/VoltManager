@@ -160,6 +160,35 @@ public sealed class ResourcePressureTests
     }
 
     [Fact]
+    public void Workload_UsesProtectedProfile_AndFifteenSecondCooldown()
+    {
+        var coordinator = new ResourcePressureCoordinator(8);
+        var t0 = DateTime.UnixEpoch;
+
+        var active = coordinator.Observe(Metrics(), gameActive: false, workloadActive: true, t0);
+        Assert.Equal(ResourceProfile.Workload, active.Profile);
+        Assert.True(active.WorkloadActive);
+        Assert.True(active.ProtectedWorkloadActive);
+        Assert.False(active.GameActive);
+
+        Assert.Equal(ResourceProfile.Workload,
+            coordinator.Observe(Metrics(), false, false, t0.AddSeconds(14)).Profile);
+        var released = coordinator.Observe(Metrics(), false, false, t0.AddSeconds(15));
+        Assert.Equal(ResourceProfile.Full, released.Profile);
+        Assert.False(released.ProtectedWorkloadActive);
+    }
+
+    [Fact]
+    public void Game_HasPriorityOverWorkload()
+    {
+        var coordinator = new ResourcePressureCoordinator(8);
+        var state = coordinator.Observe(Metrics(), gameActive: true, workloadActive: true, DateTime.UnixEpoch);
+        Assert.Equal(ResourceProfile.Gaming, state.Profile);
+        Assert.True(state.GameActive);
+        Assert.False(state.WorkloadActive);
+    }
+
+    [Fact]
     public void UiVisibility_IsStateOnly_AndDoesNotChangeSafetyProfile()
     {
         var coordinator = new ResourcePressureCoordinator(8);
@@ -173,6 +202,7 @@ public sealed class ResourcePressureTests
     [InlineData(ResourceProfile.Full, 1, true, true)]
     [InlineData(ResourceProfile.Balanced, 2, true, true)]
     [InlineData(ResourceProfile.Gaming, 3, true, true)]
+    [InlineData(ResourceProfile.Workload, 3, true, true)]
     [InlineData(ResourceProfile.Critical, 5, true, false)]
     public void WebViewPolicy_MapsProfilesToElasticCadence(
         ResourceProfile profile,

@@ -23,6 +23,7 @@ public partial class MainWindow : Window
     private readonly bool _justUpdated;
     private System.Threading.Timer? _autoUpdateTimer;
     private int _autoUpdateCheckRunning;
+    private bool _autoUpdateCheckDeferredForProtectedWorkload;
     private bool _updatePromptOpen;
     private readonly GamingModeReminderService _gamingReminder = new();
     private int _gamingReminderPromptRunning;
@@ -527,6 +528,13 @@ public partial class MainWindow : Window
             var autoUpdates = _app.Settings.Current.AutoUpdates;
             if (!UpdateSchedulePolicy.IsAutomaticCheckAllowed(autoUpdates, DateTime.UtcNow)) return;
 
+            if (_app.IsHeavyAppSessionActive())
+            {
+                _autoUpdateCheckDeferredForProtectedWorkload = true;
+                Logger.Info("Automatic update check deferred: protected workload active.");
+                return;
+            }
+
             var info = await _app.Updates.CheckForUpdatesAsync();
             if (!info.UpdateAvailable || string.IsNullOrWhiteSpace(info.DownloadUrl)) return;
             if (IsUpdateSuppressed(info, respectSnooze: true)) return;
@@ -562,18 +570,30 @@ public partial class MainWindow : Window
     {
         // ActivityChanged may fire from the detection timer thread.
         if (state.Active) return;
-        if (!_app.HasDeferredUpdate()) return;
+        _ = Dispatcher.InvokeAsync(ResumeDeferredUpdateWorkAsync);
+    }
 
-        _ = Dispatcher.InvokeAsync(async () =>
+    private void ResumeDeferredUpdateWorkAfterProtectedSession(VoltManager.Performance.ResourcePressureState state)
+    {
+        if (state.ProtectedWorkloadActive) return;
+        _ = Dispatcher.InvokeAsync(ResumeDeferredUpdateWorkAsync);
+    }
+
+    private async Task ResumeDeferredUpdateWorkAsync()
+    {
+        if (_app.IsHeavyAppSessionActive()) return;
+
+        string? url = _app.TakeDeferredUpdateUrl();
+        if (!string.IsNullOrWhiteSpace(url))
         {
-            // Re-check on the UI thread: another scan may have reactivated the session.
-            if (_app.IsHeavyAppSessionActive()) return;
-            string? url = _app.TakeDeferredUpdateUrl();
-            if (string.IsNullOrWhiteSpace(url)) return;
-
-            Logger.Info("Game/heavy app session ended — installing deferred update.");
+            Logger.Info("Protected workload ended — installing deferred update.");
             await DownloadAndInstallUpdateAsync(url);
-        });
+            return;
+        }
+
+        if (!_autoUpdateCheckDeferredForProtectedWorkload) return;
+        _autoUpdateCheckDeferredForProtectedWorkload = false;
+        await RunAutoUpdateCheckAsync();
     }
 
     private bool IsUpdateSuppressed(UpdateInfo info, bool respectSnooze)

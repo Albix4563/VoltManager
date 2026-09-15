@@ -66,14 +66,14 @@
   function applyResourceProfile(state) {
     if (!state) return;
     const candidate = String(state.profile || 'full').toLowerCase();
-    const profile = ['full', 'balanced', 'gaming', 'critical'].includes(candidate)
+    const profile = ['full', 'balanced', 'gaming', 'workload', 'critical'].includes(candidate)
       ? candidate
       : 'full';
     const previous = document.documentElement.dataset.resourceProfile || '';
     document.documentElement.dataset.resourceProfile = profile;
     window.VoltResourceProfile = Object.assign({}, state, { profile });
 
-    resourceLite = profile === 'gaming' || profile === 'critical';
+    resourceLite = profile === 'gaming' || profile === 'workload' || profile === 'critical';
     syncEffectiveLite();
     if (resourceLite && window.VoltFx && window.VoltFx.stopMotion) window.VoltFx.stopMotion();
 
