@@ -25,6 +25,7 @@ public sealed record ResourcePressureState
     public bool UiVisible { get; init; } = true;
     public double CpuPercent { get; init; }
     public double GpuPercent { get; init; }
+    public double? VramPercent { get; init; }
     public double RamPercent { get; init; }
     public string Reason { get; init; } = "normal";
     public DateTime EvaluatedAtUtc { get; init; } = DateTime.UtcNow;

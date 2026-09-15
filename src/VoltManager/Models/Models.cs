@@ -40,6 +40,24 @@ public record MetricsSnapshot
     [JsonPropertyName("ramClock")] public double? RamClock { get; init; }
     [JsonPropertyName("sensorsAvailable")] public bool SensorsAvailable { get; init; }
     [JsonPropertyName("sensors")] public List<SensorReading> Sensors { get; init; } = new();
+    [JsonPropertyName("vram")] public VramMemorySnapshot? Vram { get; init; }
+}
+
+public record VramMemorySnapshot
+{
+    [JsonPropertyName("available")] public bool Available { get; init; }
+    [JsonPropertyName("pressurePercent")] public double? PressurePercent { get; init; }
+    [JsonPropertyName("timestampUtc")] public DateTime? TimestampUtc { get; init; }
+    [JsonPropertyName("adapters")] public List<VramAdapterMemorySample> Adapters { get; init; } = new();
+}
+
+public record VramAdapterMemorySample
+{
+    [JsonPropertyName("adapter")] public string Adapter { get; init; } = "";
+    [JsonPropertyName("usedBytes")] public long UsedBytes { get; init; }
+    [JsonPropertyName("capacityBytes")] public long CapacityBytes { get; init; }
+    [JsonPropertyName("pressurePercent")] public double PressurePercent { get; init; }
+    [JsonPropertyName("timestampUtc")] public DateTime TimestampUtc { get; init; }
 }
 
 public record SensorReading

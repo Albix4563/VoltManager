@@ -10,7 +10,8 @@ public sealed class ResourcePressureTests
         double gpu = 20,
         double ram = 50,
         double ramTotal = 32,
-        bool gpuAvailable = true)
+        bool gpuAvailable = true,
+        VramMemorySnapshot? vram = null)
         => new()
         {
             Cpu = cpu,
@@ -18,7 +19,11 @@ public sealed class ResourcePressureTests
             GpuAvailable = gpuAvailable,
             RamPct = ram,
             RamTotalGb = ramTotal,
+            Vram = vram,
         };
+
+    private static VramMemorySnapshot Vram(double pressure, DateTime timestamp)
+        => new() { Available = true, PressurePercent = pressure, TimestampUtc = timestamp };
 
     [Fact]
     public void IdleCapableMachine_UsesFullProfile()
@@ -157,6 +162,36 @@ public sealed class ResourcePressureTests
             coordinator.Observe(Metrics(), false, t0.AddSeconds(10)).Profile);
         Assert.Equal(ResourceProfile.Full,
             coordinator.Observe(Metrics(), false, t0.AddSeconds(16)).Profile);
+    }
+
+    [Fact]
+    public void VramPressure_UsesFiveSecondEntryAndFifteenSecondExitHysteresis()
+    {
+        var coordinator = new ResourcePressureCoordinator(8);
+        var t0 = DateTime.UnixEpoch;
+
+        Assert.Equal(ResourceProfile.Full,
+            coordinator.Observe(Metrics(vram: Vram(93, t0)), false, t0).Profile);
+        var critical = coordinator.Observe(Metrics(vram: Vram(93, t0.AddSeconds(5))), false, t0.AddSeconds(5));
+        Assert.Equal(ResourceProfile.Critical, critical.Profile);
+        Assert.Equal("vram_pressure", critical.Reason);
+        Assert.Equal(93, critical.VramPercent);
+
+        Assert.Equal(ResourceProfile.Critical,
+            coordinator.Observe(Metrics(vram: Vram(84, t0.AddSeconds(6))), false, t0.AddSeconds(6)).Profile);
+        Assert.Equal(ResourceProfile.Full,
+            coordinator.Observe(Metrics(vram: Vram(84, t0.AddSeconds(21))), false, t0.AddSeconds(21)).Profile);
+    }
+
+    [Fact]
+    public void StaleVramSample_IsUnavailableForPressureDecisions()
+    {
+        var coordinator = new ResourcePressureCoordinator(8);
+        var t0 = DateTime.UnixEpoch;
+        var state = coordinator.Observe(Metrics(vram: Vram(99, t0)), false, t0.AddSeconds(16));
+
+        Assert.Equal(ResourceProfile.Full, state.Profile);
+        Assert.Null(state.VramPercent);
     }
 
     [Fact]

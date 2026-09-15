@@ -7,11 +7,14 @@ public static class ResourcePressurePolicy
 {
     public const double CriticalRamEnterPct = 92;
     public const double CriticalRamExitPct = 85;
+    public const double CriticalVramEnterPct = 92;
+    public const double CriticalVramExitPct = 85;
     public const double CriticalCpuPct = 95;
     public const double CriticalGpuPct = 95;
 
     public static readonly TimeSpan CriticalEnterDelay = TimeSpan.FromSeconds(5);
     public static readonly TimeSpan CriticalExitDelay = TimeSpan.FromSeconds(15);
+    public static readonly TimeSpan VramSampleMaxAge = TimeSpan.FromSeconds(15);
     public static readonly TimeSpan GameExitCooldown = TimeSpan.FromSeconds(15);
     public static readonly TimeSpan ProtectedWorkloadExitCooldown = TimeSpan.FromSeconds(15);
 

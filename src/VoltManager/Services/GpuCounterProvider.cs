@@ -10,7 +10,7 @@ namespace VoltManager.Services;
 public class GpuCounterProvider : IDisposable
 {
     private static readonly TimeSpan SampleInterval = TimeSpan.FromSeconds(2);
-    private List<PerformanceCounter>? _counters;
+    private Dictionary<string, PerformanceCounter>? _counters;
     private DateTime _lastRefresh = DateTime.MinValue;
     private DateTime _lastSampleUtc = DateTime.MinValue;
     private double _lastValue;
@@ -63,17 +63,25 @@ public class GpuCounterProvider : IDisposable
     {
         try
         {
-            DisposeCounters();
             var category = new PerformanceCounterCategory("GPU Engine");
             // engtype_3D + High Priority 3D (WDDM 2.x). Compute-only loads still
             // show under 3D on most drivers; avoid summing every engine type.
             var instances = category.GetInstanceNames()
                 .Where(IsGpu3DEngine)
                 .ToArray();
-            _counters = instances
-                .Select(i => new PerformanceCounter("GPU Engine", "Utilization Percentage", i, readOnly: true))
-                .ToList();
-            foreach (var c in _counters) c.NextValue(); // prime
+            _counters ??= new Dictionary<string, PerformanceCounter>(StringComparer.OrdinalIgnoreCase);
+            var current = instances.ToHashSet(StringComparer.OrdinalIgnoreCase);
+            foreach (string removed in _counters.Keys.Where(instance => !current.Contains(instance)).ToArray())
+            {
+                _counters[removed].Dispose();
+                _counters.Remove(removed);
+            }
+            foreach (string added in current.Where(instance => !_counters.ContainsKey(instance)))
+            {
+                var counter = new PerformanceCounter("GPU Engine", "Utilization Percentage", added, readOnly: true);
+                counter.NextValue();
+                _counters.Add(added, counter);
+            }
             GpuAvailable = _counters.Count > 0;
             _lastRefresh = DateTime.UtcNow;
         }
@@ -102,13 +110,14 @@ public class GpuCounterProvider : IDisposable
         bool anyFailed = false;
         // Same pass feeds the per-process map: the PID is already in the instance name.
         var byPid = new Dictionary<int, double>();
-        foreach (var c in _counters)
+        foreach (var pair in _counters)
         {
             try
             {
+                var c = pair.Value;
                 float value = c.NextValue();
                 sum += value;
-                AccumulatePerProcess(byPid, c.InstanceName, value);
+                AccumulatePerProcess(byPid, pair.Key, value);
             }
             catch (Exception ex) { anyFailed = true; _readFaulted = Logger.WarnOnce(_readFaulted, "GPU counter read failed", ex); }
         }
@@ -125,7 +134,7 @@ public class GpuCounterProvider : IDisposable
     private void DisposeCounters()
     {
         if (_counters == null) return;
-        foreach (var c in _counters) c.Dispose();
+        foreach (var c in _counters.Values) c.Dispose();
         _counters = null;
     }
 

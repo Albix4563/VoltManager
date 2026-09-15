@@ -121,6 +121,7 @@ public partial class MainWindow
             workloadActive = state.WorkloadActive,
             protectedWorkloadActive = state.ProtectedWorkloadActive,
             uiVisible = state.UiVisible,
+            vramPercent = state.VramPercent,
             metricsIntervalMs = plan.PublishMetrics ? (int)plan.MetricsInterval.TotalMilliseconds : 0,
             allowProcessPolling = plan.AllowProcessPolling,
             processPollingIntervalMs = plan.AllowProcessPolling

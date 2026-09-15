@@ -57,6 +57,8 @@ public sealed class ResourcePressureCoordinator
             var baseline = ResourcePressurePolicy.BaselineProfile(metrics.RamTotalGb, _logicalCores);
             bool memoryCritical = metrics.RamPct >= ResourcePressurePolicy.CriticalRamEnterPct;
             bool extremeSystemLoad = ResourcePressurePolicy.IsExtremeSystemLoad(metrics);
+            double? vramPercent = FreshVramPressure(metrics.Vram, now);
+            bool vramCritical = vramPercent >= ResourcePressurePolicy.CriticalVramEnterPct;
             ResourceProfile profile;
             string reason;
 
@@ -69,7 +71,8 @@ public sealed class ResourcePressureCoordinator
             }
             else if (_current.Profile == ResourceProfile.Critical)
             {
-                bool clear = metrics.RamPct <= ResourcePressurePolicy.CriticalRamExitPct && !extremeSystemLoad;
+                bool vramClear = vramPercent == null || vramPercent < ResourcePressurePolicy.CriticalVramExitPct;
+                bool clear = metrics.RamPct <= ResourcePressurePolicy.CriticalRamExitPct && !extremeSystemLoad && vramClear;
                 if (clear)
                 {
                     _criticalClearSinceUtc ??= now;
@@ -89,12 +92,14 @@ public sealed class ResourcePressureCoordinator
                 {
                     _criticalClearSinceUtc = null;
                     profile = ResourceProfile.Critical;
-                    reason = extremeSystemLoad
+                    reason = vramPercent >= ResourcePressurePolicy.CriticalVramExitPct
+                        ? "vram_pressure"
+                        : extremeSystemLoad
                         ? LoadReason(effectiveGameActive, effectiveWorkloadActive)
                         : "memory_pressure";
                 }
             }
-            else if (extremeSystemLoad)
+            else if (extremeSystemLoad || vramCritical)
             {
                 _criticalCandidateSinceUtc ??= now;
                 if (now - _criticalCandidateSinceUtc >= ResourcePressurePolicy.CriticalEnterDelay)
@@ -102,7 +107,7 @@ public sealed class ResourcePressureCoordinator
                     _criticalCandidateSinceUtc = null;
                     _criticalClearSinceUtc = null;
                     profile = ResourceProfile.Critical;
-                    reason = LoadReason(effectiveGameActive, effectiveWorkloadActive);
+                    reason = vramCritical ? "vram_pressure" : LoadReason(effectiveGameActive, effectiveWorkloadActive);
                 }
                 else
                 {
@@ -126,6 +131,7 @@ public sealed class ResourcePressureCoordinator
                 ProtectedWorkloadActive = effectiveGameActive || effectiveWorkloadActive,
                 CpuPercent = metrics.Cpu,
                 GpuPercent = metrics.Gpu,
+                VramPercent = vramPercent,
                 RamPercent = metrics.RamPct,
                 Reason = reason,
                 EvaluatedAtUtc = now,
@@ -174,6 +180,14 @@ public sealed class ResourcePressureCoordinator
 
     private static string LoadReason(bool gameActive, bool workloadActive)
         => gameActive ? "game_load" : workloadActive ? "workload_load" : "system_load";
+
+    private static double? FreshVramPressure(VramMemorySnapshot? vram, DateTime nowUtc)
+    {
+        if (vram?.Available != true || vram.PressurePercent is not double pressure ||
+            vram.TimestampUtc is not DateTime timestamp || nowUtc - timestamp > ResourcePressurePolicy.VramSampleMaxAge)
+            return null;
+        return pressure;
+    }
 
     private static string BaselineReason(ResourceProfile profile)
         => profile == ResourceProfile.Balanced ? "hardware_tier" : "normal";

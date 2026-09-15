@@ -14,6 +14,7 @@ public class MonitorService : IDisposable
     private PerformanceCounter? _cpuFreqCounter;
     private PerformanceCounter? _cpuPerfCounter;
     private readonly GpuCounterProvider _gpu;
+    private readonly VramCounterProvider _vram;
     private readonly HardwareSensorProvider _sensors;
     private readonly double _ramTotalGb;
     private readonly TimeSpan _processPollingInterval;
@@ -76,6 +77,7 @@ public class MonitorService : IDisposable
             ? 10
             : _ramTotalGb < 16 || cores <= 4 ? 6 : 3);
         _gpu = new GpuCounterProvider();
+        _vram = new VramCounterProvider();
         _sensors = new HardwareSensorProvider(hardwareAccess);
         // PERFLIB can block for seconds on a cold Windows boot. Metrics degrade to zero
         // until the counters are ready, just like the existing GPU/clock providers.
@@ -202,6 +204,7 @@ public class MonitorService : IDisposable
             double cpu = SafeRead(_cpuCounter);
             double disk = Math.Min(100, SafeRead(_diskCounter));
             double gpu = _gpu.Read();
+            var vram = _vram.Read();
             var (usedGb, pct) = ReadRam();
             var sensors = _sensors.Read();
 
@@ -224,6 +227,7 @@ public class MonitorService : IDisposable
                 RamClock = finalRamClock,
                 SensorsAvailable = _sensors.Available,
                 Sensors = sensors.Readings,
+                Vram = vram,
             };
             MetricsUpdated?.Invoke(Latest);
 
@@ -422,6 +426,7 @@ public class MonitorService : IDisposable
             _cpuPerfCounter = null;
         }
         _gpu.Dispose();
+        _vram.Dispose();
         _sensors.Dispose();
     }
 }
