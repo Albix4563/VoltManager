@@ -73,7 +73,7 @@
     document.documentElement.dataset.resourceProfile = profile;
     window.VoltResourceProfile = Object.assign({}, state, { profile });
 
-    resourceLite = profile === 'gaming' || profile === 'workload' || profile === 'critical';
+    resourceLite = !!state.reducedEffects || profile === 'gaming' || profile === 'workload' || profile === 'critical';
     syncEffectiveLite();
     if (resourceLite && window.VoltFx && window.VoltFx.stopMotion) window.VoltFx.stopMotion();
 

@@ -34,6 +34,7 @@ public partial class App : Application
     public StartupService AutoStart { get; private set; } = null!;
     public AutomationEngine Automation { get; private set; } = null!;
     public HeavyAppDetectionService HeavyApps { get; private set; } = null!;
+    public ProtectedFullscreenCoverageService FullscreenCoverage { get; private set; } = null!;
     public AppPowerProfileService AppProfiles { get; private set; } = null!;
     public PowerSourcePlanService PowerSourcePlans { get; private set; } = null!;
     public ThermalGuardService ThermalGuard { get; private set; } = null!;
@@ -170,8 +171,19 @@ public partial class App : Application
         Updates = new UpdateService(Settings);
         AutoStart = new StartupService();
         Automation = new AutomationEngine();
-        Settings.SettingsChanged += _ => UpdateSamplingPeriod();
+        Settings.SettingsChanged += _ =>
+        {
+            UpdateSamplingPeriod();
+            RefreshHardwareSamplingDemand();
+        };
         HeavyApps = new HeavyAppDetectionService(Settings, Monitor.ReadGpu3DByProcess);
+        FullscreenCoverage = new ProtectedFullscreenCoverageService(() =>
+        {
+            HeavyAppDetectionState state = HeavyApps.Current;
+            if (!state.ProtectedWorkloadActive) return new HashSet<int>();
+            return state.ActiveProcesses.Select(process => process.ProcessId).ToHashSet();
+        });
+        FullscreenCoverage.Start();
         AppProfiles = new AppPowerProfileService(Settings);
         PowerSourcePlans = new PowerSourcePlanService(Settings);
         ThermalGuard = new ThermalGuardService(Settings);
@@ -1122,6 +1134,7 @@ public partial class App : Application
         SafeCleanup("power mode handler", () => SystemEvents.PowerModeChanged -= OnSystemPowerModeChanged);
         SafeCleanup("monitor", Monitor.Dispose);
         SafeCleanup("hardware access", HardwareAccess.Dispose);
+        SafeCleanup("fullscreen coverage", FullscreenCoverage.Dispose);
         SafeCleanup("heavy apps", HeavyApps.Dispose);
         SafeCleanup("app profiles", AppProfiles.Dispose);
         SafeCleanup("keep awake", Awake.Dispose);

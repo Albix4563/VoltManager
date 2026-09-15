@@ -34,6 +34,8 @@ public partial class MainWindow : Window
     private readonly bool _startMinimized;
     private bool _webViewReady;
     private int _webViewInitRunning;
+    private int _webViewSuspendRunning;
+    private int _webViewSuspendGeneration;
     private System.Threading.Timer? _trayTeardownTimer;
     // Stable document version for HTTP/V8 code cache across tray reopens (not wall-clock).
     private static readonly string AppDocumentVersion =
@@ -334,7 +336,7 @@ public partial class MainWindow : Window
 
     private void UpdateWebViewVisibility()
     {
-        bool visible = IsVisible && WindowState != WindowState.Minimized;
+        bool visible = IsVisible && WindowState != WindowState.Minimized && !_adaptiveFullscreenCovered;
         if (_webViewVisible == visible) return;
         _webViewVisible = visible;
         // TrySuspendAsync requires an invisible controller, including taskbar minimize.
@@ -735,27 +737,40 @@ public partial class MainWindow : Window
 
     private async void TrySuspendWebView()
     {
+        if (Interlocked.Exchange(ref _webViewSuspendRunning, 1) != 0)
+            return;
+        int generation = Interlocked.Increment(ref _webViewSuspendGeneration);
         try
         {
             var core = WebView.CoreWebView2;
             if (core == null || _webViewVisible) return;
-            await core.TrySuspendAsync();
+            // WebView2 requires the controller to be invisible before suspension.
+            WebView.Visibility = Visibility.Hidden;
+            bool suspended = await core.TrySuspendAsync();
+            if (!suspended && !_webViewVisible)
+                Logger.Info("WebView2 declined suspension for the dashboard.");
             // A restore can overtake an in-flight suspend. The visible document must win.
-            if (_webViewVisible) core.Resume();
+            if (_webViewVisible || (generation != Volatile.Read(ref _webViewSuspendGeneration) && _webViewVisible))
+                core.Resume();
         }
         catch (Exception ex) { Logger.Warn("WebView TrySuspend failed: " + ex.Message); }
+        finally { Interlocked.Exchange(ref _webViewSuspendRunning, 0); }
     }
 
     private void ResumeWebView()
     {
         if (!_webViewVisible) return;
+        Interlocked.Increment(ref _webViewSuspendGeneration);
         try
         {
+            WebView.Visibility = Visibility.Visible;
             var core = WebView.CoreWebView2;
             core?.Resume();
             if (_webViewReady && core != null &&
                 (string.IsNullOrEmpty(core.Source) || core.Source.StartsWith("about:", StringComparison.OrdinalIgnoreCase)))
                 NavigateToAppDocument(core);
+            PublishFreshAdaptiveStateAfterResume();
+            _app.RefreshHardwareSamplingDemand(requestFresh: true);
         }
         catch (Exception ex) { Logger.Warn("WebView restore failed: " + ex.Message); }
     }

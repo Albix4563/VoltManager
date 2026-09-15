@@ -15,6 +15,7 @@
     let powerTimer = null;
     let powerPolling = false;
     let resourceProfile = 'full';
+    let resourceReducedEffects = false;
     let locale = (window.I18n && I18n.getLocale ? I18n.getLocale() : 'it-IT');
     document.documentElement.dataset.size = size;
 
@@ -286,7 +287,8 @@
         if (type !== 'power' || document.hidden) return;
         pollPower();
         powerTimer = setInterval(pollPower,
-            resourceProfile === 'critical' ? 15000 : resourceProfile === 'gaming' ? 10000 : 5000);
+            resourceProfile === 'critical' ? 15000 :
+            (resourceProfile === 'gaming' || resourceProfile === 'workload') ? 10000 : 5000);
     }
 
     async function pollPlan() {
@@ -492,9 +494,13 @@
     if (type === 'plans') Host.on('activePlanChanged', data => reflectPlanSelector(data && data.plan));
     Host.on('resourceProfileChanged', state => {
         const profile = state && state.profile;
-        if (!['full', 'balanced', 'gaming', 'workload', 'critical'].includes(profile) || profile === resourceProfile) return;
+        if (!['full', 'balanced', 'gaming', 'workload', 'critical'].includes(profile)) return;
+        const reducedEffects = !!(state && state.reducedEffects);
+        if (profile === resourceProfile && reducedEffects === resourceReducedEffects) return;
         resourceProfile = profile;
+        resourceReducedEffects = reducedEffects;
         document.documentElement.dataset.resourceProfile = profile;
+        document.documentElement.dataset.perf = reducedEffects ? 'lite' : 'full';
         syncPowerPolling();
     });
     document.addEventListener('visibilitychange', () => {

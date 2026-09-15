@@ -30,7 +30,27 @@ public partial class App
             ResourcePressure.Observe(Monitor.Latest, HeavyApps.Current.GameActive, HeavyApps.Current.WorkloadActive);
 
         _mainWindow.InitializeAdaptiveResourceManagement();
+        RefreshHardwareSamplingDemand(requestFresh: true);
         Logger.Info("Adaptive resource management initialized.");
+    }
+
+    internal void RefreshHardwareSamplingDemand(bool requestFresh = false)
+    {
+        if (Monitor == null || Settings == null) return;
+
+        bool mainVisible = _mainWindow?.HasVisibleResourceSurface == true;
+        bool widgetsVisible = Widgets?.HasVisibleResourceConsumers == true;
+        bool visualDetails = mainVisible || widgetsVisible;
+        bool thermalProtection = Settings.Current.ThermalGuard?.Enabled == true;
+        bool gpuProcessDetection = Settings.Current.HeavyAppDetection?.Enabled == true;
+
+        Monitor.SetSamplingDemand(new MonitorSamplingDemand(
+            visualDetails,
+            thermalProtection,
+            gpuProcessDetection));
+
+        if (requestFresh && visualDetails)
+            Monitor.RequestForegroundRefresh();
     }
 
     private void OnAdaptiveResourceMetrics(MetricsSnapshot metrics)
@@ -49,6 +69,7 @@ public partial class App
     private void OnAdaptiveHeavyAppActivityChanged(HeavyAppDetectionState state)
     {
         StandbyAutoCleaner.ResetAutomaticCandidate();
+        FullscreenCoverage?.NotifyProtectedProcessesChanged();
         if (Monitor.Latest.RamTotalGb <= 0) return;
         try
         {

@@ -47,14 +47,14 @@ public sealed class VramCounterProvider : IDisposable
         }
     }
 
-    public VramMemorySnapshot Read()
+    public VramMemorySnapshot Read(bool force = false)
     {
         if (!_ready) return new VramMemorySnapshot();
         lock (_gate)
         {
             if (_disposed) return new VramMemorySnapshot();
             DateTime now = DateTime.UtcNow;
-            if (_lastSampleUtc != DateTime.MinValue && now - _lastSampleUtc < SampleInterval)
+            if (!force && _lastSampleUtc != DateTime.MinValue && now - _lastSampleUtc < SampleInterval)
                 return _last;
 
             if (now - _lastRefreshUtc >= CounterRefreshInterval)

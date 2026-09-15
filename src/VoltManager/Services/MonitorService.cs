@@ -6,6 +6,11 @@ using VoltManager.Performance;
 
 namespace VoltManager.Services;
 
+public readonly record struct MonitorSamplingDemand(
+    bool VisualDetails,
+    bool ThermalProtection,
+    bool GpuProcessDetection);
+
 /// <summary>Configurable metrics loop on a background timer. Degrades per-metric on counter failure.</summary>
 public class MonitorService : IDisposable
 {
@@ -31,7 +36,12 @@ public class MonitorService : IDisposable
     private double? _cachedRamClock;
     private DateTime _nextCpuClockRefreshUtc;
     private DateTime _nextRamClockRefreshUtc;
+    private DateTime? _lastDiskSampleUtc;
     private volatile bool _cpuInfoReady;
+    private int _visualDetailsRequested = 1;
+    private int _thermalProtectionRequested;
+    private int _gpuProcessDetectionRequested = 1;
+    private int _foregroundRefreshRequested;
     private bool _disposed;
     private readonly object _cpuInfoGate = new();
 
@@ -51,6 +61,10 @@ public class MonitorService : IDisposable
 
     public event Action<MetricsSnapshot>? MetricsUpdated;
     public MetricsSnapshot Latest { get; private set; } = new();
+    public MonitorSamplingDemand SamplingDemand => new(
+        Volatile.Read(ref _visualDetailsRequested) != 0,
+        Volatile.Read(ref _thermalProtectionRequested) != 0,
+        Volatile.Read(ref _gpuProcessDetectionRequested) != 0);
 
     // The monitor tick is user-configurable and can run slower than the 5s heavy-app scan.
     // Past this age the per-process GPU map is dropped rather than reused stale.
@@ -184,6 +198,27 @@ public class MonitorService : IDisposable
         _timer?.Change(_interval, _interval);
     }
 
+    public void SetSamplingDemand(MonitorSamplingDemand demand)
+    {
+        bool wasVisual = Volatile.Read(ref _visualDetailsRequested) != 0;
+        Volatile.Write(ref _visualDetailsRequested, demand.VisualDetails ? 1 : 0);
+        Volatile.Write(ref _thermalProtectionRequested, demand.ThermalProtection ? 1 : 0);
+        Volatile.Write(ref _gpuProcessDetectionRequested, demand.GpuProcessDetection ? 1 : 0);
+        if (demand.VisualDetails && !wasVisual) RequestForegroundRefresh();
+    }
+
+    public void RequestForegroundRefresh()
+        => Interlocked.Exchange(ref _foregroundRefreshRequested, 1);
+
+    internal static HardwareSampleRequest ResolveHardwareSampleRequest(MonitorSamplingDemand demand)
+    {
+        if (demand.VisualDetails)
+            return new HardwareSampleRequest(true, true, TimeSpan.FromSeconds(2));
+        if (demand.ThermalProtection)
+            return new HardwareSampleRequest(true, false, TimeSpan.FromSeconds(2));
+        return new HardwareSampleRequest(true, true, TimeSpan.FromSeconds(10));
+    }
+
     private static TimeSpan NormalizeInterval(TimeSpan interval)
     {
         var min = TimeSpan.FromSeconds(CpuAutomationSettings.MinSampleIntervalSeconds);
@@ -201,32 +236,53 @@ public class MonitorService : IDisposable
         if (Interlocked.Exchange(ref _tickRunning, 1) == 1) return;
         try
         {
+            DateTime nowUtc = DateTime.UtcNow;
+            MonitorSamplingDemand demand = SamplingDemand;
+            bool forceAccessoryRefresh = demand.VisualDetails
+                && Interlocked.Exchange(ref _foregroundRefreshRequested, 0) != 0;
             double cpu = SafeRead(_cpuCounter);
-            double disk = Math.Min(100, SafeRead(_diskCounter));
-            double gpu = _gpu.Read();
-            var vram = _vram.Read();
+            double disk = Latest.Disk;
+            if (demand.VisualDetails)
+            {
+                disk = Math.Min(100, SafeRead(_diskCounter));
+                _lastDiskSampleUtc = nowUtc;
+            }
+            TimeSpan gpuInterval = demand.GpuProcessDetection
+                ? TimeSpan.FromSeconds(2)
+                : TimeSpan.FromSeconds(5);
+            double gpu = _gpu.Read(gpuInterval, demand.GpuProcessDetection, forceAccessoryRefresh);
+            var vram = _vram.Read(forceAccessoryRefresh);
             var (usedGb, pct) = ReadRam();
-            var sensors = _sensors.Read();
+            var sensors = _sensors.Read(ResolveHardwareSampleRequest(demand), forceAccessoryRefresh);
 
-            double? finalCpuClock = sensors.CpuClock ?? ReadCpuClockFallback();
-            double? finalRamClock = sensors.RamClock ?? ReadRamClockWmi();
+            double? finalCpuClock = demand.VisualDetails
+                ? sensors.CpuClock ?? ReadCpuClockFallback()
+                : null;
+            double? finalRamClock = demand.VisualDetails
+                ? sensors.RamClock ?? ReadRamClockWmi()
+                : null;
 
             Latest = new MetricsSnapshot
             {
-                TimestampUtc = DateTime.UtcNow,
+                TimestampUtc = nowUtc,
                 Cpu = Math.Round(cpu, 1),
                 Gpu = gpu,
                 GpuAvailable = _gpu.GpuAvailable,
+                GpuSampledAtUtc = _gpu.SampledAtUtc,
                 RamPct = Math.Round(pct, 1),
                 RamUsedGb = Math.Round(usedGb, 1),
                 RamTotalGb = _ramTotalGb,
                 Disk = Math.Round(disk, 1),
+                DiskAvailable = demand.VisualDetails && _diskCounter != null,
+                DiskSampledAtUtc = _lastDiskSampleUtc,
                 CpuTemp = sensors.CpuTemp,
                 GpuTemp = sensors.GpuTemp,
                 CpuClock = finalCpuClock,
                 RamClock = finalRamClock,
                 SensorsAvailable = _sensors.Available,
-                Sensors = sensors.Readings,
+                SensorSampledAtUtc = sensors.SampledAtUtc,
+                SensorDetailsAvailable = demand.VisualDetails && sensors.DetailsAvailable,
+                Sensors = demand.VisualDetails ? sensors.Readings : new List<SensorReading>(),
                 Vram = vram,
             };
             MetricsUpdated?.Invoke(Latest);

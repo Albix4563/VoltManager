@@ -6,7 +6,8 @@ public sealed record WebViewResourcePlan(
     bool LowMemoryTarget,
     bool SuspendRenderer,
     bool AllowProcessPolling,
-    TimeSpan ProcessPollingInterval);
+    TimeSpan ProcessPollingInterval,
+    bool ReducedEffects);
 
 /// <summary>
 /// Single source of truth for WebView elastic-work policy. It deliberately does not
@@ -14,7 +15,7 @@ public sealed record WebViewResourcePlan(
 /// </summary>
 public sealed class WebViewResourceController
 {
-    public WebViewResourcePlan Resolve(ResourceProfile profile, bool visible)
+    public WebViewResourcePlan Resolve(ResourceProfile profile, bool visible, bool active = true)
     {
         if (!visible)
         {
@@ -24,21 +25,26 @@ public sealed class WebViewResourceController
                 LowMemoryTarget: true,
                 SuspendRenderer: true,
                 AllowProcessPolling: false,
-                ProcessPollingInterval: Timeout.InfiniteTimeSpan);
+                ProcessPollingInterval: Timeout.InfiniteTimeSpan,
+                ReducedEffects: true);
         }
+
+        if (!active && profile != ResourceProfile.Critical)
+            return new WebViewResourcePlan(
+                TimeSpan.FromSeconds(3), true, true, false, true, TimeSpan.FromSeconds(10), true);
 
         return profile switch
         {
             ResourceProfile.Critical => new WebViewResourcePlan(
-                TimeSpan.FromSeconds(5), true, true, false, false, Timeout.InfiniteTimeSpan),
+                TimeSpan.FromSeconds(5), true, true, false, false, Timeout.InfiniteTimeSpan, true),
             ResourceProfile.Gaming => new WebViewResourcePlan(
-                TimeSpan.FromSeconds(3), true, true, false, true, TimeSpan.FromSeconds(10)),
+                TimeSpan.FromSeconds(3), true, true, false, true, TimeSpan.FromSeconds(10), true),
             ResourceProfile.Workload => new WebViewResourcePlan(
-                TimeSpan.FromSeconds(3), true, true, false, true, TimeSpan.FromSeconds(10)),
+                TimeSpan.FromSeconds(3), true, true, false, true, TimeSpan.FromSeconds(10), true),
             ResourceProfile.Balanced => new WebViewResourcePlan(
-                TimeSpan.FromSeconds(2), true, true, false, true, TimeSpan.FromSeconds(6)),
+                TimeSpan.FromSeconds(2), true, true, false, true, TimeSpan.FromSeconds(6), true),
             _ => new WebViewResourcePlan(
-                TimeSpan.FromSeconds(1), true, true, false, true, TimeSpan.FromSeconds(3)),
+                TimeSpan.FromSeconds(1), true, true, false, true, TimeSpan.FromSeconds(3), false),
         };
     }
 }

@@ -74,11 +74,22 @@ internal static class Program
         return request.Method switch
         {
             "ping" => new { ready = true },
-            "read" => hardware.Read(payload.TryGetProperty("force", out JsonElement force) && force.ValueKind == JsonValueKind.True),
+            "read" => hardware.Read(ReadSampleRequest(payload), payload.TryGetProperty("force", out JsonElement force) && force.ValueKind == JsonValueKind.True),
             "invalidate" => hardware.Invalidate(),
             "shutdown" => new { success = true },
             _ => throw new InvalidOperationException("Unknown hardware service method: " + request.Method),
         };
+    }
+
+    private static HardwareSampleRequestDto ReadSampleRequest(JsonElement payload)
+    {
+        bool temperatures = !payload.TryGetProperty("temperatures", out JsonElement temp) || temp.ValueKind == JsonValueKind.True;
+        bool visualDetails = !payload.TryGetProperty("visualDetails", out JsonElement details) || details.ValueKind == JsonValueKind.True;
+        long intervalMs = payload.TryGetProperty("minimumIntervalMs", out JsonElement interval)
+            && interval.TryGetInt64(out long parsed)
+            ? Math.Clamp(parsed, 0, 60_000)
+            : 2_000;
+        return new HardwareSampleRequestDto(temperatures, visualDetails, TimeSpan.FromMilliseconds(intervalMs));
     }
 
     private static async Task WatchParentAsync(int parentPid, CancellationToken token)
@@ -123,30 +134,34 @@ internal static class Program
 
 internal sealed class HardwareHost : IDisposable
 {
-    private static readonly TimeSpan UpdateInterval = TimeSpan.FromSeconds(2);
     private const int MaxUiSensors = 32;
     private readonly object _gate = new();
     private Computer? _computer;
     private SensorReportDto _last = new();
     private DateTime _lastUpdateUtc = DateTime.MinValue;
+    private HardwareSampleRequestDto _lastRequest;
     private bool _ready;
     private bool _disposed;
 
     public HardwareHost() => Task.Run(Initialize);
 
-    public object Read(bool force)
+    public object Read(HardwareSampleRequestDto request, bool force)
     {
         lock (_gate)
         {
             if (!_ready || _computer == null) return new { available = false, report = _last };
-            RefreshLocked(force);
+            RefreshLocked(request, force);
             return new { available = true, report = _last };
         }
     }
 
     public object Invalidate()
     {
-        lock (_gate) _lastUpdateUtc = DateTime.MinValue;
+        lock (_gate)
+        {
+            _lastUpdateUtc = DateTime.MinValue;
+            _lastRequest = default;
+        }
         return new { success = true };
     }
 
@@ -169,28 +184,30 @@ internal sealed class HardwareHost : IDisposable
                 if (_disposed) { TryClose(computer); return; }
                 _computer = computer;
                 _ready = true;
-                RefreshLocked(true);
+                RefreshLocked(HardwareSampleRequestDto.Full, true);
             }
         }
         catch { }
     }
 
-    private void RefreshLocked(bool force)
+    private void RefreshLocked(HardwareSampleRequestDto request, bool force)
     {
         if (_computer == null) return;
-        if (!force && DateTime.UtcNow - _lastUpdateUtc < UpdateInterval) return;
-        _lastUpdateUtc = DateTime.UtcNow;
+        DateTime nowUtc = DateTime.UtcNow;
+        if (!force && _lastRequest.Covers(request) && nowUtc - _lastUpdateUtc < request.MinimumInterval) return;
+        _lastUpdateUtc = nowUtc;
         var readings = new List<SensorReadingDto>();
         try
         {
             foreach (IHardware hardware in _computer.Hardware)
             {
+                if (!ShouldUpdate(hardware.HardwareType, request)) continue;
                 hardware.Update();
-                Collect(hardware, readings);
+                Collect(hardware, readings, request);
                 foreach (IHardware sub in hardware.SubHardware)
                 {
                     sub.Update();
-                    Collect(sub, readings);
+                    Collect(sub, readings, request);
                 }
             }
             _last = new SensorReportDto
@@ -200,12 +217,18 @@ internal sealed class HardwareHost : IDisposable
                 CpuClock = SelectClock(readings, "cpu"),
                 RamClock = SelectMemoryClock(readings),
                 Readings = CapReadingsForUi(readings),
+                SampledAtUtc = nowUtc,
+                DetailsAvailable = request.VisualDetails,
             };
+            _lastRequest = request;
         }
         catch { }
     }
 
-    private static void Collect(IHardware hardware, List<SensorReadingDto> readings)
+    private static bool ShouldUpdate(HardwareType type, HardwareSampleRequestDto request)
+        => request.VisualDetails || (request.Temperatures && type is HardwareType.Cpu or HardwareType.GpuNvidia or HardwareType.GpuAmd or HardwareType.GpuIntel);
+
+    private static void Collect(IHardware hardware, List<SensorReadingDto> readings, HardwareSampleRequestDto request)
     {
         string category = hardware.HardwareType switch
         {
@@ -221,8 +244,8 @@ internal sealed class HardwareHost : IDisposable
             if (sensor.Value is not { } value || float.IsNaN(value)) continue;
             string type = sensor.SensorType switch
             {
-                SensorType.Temperature => "temp",
-                SensorType.Clock => "clock",
+                SensorType.Temperature when request.Temperatures => "temp",
+                SensorType.Clock when request.VisualDetails => "clock",
                 _ => "",
             };
             if (type.Length == 0 || !IsLive(type, sensor.Name, value)) continue;
@@ -333,6 +356,16 @@ internal sealed class SensorReportDto
     public double? CpuClock { get; set; }
     public double? RamClock { get; set; }
     public List<SensorReadingDto> Readings { get; set; } = new();
+    public DateTime? SampledAtUtc { get; set; }
+    public bool DetailsAvailable { get; set; }
+}
+
+internal readonly record struct HardwareSampleRequestDto(bool Temperatures, bool VisualDetails, TimeSpan MinimumInterval)
+{
+    public static readonly HardwareSampleRequestDto Full = new(true, true, TimeSpan.FromSeconds(2));
+
+    public bool Covers(HardwareSampleRequestDto requested)
+        => (!requested.Temperatures || Temperatures) && (!requested.VisualDetails || VisualDetails);
 }
 
 internal sealed class SensorReadingDto

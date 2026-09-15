@@ -56,6 +56,19 @@ public class HardwareServiceClientTests
     }
 
     [Fact]
+    public void Client_cache_requires_request_coverage_and_respects_requested_interval()
+    {
+        DateTime t0 = DateTime.UtcNow;
+        var temperaturesOnly = new HardwareSampleRequest(true, false, TimeSpan.FromSeconds(2));
+        var full = new HardwareSampleRequest(true, true, TimeSpan.FromSeconds(10));
+
+        Assert.True(HardwareServiceClient.IsReadFresh(t0, t0.AddSeconds(1), temperaturesOnly, temperaturesOnly));
+        Assert.False(HardwareServiceClient.IsReadFresh(t0, t0.AddSeconds(1), temperaturesOnly, full));
+        Assert.True(HardwareServiceClient.IsReadFresh(t0, t0.AddSeconds(9), full, full));
+        Assert.False(HardwareServiceClient.IsReadFresh(t0, t0.AddSeconds(10), full, full));
+    }
+
+    [Fact]
     public void Sensor_payload_prefers_temperatures_and_is_capped()
     {
         var readings = Enumerable.Range(0, 40)
@@ -76,6 +89,7 @@ public class HardwareServiceClientTests
         public SensorReport Report { get; } = new();
         public bool Available => true;
         public SensorReport Read(bool force = false) => Report;
+        public SensorReport Read(HardwareSampleRequest request, bool force = false) => Report;
         public void Invalidate() { }
         public void Dispose() { }
     }

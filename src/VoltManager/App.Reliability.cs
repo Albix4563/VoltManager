@@ -105,6 +105,7 @@ public partial class App
             new CleanupStep("battery history timer", () => _batteryHistoryTimer?.Dispose()),
             new CleanupStep("monitor", () => Monitor?.Dispose()),
             new CleanupStep("hardware access", () => HardwareAccess?.Dispose()),
+            new CleanupStep("fullscreen coverage", () => FullscreenCoverage?.Dispose()),
             new CleanupStep("heavy apps", () => HeavyApps?.Dispose()),
             new CleanupStep("app profiles", () => AppProfiles?.Dispose()),
             new CleanupStep("keep awake", () => Awake?.Dispose()),

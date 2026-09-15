@@ -30,6 +30,7 @@ test('frontend consumes one host resource profile signal', () => {
 });
 
 test('gaming workload and critical profiles reuse the proven lite rendering path', () => {
+  assert.match(perfGuard, /state\.reducedEffects/);
   assert.match(perfGuard, /profile === 'gaming' \|\| profile === 'workload' \|\| profile === 'critical'/);
   assert.match(perfGuard, /dataset\.perf\s*=\s*effectiveLite \? 'lite'/);
   assert.match(effectsJs, /dataset\.perf === 'lite'/);
@@ -60,7 +61,8 @@ test('minimize hides the renderer before suspending and reserves teardown for th
     mainWindowHost.indexOf('private void OnMetricsUpdated('));
   assert.match(visibility, /WebView\.Visibility = visible \? Visibility\.Visible : Visibility\.Hidden;/);
   assert.match(visibility, /TrySuspendWebView\(\);\s*\/\/[^\n]*\n\s*if \(!IsVisible\) ScheduleTrayTeardown\(\);/);
-  assert.match(mainWindowHost, /await core\.TrySuspendAsync\(\);[\s\S]*?if \(_webViewVisible\) core\.Resume\(\);/);
+  assert.match(mainWindowHost, /WebView\.Visibility = Visibility\.Hidden;[\s\S]*?bool suspended = await core\.TrySuspendAsync\(\);/);
+  assert.match(mainWindowHost, /if \(!suspended && !_webViewVisible\)/);
   assert.match(mainWindowHost, /private void ResumeWebView\(\)\s*\{\s*if \(!_webViewVisible\) return;/);
   assert.match(mainWindowHost, /if \(_webViewVisible \|\| _exiting\) return;/);
 });

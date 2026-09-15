@@ -37,6 +37,10 @@ public partial class WidgetWindow : Window
     private bool _initializing;
     private volatile bool _closed;
     private volatile bool _visible;
+    private bool _fullscreenCovered;
+    private IntPtr _coverageHwnd;
+    private int _suspendRunning;
+    private int _suspendGeneration;
     private readonly UiMetricsPublisher _metricsPublisher = new();
     private readonly WebViewResourceController _resourceController = new();
     private static readonly string DocumentVersion = typeof(App).Assembly.GetName().Version?.ToString(3) ?? "1.0.0";
@@ -63,7 +67,9 @@ public partial class WidgetWindow : Window
         IsVisibleChanged += (_, _) =>
         {
             _visible = IsVisible;
-            if (_visible) _metricsPublisher.ResetCadence();
+            ApplyEffectiveWebViewVisibility();
+            if (HasVisibleResourceSurface) _metricsPublisher.ResetCadence();
+            _app.RefreshHardwareSamplingDemand();
         };
         SourceInitialized += (_, _) =>
         {
@@ -71,13 +77,18 @@ public partial class WidgetWindow : Window
             HookWndProc();
             ApplyPlacement(placement, item.Size);
             ApplyRoundedRegion();
+            _coverageHwnd = new WindowInteropHelper(this).Handle;
+            _app.FullscreenCoverage.RegisterSurface(_coverageHwnd);
         };
         DpiChanged += (_, _) =>
         {
             ApplyRoundedRegion();
             _manager.RequestRelayout();
         };
+        _app.FullscreenCoverage.CoverageChanged += OnFullscreenCoverageChanged;
     }
+
+    internal bool HasVisibleResourceSurface => _visible && !_fullscreenCovered && !_closed;
 
     private async Task InitWebViewAsync()
     {
@@ -258,8 +269,11 @@ public partial class WidgetWindow : Window
 
     private void OnMetricsUpdated(MetricsSnapshot metrics)
     {
-        if (_closed || !_visible || _type is not ("usage" or "temps")) return;
-        var plan = _resourceController.Resolve(_app.ResourcePressure?.Current.Profile ?? ResourceProfile.Full, true);
+        if (_closed || !HasVisibleResourceSurface || _type is not ("usage" or "temps")) return;
+        var plan = _resourceController.Resolve(
+            _app.ResourcePressure?.Current.Profile ?? ResourceProfile.Full,
+            visible: true,
+            active: false);
         if (_metricsPublisher.TryTake(metrics, plan, DateTime.UtcNow, out var latest) && latest != null)
             _bridge?.PushEvent("metrics", MetricsPayload(_type, latest)!);
     }
@@ -276,7 +290,77 @@ public partial class WidgetWindow : Window
     {
         if (_closed) return;
         _metricsPublisher.ResetCadence();
-        _bridge?.PushEvent("resourceProfileChanged", new { profile = state.Profile.ToString().ToLowerInvariant() });
+        var plan = _resourceController.Resolve(state.Profile, HasVisibleResourceSurface, active: false);
+        _bridge?.PushEvent("resourceProfileChanged", new
+        {
+            profile = state.Profile.ToString().ToLowerInvariant(),
+            reason = state.Reason,
+            protectedWorkloadActive = state.ProtectedWorkloadActive,
+            reducedEffects = plan.ReducedEffects,
+            metricsIntervalMs = plan.PublishMetrics ? (int)plan.MetricsInterval.TotalMilliseconds : 0,
+        });
+    }
+
+    private void OnFullscreenCoverageChanged(IntPtr hwnd, bool covered)
+    {
+        if (hwnd != _coverageHwnd || _closed) return;
+        _ = Dispatcher.InvokeAsync(() =>
+        {
+            if (_closed || hwnd != _coverageHwnd) return;
+            _fullscreenCovered = covered;
+            ApplyEffectiveWebViewVisibility();
+            _app.RefreshHardwareSamplingDemand(requestFresh: !covered);
+        });
+    }
+
+    private void ApplyEffectiveWebViewVisibility()
+    {
+        if (_closed) return;
+        bool active = HasVisibleResourceSurface;
+        WebView.Visibility = active ? Visibility.Visible : Visibility.Hidden;
+        if (!active)
+        {
+            TrySuspendWebView();
+            return;
+        }
+        ResumeWebView();
+    }
+
+    private async void TrySuspendWebView()
+    {
+        if (Interlocked.Exchange(ref _suspendRunning, 1) != 0) return;
+        int generation = Interlocked.Increment(ref _suspendGeneration);
+        try
+        {
+            CoreWebView2? core = WebView.CoreWebView2;
+            if (core == null || HasVisibleResourceSurface) return;
+            WebView.Visibility = Visibility.Hidden;
+            bool suspended = await core.TrySuspendAsync();
+            if (!suspended && !HasVisibleResourceSurface)
+                Logger.Info($"WebView2 declined suspension for widget '{_type}'.");
+            if (HasVisibleResourceSurface && generation != Volatile.Read(ref _suspendGeneration))
+                core.Resume();
+        }
+        catch (Exception ex) { Logger.Warn($"Widget '{_type}' suspend failed: " + ex.Message); }
+        finally { Interlocked.Exchange(ref _suspendRunning, 0); }
+    }
+
+    private void ResumeWebView()
+    {
+        if (!HasVisibleResourceSurface) return;
+        Interlocked.Increment(ref _suspendGeneration);
+        try
+        {
+            WebView.Visibility = Visibility.Visible;
+            WebView.CoreWebView2?.Resume();
+            _metricsPublisher.ResetCadence();
+            OnMetricsUpdated(_app.Monitor.Latest);
+            PushResourceProfile(_app.ResourcePressure?.Current ?? new ResourcePressureState());
+            if (_type is "power" or "plans") OnActivePlanChanged(_app.ActivePlan);
+            if (_type == "power") OnCpuAutomationStateChanged(_app.CpuAutomationState);
+            if (_type == "plans") OnKeepAwakeStateChanged(_app.Awake.GetState());
+        }
+        catch (Exception ex) { Logger.Warn($"Widget '{_type}' resume failed: " + ex.Message); }
     }
 
     private void OnCpuAutomationStateChanged(CpuAutomationState state)
@@ -348,6 +432,8 @@ public partial class WidgetWindow : Window
     {
         _closed = true;
         _visible = false;
+        try { _app.FullscreenCoverage.CoverageChanged -= OnFullscreenCoverageChanged; } catch { }
+        try { _app.FullscreenCoverage.UnregisterSurface(_coverageHwnd); } catch { }
         _hwndSource?.RemoveHook(WndProc);
         _hwndSource = null;
         _app.Monitor.MetricsUpdated -= OnMetricsUpdated;

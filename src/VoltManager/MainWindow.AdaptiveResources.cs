@@ -1,5 +1,6 @@
 using System.Threading;
 using System.Windows;
+using System.Windows.Interop;
 using System.Windows.Threading;
 using Microsoft.Web.WebView2.Core;
 using VoltManager.Models;
@@ -13,6 +14,9 @@ public partial class MainWindow
     private readonly UiMetricsPublisher _adaptiveUiMetricsPublisher = new();
     private readonly WebViewResourceController _webViewResourceController = new();
     private bool _adaptiveResourcesEnabled;
+    private bool _adaptiveWindowActive;
+    private bool _adaptiveFullscreenCovered;
+    private IntPtr _adaptiveHwnd;
     private CoreWebView2? _adaptiveNavigationCore;
 
     internal void InitializeAdaptiveResourceManagement()
@@ -23,9 +27,15 @@ public partial class MainWindow
         _app.ResourcePressure.StateChanged += OnAdaptiveResourceStateChanged;
         IsVisibleChanged += OnAdaptiveWindowVisibilityChanged;
         StateChanged += OnAdaptiveWindowStateChanged;
+        Activated += OnAdaptiveWindowActivationChanged;
+        Deactivated += OnAdaptiveWindowActivationChanged;
         WebView.CoreWebView2InitializationCompleted += OnAdaptiveCoreWebViewInitialized;
+        _app.FullscreenCoverage.CoverageChanged += OnAdaptiveCoverageChanged;
         Closed += OnAdaptiveWindowClosed;
 
+        _adaptiveHwnd = new WindowInteropHelper(this).Handle;
+        if (_adaptiveHwnd != IntPtr.Zero)
+            _app.FullscreenCoverage.RegisterSurface(_adaptiveHwnd);
         AttachAdaptiveNavigationCore(WebView.CoreWebView2);
         SyncAdaptiveVisibility();
         ScheduleAdaptiveMetricsHook();
@@ -83,7 +93,7 @@ public partial class MainWindow
     private void OnAdaptiveMetricsUpdated(MetricsSnapshot metrics)
     {
         var state = _app.ResourcePressure.Current;
-        var plan = _webViewResourceController.Resolve(state.Profile, _webViewVisible);
+        var plan = _webViewResourceController.Resolve(state.Profile, _webViewVisible, _adaptiveWindowActive);
         if (_adaptiveUiMetricsPublisher.TryTake(metrics, plan, DateTime.UtcNow, out var snapshot) && snapshot != null)
             _bridge?.PushEvent("metrics", snapshot);
 
@@ -112,7 +122,7 @@ public partial class MainWindow
 
     private void PushAdaptiveResourceProfile(ResourcePressureState state)
     {
-        var plan = _webViewResourceController.Resolve(state.Profile, state.UiVisible);
+        var plan = _webViewResourceController.Resolve(state.Profile, state.UiVisible, _adaptiveWindowActive);
         _bridge?.PushEvent("resourceProfileChanged", new
         {
             profile = state.Profile.ToString().ToLowerInvariant(),
@@ -121,7 +131,9 @@ public partial class MainWindow
             workloadActive = state.WorkloadActive,
             protectedWorkloadActive = state.ProtectedWorkloadActive,
             uiVisible = state.UiVisible,
+            uiActive = _adaptiveWindowActive,
             vramPercent = state.VramPercent,
+            reducedEffects = plan.ReducedEffects,
             metricsIntervalMs = plan.PublishMetrics ? (int)plan.MetricsInterval.TotalMilliseconds : 0,
             allowProcessPolling = plan.AllowProcessPolling,
             processPollingIntervalMs = plan.AllowProcessPolling
@@ -136,13 +148,49 @@ public partial class MainWindow
     private void OnAdaptiveWindowStateChanged(object? sender, EventArgs e)
         => SyncAdaptiveVisibility();
 
+    private void OnAdaptiveWindowActivationChanged(object? sender, EventArgs e)
+        => SyncAdaptiveVisibility();
+
+    internal bool HasVisibleResourceSurface
+        => IsVisible && WindowState != WindowState.Minimized && !_adaptiveFullscreenCovered;
+
+    private void OnAdaptiveCoverageChanged(IntPtr hwnd, bool covered)
+    {
+        if (hwnd != _adaptiveHwnd || !_adaptiveResourcesEnabled) return;
+        _ = Dispatcher.InvokeAsync(() =>
+        {
+            if (!_adaptiveResourcesEnabled || hwnd != _adaptiveHwnd) return;
+            _adaptiveFullscreenCovered = covered;
+            SyncAdaptiveVisibility();
+        });
+    }
+
     private void SyncAdaptiveVisibility()
     {
         if (!_adaptiveResourcesEnabled) return;
-        bool visible = IsVisible && WindowState != WindowState.Minimized;
+        bool windowVisible = IsVisible && WindowState != WindowState.Minimized;
+        bool visible = windowVisible && !_adaptiveFullscreenCovered;
+        bool wasVisible = _webViewVisible;
+        bool active = visible && IsActive;
         _webViewVisible = visible;
+        _adaptiveWindowActive = active;
+        WebView.Visibility = visible ? Visibility.Visible : Visibility.Hidden;
+        if (!visible && windowVisible && _adaptiveFullscreenCovered)
+            TrySuspendWebView();
+        else if (visible && !wasVisible)
+            ResumeWebView();
         _app.ResourcePressure.SetUiVisible(visible);
         if (visible) _adaptiveUiMetricsPublisher.ResetCadence();
+        PushAdaptiveResourceProfile(_app.ResourcePressure.Current);
+        _app.RefreshHardwareSamplingDemand();
+    }
+
+    private void PublishFreshAdaptiveStateAfterResume()
+    {
+        if (!_adaptiveResourcesEnabled || !_webViewVisible) return;
+        _adaptiveUiMetricsPublisher.ResetCadence();
+        OnAdaptiveMetricsUpdated(_app.Monitor.Latest);
+        PushAdaptiveResourceProfile(_app.ResourcePressure.Current);
     }
 
     private void OnAdaptiveWindowClosed(object? sender, EventArgs e)
@@ -153,7 +201,11 @@ public partial class MainWindow
         try { _app.Monitor.MetricsUpdated -= OnAdaptiveMetricsUpdated; } catch { }
         try { IsVisibleChanged -= OnAdaptiveWindowVisibilityChanged; } catch { }
         try { StateChanged -= OnAdaptiveWindowStateChanged; } catch { }
+        try { Activated -= OnAdaptiveWindowActivationChanged; } catch { }
+        try { Deactivated -= OnAdaptiveWindowActivationChanged; } catch { }
         try { WebView.CoreWebView2InitializationCompleted -= OnAdaptiveCoreWebViewInitialized; } catch { }
+        try { _app.FullscreenCoverage.CoverageChanged -= OnAdaptiveCoverageChanged; } catch { }
+        try { _app.FullscreenCoverage.UnregisterSurface(_adaptiveHwnd); } catch { }
         try
         {
             if (_adaptiveNavigationCore != null)

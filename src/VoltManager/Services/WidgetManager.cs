@@ -45,6 +45,8 @@ public sealed class WidgetManager : IDisposable
     private bool _displayInit;
     private volatile bool _hasOpenWindows;
     internal bool HasOpenWindows => _hasOpenWindows;
+    internal bool HasVisibleResourceConsumers
+        => _windows.Values.Any(window => window.HasVisibleResourceSurface);
 
     public event Action<WidgetStateSnapshot>? StateChanged;
 
@@ -208,6 +210,7 @@ public sealed class WidgetManager : IDisposable
     {
         _windows.Remove(type);
         _hasOpenWindows = _windows.Count != 0;
+        _app.RefreshHardwareSamplingDemand();
     }
 
     internal void PushTheme()
@@ -373,6 +376,7 @@ public sealed class WidgetManager : IDisposable
 
         var snapshot = BuildSnapshot(placements, widgets);
         StateChanged?.Invoke(snapshot);
+        _app.RefreshHardwareSamplingDemand();
         return snapshot;
     }
 

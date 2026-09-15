@@ -69,4 +69,14 @@ public class GpuCounterProviderTests
         Assert.True(GpuCounterProvider.IsSampleFresh(t0, t0.AddMilliseconds(1999)));
         Assert.False(GpuCounterProvider.IsSampleFresh(t0, t0.AddSeconds(2)));
     }
+
+    [Fact]
+    public void Pressure_only_gpu_sample_is_reused_for_five_seconds()
+    {
+        var t0 = DateTime.UnixEpoch;
+        var interval = TimeSpan.FromSeconds(5);
+
+        Assert.True(GpuCounterProvider.IsSampleFresh(t0, t0.AddMilliseconds(4999), interval));
+        Assert.False(GpuCounterProvider.IsSampleFresh(t0, t0.AddSeconds(5), interval));
+    }
 }

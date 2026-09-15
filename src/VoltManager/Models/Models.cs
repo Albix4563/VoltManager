@@ -30,15 +30,20 @@ public record MetricsSnapshot
     [JsonPropertyName("cpu")] public double Cpu { get; init; }
     [JsonPropertyName("gpu")] public double Gpu { get; init; }
     [JsonPropertyName("gpuAvailable")] public bool GpuAvailable { get; init; }
+    [JsonPropertyName("gpuSampledAtUtc")] public DateTime? GpuSampledAtUtc { get; init; }
     [JsonPropertyName("ramPct")] public double RamPct { get; init; }
     [JsonPropertyName("ramUsedGb")] public double RamUsedGb { get; init; }
     [JsonPropertyName("ramTotalGb")] public double RamTotalGb { get; init; }
     [JsonPropertyName("disk")] public double Disk { get; init; }
+    [JsonPropertyName("diskAvailable")] public bool DiskAvailable { get; init; }
+    [JsonPropertyName("diskSampledAtUtc")] public DateTime? DiskSampledAtUtc { get; init; }
     [JsonPropertyName("cpuTemp")] public double? CpuTemp { get; init; }
     [JsonPropertyName("gpuTemp")] public double? GpuTemp { get; init; }
     [JsonPropertyName("cpuClock")] public double? CpuClock { get; init; }
     [JsonPropertyName("ramClock")] public double? RamClock { get; init; }
     [JsonPropertyName("sensorsAvailable")] public bool SensorsAvailable { get; init; }
+    [JsonPropertyName("sensorSampledAtUtc")] public DateTime? SensorSampledAtUtc { get; init; }
+    [JsonPropertyName("sensorDetailsAvailable")] public bool SensorDetailsAvailable { get; init; }
     [JsonPropertyName("sensors")] public List<SensorReading> Sensors { get; init; } = new();
     [JsonPropertyName("vram")] public VramMemorySnapshot? Vram { get; init; }
 }

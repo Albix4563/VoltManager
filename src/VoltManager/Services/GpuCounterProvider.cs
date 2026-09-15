@@ -9,7 +9,7 @@ namespace VoltManager.Services;
 /// </summary>
 public class GpuCounterProvider : IDisposable
 {
-    private static readonly TimeSpan SampleInterval = TimeSpan.FromSeconds(2);
+    private static readonly TimeSpan DefaultSampleInterval = TimeSpan.FromSeconds(2);
     private Dictionary<string, PerformanceCounter>? _counters;
     private DateTime _lastRefresh = DateTime.MinValue;
     private DateTime _lastSampleUtc = DateTime.MinValue;
@@ -21,6 +21,7 @@ public class GpuCounterProvider : IDisposable
     private volatile Gpu3DSnapshot _perProcess = Gpu3DSnapshot.Empty;
 
     public bool GpuAvailable { get; private set; }
+    public DateTime? SampledAtUtc => _lastSampleUtc == DateTime.MinValue ? null : _lastSampleUtc;
 
     /// <summary>Per-PID 3D utilization collected by the last <see cref="Read"/>, with its timestamp.</summary>
     public Gpu3DSnapshot PerProcess3D => _perProcess;
@@ -95,12 +96,14 @@ public class GpuCounterProvider : IDisposable
         }
     }
 
-    public double Read()
+    public double Read() => Read(DefaultSampleInterval, collectPerProcess: true);
+
+    public double Read(TimeSpan sampleInterval, bool collectPerProcess, bool force = false)
     {
         if (!_ready) return 0;
         if (!GpuAvailable) return 0;
         DateTime nowUtc = DateTime.UtcNow;
-        if (IsSampleFresh(_lastSampleUtc, nowUtc)) return _lastValue;
+        if (!force && IsSampleFresh(_lastSampleUtc, nowUtc, sampleInterval)) return _lastValue;
         // GPU engine instances come and go per-process; refresh the set periodically.
         if ((nowUtc - _lastRefresh).TotalSeconds > 10)
             RefreshCounters();
@@ -109,7 +112,7 @@ public class GpuCounterProvider : IDisposable
         double sum = 0;
         bool anyFailed = false;
         // Same pass feeds the per-process map: the PID is already in the instance name.
-        var byPid = new Dictionary<int, double>();
+        Dictionary<int, double>? byPid = collectPerProcess ? new Dictionary<int, double>() : null;
         foreach (var pair in _counters)
         {
             try
@@ -117,19 +120,22 @@ public class GpuCounterProvider : IDisposable
                 var c = pair.Value;
                 float value = c.NextValue();
                 sum += value;
-                AccumulatePerProcess(byPid, pair.Key, value);
+                if (byPid != null) AccumulatePerProcess(byPid, pair.Key, value);
             }
             catch (Exception ex) { anyFailed = true; _readFaulted = Logger.WarnOnce(_readFaulted, "GPU counter read failed", ex); }
         }
         if (!anyFailed) _readFaulted = false;
         _lastSampleUtc = nowUtc;
-        _perProcess = new Gpu3DSnapshot(byPid, nowUtc);
+        if (byPid != null) _perProcess = new Gpu3DSnapshot(byPid, nowUtc);
         _lastValue = Math.Min(100, Math.Round(sum, 1));
         return _lastValue;
     }
 
     internal static bool IsSampleFresh(DateTime lastSampleUtc, DateTime nowUtc)
-        => lastSampleUtc != DateTime.MinValue && nowUtc - lastSampleUtc < SampleInterval;
+        => IsSampleFresh(lastSampleUtc, nowUtc, DefaultSampleInterval);
+
+    internal static bool IsSampleFresh(DateTime lastSampleUtc, DateTime nowUtc, TimeSpan sampleInterval)
+        => lastSampleUtc != DateTime.MinValue && nowUtc - lastSampleUtc < sampleInterval;
 
     private void DisposeCounters()
     {

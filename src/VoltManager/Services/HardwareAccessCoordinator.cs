@@ -3,6 +3,17 @@ using VoltManager.Models;
 
 namespace VoltManager.Services;
 
+public readonly record struct HardwareSampleRequest(
+    bool Temperatures,
+    bool VisualDetails,
+    TimeSpan MinimumInterval)
+{
+    public static readonly HardwareSampleRequest Full = new(true, true, TimeSpan.FromSeconds(2));
+
+    public bool Covers(HardwareSampleRequest requested)
+        => (!requested.Temperatures || Temperatures) && (!requested.VisualDetails || VisualDetails);
+}
+
 /// <summary>
 /// Owns the single LibreHardwareMonitor Computer instance used by VoltManager
 /// and serializes sensor reads against the same hardware session.
@@ -11,6 +22,7 @@ public interface IHardwareAccess : IDisposable
 {
     bool Available { get; }
     SensorReport Read(bool force = false);
+    SensorReport Read(HardwareSampleRequest request, bool force = false);
     void Invalidate();
 }
 
@@ -39,8 +51,11 @@ internal sealed class DeferredHardwareAccess : IHardwareAccess
         _access.Result.Available;
 
     public SensorReport Read(bool force = false) =>
+        Read(HardwareSampleRequest.Full, force);
+
+    public SensorReport Read(HardwareSampleRequest request, bool force = false) =>
         Volatile.Read(ref _disposed) == 0 && _access.IsCompletedSuccessfully
-            ? _access.Result.Read(force)
+            ? _access.Result.Read(request, force)
             : SensorReport.Empty;
 
     public void Invalidate()
@@ -68,11 +83,11 @@ internal sealed class DeferredHardwareAccess : IHardwareAccess
 
 public sealed class HardwareAccessCoordinator : IHardwareAccess
 {
-    private static readonly TimeSpan UpdateInterval = TimeSpan.FromSeconds(2);
     private readonly object _gate = new();
     private Computer? _computer;
     private SensorReport _last = SensorReport.Empty;
     private DateTime _lastUpdateUtc = DateTime.MinValue;
+    private HardwareSampleRequest _lastRequest;
     private volatile bool _ready;
     private bool _disposed;
     private bool _readFaulted;
@@ -81,27 +96,32 @@ public sealed class HardwareAccessCoordinator : IHardwareAccess
 
     public HardwareAccessCoordinator() => Task.Run(InitComputer);
 
-    public SensorReport Read(bool force = false)
+    public SensorReport Read(bool force = false) => Read(HardwareSampleRequest.Full, force);
+
+    public SensorReport Read(HardwareSampleRequest request, bool force = false)
     {
         if (!_ready) return _last;
 
         lock (_gate)
         {
             if (_computer == null || _disposed) return _last;
-            if (!force && DateTime.UtcNow - _lastUpdateUtc < UpdateInterval) return _last;
+            DateTime nowUtc = DateTime.UtcNow;
+            if (!force && _lastRequest.Covers(request) && nowUtc - _lastUpdateUtc < request.MinimumInterval)
+                return _last;
 
-            _lastUpdateUtc = DateTime.UtcNow;
+            _lastUpdateUtc = nowUtc;
             try
             {
                 var readings = new List<SensorReading>();
                 foreach (IHardware hardware in _computer.Hardware)
                 {
+                    if (!ShouldUpdate(hardware.HardwareType, request)) continue;
                     hardware.Update();
-                    Collect(hardware, readings);
+                    Collect(hardware, readings, request);
                     foreach (IHardware sub in hardware.SubHardware)
                     {
                         sub.Update();
-                        Collect(sub, readings);
+                        Collect(sub, readings, request);
                     }
                 }
 
@@ -112,7 +132,10 @@ public sealed class HardwareAccessCoordinator : IHardwareAccess
                     CpuClock = SensorAggregation.SelectCpuClock(readings),
                     RamClock = SensorAggregation.SelectRamClock(readings),
                     Readings = SensorAggregation.CapForUi(readings),
+                    SampledAtUtc = nowUtc,
+                    DetailsAvailable = request.VisualDetails,
                 };
+                _lastRequest = request;
                 _readFaulted = false;
             }
             catch (Exception ex)
@@ -162,7 +185,10 @@ public sealed class HardwareAccessCoordinator : IHardwareAccess
         }
     }
 
-    private static void Collect(IHardware hardware, List<SensorReading> readings)
+    private static bool ShouldUpdate(HardwareType type, HardwareSampleRequest request)
+        => request.VisualDetails || (request.Temperatures && type is HardwareType.Cpu or HardwareType.GpuNvidia or HardwareType.GpuAmd or HardwareType.GpuIntel);
+
+    private static void Collect(IHardware hardware, List<SensorReading> readings, HardwareSampleRequest request)
     {
         string category = SensorAggregation.MapCategory(hardware.HardwareType);
         foreach (ISensor sensor in hardware.Sensors)
@@ -171,8 +197,8 @@ public sealed class HardwareAccessCoordinator : IHardwareAccess
 
             string type = sensor.SensorType switch
             {
-                SensorType.Temperature => "temp",
-                SensorType.Clock => "clock",
+                SensorType.Temperature when request.Temperatures => "temp",
+                SensorType.Clock when request.VisualDetails => "clock",
                 _ => "",
             };
             if (type.Length == 0 || !SensorAggregation.IsLiveReading(type, sensor.Name, value)) continue;

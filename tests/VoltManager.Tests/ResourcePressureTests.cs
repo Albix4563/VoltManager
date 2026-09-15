@@ -264,6 +264,22 @@ public sealed class ResourcePressureTests
     }
 
     [Fact]
+    public void InactiveVisibleWebView_UsesLightThreeAndTenSecondCadence()
+    {
+        var plan = new WebViewResourceController().Resolve(
+            ResourceProfile.Full,
+            visible: true,
+            active: false);
+
+        Assert.True(plan.PublishMetrics);
+        Assert.Equal(TimeSpan.FromSeconds(3), plan.MetricsInterval);
+        Assert.True(plan.AllowProcessPolling);
+        Assert.Equal(TimeSpan.FromSeconds(10), plan.ProcessPollingInterval);
+        Assert.True(plan.ReducedEffects);
+        Assert.False(plan.SuspendRenderer);
+    }
+
+    [Fact]
     public void UiPublisher_CoalescesToLatestValueAtConfiguredCadence()
     {
         var publisher = new UiMetricsPublisher();

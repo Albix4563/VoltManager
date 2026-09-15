@@ -10,7 +10,6 @@ namespace VoltManager.Services;
 public sealed class HardwareServiceClient : IHardwareAccess
 {
     private static readonly TimeSpan RpcTimeout = TimeSpan.FromSeconds(8);
-    private static readonly TimeSpan ReadCacheInterval = TimeSpan.FromSeconds(2);
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -29,6 +28,7 @@ public sealed class HardwareServiceClient : IHardwareAccess
     private bool _disposed;
     private long _nextId;
     private DateTime _lastReadUtc = DateTime.MinValue;
+    private HardwareSampleRequest _lastRequest;
 
     public bool Available => !_disposed && ((_pipe.IsConnected && _hardwareAvailable) || (_fallback?.Available ?? false));
     internal long RequestCount => Interlocked.Read(ref _nextId);
@@ -91,23 +91,32 @@ public sealed class HardwareServiceClient : IHardwareAccess
         }
     }
 
-    public SensorReport Read(bool force = false)
+    public SensorReport Read(bool force = false) => Read(HardwareSampleRequest.Full, force);
+
+    public SensorReport Read(HardwareSampleRequest request, bool force = false)
     {
         lock (_gate)
         {
             if (_disposed) return _last;
 
             DateTime nowUtc = DateTime.UtcNow;
-            if (!force && IsReadFresh(_lastReadUtc, nowUtc)) return _last;
+            if (!force && IsReadFresh(_lastReadUtc, nowUtc, _lastRequest, request)) return _last;
 
-            HardwareReadEnvelope? envelope = Call<HardwareReadEnvelope>("read", new { force });
+            HardwareReadEnvelope? envelope = Call<HardwareReadEnvelope>("read", new
+            {
+                force,
+                temperatures = request.Temperatures,
+                visualDetails = request.VisualDetails,
+                minimumIntervalMs = Math.Max(0, (long)request.MinimumInterval.TotalMilliseconds),
+            });
             if (envelope == null)
             {
                 EnsureFallbackIfServiceExited();
                 if (_fallback != null)
                 {
-                    _last = _fallback.Read(force);
+                    _last = _fallback.Read(request, force);
                     _lastReadUtc = nowUtc;
+                    _lastRequest = request;
                 }
                 return _last;
             }
@@ -116,6 +125,7 @@ public sealed class HardwareServiceClient : IHardwareAccess
             _hardwareAvailable = envelope.Available;
             if (envelope.Report != null) _last = envelope.Report;
             _lastReadUtc = nowUtc;
+            _lastRequest = request;
             return _last;
         }
     }
@@ -125,14 +135,21 @@ public sealed class HardwareServiceClient : IHardwareAccess
         lock (_gate)
         {
             _lastReadUtc = DateTime.MinValue;
+            _lastRequest = default;
             _ = Call<object>("invalidate", null);
             _fallback?.Invalidate();
             _last = SensorReport.Empty;
         }
     }
 
-    internal static bool IsReadFresh(DateTime lastReadUtc, DateTime nowUtc)
-        => lastReadUtc != DateTime.MinValue && nowUtc - lastReadUtc < ReadCacheInterval;
+    internal static bool IsReadFresh(
+        DateTime lastReadUtc,
+        DateTime nowUtc,
+        HardwareSampleRequest lastRequest,
+        HardwareSampleRequest requested)
+        => lastReadUtc != DateTime.MinValue
+            && lastRequest.Covers(requested)
+            && nowUtc - lastReadUtc < requested.MinimumInterval;
 
     private T? Call<T>(string method, object? payload)
     {

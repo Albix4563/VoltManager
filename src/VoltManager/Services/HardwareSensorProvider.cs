@@ -23,6 +23,10 @@ public sealed class HardwareSensorProvider : IDisposable
 
     public SensorReport Read() => _access.Read();
 
+    public SensorReport Read(HardwareSampleRequest request, bool force = false) => _access.Read(request, force);
+
+    public void Invalidate() => _access.Invalidate();
+
     public void Dispose()
     {
         if (_ownsAccess) _access.Dispose();
@@ -38,6 +42,8 @@ public record SensorReport
     public double? CpuClock { get; init; }
     public double? RamClock { get; init; }
     public List<SensorReading> Readings { get; init; } = new();
+    public DateTime? SampledAtUtc { get; init; }
+    public bool DetailsAvailable { get; init; }
 }
 
 /// <summary>Pure sensor-selection logic, kept static.</summary>
