@@ -159,6 +159,8 @@ public class HostBridge : IDisposable
         if (_disposed) return;
         try
         {
+            if (name == "metrics")
+                ValidationMetrics.Increment(ValidationCounter.UiMetricPublications);
             var payload = JsonSerializer.Serialize(new { @event = name, data }, JsonOpts);
             _webView.Dispatcher.Invoke(() =>
             {

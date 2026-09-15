@@ -28,7 +28,7 @@ public static class Logger
             try
             {
                 var dir = Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                    ValidationEnvironment.ApplicationDataRoot,
                     "VoltManager", "logs");
                 Directory.CreateDirectory(dir);
                 _path = Path.Combine(dir, "voltmanager.log");

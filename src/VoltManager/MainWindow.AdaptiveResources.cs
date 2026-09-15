@@ -68,7 +68,12 @@ public partial class MainWindow
         if (!e.IsSuccess) return;
         ScheduleAdaptiveMetricsHook();
         Dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle,
-            new Action(() => PushAdaptiveResourceProfile(_app.ResourcePressure.Current)));
+            new Action(() =>
+            {
+                PublishFreshAdaptiveStateAfterResume();
+                if (ValidationEnvironment.IsActive)
+                    Logger.Info("Validation marker: fresh adaptive state published after navigation.");
+            }));
     }
 
     private void ScheduleAdaptiveMetricsHook()

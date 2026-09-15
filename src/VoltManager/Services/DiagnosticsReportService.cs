@@ -30,7 +30,7 @@ public sealed class DiagnosticsReportService
         get
         {
             var dir = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                ValidationEnvironment.ApplicationDataRoot,
                 "VoltManager", "logs");
             try { Directory.CreateDirectory(dir); } catch { /* best-effort */ }
             return dir ?? "";

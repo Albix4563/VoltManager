@@ -16,8 +16,8 @@ namespace VoltManager;
 
 public partial class App : Application
 {
-    private const string MutexName = "VoltManager_SingleInstance_Mutex";
-    private const string ShowEventName = "VoltManager_ShowWindow_Event";
+    private static string MutexName => ValidationEnvironment.NamedObject("VoltManager_SingleInstance_Mutex");
+    private static string ShowEventName => ValidationEnvironment.NamedObject("VoltManager_ShowWindow_Event");
 
     private Mutex? _mutex;
     private EventWaitHandle? _showEvent;
@@ -277,7 +277,7 @@ public partial class App : Application
     private static Task<CoreWebView2Environment> CreateWebViewEnvironmentAsync()
     {
         var userDataFolder = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            ValidationEnvironment.ApplicationDataRoot,
             "VoltManager", "WebView2");
         // Cap V8 + low-end tiles. SwiftShader keeps a GPU process but with a smaller
         // driver working set than the full hardware path on this dashboard.
@@ -292,23 +292,7 @@ public partial class App : Application
         // (component updater, phishing model, telemetry pings): all of them are pure
         // resident cost here because the WebView only ever loads local content.
         var opts = new CoreWebView2EnvironmentOptions(
-            "--js-flags=--max-old-space-size=128 " +
-            "--enable-low-end-device-mode " +
-            "--process-per-site " +
-            "--use-angle=swiftshader " +
-            "--use-gl=angle " +
-            "--force-gpu-mem-available-mb=32 " +
-            "--disable-accelerated-2d-canvas " +
-            "--disable-accelerated-video-decode " +
-            "--disable-gpu-shader-disk-cache " +
-            "--disk-cache-size=67108864 " +
-            "--disable-background-networking " +
-            "--disable-component-update " +
-            "--disable-client-side-phishing-detection " +
-            "--disable-breakpad " +
-            "--no-pings " +
-            "--disable-features=BackForwardCache,InterestFeedContentSuggestions,Translate," +
-            "MediaRouter,OptimizationHints,AutofillServerCommunication");
+            WebViewRuntimeOptions.BrowserArguments(ValidationEnvironment.RendererVariant));
         return CoreWebView2Environment.CreateAsync(null, userDataFolder, opts);
     }
 

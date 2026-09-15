@@ -32,6 +32,18 @@ public sealed class HardwareServiceClient : IHardwareAccess
 
     public bool Available => !_disposed && ((_pipe.IsConnected && _hardwareAvailable) || (_fallback?.Available ?? false));
     internal long RequestCount => Interlocked.Read(ref _nextId);
+    internal bool UsingFallback => _fallback != null;
+    internal int? ServiceProcessId
+    {
+        get
+        {
+            lock (_gate)
+            {
+                try { return _process.HasExited ? null : _process.Id; }
+                catch { return null; }
+            }
+        }
+    }
 
     private HardwareServiceClient(NamedPipeClientStream pipe, Process process)
     {
@@ -158,6 +170,8 @@ public sealed class HardwareServiceClient : IHardwareAccess
             if (_disposed || !_pipe.IsConnected) return default;
             try
             {
+                if (string.Equals(method, "read", StringComparison.Ordinal))
+                    ValidationMetrics.Increment(ValidationCounter.HardwareRpcReads);
                 string id = Interlocked.Increment(ref _nextId).ToString(System.Globalization.CultureInfo.InvariantCulture);
                 string request = JsonSerializer.Serialize(new HardwareServiceRequest
                 {

@@ -236,6 +236,7 @@ public class MonitorService : IDisposable
         if (Interlocked.Exchange(ref _tickRunning, 1) == 1) return;
         try
         {
+            ValidationMetrics.Increment(ValidationCounter.MonitorTicks);
             DateTime nowUtc = DateTime.UtcNow;
             MonitorSamplingDemand demand = SamplingDemand;
             bool forceAccessoryRefresh = demand.VisualDetails

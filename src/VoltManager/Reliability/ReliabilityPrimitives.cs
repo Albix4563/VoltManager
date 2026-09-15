@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Reflection;
 using System.Text.Json;
+using VoltManager.Services;
 
 namespace VoltManager.Reliability;
 
@@ -15,9 +16,9 @@ public static class AppExitCodes
 public static class SupervisorBootstrap
 {
     private const string SupervisedArgument = "--supervised";
-    private const string AppMutexName = "VoltManager_SingleInstance_Mutex";
-    private const string SupervisorMutexName = "VoltManager_Supervisor_Mutex";
-    private const string SupervisorWakeEventName = "VoltManager_Supervisor_Wake_Event";
+    private static string AppMutexName => ValidationEnvironment.NamedObject("VoltManager_SingleInstance_Mutex");
+    private static string SupervisorMutexName => ValidationEnvironment.NamedObject("VoltManager_Supervisor_Mutex");
+    private static string SupervisorWakeEventName => ValidationEnvironment.NamedObject("VoltManager_Supervisor_Wake_Event");
 
     public static bool TryDelegate(string[] arguments)
     {
@@ -99,7 +100,7 @@ public static class CrashDiagnostics
     public static string? Capture(string category, Exception? exception, int exitCode)
     {
         string directory = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            ValidationEnvironment.ApplicationDataRoot,
             "VoltManager",
             "crashes");
         return CaptureToDirectory(directory, category, exception, exitCode);

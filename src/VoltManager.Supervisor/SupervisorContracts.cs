@@ -1,11 +1,21 @@
 using System.Diagnostics;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace VoltManager.Supervisor;
 
 public static class SupervisorNames
 {
-    public const string SupervisorMutex = "VoltManager_Supervisor_Mutex";
-    public const string WakeEvent = "VoltManager_Supervisor_Wake_Event";
+    public static string SupervisorMutex => ValidationName("VoltManager_Supervisor_Mutex");
+    public static string WakeEvent => ValidationName("VoltManager_Supervisor_Wake_Event");
+
+    private static string ValidationName(string productionName)
+    {
+        string? root = Environment.GetEnvironmentVariable("VOLTMANAGER_VALIDATION_ROOT");
+        if (string.IsNullOrWhiteSpace(root)) return productionName;
+        byte[] digest = SHA256.HashData(Encoding.UTF8.GetBytes(Path.GetFullPath(root).ToUpperInvariant()));
+        return productionName + "_Validation_" + Convert.ToHexString(digest.AsSpan(0, 6));
+    }
 }
 
 public static class SupervisorExitCodes

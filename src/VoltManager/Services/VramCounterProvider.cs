@@ -56,6 +56,7 @@ public sealed class VramCounterProvider : IDisposable
             DateTime now = DateTime.UtcNow;
             if (!force && _lastSampleUtc != DateTime.MinValue && now - _lastSampleUtc < SampleInterval)
                 return _last;
+            ValidationMetrics.Increment(ValidationCounter.VramSamples);
 
             if (now - _lastRefreshUtc >= CounterRefreshInterval)
             {

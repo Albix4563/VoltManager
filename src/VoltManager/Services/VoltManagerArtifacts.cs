@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Security.Cryptography;
+using System.Text;
 using System.Threading;
 
 namespace VoltManager.Services
@@ -39,11 +41,37 @@ namespace VoltManager.Services
 
         public static string[] ProcessNames => (string[])OwnedProcessNames.Clone();
         public static string[] TempArtifactFileNames => (string[])OwnedTempArtifactFileNames.Clone();
-        public static string UninstallShutdownEventName => UninstallShutdownEvent;
+        public static string UninstallShutdownEventName => ValidationNamedObject(UninstallShutdownEvent);
 
         public static string AppDataDirectory => Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            ValidationApplicationDataRoot,
             AppName);
+
+        // This file is compile-linked into VoltManager.Setup, so keep the private
+        // validation redirect self-contained instead of depending on app-only types.
+        // Production/setup behavior is unchanged unless the repository harness sets
+        // VOLTMANAGER_VALIDATION_ROOT explicitly.
+        private static string ValidationApplicationDataRoot
+        {
+            get
+            {
+                var validationRoot = Environment.GetEnvironmentVariable("VOLTMANAGER_VALIDATION_ROOT");
+                return string.IsNullOrWhiteSpace(validationRoot)
+                    ? Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData)
+                    : Path.GetFullPath(validationRoot);
+            }
+        }
+
+        private static string ValidationNamedObject(string productionName)
+        {
+            var validationRoot = Environment.GetEnvironmentVariable("VOLTMANAGER_VALIDATION_ROOT");
+            if (string.IsNullOrWhiteSpace(validationRoot)) return productionName;
+            byte[] digest;
+            using (SHA256 sha = SHA256.Create())
+                digest = sha.ComputeHash(Encoding.UTF8.GetBytes(Path.GetFullPath(validationRoot).ToUpperInvariant()));
+            string suffix = BitConverter.ToString(digest, 0, 6).Replace("-", string.Empty);
+            return productionName + "_Validation_" + suffix;
+        }
 
         public static string StartMenuDirectory => Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.CommonPrograms),

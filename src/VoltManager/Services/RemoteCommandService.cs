@@ -33,7 +33,7 @@ public sealed class RemoteCommandService : IDisposable
 
             var evt = EventWaitHandleAcl.Create(
                 false, EventResetMode.AutoReset,
-                RemoteCommandProtocol.EventName(key), out _, security);
+                ValidationEnvironment.NamedObject(RemoteCommandProtocol.EventName(key)), out _, security);
 
             string captured = key;
             var wait = ThreadPool.RegisterWaitForSingleObject(

@@ -81,6 +81,11 @@ public class PowerPlanService
 
     public static string RunPowercfg(string args)
     {
+        if (ValidationEnvironment.SuppressPowerChanges && IsMutatingPowercfg(args))
+        {
+            Logger.Info("Validation run suppressed powercfg mutation: " + args);
+            return "";
+        }
         var psi = new ProcessStartInfo
         {
             FileName = "powercfg",
@@ -133,6 +138,25 @@ public class PowerPlanService
         {
             p?.Dispose();
         }
+    }
+
+    internal static bool IsMutatingPowercfg(string args)
+    {
+        string normalized = (args ?? "").TrimStart();
+        return normalized.StartsWith("/setactive", StringComparison.OrdinalIgnoreCase)
+            || normalized.StartsWith("-setactive", StringComparison.OrdinalIgnoreCase)
+            || normalized.StartsWith("/change", StringComparison.OrdinalIgnoreCase)
+            || normalized.StartsWith("-change", StringComparison.OrdinalIgnoreCase)
+            || normalized.StartsWith("/setacvalueindex", StringComparison.OrdinalIgnoreCase)
+            || normalized.StartsWith("-setacvalueindex", StringComparison.OrdinalIgnoreCase)
+            || normalized.StartsWith("/setdcvalueindex", StringComparison.OrdinalIgnoreCase)
+            || normalized.StartsWith("-setdcvalueindex", StringComparison.OrdinalIgnoreCase)
+            || normalized.StartsWith("/duplicatescheme", StringComparison.OrdinalIgnoreCase)
+            || normalized.StartsWith("-duplicatescheme", StringComparison.OrdinalIgnoreCase)
+            || normalized.StartsWith("/delete", StringComparison.OrdinalIgnoreCase)
+            || normalized.StartsWith("-delete", StringComparison.OrdinalIgnoreCase)
+            || normalized.StartsWith("/changename", StringComparison.OrdinalIgnoreCase)
+            || normalized.StartsWith("-changename", StringComparison.OrdinalIgnoreCase);
     }
 
     public static List<PowerPlan> ParseListOutput(string output, Dictionary<string, string>? guidMap = null)

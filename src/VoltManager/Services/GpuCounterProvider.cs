@@ -104,6 +104,7 @@ public class GpuCounterProvider : IDisposable
         if (!GpuAvailable) return 0;
         DateTime nowUtc = DateTime.UtcNow;
         if (!force && IsSampleFresh(_lastSampleUtc, nowUtc, sampleInterval)) return _lastValue;
+        ValidationMetrics.Increment(ValidationCounter.GpuSamples);
         // GPU engine instances come and go per-process; refresh the set periodically.
         if ((nowUtc - _lastRefresh).TotalSeconds > 10)
             RefreshCounters();

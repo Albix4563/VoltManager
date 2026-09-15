@@ -205,7 +205,11 @@ public sealed class SupervisorEngine
             catch (Exception ex)
             {
                 exitCode = SupervisorExitCodes.ChildStartFailed;
-                _events.Write("child_start_failed", new { exceptionType = ex.GetType().FullName });
+                _events.Write("child_start_failed", new
+                {
+                    exceptionType = ex.GetType().FullName,
+                    exceptionMessage = ex.Message,
+                });
             }
 
             DateTimeOffset endedAt = _clock.UtcNow;

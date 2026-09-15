@@ -129,6 +129,7 @@ public static class ProcessSnapshotProvider
 
     private static ProcessSnapshot Capture()
     {
+        ValidationMetrics.Increment(ValidationCounter.ProcessSnapshots);
         var samples = CaptureNative() ?? CaptureManaged();
         var snapshot = new ProcessSnapshot(DateTime.UtcNow, samples);
         PruneIdentities(samples.Length);

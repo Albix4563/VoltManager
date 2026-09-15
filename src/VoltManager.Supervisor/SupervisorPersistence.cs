@@ -10,8 +10,12 @@ public sealed class SupervisorPaths
 
     public static SupervisorPaths CreateDefault()
     {
+        string? validationRoot = Environment.GetEnvironmentVariable("VOLTMANAGER_VALIDATION_ROOT");
+        string applicationData = string.IsNullOrWhiteSpace(validationRoot)
+            ? Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData)
+            : Path.GetFullPath(validationRoot);
         string root = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            applicationData,
             "VoltManager");
 
         return new SupervisorPaths

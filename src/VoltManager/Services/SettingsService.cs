@@ -24,7 +24,7 @@ public class SettingsService
     public SettingsService(string? path = null)
     {
         _path = path ?? Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            ValidationEnvironment.ApplicationDataRoot,
             "VoltManager", "settings.json");
         Current = Load();
         if (_needsThemeMigrationSave)

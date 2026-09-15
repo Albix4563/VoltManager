@@ -29,7 +29,7 @@ public sealed class BatteryHistoryService
     public BatteryHistoryService(string? path = null, int capacity = 2880, TimeSpan? minInterval = null)
     {
         _path = path ?? Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            ValidationEnvironment.ApplicationDataRoot,
             "VoltManager", "battery-history.json");
         _capacity = Math.Max(16, capacity);
         _minInterval = minInterval ?? TimeSpan.FromMinutes(1);
