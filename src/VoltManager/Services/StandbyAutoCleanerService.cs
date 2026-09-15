@@ -6,11 +6,15 @@ namespace VoltManager.Services;
 
 public class StandbyAutoCleanerService : IDisposable
 {
+    internal const double PressureThresholdPct = 92;
+    internal static readonly TimeSpan PressureHold = TimeSpan.FromSeconds(30);
+
     private readonly SettingsService _settings;
     private readonly Func<MemoryStatus> _memoryStatusReader;
     private readonly Func<bool> _standbyPurger;
+    private readonly Func<bool> _protectedWorkloadActive;
     private readonly object _lock = new();
-    
+    private DateTime? _pressureSinceUtc;
     private Timer? _timer;
 
     public event Action<MemoryStatus>? AutoCleaned;
@@ -18,11 +22,13 @@ public class StandbyAutoCleanerService : IDisposable
     public StandbyAutoCleanerService(
         SettingsService settings,
         Func<MemoryStatus>? memoryStatusReader = null,
-        Func<bool>? standbyPurger = null)
+        Func<bool>? standbyPurger = null,
+        Func<bool>? protectedWorkloadActive = null)
     {
         _settings = settings;
         _memoryStatusReader = memoryStatusReader ?? (() => new MemoryOptimizerService().GetMemoryStatus());
         _standbyPurger = standbyPurger ?? (() => new MemoryOptimizerService().PurgeStandbyList());
+        _protectedWorkloadActive = protectedWorkloadActive ?? (() => false);
     }
 
     public void Start()
@@ -64,12 +70,17 @@ public class StandbyAutoCleanerService : IDisposable
         }
     }
 
+    public void ResetAutomaticCandidate()
+    {
+        lock (_lock) _pressureSinceUtc = null;
+    }
+
     private void Tick(object? state)
     {
         CheckAndClean();
     }
 
-    public void CheckAndClean()
+    public void CheckAndClean(DateTime? nowUtc = null)
     {
         if (!Monitor.TryEnter(_lock))
         {
@@ -81,34 +92,35 @@ public class StandbyAutoCleanerService : IDisposable
             var config = _settings.Current.StandbyAutoCleaner;
             if (config == null || !config.Enabled)
             {
+                _pressureSinceUtc = null;
+                return;
+            }
+
+            if (_protectedWorkloadActive())
+            {
+                _pressureSinceUtc = null;
                 return;
             }
 
             var mem = _memoryStatusReader();
-            var now = DateTime.UtcNow;
-            bool shouldPurge = false;
-
-            if (mem.StandbyGb >= config.ThresholdGb)
+            var now = nowUtc ?? DateTime.UtcNow;
+            if (mem.InUsePct < PressureThresholdPct)
             {
-                shouldPurge = true;
-            }
-            else if (config.LastPurgedUtc == null || (now - config.LastPurgedUtc.Value).TotalMinutes >= config.IntervalMinutes)
-            {
-                shouldPurge = true;
+                _pressureSinceUtc = null;
+                return;
             }
 
-            if (shouldPurge)
-            {
-                bool success = _standbyPurger();
-                if (success)
-                {
-                    config.LastPurgedUtc = DateTime.UtcNow;
-                    _settings.Save();
+            _pressureSinceUtc ??= now;
+            if (now - _pressureSinceUtc < PressureHold) return;
+            if (mem.StandbyGb < config.ThresholdGb) return;
+            if (config.LastPurgedUtc is DateTime last && now - last < TimeSpan.FromMinutes(config.IntervalMinutes)) return;
 
-                    var freshMem = _memoryStatusReader();
-                    AutoCleaned?.Invoke(freshMem);
-                }
-            }
+            if (!_standbyPurger()) return;
+
+            config.LastPurgedUtc = now;
+            _settings.Save();
+            _pressureSinceUtc = null;
+            AutoCleaned?.Invoke(_memoryStatusReader());
         }
         catch
         {

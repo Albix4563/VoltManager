@@ -20,6 +20,7 @@ public partial class App
         ResourcePressure = new ResourcePressureCoordinator(Environment.ProcessorCount);
         ResourcePressure.StateChanged += OnResourcePressureStateChanged;
         Monitor.MetricsUpdated += OnAdaptiveResourceMetrics;
+        HeavyApps.ActivityChanged += OnAdaptiveHeavyAppActivityChanged;
         _adaptiveResourcesInitialized = true;
 
         // Prime from the latest sample when available; otherwise the first monitor tick
@@ -45,6 +46,20 @@ public partial class App
         }
     }
 
+    private void OnAdaptiveHeavyAppActivityChanged(HeavyAppDetectionState state)
+    {
+        StandbyAutoCleaner.ResetAutomaticCandidate();
+        if (Monitor.Latest.RamTotalGb <= 0) return;
+        try
+        {
+            ResourcePressure.Observe(Monitor.Latest, state.GameActive, state.WorkloadActive);
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn("Protected workload evaluation failed: " + ex.Message);
+        }
+    }
+
     private void OnResourcePressureStateChanged(ResourcePressureState state)
     {
         Widgets.PushResourceProfile(state);
@@ -57,6 +72,7 @@ public partial class App
     {
         if (!_adaptiveResourcesInitialized) return;
         try { Monitor.MetricsUpdated -= OnAdaptiveResourceMetrics; } catch { }
+        try { HeavyApps.ActivityChanged -= OnAdaptiveHeavyAppActivityChanged; } catch { }
         try { ResourcePressure.StateChanged -= OnResourcePressureStateChanged; } catch { }
         _adaptiveResourcesInitialized = false;
     }

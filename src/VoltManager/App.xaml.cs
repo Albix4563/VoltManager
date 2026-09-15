@@ -176,7 +176,8 @@ public partial class App : Application
         PowerSourcePlans = new PowerSourcePlanService(Settings);
         ThermalGuard = new ThermalGuardService(Settings);
         IdlePowerGuard = new IdlePowerGuardService(Settings);
-        StandbyAutoCleaner = new StandbyAutoCleanerService(Settings);
+        StandbyAutoCleaner = new StandbyAutoCleanerService(Settings,
+            protectedWorkloadActive: () => IsHeavyAppSessionActive());
         _powerFlow = new PowerFlowService();
         BatteryHistory = new BatteryHistoryService();
         Widgets = new WidgetManager(this, () => WebViewEnvironment);

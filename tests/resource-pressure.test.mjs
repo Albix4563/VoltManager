@@ -51,8 +51,8 @@ test('WebView lifecycle uses suspend-resume without mixing manual memory target 
   assert.doesNotMatch(mainWindowHost, /SetWebViewMemoryLevel/);
 });
 
-test('tray-only startup schedules the existing working-set trim', () => {
-  assert.match(mainWindowHost, /if \(startMinimized\)[\s\S]*?Hide\(\);\s*ScheduleWorkingSetTrim\(\);/);
+test('tray lifecycle does not trim the host or WebView working sets', () => {
+  assert.doesNotMatch(mainWindowHost, /ScheduleWorkingSetTrim|TrimParkedWorkingSets/);
 });
 
 test('minimize hides the renderer before suspending and reserves teardown for the tray', () => {
@@ -62,7 +62,7 @@ test('minimize hides the renderer before suspending and reserves teardown for th
   assert.match(visibility, /TrySuspendWebView\(\);\s*\/\/[^\n]*\n\s*if \(!IsVisible\) ScheduleTrayTeardown\(\);/);
   assert.match(mainWindowHost, /await core\.TrySuspendAsync\(\);[\s\S]*?if \(_webViewVisible\) core\.Resume\(\);/);
   assert.match(mainWindowHost, /private void ResumeWebView\(\)\s*\{\s*if \(!_webViewVisible\) return;/);
-  assert.match(mainWindowHost, /_webViewVisible \|\| _exiting \|\| _app\.Widgets\.HasOpenWindows/);
+  assert.match(mainWindowHost, /if \(_webViewVisible \|\| _exiting\) return;/);
 });
 
 test('idle decorative animations require rich effects, while progress animations stay independent', () => {

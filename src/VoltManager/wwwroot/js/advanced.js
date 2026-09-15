@@ -802,6 +802,7 @@
         <input class="w-16 h-8 bg-surface-container-lowest border-b border-white/20 rounded text-center text-body-md text-secondary-container input-glow transition-all" id="ram-auto-threshold" min="0.5" max="128.0" step="0.5" type="number" value="2.0"/>
         <span id="ram-auto-interval-lbl" style="margin-left:10px;">Interval (min):</span>
         <input class="w-16 h-8 bg-surface-container-lowest border-b border-white/20 rounded text-center text-body-md text-secondary-container input-glow transition-all" id="ram-auto-interval" min="5" max="1440" type="number" value="60"/>
+        <span class="basis-full text-label-sm text-on-surface-variant mt-1" id="ram-auto-note"></span>
       </div>
     </div>
     <div class="text-right">
@@ -847,6 +848,7 @@
             'ram-auto-title-lbl': 'ram_auto_title',
             'ram-auto-threshold-lbl': 'ram_auto_threshold',
             'ram-auto-interval-lbl': 'ram_auto_interval',
+            'ram-auto-note': 'ram_auto_note',
         };
         Object.entries(map).forEach(([id, key]) => {
             const el = document.getElementById(id);

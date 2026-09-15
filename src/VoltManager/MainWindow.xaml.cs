@@ -35,8 +35,6 @@ public partial class MainWindow : Window
     private bool _webViewReady;
     private int _webViewInitRunning;
     private System.Threading.Timer? _trayTeardownTimer;
-    private System.Threading.Timer? _workingSetTrimTimer;
-    private readonly MemoryOptimizerService _memoryOptimizer = new();
     // Stable document version for HTTP/V8 code cache across tray reopens (not wall-clock).
     private static readonly string AppDocumentVersion =
         typeof(App).Assembly.GetName().Version?.ToString(3) ?? "1.0.0";
@@ -47,8 +45,6 @@ public partial class MainWindow : Window
     // After this park time in tray, drop the page to about:blank so Chromium
     // releases DOM/JS/GPU tiles. Reopened UI reloads fresh (same as cold open).
     private static readonly TimeSpan TrayTeardownDelay = TimeSpan.FromSeconds(20);
-    // Grace after the blank so Chromium has actually released before the OS trim.
-    private static readonly TimeSpan WorkingSetTrimDelay = TimeSpan.FromSeconds(5);
 
     public MainWindow(App app, bool startMinimized, bool justUpdated = false,
         Task<CoreWebView2Environment>? webViewEnvironment = null)
@@ -75,7 +71,6 @@ public partial class MainWindow : Window
             _bridge?.Dispose();
             _autoUpdateTimer?.Dispose();
             _trayTeardownTimer?.Dispose();
-            _workingSetTrimTimer?.Dispose();
             _hotkeySource?.RemoveHook(GlobalHotkeyWndProc);
             _globalHotkeys.Dispose();
         };
@@ -111,7 +106,6 @@ public partial class MainWindow : Window
             ShowInTaskbar = false;
             Show();
             Hide();
-            ScheduleWorkingSetTrim();
         }
     }
 
@@ -783,37 +777,14 @@ public partial class MainWindow : Window
                     Logger.Info("WebView blanked after tray park.");
                 }
                 catch (Exception ex) { Logger.Warn("Tray WebView teardown failed: " + ex.Message); }
-                ScheduleWorkingSetTrim();
             });
         }, null, TrayTeardownDelay, Timeout.InfiniteTimeSpan);
-    }
-
-    /// <summary>
-    /// Chromium releases its allocations asynchronously after the blank + suspend, so the
-    /// OS-level trim runs a few seconds later — otherwise it would hand back pages that
-    /// are about to be freed anyway and miss the ones that matter.
-    /// </summary>
-    private void ScheduleWorkingSetTrim()
-    {
-        _workingSetTrimTimer?.Dispose();
-        _workingSetTrimTimer = new System.Threading.Timer(_ =>
-        {
-            if (_webViewVisible || _exiting || _app.Widgets.HasOpenWindows) return;
-            try
-            {
-                int trimmed = _memoryOptimizer.TrimParkedWorkingSets();
-                if (trimmed > 0) Logger.Info($"Working set released for {trimmed} parked process(es).");
-            }
-            catch (Exception ex) { Logger.Warn("Tray working-set trim failed: " + ex.Message); }
-        }, null, WorkingSetTrimDelay, Timeout.InfiniteTimeSpan);
     }
 
     private void CancelTrayTeardown()
     {
         _trayTeardownTimer?.Dispose();
         _trayTeardownTimer = null;
-        _workingSetTrimTimer?.Dispose();
-        _workingSetTrimTimer = null;
     }
 
     /// <summary>Applies localized strings to tray menu items with x:Name in XAML.</summary>

@@ -9,6 +9,94 @@ namespace VoltManager.Tests;
 public sealed class ResourceOptimizationTests
 {
     [Fact]
+    public void Standby_auto_clean_requires_sustained_ram_pressure_and_standby_threshold()
+    {
+        string path = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".json");
+        var settings = new SettingsService(path);
+        settings.Current.StandbyAutoCleaner.Enabled = true;
+        settings.Current.StandbyAutoCleaner.ThresholdGb = 2;
+        settings.Current.StandbyAutoCleaner.IntervalMinutes = 60;
+        int purges = 0;
+        var memory = new MemoryStatus { InUsePct = 93, StandbyGb = 3 };
+        using var cleaner = new StandbyAutoCleanerService(settings, () => memory, () => { purges++; return true; });
+        var t0 = DateTime.UnixEpoch;
+
+        cleaner.CheckAndClean(t0);
+        cleaner.CheckAndClean(t0.AddSeconds(29));
+        Assert.Equal(0, purges);
+        cleaner.CheckAndClean(t0.AddSeconds(30));
+        Assert.Equal(1, purges);
+
+        memory = memory with { InUsePct = 91 };
+        cleaner.CheckAndClean(t0.AddMinutes(61));
+        Assert.Equal(1, purges);
+    }
+
+    [Fact]
+    public void Standby_auto_clean_resets_pressure_candidate_during_protected_session()
+    {
+        string path = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".json");
+        var settings = new SettingsService(path);
+        settings.Current.StandbyAutoCleaner.Enabled = true;
+        settings.Current.StandbyAutoCleaner.ThresholdGb = 1;
+        bool protectedSession = false;
+        int purges = 0;
+        var memory = new MemoryStatus { InUsePct = 95, StandbyGb = 3 };
+        using var cleaner = new StandbyAutoCleanerService(
+            settings, () => memory, () => { purges++; return true; }, () => protectedSession);
+        var t0 = DateTime.UnixEpoch;
+
+        cleaner.CheckAndClean(t0);
+        protectedSession = true;
+        cleaner.CheckAndClean(t0.AddSeconds(20));
+        protectedSession = false;
+        cleaner.CheckAndClean(t0.AddSeconds(40));
+        cleaner.CheckAndClean(t0.AddSeconds(69));
+        Assert.Equal(0, purges);
+        cleaner.CheckAndClean(t0.AddSeconds(70));
+        Assert.Equal(1, purges);
+    }
+
+    [Fact]
+    public void Standby_auto_clean_treats_interval_as_minimum_and_does_not_record_failure()
+    {
+        string path = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".json");
+        var settings = new SettingsService(path);
+        settings.Current.StandbyAutoCleaner.Enabled = true;
+        settings.Current.StandbyAutoCleaner.ThresholdGb = 1;
+        settings.Current.StandbyAutoCleaner.IntervalMinutes = 60;
+        settings.Current.StandbyAutoCleaner.LastPurgedUtc = DateTime.UnixEpoch;
+        int attempts = 0;
+        var memory = new MemoryStatus { InUsePct = 95, StandbyGb = 3 };
+        using var cleaner = new StandbyAutoCleanerService(settings, () => memory, () => { attempts++; return false; });
+
+        cleaner.CheckAndClean(DateTime.UnixEpoch.AddMinutes(1));
+        cleaner.CheckAndClean(DateTime.UnixEpoch.AddMinutes(1).AddSeconds(30));
+        Assert.Equal(0, attempts);
+
+        cleaner.CheckAndClean(DateTime.UnixEpoch.AddMinutes(61));
+        Assert.Equal(1, attempts);
+        Assert.Equal(DateTime.UnixEpoch, settings.Current.StandbyAutoCleaner.LastPurgedUtc);
+    }
+
+    [Fact]
+    public void Manual_standby_clean_remains_available_during_protected_session()
+    {
+        string path = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".json");
+        var settings = new SettingsService(path);
+        int purges = 0;
+        using var cleaner = new StandbyAutoCleanerService(
+            settings,
+            () => new MemoryStatus(),
+            () => { purges++; return true; },
+            () => true);
+
+        Assert.True(cleaner.PurgeManual());
+        Assert.Equal(1, purges);
+        Assert.NotNull(settings.Current.StandbyAutoCleaner.LastPurgedUtc);
+    }
+
+    [Fact]
     public void Process_sampling_is_on_demand_throttled_and_shared_by_concurrent_readers()
     {
         var now = DateTime.UnixEpoch;
