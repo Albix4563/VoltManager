@@ -669,6 +669,17 @@ public class HostBridge : IDisposable
             case "getScheduledPowerAction":
                 return _app.ScheduledPowerActions.GetState();
 
+            case "executePowerAction":
+            {
+                string actionText = payload.GetProperty("action").GetString() ?? "";
+                if (!Enum.TryParse<ScheduledPowerActionType>(actionText, ignoreCase: true, out var action)
+                    || action is not (ScheduledPowerActionType.Shutdown or ScheduledPowerActionType.Restart))
+                    throw new ArgumentException(_loc.T("Error_InvalidPowerAction"));
+
+                _app.ScheduledPowerActions.ExecuteNow(action);
+                return new { success = true };
+            }
+
             case "schedulePowerAction":
             {
                 string modeText = payload.GetProperty("mode").GetString() ?? "";

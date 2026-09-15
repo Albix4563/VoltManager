@@ -11,6 +11,7 @@ const dashboard = source('src/VoltManager/wwwroot/js/dashboard.js');
 const power = source('src/VoltManager/wwwroot/js/power.js');
 const settings = source('src/VoltManager/wwwroot/js/settings.js');
 const app = source('src/VoltManager/wwwroot/js/app.js');
+const hostBridge = source('src/VoltManager/Bridge/HostBridge.cs');
 
 test('advanced battery history exposes range, metrics and CSV export', () => {
   assert.match(html, /data-hours="6"/);
@@ -54,4 +55,14 @@ test('startup applications expose a client-side search filter', () => {
   assert.match(app, /id="startup-search" type="search"/);
   assert.match(app, /function filterStartupApps\(query\)/);
   assert.match(app, /card\.hidden = normalized !== ''/);
+});
+
+test('immediate shutdown and restart are confirmed and delegated to the host', () => {
+  assert.match(app, /data-power-action="shutdown"/);
+  assert.match(app, /data-power-action="restart"/);
+  assert.match(app, /window\.confirm\(t\(confirmKey\)\)/);
+  assert.match(app, /Host\.call\('executePowerAction', \{ action: immediateAction \}\)/);
+  assert.match(hostBridge, /case "executePowerAction":/);
+  assert.match(hostBridge, /action is not \(ScheduledPowerActionType\.Shutdown or ScheduledPowerActionType\.Restart\)/);
+  assert.match(hostBridge, /ScheduledPowerActions\.ExecuteNow\(action\)/);
 });

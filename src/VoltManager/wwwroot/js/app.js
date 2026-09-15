@@ -11,6 +11,8 @@
         it: {
             nav: 'Gestione Energetica', title: 'Gestione Energetica', sub: 'Programma spegnimento, riavvio e sospensione del PC, e mantienilo attivo quando serve.',
             scheduleTitle: 'Azione automatica del PC', scheduleSub: 'Spegni, sospendi o riavvia il PC dopo un conto alla rovescia, oppure ogni giorno a un orario fisso.',
+            immediateTitle: 'Azioni immediate', immediateSub: 'Spegni o riavvia subito il PC.', shutdownNow: 'Spegni PC', restartNow: 'Riavvia PC',
+            confirmShutdown: 'Spegnere il PC adesso?', confirmRestart: 'Riavviare il PC adesso?',
             enable: 'Attiva pianificazione', action: 'Azione', shutdown: 'Spegni', restart: 'Riavvia', sleep: 'Sospendi', time: 'Orario',
             note: 'Spegnimento e riavvio non forzano il salvataggio del lavoro aperto. La sospensione usa lo stato sospensione di Windows.',
             keepAwakeTitle: 'Mantieni il PC attivo', keepAwakeSub: 'Impedisce al PC di andare in sospensione automatica finché è attivo.',
@@ -32,6 +34,8 @@
         en: {
             nav: 'Power Schedule', title: 'Power Schedule', sub: 'Schedule PC shutdown, restart and sleep, and keep it awake when needed.',
             scheduleTitle: 'Automatic PC action', scheduleSub: 'Shut down, sleep or restart the PC after a countdown, or every day at a fixed time.',
+            immediateTitle: 'Immediate actions', immediateSub: 'Shut down or restart the PC now.', shutdownNow: 'Shut down PC', restartNow: 'Restart PC',
+            confirmShutdown: 'Shut down the PC now?', confirmRestart: 'Restart the PC now?',
             enable: 'Enable schedule', action: 'Action', shutdown: 'Shut down', restart: 'Restart', sleep: 'Sleep', time: 'Time',
             note: 'Shutdown and restart do not force-save open work. Sleep uses the Windows suspend state.',
             keepAwakeTitle: 'Keep PC awake', keepAwakeSub: 'Prevents the PC from automatically sleeping while it is active.',
@@ -53,6 +57,8 @@
         zh: {
             nav: '电源计划', title: '电源计划', sub: '计划电脑的关机、重启和睡眠，并在需要时保持唤醒。',
             scheduleTitle: '电脑自动操作', scheduleSub: '倒计时后关机、睡眠或重启，或每天在固定时间执行。',
+            immediateTitle: '立即操作', immediateSub: '立即关闭或重启电脑。', shutdownNow: '关闭电脑', restartNow: '重启电脑',
+            confirmShutdown: '现在关闭电脑吗？', confirmRestart: '现在重启电脑吗？',
             enable: '启用计划', action: '操作', shutdown: '关机', restart: '重启', sleep: '睡眠', time: '时间',
             note: '关机和重启不会强制保存打开的工作。睡眠使用 Windows 的挂起状态。',
             keepAwakeTitle: '保持电脑唤醒', keepAwakeSub: '在电脑处于活动状态时阻止其自动进入睡眠。',
@@ -74,6 +80,8 @@
         es: {
             nav: 'Programación de energía', title: 'Programación de energía', sub: 'Programa apagado, reinicio y suspensión del PC, y mantenlo activo cuando sea necesario.',
             scheduleTitle: 'Acción automática del PC', scheduleSub: 'Apaga, suspende o reinicia el PC tras una cuenta atrás, o cada día a una hora fija.',
+            immediateTitle: 'Acciones inmediatas', immediateSub: 'Apaga o reinicia el PC ahora.', shutdownNow: 'Apagar PC', restartNow: 'Reiniciar PC',
+            confirmShutdown: '¿Apagar el PC ahora?', confirmRestart: '¿Reiniciar el PC ahora?',
             enable: 'Activar programación', action: 'Acción', shutdown: 'Apagar', restart: 'Reiniciar', sleep: 'Suspender', time: 'Hora',
             note: 'Apagar y reiniciar no fuerzan el guardado del trabajo abierto. La suspensión usa el estado de suspensión de Windows.',
             keepAwakeTitle: 'Mantener el PC activo', keepAwakeSub: 'Impide que el PC entre en suspensión automática mientras está activo.',
@@ -400,6 +408,10 @@
             // Schedule panel — new: relative + daily dual-mode
             '<div class="col-span-12 lg:col-span-6 flex flex-col gap-gutter">' +
             '<div class="glass-panel rounded-xl p-lg space-y-md" id="schedule-panel"><h3 class="text-title-lg text-on-surface flex items-center gap-xs"><span class="material-symbols-outlined text-secondary-container">schedule</span><span class="system-schedule-title"></span></h3><p class="text-body-md text-on-surface-variant system-schedule-sub"></p>' +
+            '<div class="pt-sm border-t border-white/10"><p class="text-label-md font-medium text-on-surface system-immediate-title"></p><p class="text-label-sm text-on-surface-variant mt-1 system-immediate-sub"></p><div class="grid grid-cols-2 gap-sm mt-sm">' +
+            '<button type="button" data-power-action="shutdown" class="py-2.5 px-4 rounded-lg font-medium text-body-md bg-error/10 text-error border border-error/30 hover:bg-error/20 transition-colors system-shutdown-now"></button>' +
+            '<button type="button" data-power-action="restart" class="py-2.5 px-4 rounded-lg font-medium text-body-md bg-secondary-container/20 text-secondary-container border border-secondary-container/30 hover:bg-secondary-container/30 transition-colors system-restart-now"></button>' +
+            '</div></div>' +
             // Mode tabs — compact labels, same segmented language as subnav
             '<div class="schedule-mode-tabs" id="schedule-mode-tabs" role="tablist">' +
             '<button type="button" class="schedule-mode-tab schedule-mode-relative" data-mode="relative" role="tab" aria-selected="true"></button>' +
@@ -454,6 +466,8 @@
         const pairs = [
             ['.system-title','title'], ['.system-sub','sub'],
             ['.system-schedule-title','scheduleTitle'], ['.system-schedule-sub','scheduleSub'],
+            ['.system-immediate-title','immediateTitle'], ['.system-immediate-sub','immediateSub'],
+            ['.system-shutdown-now','shutdownNow'], ['.system-restart-now','restartNow'],
             ['.system-action','action'], ['.system-time','time'],
             ['.system-keepawake-title','keepAwakeTitle'], ['.system-keepawake-sub','keepAwakeSub'],
             ['.system-confirm','confirm'], ['.system-cancel','cancel'],
@@ -597,6 +611,22 @@
         if (systemWired) return;
 
         document.addEventListener('click', async function(e) {
+            var immediateBtn = e.target.closest('[data-power-action]');
+            if (immediateBtn && Host.available) {
+                var immediateAction = immediateBtn.dataset.powerAction;
+                var confirmKey = immediateAction === 'restart' ? 'confirmRestart' : 'confirmShutdown';
+                if (!window.confirm(t(confirmKey))) return;
+                immediateBtn.disabled = true;
+                try {
+                    await Host.call('executePowerAction', { action: immediateAction });
+                } catch (err) {
+                    setSystemStatus(err.message, true);
+                } finally {
+                    immediateBtn.disabled = false;
+                }
+                return;
+            }
+
             // Mode tabs
             var modeBtn = e.target.closest('#schedule-mode-tabs button');
             if (modeBtn) {
