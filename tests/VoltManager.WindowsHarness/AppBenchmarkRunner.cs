@@ -36,6 +36,8 @@ internal static class AppBenchmarkRunner
 
         string harnessExe = Environment.ProcessPath
             ?? throw new InvalidOperationException("Harness executable path unavailable.");
+        string supervisorPath = ResolveSupervisorPath(appDir, options, harnessExe);
+        bool usingSupervisor = !string.Equals(supervisorPath, harnessExe, StringComparison.OrdinalIgnoreCase);
         WriteBenchmarkSettings(validationRoot, options, harnessExe);
 
         string proxyState = Path.Combine(options.OutputDirectory, "app-proxy.json");
@@ -43,7 +45,14 @@ internal static class AppBenchmarkRunner
 
         Process? synthetic = null;
         Process? focusHelper = null;
-        Process root = StartVoltManager(appPath, appDir, validationRoot, options, harnessExe);
+        Process root = StartVoltManager(
+            appPath,
+            appDir,
+            validationRoot,
+            options,
+            harnessExe,
+            supervisorPath,
+            usingSupervisor);
         try
         {
             using Process app = WaitForAppProcess(proxyState, root, TimeSpan.FromSeconds(20));
@@ -98,7 +107,12 @@ internal static class AppBenchmarkRunner
             run.Scenario = options.Scenario;
             run.Iteration = options.Iteration;
             run.Renderer = options.Renderer;
+            run.SettledSeconds = options.SettleDuration.TotalSeconds;
             run.AppPath = appPath;
+            run.SupervisorPath = usingSupervisor ? supervisorPath : "";
+            run.SupervisorCommit = usingSupervisor
+                ? FileVersionInfo.GetVersionInfo(supervisorPath).ProductVersion ?? "unknown"
+                : "harness-fallback";
             run.Machine = Environment.MachineName;
             run.Os = Environment.OSVersion.VersionString;
             run.Runtime = Environment.Version.ToString();
@@ -163,22 +177,21 @@ internal static class AppBenchmarkRunner
         string appDir,
         string root,
         HarnessOptions options,
-        string harnessExe)
+        string harnessExe,
+        string supervisorPath,
+        bool usingSupervisor)
     {
-        string supervisorPath = !string.IsNullOrWhiteSpace(options.SupervisorPath)
-            ? Path.GetFullPath(options.SupervisorPath)
-            : Path.Combine(appDir, "VoltManager.Supervisor.exe");
         string appDll = Path.ChangeExtension(appPath, ".dll");
         if (!File.Exists(appDll))
             throw new FileNotFoundException("VoltManager.dll was not found next to the benchmark apphost.", appDll);
 
         var psi = new ProcessStartInfo
         {
-            FileName = File.Exists(supervisorPath) ? supervisorPath : harnessExe,
+            FileName = supervisorPath,
             WorkingDirectory = appDir,
             UseShellExecute = false,
         };
-        if (File.Exists(supervisorPath))
+        if (usingSupervisor)
         {
             psi.ArgumentList.Add("--reset-state");
             psi.ArgumentList.Add("--child");
@@ -197,6 +210,14 @@ internal static class AppBenchmarkRunner
         psi.Environment[ValidationEnvironment.SuppressPowerVariable] = "1";
         psi.Environment[ValidationEnvironment.RendererVariable] = options.Renderer;
         return Process.Start(psi) ?? throw new InvalidOperationException("Failed to launch VoltManager benchmark process.");
+    }
+
+    private static string ResolveSupervisorPath(string appDir, HarnessOptions options, string harnessExe)
+    {
+        string requested = !string.IsNullOrWhiteSpace(options.SupervisorPath)
+            ? Path.GetFullPath(options.SupervisorPath)
+            : Path.Combine(appDir, "VoltManager.Supervisor.exe");
+        return File.Exists(requested) ? requested : harnessExe;
     }
 
     private static Process WaitForAppProcess(string proxyState, Process root, TimeSpan timeout)
@@ -477,10 +498,11 @@ internal static class AppBenchmarkRunner
 
     private static string ToCsv(BenchmarkRun run)
     {
-        string Header = "label,scenario,iteration,renderer,commit,machine,os,runtime,webview_runtime,cpu_avg_pct,cpu_p95_pct,gpu_avg_pct,gpu_p95_pct,gpu_status,vram_pct,vram_status,group_vram_bytes_avg,group_vram_bytes_max,group_vram_status,private_bytes_avg,private_bytes_max,working_set_avg,private_working_set_avg,max_process_count,sample_count,measured_seconds,restore_latency_ms,fresh_data_latency_ms,synthetic_ops_per_sec,protected_workload_observed,provider_monitor_ticks,provider_process_snapshots,provider_gpu_samples,provider_vram_samples,provider_hardware_rpc_reads,provider_ui_metric_publications";
+        string Header = "label,scenario,iteration,renderer,commit,supervisor_path,supervisor_commit,machine,os,runtime,webview_runtime,cpu_avg_pct,cpu_p95_pct,gpu_avg_pct,gpu_p95_pct,gpu_status,vram_pct,vram_status,group_vram_bytes_avg,group_vram_bytes_max,group_vram_status,private_bytes_avg,private_bytes_max,working_set_avg,private_working_set_avg,max_process_count,sample_count,settled_seconds,measured_seconds,restore_latency_ms,fresh_data_latency_ms,synthetic_ops_per_sec,protected_workload_observed,provider_monitor_ticks,provider_process_snapshots,provider_gpu_samples,provider_vram_samples,provider_hardware_rpc_reads,provider_ui_metric_publications";
         string Row = string.Join(',', new[]
         {
             Csv(run.Label), Csv(run.Scenario), run.Iteration.ToString(), Csv(run.Renderer), Csv(run.Commit),
+            Csv(run.SupervisorPath), Csv(run.SupervisorCommit),
             Csv(run.Machine), Csv(run.Os), Csv(run.Runtime), Csv(run.WebViewRuntime),
             run.CpuAveragePercent.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture),
             run.CpuP95Percent.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture),
@@ -494,6 +516,7 @@ internal static class AppBenchmarkRunner
             run.GroupVramMeasurementStatus,
             run.PrivateBytesAverage.ToString(), run.PrivateBytesMax.ToString(), run.WorkingSetAverage.ToString(),
             run.PrivateWorkingSetAverage.ToString(), run.MaxProcessCount.ToString(), run.SampleCount.ToString(),
+            run.SettledSeconds.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture),
             run.MeasuredSeconds.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture),
             run.RestoreLatencyMs?.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture) ?? "",
             run.FreshDataLatencyMs?.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture) ?? "",
@@ -737,6 +760,8 @@ internal sealed class BenchmarkRun
     public string Renderer { get; set; } = "";
     public string AppPath { get; set; } = "";
     public string Commit { get; set; } = "";
+    public string SupervisorPath { get; set; } = "";
+    public string SupervisorCommit { get; set; } = "";
     public string Machine { get; set; } = "";
     public string Os { get; set; } = "";
     public string Runtime { get; set; } = "";
@@ -757,6 +782,7 @@ internal sealed class BenchmarkRun
     public long PrivateWorkingSetAverage { get; set; }
     public int MaxProcessCount { get; set; }
     public int SampleCount { get; set; }
+    public double SettledSeconds { get; set; }
     public double MeasuredSeconds { get; set; }
     public double? RestoreLatencyMs { get; set; }
     public double? FreshDataLatencyMs { get; set; }

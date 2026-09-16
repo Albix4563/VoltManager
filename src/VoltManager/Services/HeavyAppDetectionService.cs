@@ -23,6 +23,7 @@ public record DetectedHeavyApp
 }
 
 public record ObservedHeavyProcess(int ProcessId, string Path, DateTime? StartedAtUtc, string Name = "", long WorkingSetMb = 0);
+public readonly record struct ProtectedProcessIdentity(int ProcessId, DateTime? StartedAtUtc);
 
 public record HeavyAppDetectionState
 {
@@ -37,6 +38,7 @@ public record HeavyAppDetectionState
     [JsonPropertyName("targetPlan")] public PlanId TargetPlan { get; init; } = PlanId.Performance;
     [JsonPropertyName("detectedCount")] public int DetectedCount { get; init; }
     [JsonPropertyName("activeProcesses")] public List<DetectedHeavyApp> ActiveProcesses { get; init; } = new();
+    [JsonIgnore] public List<ProtectedProcessIdentity> ProtectedProcesses { get; init; } = new();
     [JsonPropertyName("lastScanUtc")] public DateTime LastScanUtc { get; init; } = DateTime.UtcNow;
 }
 
@@ -265,6 +267,12 @@ public sealed class HeavyAppDetectionService : IDisposable
             TargetPlan = config.TargetPlan,
             DetectedCount = detected.Count,
             ActiveProcesses = unique,
+            ProtectedProcesses = detected
+                .Select(app => new ProtectedProcessIdentity(app.ProcessId, app.StartedAtUtc))
+                .Distinct()
+                .OrderBy(identity => identity.ProcessId)
+                .ThenBy(identity => identity.StartedAtUtc)
+                .ToList(),
             LastScanUtc = DateTime.UtcNow,
         });
     }
@@ -353,6 +361,7 @@ public sealed class HeavyAppDetectionService : IDisposable
         if (previous.GameActive != next.GameActive) return true;
         if (previous.TargetPlan != next.TargetPlan) return true;
         if (previous.DetectedCount != next.DetectedCount) return true;
+        if (!previous.ProtectedProcesses.SequenceEqual(next.ProtectedProcesses)) return true;
 
         var previousProcesses = previous.ActiveProcesses
             .OrderBy(process => process.Path, StringComparer.OrdinalIgnoreCase)

@@ -1,13 +1,16 @@
 param(
     [Parameter(Mandatory = $true)] [string] $BaselineApp,
     [Parameter(Mandatory = $true)] [string] $CandidateApp,
-    [Parameter(Mandatory = $true)] [string] $Supervisor,
+    [string] $Supervisor,
+    [string] $BaselineSupervisor,
+    [string] $CandidateSupervisor,
     [string] $Harness = (Join-Path $PSScriptRoot '..\tests\VoltManager.WindowsHarness\bin\Release\net8.0-windows\win-x64\VoltManager.WindowsHarness.exe'),
     [string] $Output = (Join-Path $PSScriptRoot '..\artifacts\resource-validation\benchmark-final'),
     [int] $StabilizationSeconds = 30,
     [int] $MeasurementSeconds = 120,
     [int] $Repetitions = 5,
-    [int] $UnstableExtraRepetitions = 2
+    [int] $UnstableExtraRepetitions = 2,
+    [switch] $Resume
 )
 
 $ErrorActionPreference = 'Stop'
@@ -20,22 +23,74 @@ function Resolve-RequiredPath([string] $Path, [string] $Name) {
 
 $BaselineApp = Resolve-RequiredPath $BaselineApp 'BaselineApp'
 $CandidateApp = Resolve-RequiredPath $CandidateApp 'CandidateApp'
-$Supervisor = Resolve-RequiredPath $Supervisor 'Supervisor'
 $Harness = Resolve-RequiredPath $Harness 'Harness'
+
+function Resolve-SupervisorPath([string] $Explicit, [string] $Fallback, [string] $App, [string] $Name) {
+    $path = if (-not [string]::IsNullOrWhiteSpace($Explicit)) {
+        $Explicit
+    } elseif (-not [string]::IsNullOrWhiteSpace($Fallback)) {
+        $Fallback
+    } else {
+        Join-Path (Split-Path -Parent $App) 'VoltManager.Supervisor.exe'
+    }
+    return Resolve-RequiredPath $path $Name
+}
+
+$BaselineSupervisor = Resolve-SupervisorPath $BaselineSupervisor $Supervisor $BaselineApp 'BaselineSupervisor'
+$CandidateSupervisor = Resolve-SupervisorPath $CandidateSupervisor $Supervisor $CandidateApp 'CandidateSupervisor'
 $Output = [IO.Path]::GetFullPath($Output)
 New-Item -ItemType Directory -Force -Path $Output | Out-Null
 
 $scenarios = @('dashboard-active', 'dashboard-inactive', 'tray-no-widgets', 'tray-widget', 'protected-cpu', 'restore')
 $runs = [System.Collections.Generic.List[object]]::new()
 
+function Get-AppProductVersion([string] $App) {
+    return [Diagnostics.FileVersionInfo]::GetVersionInfo($App).ProductVersion
+}
+
+function Try-LoadExistingAppRun(
+    [string] $JsonPath,
+    [string] $Label,
+    [string] $App,
+    [string] $SupervisorPath,
+    [string] $Scenario,
+    [int] $Iteration
+) {
+    if (-not $Resume -or -not (Test-Path -LiteralPath $JsonPath -PathType Leaf)) { return $null }
+    try {
+        $run = Get-Content -LiteralPath $JsonPath -Raw | ConvertFrom-Json
+        $expectedCommit = Get-AppProductVersion $App
+        $expectedSupervisorCommit = Get-AppProductVersion $SupervisorPath
+        $minimumSettledSeconds = [Math]::Max(1, $StabilizationSeconds * 0.95)
+        $minimumMeasuredSeconds = [Math]::Max(1, $MeasurementSeconds * 0.95)
+        if ($run.Label -ne $Label -or $run.Scenario -ne $Scenario -or [int]$run.Iteration -ne $Iteration) { return $null }
+        if ($run.Renderer -ne 'swiftshader' -or $run.Commit -ne $expectedCommit) { return $null }
+        if ($run.SupervisorCommit -ne $expectedSupervisorCommit) { return $null }
+        if ([double]$run.SettledSeconds -lt $minimumSettledSeconds) { return $null }
+        if ([double]$run.MeasuredSeconds -lt $minimumMeasuredSeconds) { return $null }
+        return $run
+    }
+    catch {
+        return $null
+    }
+}
+
 function Invoke-AppRun([string] $Label, [string] $App, [string] $Scenario, [int] $Iteration) {
     $dir = Join-Path $Output ("app-{0}-{1}-{2:D2}" -f $Scenario, $Label, $Iteration)
     New-Item -ItemType Directory -Force -Path $dir | Out-Null
-    & $Harness --mode app-benchmark --app $App --supervisor $Supervisor --scenario $Scenario `
+    $jsonPath = Join-Path $dir 'benchmark-run.json'
+    $supervisorPath = if ($Label -eq 'baseline') { $BaselineSupervisor } else { $CandidateSupervisor }
+    $existing = Try-LoadExistingAppRun $jsonPath $Label $App $supervisorPath $Scenario $Iteration
+    if ($null -ne $existing) {
+        Write-Host "Reusing completed benchmark: $Label/$Scenario/$Iteration"
+        $runs.Add($existing)
+        return
+    }
+    & $Harness --mode app-benchmark --app $App --supervisor $supervisorPath --scenario $Scenario `
         --label $Label --iteration $Iteration --settle-seconds $StabilizationSeconds `
         --measure-seconds $MeasurementSeconds --renderer swiftshader --output $dir
     if ($LASTEXITCODE -ne 0) { throw "App benchmark failed: $Label/$Scenario/$Iteration" }
-    $json = Get-Content -LiteralPath (Join-Path $dir 'benchmark-run.json') -Raw | ConvertFrom-Json
+    $json = Get-Content -LiteralPath $jsonPath -Raw | ConvertFrom-Json
     $runs.Add($json)
 }
 
@@ -87,13 +142,36 @@ foreach ($scenario in $scenarios) {
 }
 
 $graphicsRuns = [System.Collections.Generic.List[object]]::new()
+function Try-LoadExistingGraphicsRun([string] $JsonPath, [string] $Renderer, [int] $Iteration) {
+    if (-not $Resume -or -not (Test-Path -LiteralPath $JsonPath -PathType Leaf)) { return $null }
+    try {
+        $run = Get-Content -LiteralPath $JsonPath -Raw | ConvertFrom-Json
+        $minimumSettledSeconds = [Math]::Max(1, $StabilizationSeconds * 0.95)
+        $minimumMeasuredSeconds = [Math]::Max(1, $MeasurementSeconds * 0.95)
+        if ($run.Renderer -ne $Renderer -or [int]$run.Iteration -ne $Iteration) { return $null }
+        if ([double]$run.SettledSeconds -lt $minimumSettledSeconds) { return $null }
+        if ([double]$run.MeasuredSeconds -lt $minimumMeasuredSeconds) { return $null }
+        return $run
+    }
+    catch {
+        return $null
+    }
+}
+
 function Invoke-GraphicsRun([string] $Renderer, [int] $Iteration) {
     $dir = Join-Path $Output ("graphics-{0}-{1:D2}" -f $Renderer, $Iteration)
     New-Item -ItemType Directory -Force -Path $dir | Out-Null
+    $jsonPath = Join-Path $dir 'graphics-benchmark.json'
+    $existing = Try-LoadExistingGraphicsRun $jsonPath $Renderer $Iteration
+    if ($null -ne $existing) {
+        Write-Host "Reusing completed graphics benchmark: $Renderer/$Iteration"
+        $graphicsRuns.Add($existing)
+        return
+    }
     & $Harness --mode graphics-benchmark --renderer $Renderer --label renderer --iteration $Iteration `
         --settle-seconds $StabilizationSeconds --measure-seconds $MeasurementSeconds --output $dir
     if ($LASTEXITCODE -ne 0) { throw "Graphics benchmark failed: $Renderer/$Iteration" }
-    $graphicsRuns.Add((Get-Content -LiteralPath (Join-Path $dir 'graphics-benchmark.json') -Raw | ConvertFrom-Json))
+    $graphicsRuns.Add((Get-Content -LiteralPath $jsonPath -Raw | ConvertFrom-Json))
 }
 
 function Invoke-GraphicsPair([int] $Iteration) {
@@ -114,10 +192,10 @@ if ($graphicsUnstable -and $UnstableExtraRepetitions -gt 0) {
 }
 
 $appCsv = Join-Path $Output 'app-benchmark-all.csv'
-$runs | Select-Object Label, Scenario, Iteration, Renderer, Commit, Machine, Os, Runtime, WebViewRuntime,
+$runs | Select-Object Label, Scenario, Iteration, Renderer, Commit, SupervisorPath, SupervisorCommit, Machine, Os, Runtime, WebViewRuntime,
     CpuAveragePercent, CpuP95Percent, GpuAveragePercent, GpuP95Percent, GpuMeasurementStatus,
     VramPressurePercent, VramMeasurementStatus, PrivateBytesAverage, PrivateBytesMax, WorkingSetAverage,
-    PrivateWorkingSetAverage, MaxProcessCount, SampleCount, MeasuredSeconds, RestoreLatencyMs,
+    PrivateWorkingSetAverage, MaxProcessCount, SampleCount, SettledSeconds, MeasuredSeconds, RestoreLatencyMs,
     FreshDataLatencyMs, SyntheticOperationsPerSecond, ProtectedWorkloadObserved | Export-Csv -NoTypeInformation -Encoding UTF8 $appCsv
 
 $graphicsCsv = Join-Path $Output 'graphics-benchmark-all.csv'
@@ -177,8 +255,11 @@ $rendererMemoryOk = (($hardwarePrivate - $swiftPrivate) -le $rendererPrivateLimi
 $rendererVramLimit = if ($null -ne $swiftVramMax) { [Math]::Max($swiftVramMax * 0.10, 32MB) } else { 32MB }
 $rendererVramOk = $vramVerified -and (($hardwareVramMax - $swiftVramMax) -le $rendererVramLimit)
 $rendererInconclusive = (Test-Unstable $swift) -or (Test-Unstable $hardware)
-$rendererDecision = if ($hardwareVerified -and $vramVerified -and $rendererBenefit -and $rendererMemoryOk -and $rendererVramOk -and -not $rendererInconclusive) { 'use_hardware' } else { 'keep_swiftshader' }
-$rendererReason = if (-not $hardwareVerified) {
+$protocolQualifies = $StabilizationSeconds -ge 30 -and $MeasurementSeconds -ge 120 -and $Repetitions -ge 5
+$rendererDecision = if ($protocolQualifies -and $hardwareVerified -and $vramVerified -and $rendererBenefit -and $rendererMemoryOk -and $rendererVramOk -and -not $rendererInconclusive) { 'use_hardware' } else { 'keep_swiftshader' }
+$rendererReason = if (-not $protocolQualifies) {
+    'Benchmark protocol is shorter than the 30s stabilization / 120s measurement / 5-repetition acceptance protocol.'
+} elseif (-not $hardwareVerified) {
     'Hardware backend was not verified in every run.'
 } elseif (-not $vramVerified) {
     'Per-process VRAM was not verified for every renderer; evidence is incomplete.'
@@ -221,9 +302,11 @@ $providerSummary | Export-Csv -NoTypeInformation -Encoding UTF8 (Join-Path $Outp
 
 $summary = [ordered]@{
     generatedAtUtc = [DateTime]::UtcNow.ToString('o')
-    protocol = [ordered]@{ stabilizationSeconds=$StabilizationSeconds; measurementSeconds=$MeasurementSeconds; baseRepetitions=$Repetitions; unstableExtraRepetitions=$UnstableExtraRepetitions; alternating=$true }
+    protocol = [ordered]@{ stabilizationSeconds=$StabilizationSeconds; measurementSeconds=$MeasurementSeconds; baseRepetitions=$Repetitions; unstableExtraRepetitions=$UnstableExtraRepetitions; alternating=$true; qualifiesForAcceptance=$protocolQualifies }
     baselineCommit = @($runs | Where-Object Label -eq 'baseline' | Select-Object -First 1 -ExpandProperty Commit)[0]
     candidateCommit = @($runs | Where-Object Label -eq 'candidate' | Select-Object -First 1 -ExpandProperty Commit)[0]
+    baselineSupervisorCommit = @($runs | Where-Object Label -eq 'baseline' | Select-Object -First 1 -ExpandProperty SupervisorCommit)[0]
+    candidateSupervisorCommit = @($runs | Where-Object Label -eq 'candidate' | Select-Object -First 1 -ExpandProperty SupervisorCommit)[0]
     hardware = $hardwareInfo
     comparisons = $comparisons
     renderer = [ordered]@{
@@ -251,6 +334,8 @@ $md.Add('# VoltManager resource benchmark')
 $md.Add('')
 $md.Add("Baseline: ``$($summary.baselineCommit)``  ")
 $md.Add("Candidate: ``$($summary.candidateCommit)``  ")
+$md.Add("Baseline supervisor: ``$($summary.baselineSupervisorCommit)``  ")
+$md.Add("Candidate supervisor: ``$($summary.candidateSupervisorCommit)``  ")
 $md.Add("Protocol: $StabilizationSeconds s stabilization + $MeasurementSeconds s measurement, $Repetitions alternating repetitions; unstable series receive $UnstableExtraRepetitions extra repetitions.")
 $md.Add('')
 $md.Add('## Hardware')

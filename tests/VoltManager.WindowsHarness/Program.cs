@@ -452,6 +452,8 @@ internal static class Program
                     Label = options.Label,
                     Renderer = options.Renderer,
                     Iteration = options.Iteration,
+                    SettledSeconds = options.SettleDuration.TotalSeconds,
+                    MeasuredSeconds = options.MeasureDuration.TotalSeconds,
                     Status = "not_verified",
                     Detail = "Windows session is not interactive",
                 }, JsonOptions));
@@ -476,6 +478,8 @@ internal static class Program
                 Label = options.Label,
                 Renderer = options.Renderer,
                 Iteration = options.Iteration,
+                SettledSeconds = options.SettleDuration.TotalSeconds,
+                MeasuredSeconds = options.MeasureDuration.TotalSeconds,
                 Status = "failed",
                 Detail = failure.ToString(),
             };
@@ -486,18 +490,22 @@ internal static class Program
             Label = options.Label,
             Renderer = options.Renderer,
             Iteration = options.Iteration,
+            SettledSeconds = options.SettleDuration.TotalSeconds,
+            MeasuredSeconds = options.MeasureDuration.TotalSeconds,
             Status = "failed",
             Detail = "graphics benchmark produced no result",
         };
         File.WriteAllText(Path.Combine(options.OutputDirectory, "graphics-benchmark.json"),
             JsonSerializer.Serialize(result, JsonOptions));
         File.WriteAllText(Path.Combine(options.OutputDirectory, "graphics-benchmark.csv"),
-            "renderer,iteration,status,cpu_avg_pct,cpu_p95_pct,private_bytes_avg,vram_bytes_avg,vram_bytes_max,vram_status,draws_per_sec,backend\n" +
+            "renderer,iteration,status,settled_seconds,measured_seconds,cpu_avg_pct,cpu_p95_pct,private_bytes_avg,vram_bytes_avg,vram_bytes_max,vram_status,draws_per_sec,backend\n" +
             string.Join(',', new[]
             {
                 result.Renderer,
                 result.Iteration.ToString(),
                 result.Status,
+                result.SettledSeconds.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture),
+                result.MeasuredSeconds.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture),
                 result.CpuAveragePercent.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture),
                 result.CpuP95Percent.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture),
                 result.PrivateBytesAverage.ToString(),
@@ -556,6 +564,8 @@ internal static class Program
                 Label = options.Label,
                 Renderer = options.Renderer,
                 Iteration = options.Iteration,
+                SettledSeconds = options.SettleDuration.TotalSeconds,
+                MeasuredSeconds = options.MeasureDuration.TotalSeconds,
                 Status = "not_verified",
                 Backend = backend,
                 Detail = "WebGL context unavailable",
@@ -577,6 +587,8 @@ internal static class Program
             Label = options.Label,
             Renderer = options.Renderer,
             Iteration = options.Iteration,
+            SettledSeconds = options.SettleDuration.TotalSeconds,
+            MeasuredSeconds = options.MeasureDuration.TotalSeconds,
             Status = softwareFallback ? "not_verified" : "passed",
             Detail = softwareFallback ? "hardware request fell back to a software renderer" : "requested renderer verified",
             Backend = backend,
@@ -884,6 +896,8 @@ internal sealed class GraphicsBenchmarkRun
     public string Label { get; set; } = "";
     public string Renderer { get; set; } = "";
     public int Iteration { get; set; }
+    public double SettledSeconds { get; set; }
+    public double MeasuredSeconds { get; set; }
     public string Status { get; set; } = "";
     public string Detail { get; set; } = "";
     public string Backend { get; set; } = "";

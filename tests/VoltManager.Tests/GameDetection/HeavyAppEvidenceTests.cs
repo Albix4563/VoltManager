@@ -100,6 +100,34 @@ public class HeavyAppEvidenceTests
         Assert.False(HeavyAppDetectionService.HasMeaningfulChange(next, next));
     }
 
+    [Fact]
+    public void Meaningful_change_includes_protected_process_identity_when_ui_list_is_unchanged()
+    {
+        var process = new DetectedHeavyApp
+        {
+            ProcessId = 42,
+            Path = @"C:\Games\Title\game.exe",
+            Reason = "gameInstallPath",
+            Kind = "game",
+        };
+        var previous = StateWith(process) with
+        {
+            ProtectedProcesses = new List<ProtectedProcessIdentity>
+            {
+                new(42, new DateTime(2026, 9, 16, 7, 0, 0, DateTimeKind.Utc)),
+            },
+        };
+        var next = previous with
+        {
+            ProtectedProcesses = new List<ProtectedProcessIdentity>
+            {
+                new(84, new DateTime(2026, 9, 16, 7, 5, 0, DateTimeKind.Utc)),
+            },
+        };
+
+        Assert.True(HeavyAppDetectionService.HasMeaningfulChange(previous, next));
+    }
+
     private static HeavyAppDetectionState StateWith(DetectedHeavyApp process)
         => new()
         {

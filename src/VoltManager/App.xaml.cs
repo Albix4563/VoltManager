@@ -181,7 +181,7 @@ public partial class App : Application
         {
             HeavyAppDetectionState state = HeavyApps.Current;
             if (!state.ProtectedWorkloadActive) return new HashSet<int>();
-            return state.ActiveProcesses.Select(process => process.ProcessId).ToHashSet();
+            return state.ProtectedProcesses.Select(process => process.ProcessId).ToHashSet();
         });
         FullscreenCoverage.Start();
         AppProfiles = new AppPowerProfileService(Settings);
