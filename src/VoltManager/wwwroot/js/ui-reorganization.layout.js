@@ -289,7 +289,11 @@
         strip.innerHTML = `
             <div class="vm-top-chip"><span class="material-symbols-outlined">bolt</span><span data-vm-i18n="top_plan"></span><strong id="vm-top-plan">--</strong></div>
             <div class="vm-top-chip" id="vm-top-battery-chip"><span class="material-symbols-outlined">battery_horiz_075</span><span data-vm-i18n="top_battery"></span><strong id="vm-top-battery">--</strong></div>
-            <div class="vm-top-chip"><span class="material-symbols-outlined">automation</span><span data-vm-i18n="top_automation"></span><strong id="vm-top-automation">--</strong></div>`;
+            <div class="vm-top-chip"><span class="material-symbols-outlined">automation</span><span data-vm-i18n="top_automation"></span><strong id="vm-top-automation">--</strong></div>
+            <button type="button" id="vm-global-search-button" class="vm-search-trigger" aria-label="${api.t('search_button')}" title="${api.t('search_button')} (Ctrl+K)">
+                <span class="material-symbols-outlined" aria-hidden="true">search</span>
+                <kbd aria-hidden="true">Ctrl K</kbd>
+            </button>`;
         if (actions) header.insertBefore(strip, actions);
         else header.appendChild(strip);
     };

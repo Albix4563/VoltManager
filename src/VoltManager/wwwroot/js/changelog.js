@@ -203,6 +203,7 @@
             await loadScript('js/ui-reorganization.layout.js?v=reorg1');
             await loadScript('js/ui-reorganization.js?v=ram1');
             await loadScript('js/ui-reorganization.status.js?v=nav-reorg1');
+            await loadScript('js/global-search.js?v=search1');
         } catch (error) {
             window.__voltUiReorganizationLoading = false;
             console.error('VoltManager UI reorganization failed to load', error);
