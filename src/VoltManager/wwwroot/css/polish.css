@@ -116,10 +116,15 @@ button .material-symbols-outlined,
 .btn-glow > span:not(.material-symbols-outlined),
 .btn-ghost > span:not(.material-symbols-outlined),
 .pm-seg > span:not(.material-symbols-outlined),
-.nav-item > span:not(.material-symbols-outlined),
-#plan-control > button{
+.nav-item > span:not(.material-symbols-outlined){
   min-width: 0;
   overflow-wrap: anywhere;
+}
+
+#plan-control > button{
+  min-width: 0;
+  overflow-wrap: normal;
+  word-break: normal;
 }
 
 .pm-seg{

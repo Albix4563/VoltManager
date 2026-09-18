@@ -1059,10 +1059,19 @@ body[data-perf-tier="lite"] .vm-subview.active > * {
 }
 
 #vm-automation-rules .vm-rule-row .flex-1.flex.flex-wrap {
-    display: grid !important;
-    grid-template-columns: max-content 54px max-content 54px max-content 20px minmax(110px, 1fr);
+    display: flex !important;
+    flex-wrap: wrap;
     align-items: center;
     gap: 8px;
+}
+
+#vm-automation-rules .vm-rule-target {
+    min-width: 0;
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
 }
 
 #vm-settings-maintenance {
@@ -1105,8 +1114,12 @@ body[data-perf-tier="lite"] .vm-subview.active > * {
         transform: scaleX(1);
     }
 
-    #vm-automation-rules .vm-rule-row .flex-1.flex.flex-wrap {
-        grid-template-columns: max-content 50px max-content 50px max-content;
+    #vm-automation-rules .vm-rule-row {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    #vm-automation-rules .vm-rule-row > .flex:last-child {
+        justify-self: end;
     }
 }
 
