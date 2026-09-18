@@ -140,6 +140,7 @@ html[data-perf-tier="balanced"] .vm-scrim{
 }
 .app-main{
   margin-left: var(--side-nav-w);
+  min-width: 0;
   transition: margin-left .28s cubic-bezier(.22, 1, .36, 1);
 }
 .side-nav__header{ min-height: 40px; }
