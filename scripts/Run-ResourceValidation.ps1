@@ -6,10 +6,10 @@ param(
     [string] $CandidateSupervisor,
     [string] $Harness = (Join-Path $PSScriptRoot '..\tests\VoltManager.WindowsHarness\bin\Release\net8.0-windows\win-x64\VoltManager.WindowsHarness.exe'),
     [string] $Output = (Join-Path $PSScriptRoot '..\artifacts\resource-validation\benchmark-final'),
-    [int] $StabilizationSeconds = 30,
-    [int] $MeasurementSeconds = 120,
-    [int] $Repetitions = 5,
-    [int] $UnstableExtraRepetitions = 2,
+    [ValidateRange(1, 3600)] [int] $StabilizationSeconds = 30,
+    [ValidateRange(1, 3600)] [int] $MeasurementSeconds = 120,
+    [ValidateRange(1, 100)] [int] $Repetitions = 5,
+    [ValidateRange(0, 100)] [int] $UnstableExtraRepetitions = 2,
     [switch] $Resume
 )
 
@@ -122,11 +122,13 @@ function Test-Unstable($group) {
     $memSpread = ($mem | Measure-Object -Maximum).Maximum - ($mem | Measure-Object -Minimum).Minimum
     if ($memSpread -gt [Math]::Max($memMean * 0.20, 20MB)) { return $true }
 
-    $throughput = @($group | Where-Object { $null -ne $_.SyntheticOperationsPerSecond } | ForEach-Object { [double]$_.SyntheticOperationsPerSecond })
-    if ($throughput.Count -ge 2) {
-        $mean = Get-Mean $throughput
-        $spread = ($throughput | Measure-Object -Maximum).Maximum - ($throughput | Measure-Object -Minimum).Minimum
-        if ($spread -gt $mean * 0.10) { return $true }
+    foreach ($metric in @('SyntheticOperationsPerSecond', 'DrawsPerSecond')) {
+        $throughput = @($group | Where-Object { $null -ne $_.$metric } | ForEach-Object { [double]$_.$metric })
+        if ($throughput.Count -ge 2) {
+            $mean = Get-Mean $throughput
+            $spread = ($throughput | Measure-Object -Maximum).Maximum - ($throughput | Measure-Object -Minimum).Minimum
+            if ($spread -gt $mean * 0.10) { return $true }
+        }
     }
     return $false
 }
@@ -256,7 +258,11 @@ $rendererVramLimit = if ($null -ne $swiftVramMax) { [Math]::Max($swiftVramMax * 
 $rendererVramOk = $vramVerified -and (($hardwareVramMax - $swiftVramMax) -le $rendererVramLimit)
 $rendererInconclusive = (Test-Unstable $swift) -or (Test-Unstable $hardware)
 $protocolQualifies = $StabilizationSeconds -ge 30 -and $MeasurementSeconds -ge 120 -and $Repetitions -ge 5
-$rendererDecision = if ($protocolQualifies -and $hardwareVerified -and $vramVerified -and $rendererBenefit -and $rendererMemoryOk -and $rendererVramOk -and -not $rendererInconclusive) { 'use_hardware' } else { 'keep_swiftshader' }
+$rendererCpuOk = ($hardwareCpu - $swiftCpu) -le [Math]::Max($swiftCpu * 0.10, 0.2)
+$rendererThroughputOk = $hardwareDraws -ge $swiftDraws * 0.95
+$appRegressions = @($comparisons | Where-Object { $_.CpuRegression -or $_.MemoryRegression -or $_.ThroughputRegression -or $_.FreshDataWithin2s -eq $false -or $_.ProtectedWorkloadObserved -eq $false })
+$appInconclusive = @($comparisons | Where-Object Inconclusive).Count -gt 0
+$rendererDecision = if ($protocolQualifies -and $hardwareVerified -and $vramVerified -and $rendererBenefit -and $rendererCpuOk -and $rendererThroughputOk -and $rendererMemoryOk -and $rendererVramOk -and -not $rendererInconclusive -and -not $appInconclusive -and $appRegressions.Count -eq 0) { 'use_hardware' } else { 'keep_swiftshader' }
 $rendererReason = if (-not $protocolQualifies) {
     'Benchmark protocol is shorter than the 30s stabilization / 120s measurement / 5-repetition acceptance protocol.'
 } elseif (-not $hardwareVerified) {
@@ -265,6 +271,10 @@ $rendererReason = if (-not $protocolQualifies) {
     'Per-process VRAM was not verified for every renderer; evidence is incomplete.'
 } elseif ($rendererInconclusive) {
     'Renderer measurements remained unstable after the configured repetitions.'
+} elseif ($appRegressions.Count -gt 0 -or $appInconclusive) {
+    'Application scenarios contain regressions or inconclusive results.'
+} elseif (-not $rendererCpuOk -or -not $rendererThroughputOk) {
+    'Hardware regressed CPU use or synthetic throughput beyond the acceptance limit.'
 } elseif (-not $rendererBenefit) {
     'Hardware did not meet the required >=10% CPU or synthetic-throughput benefit.'
 } elseif (-not $rendererMemoryOk) {
@@ -301,6 +311,7 @@ foreach ($scenario in $scenarios) {
 $providerSummary | Export-Csv -NoTypeInformation -Encoding UTF8 (Join-Path $Output 'provider-activity.csv')
 
 $summary = [ordered]@{
+    status = if ($appRegressions.Count -gt 0) { 'failed' } elseif (-not $protocolQualifies -or $appInconclusive -or $rendererInconclusive) { 'inconclusive' } else { 'passed' }
     generatedAtUtc = [DateTime]::UtcNow.ToString('o')
     protocol = [ordered]@{ stabilizationSeconds=$StabilizationSeconds; measurementSeconds=$MeasurementSeconds; baseRepetitions=$Repetitions; unstableExtraRepetitions=$UnstableExtraRepetitions; alternating=$true; qualifiesForAcceptance=$protocolQualifies }
     baselineCommit = @($runs | Where-Object Label -eq 'baseline' | Select-Object -First 1 -ExpandProperty Commit)[0]
@@ -352,7 +363,7 @@ $md.Add('| Scenario | CPU baseline | CPU candidate | Private baseline MiB | Priv
 $md.Add('|---|---:|---:|---:|---:|---:|---|')
 foreach ($row in $comparisons) {
     $throughput = if ($null -ne $row.BaselineSyntheticOpsPerSec -and $row.BaselineSyntheticOpsPerSec -gt 0) { '{0:+0.0;-0.0;0.0}%' -f (($row.CandidateSyntheticOpsPerSec / $row.BaselineSyntheticOpsPerSec - 1) * 100) } else { 'n/a' }
-    $status = if ($row.Inconclusive) { 'INCONCLUSIVE' } elseif ($row.CpuRegression -or $row.MemoryRegression -or $row.ThroughputRegression -or $row.FreshDataWithin2s -eq $false -or $row.ProtectedWorkloadObserved -eq $false) { 'REGRESSION' } else { 'PASS' }
+    $status = if ($row.CpuRegression -or $row.MemoryRegression -or $row.ThroughputRegression -or $row.FreshDataWithin2s -eq $false -or $row.ProtectedWorkloadObserved -eq $false) { 'REGRESSION' } elseif (-not $protocolQualifies -or $row.Inconclusive) { 'INCONCLUSIVE' } else { 'PASS' }
     $md.Add("| $($row.Scenario) | $([Math]::Round($row.BaselineCpuAvg,3))% | $([Math]::Round($row.CandidateCpuAvg,3))% | $([Math]::Round($row.BaselinePrivateBytes/1MB,1)) | $([Math]::Round($row.CandidatePrivateBytes/1MB,1)) | $throughput | $status |")
 }
 $md.Add('')
@@ -369,3 +380,5 @@ $md.Add('- Real multi-monitor coverage is reported separately by the Windows har
 $md | Set-Content -Encoding UTF8 (Join-Path $Output 'benchmark-summary.md')
 
 Write-Host "Resource benchmark complete: $Output"
+if ($summary.status -eq 'failed') { exit 1 }
+if ($summary.status -eq 'inconclusive') { exit 2 }

@@ -9,6 +9,21 @@ namespace VoltManager.Tests;
 public sealed class ResourceOptimizationTests
 {
     [Fact]
+    public void Standby_clean_rechecks_protection_after_a_slow_memory_read()
+    {
+        var settings = new SettingsService(Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".json"));
+        settings.Current.StandbyAutoCleaner.Enabled = true;
+        bool protectedSession = false;
+        int reads = 0, purges = 0;
+        using var cleaner = new StandbyAutoCleanerService(settings,
+            () => { if (++reads == 2) protectedSession = true; return new MemoryStatus { InUsePct = 95, StandbyGb = 3 }; },
+            () => { purges++; return true; }, () => protectedSession);
+        cleaner.CheckAndClean(DateTime.UnixEpoch);
+        cleaner.CheckAndClean(DateTime.UnixEpoch.AddSeconds(30));
+        Assert.Equal(0, purges);
+    }
+
+    [Fact]
     public void Standby_auto_clean_requires_sustained_ram_pressure_and_standby_threshold()
     {
         string path = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".json");

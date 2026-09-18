@@ -26,23 +26,22 @@ public sealed class VramCounterProvider : IDisposable
     private VramMemorySnapshot _last = new();
     private volatile bool _ready;
     private bool _disposed;
+    private bool _refreshFaulted;
+    private bool _readFaulted;
 
-    public VramCounterProvider() => Task.Run(Initialize);
+    public VramCounterProvider() : this(initialize: true) { }
+
+    internal VramCounterProvider(bool initialize)
+    {
+        if (initialize) Task.Run(Initialize);
+    }
 
     private void Initialize()
     {
-        try
+        lock (_gate)
         {
-            lock (_gate)
-            {
-                if (_disposed) return;
-                RefreshLocked(DateTime.UtcNow);
-                _ready = true;
-            }
-        }
-        catch (Exception ex)
-        {
-            Logger.Warn("VRAM counters unavailable: " + ex.Message);
+            if (_disposed) return;
+            RefreshIfDue(DateTime.UtcNow, RefreshLocked);
             _ready = true;
         }
     }
@@ -58,13 +57,10 @@ public sealed class VramCounterProvider : IDisposable
                 return _last;
             ValidationMetrics.Increment(ValidationCounter.VramSamples);
 
-            if (now - _lastRefreshUtc >= CounterRefreshInterval)
-            {
-                try { RefreshLocked(now); }
-                catch (Exception ex) { Logger.Warn("VRAM counter refresh failed: " + ex.Message); }
-            }
+            RefreshIfDue(now, RefreshLocked);
 
             var usage = new List<UsageSample>(_counters.Count);
+            bool readFailed = false;
             foreach (var pair in _counters)
             {
                 if (!TryParseLuid(pair.Key, out var luid)) continue;
@@ -75,9 +71,11 @@ public sealed class VramCounterProvider : IDisposable
                 }
                 catch (Exception ex)
                 {
-                    Logger.Warn("VRAM counter read failed: " + ex.Message);
+                    readFailed = true;
+                    _readFaulted = Logger.WarnOnce(_readFaulted, "VRAM counter read failed", ex);
                 }
             }
+            if (!readFailed) _readFaulted = false;
 
             _lastSampleUtc = now;
             _last = BuildSnapshot(usage, _capacities, now);
@@ -85,7 +83,24 @@ public sealed class VramCounterProvider : IDisposable
         }
     }
 
-    private void RefreshLocked(DateTime now)
+    // Caller holds _gate. Failed discovery is throttled too, even for forced foreground reads.
+    internal void RefreshIfDue(DateTime now, Action refresh)
+    {
+        if (_lastRefreshUtc != DateTime.MinValue && now - _lastRefreshUtc < CounterRefreshInterval) return;
+        _lastRefreshUtc = now;
+        try
+        {
+            refresh();
+            _refreshFaulted = false;
+        }
+        catch (Exception ex)
+        {
+            _capacities = new Dictionary<GpuLuid, long>();
+            _refreshFaulted = Logger.WarnOnce(_refreshFaulted, "VRAM counters unavailable", ex);
+        }
+    }
+
+    private void RefreshLocked()
     {
         var category = new PerformanceCounterCategory("GPU Adapter Memory");
         var names = category.GetInstanceNames()
@@ -102,7 +117,6 @@ public sealed class VramCounterProvider : IDisposable
             _counters[added] = new PerformanceCounter("GPU Adapter Memory", "Dedicated Usage", added, readOnly: true);
 
         _capacities = ReadDxgiCapacities();
-        _lastRefreshUtc = now;
     }
 
     internal static VramMemorySnapshot BuildSnapshot(

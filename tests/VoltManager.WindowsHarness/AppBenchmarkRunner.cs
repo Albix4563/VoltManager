@@ -401,7 +401,7 @@ internal static class AppBenchmarkRunner
         return total;
     }
 
-    private static HashSet<int> DescendantsAndSelf(int rootPid)
+    internal static HashSet<int> DescendantsAndSelf(int rootPid)
     {
         var result = new HashSet<int> { rootPid };
         var parentByPid = SnapshotParents();

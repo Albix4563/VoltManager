@@ -10,6 +10,26 @@ public sealed class ProtectedFullscreenCoverageTests
     private static readonly PixelRect BoundsB = new(1920, 0, 1920, 1080);
 
     [Fact]
+    public void Surface_spanning_monitors_is_not_suspended_when_part_is_still_visible()
+    {
+        IntPtr surface = new(100);
+        var windows = new[]
+        {
+            Window(new IntPtr(200), 1, 42, MonitorA, BoundsA, BoundsA),
+            Window(surface, 4, Environment.ProcessId, MonitorA, new PixelRect(1600, 100, 600, 700), BoundsA),
+        };
+        Assert.False(ProtectedFullscreenCoverageService.IsSurfaceCovered(surface, windows, new HashSet<int> { 42 }));
+    }
+
+    [Fact]
+    public void Queued_notifications_can_race_disposal_without_touching_disposed_timer()
+    {
+        using var service = new ProtectedFullscreenCoverageService(() => new HashSet<int>());
+        Parallel.Invoke(() => { for (int i = 0; i < 1000; i++) service.QueueScan(); }, service.Dispose);
+        service.QueueScan();
+    }
+
+    [Fact]
     public void Protected_fullscreen_above_surface_on_same_monitor_covers_it()
     {
         IntPtr surface = new(100);

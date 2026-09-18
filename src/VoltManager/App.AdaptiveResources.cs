@@ -37,6 +37,13 @@ public partial class App
     internal void RefreshHardwareSamplingDemand(bool requestFresh = false)
     {
         if (Monitor == null || Settings == null) return;
+        // Settings can be saved by background services; WPF surfaces belong to the dispatcher.
+        if (!Dispatcher.CheckAccess())
+        {
+            if (!Dispatcher.HasShutdownStarted)
+                Dispatcher.BeginInvoke(new Action(() => RefreshHardwareSamplingDemand(requestFresh)));
+            return;
+        }
 
         bool mainVisible = _mainWindow?.HasVisibleResourceSurface == true;
         bool widgetsVisible = Widgets?.HasVisibleResourceConsumers == true;

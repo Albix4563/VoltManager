@@ -88,9 +88,12 @@ public sealed class ProtectedFullscreenCoverageService : IDisposable
 
     public void QueueScan()
     {
-        if (_disposed) return;
-        if (Interlocked.Exchange(ref _scanQueued, 1) != 0) return;
-        _coalesceTimer.Change(EventCoalesceDelay, Timeout.InfiniteTimeSpan);
+        lock (_gate)
+        {
+            if (_disposed) return;
+            if (Interlocked.Exchange(ref _scanQueued, 1) != 0) return;
+            _coalesceTimer.Change(EventCoalesceDelay, Timeout.InfiniteTimeSpan);
+        }
     }
 
     private void RunQueuedScan()
@@ -112,7 +115,7 @@ public sealed class ProtectedFullscreenCoverageService : IDisposable
         try { protectedPids = _protectedPids(); }
         catch { protectedPids = new HashSet<int>(); }
 
-        var windows = CaptureTopLevelWindows();
+        var windows = protectedPids.Count == 0 ? new List<CoverageWindow>() : CaptureTopLevelWindows();
         foreach (IntPtr surface in surfaces)
         {
             bool covered = protectedPids.Count != 0 && IsSurfaceCovered(surface, windows, protectedPids);
@@ -142,6 +145,12 @@ public sealed class ProtectedFullscreenCoverageService : IDisposable
             if (!protectedPids.Contains(window.ProcessId)) continue;
             if (!window.Visible || window.Minimized || window.Cloaked) continue;
             if (window.Monitor != target.Monitor) continue;
+            // A surface spanning monitors may still have visible content on the other display.
+            if (target.Bounds.Width <= 0 || target.Bounds.Height <= 0 ||
+                window.Bounds.X > target.Bounds.X || window.Bounds.Y > target.Bounds.Y ||
+                window.Bounds.X + window.Bounds.Width < target.Bounds.X + target.Bounds.Width ||
+                window.Bounds.Y + window.Bounds.Height < target.Bounds.Y + target.Bounds.Height)
+                continue;
             if (!ForegroundProcessProbe.IsNearFullscreenRect(
                     (int)window.Bounds.X,
                     (int)window.Bounds.Y,
@@ -215,7 +224,11 @@ public sealed class ProtectedFullscreenCoverageService : IDisposable
     }
 
     private void OnWinEvent(IntPtr hook, uint eventType, IntPtr hwnd, int idObject, int idChild, uint thread, uint time)
-        => QueueScan();
+    {
+        // Ignore child controls/caret events, which can arrive continuously during rendering.
+        if (eventType == EventSystemForeground || (hwnd != IntPtr.Zero && idObject == 0 && idChild == 0))
+            QueueScan();
+    }
 
     private static bool IsCloaked(IntPtr hwnd)
     {
@@ -230,12 +243,12 @@ public sealed class ProtectedFullscreenCoverageService : IDisposable
 
     public void Dispose()
     {
-        if (_disposed) return;
-        _disposed = true;
-        _coalesceTimer.Dispose();
-        _fallbackTimer.Dispose();
         lock (_gate)
         {
+            if (_disposed) return;
+            _disposed = true;
+            _coalesceTimer.Dispose();
+            _fallbackTimer.Dispose();
             foreach (IntPtr hook in _hooks)
             {
                 try { UnhookWinEvent(hook); } catch { }

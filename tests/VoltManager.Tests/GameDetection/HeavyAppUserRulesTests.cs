@@ -6,6 +6,26 @@ namespace VoltManager.Tests.GameDetection;
 
 public class HeavyAppUserRulesTests
 {
+    [Theory]
+    [InlineData(null, true)]
+    [InlineData("foregroundActive", true)]
+    [InlineData("launcherChild", true)]
+    [InlineData("gameInstallPath", false)]
+    public void Explicit_priority_survives_rejected_or_disabled_automatic_classification(string? reason, bool enabled)
+    {
+        var config = new HeavyAppDetectionSettings
+        {
+            Enabled = enabled,
+            UseResourceHeuristics = false,
+            PriorityApplicationPaths = new() { @"C:\Apps\Render.exe" },
+        };
+        var assessment = new GameDetectionAssessment { PrimaryReason = reason, Score = 10 };
+        Assert.Equal("priorityApp", HeavyAppDetectionService.ClassifyKind(
+            assessment, @"c:\apps\render.exe", "Render", 512 * 1024 * 1024, config));
+        Assert.Null(HeavyAppDetectionService.ClassifyKind(
+            assessment, @"c:\apps\other.exe", "Other", 512 * 1024 * 1024, config));
+    }
+
     private static readonly HashSet<string> NoGpuPreferences = new(StringComparer.OrdinalIgnoreCase);
 
     [Fact]

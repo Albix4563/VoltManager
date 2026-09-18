@@ -4,6 +4,23 @@ namespace VoltManager.Tests.GameDetection;
 
 public sealed class VramCounterProviderTests
 {
+    [Fact]
+    public void Failed_discovery_is_throttled_and_can_recover()
+    {
+        using var provider = new VramCounterProvider(initialize: false);
+        int attempts = 0;
+        void Unavailable() { attempts++; throw new InvalidOperationException("No GPU counters"); }
+        var start = DateTime.UnixEpoch;
+        for (int second = 0; second < 30; second++)
+            provider.RefreshIfDue(start.AddSeconds(second), Unavailable);
+        Assert.Equal(1, attempts);
+        provider.RefreshIfDue(start.AddSeconds(30), Unavailable);
+        Assert.Equal(2, attempts);
+        provider.RefreshIfDue(start.AddSeconds(60), () => attempts++);
+        provider.RefreshIfDue(start.AddSeconds(61), Unavailable);
+        Assert.Equal(3, attempts);
+    }
+
     [Theory]
     [InlineData("luid_0x00000000_0x0000C1DA_phys_0")]
     [InlineData("pid_9184_luid_0x00000000_0x0000C1DA_phys_0")]

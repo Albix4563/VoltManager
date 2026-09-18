@@ -196,6 +196,8 @@ public partial class MainWindow
         _adaptiveUiMetricsPublisher.ResetCadence();
         OnAdaptiveMetricsUpdated(_app.Monitor.Latest);
         PushAdaptiveResourceProfile(_app.ResourcePressure.Current);
+        _bridge?.PushEvent("thermalGuardChanged", _app.ThermalGuard.Current);
+        _bridge?.PushEvent("idlePowerGuardChanged", _app.IdlePowerGuard.Current);
     }
 
     private void OnAdaptiveWindowClosed(object? sender, EventArgs e)

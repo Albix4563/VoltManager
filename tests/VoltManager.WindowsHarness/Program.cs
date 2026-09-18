@@ -185,13 +185,6 @@ internal static class Program
 
     private static async Task RunWebViewChecksAsync(HarnessReport report, HarnessOptions options)
     {
-        var preexistingWebViewPids = Process.GetProcessesByName("msedgewebview2")
-            .Select(process =>
-            {
-                try { return process.Id; }
-                finally { process.Dispose(); }
-            })
-            .ToHashSet();
         string root = Path.Combine(options.OutputDirectory, "webview-profile");
         Directory.CreateDirectory(root);
         var variant = options.Renderer == "hardware"
@@ -216,7 +209,7 @@ internal static class Program
             $"requested={variant}; renderer={backend}"));
 
         var restoreLatencies = new List<double>();
-        IReadOnlyList<Process> warmProcesses = AssociatedWebViewProcesses(preexistingWebViewPids);
+        IReadOnlyList<Process> warmProcesses = AssociatedWebViewProcesses();
         int childCountBefore = warmProcesses.Count;
         long warmMemory = warmProcesses.Sum(SafePrivateBytes);
         for (int i = 0; i < options.Cycles; i++)
@@ -233,7 +226,7 @@ internal static class Program
             restoreLatencies.Add(sw.Elapsed.TotalMilliseconds);
         }
 
-        IReadOnlyList<Process> finalProcesses = AssociatedWebViewProcesses(preexistingWebViewPids);
+        IReadOnlyList<Process> finalProcesses = AssociatedWebViewProcesses();
         int childCountAfter = finalProcesses.Count;
         long finalMemory = finalProcesses.Sum(SafePrivateBytes);
         long allowedGrowth = Math.Max((long)(warmMemory * 0.10), 20L * 1024 * 1024);
@@ -520,13 +513,6 @@ internal static class Program
 
     private static async Task<GraphicsBenchmarkRun> RunGraphicsBenchmarkAsync(HarnessOptions options)
     {
-        var preexisting = Process.GetProcessesByName("msedgewebview2")
-            .Select(process =>
-            {
-                try { return process.Id; }
-                finally { process.Dispose(); }
-            })
-            .ToHashSet();
         string root = Path.Combine(options.OutputDirectory, "graphics-profile");
         Directory.CreateDirectory(root);
         var variant = options.Renderer == "hardware"
@@ -573,7 +559,7 @@ internal static class Program
 
         await Task.Delay(options.SettleDuration);
         _ = await surface.ExecuteAsync("window.__gfxCount=0; 'reset'");
-        GraphicsProcessSample sample = await MeasureGraphicsProcessesAsync(preexisting, options.MeasureDuration);
+        GraphicsProcessSample sample = await MeasureGraphicsProcessesAsync(options.MeasureDuration);
         string countJson = await surface.ExecuteAsync("String(window.__gfxCount)");
         _ = await surface.ExecuteAsync("window.__gfxRunning=false; 'stopped'");
         string countText;
@@ -603,7 +589,6 @@ internal static class Program
     }
 
     private static async Task<GraphicsProcessSample> MeasureGraphicsProcessesAsync(
-        IReadOnlySet<int> preexistingWebViewPids,
         TimeSpan duration)
     {
         var cpu = new List<double>();
@@ -611,14 +596,14 @@ internal static class Program
         var vram = new List<long>();
         using var groupVram = new GroupVramSampler();
         groupVram.Warm();
-        Dictionary<int, TimeSpan> previous = CaptureGraphicsCpu(preexistingWebViewPids);
+        Dictionary<int, TimeSpan> previous = CaptureGraphicsCpu();
         DateTime previousAt = DateTime.UtcNow;
         var sw = Stopwatch.StartNew();
         while (sw.Elapsed < duration)
         {
             await Task.Delay(1000);
             DateTime now = DateTime.UtcNow;
-            Dictionary<int, TimeSpan> current = CaptureGraphicsCpu(preexistingWebViewPids);
+            Dictionary<int, TimeSpan> current = CaptureGraphicsCpu();
             double totalCpuSeconds = 0;
             foreach (var pair in current)
             {
@@ -629,13 +614,13 @@ internal static class Program
             cpu.Add(totalCpuSeconds / wall / Environment.ProcessorCount * 100);
             previous = current;
             previousAt = now;
-            memory.Add(GraphicsProcesses(preexistingWebViewPids).Sum(process =>
+            memory.Add(GraphicsProcesses().Sum(process =>
             {
                 try { return process.PrivateMemorySize64; }
                 catch { return 0; }
                 finally { process.Dispose(); }
             }));
-            HashSet<int> pids = GraphicsProcesses(preexistingWebViewPids).Select(process =>
+            HashSet<int> pids = GraphicsProcesses().Select(process =>
             {
                 try { return process.Id; }
                 finally { process.Dispose(); }
@@ -652,10 +637,10 @@ internal static class Program
             vram.Count == 0 ? "not_verified" : "measured");
     }
 
-    private static Dictionary<int, TimeSpan> CaptureGraphicsCpu(IReadOnlySet<int> preexistingWebViewPids)
+    private static Dictionary<int, TimeSpan> CaptureGraphicsCpu()
     {
         var result = new Dictionary<int, TimeSpan>();
-        foreach (Process process in GraphicsProcesses(preexistingWebViewPids))
+        foreach (Process process in GraphicsProcesses())
         {
             try { result[process.Id] = process.TotalProcessorTime; }
             catch { }
@@ -664,41 +649,27 @@ internal static class Program
         return result;
     }
 
-    private static List<Process> GraphicsProcesses(IReadOnlySet<int> preexistingWebViewPids)
+    private static List<Process> GraphicsProcesses()
     {
         var result = new List<Process> { Process.GetCurrentProcess() };
-        result.AddRange(Process.GetProcessesByName("msedgewebview2").Where(process =>
-        {
-            try
-            {
-                if (preexistingWebViewPids.Contains(process.Id))
-                {
-                    process.Dispose();
-                    return false;
-                }
-                return process.SessionId == Process.GetCurrentProcess().SessionId;
-            }
-            catch
-            {
-                process.Dispose();
-                return false;
-            }
-        }));
+        result.AddRange(AssociatedWebViewProcesses());
         return result;
     }
 
-    private static IReadOnlyList<Process> AssociatedWebViewProcesses(IReadOnlySet<int> preexistingPids)
-        => Process.GetProcessesByName("msedgewebview2")
+    private static IReadOnlyList<Process> AssociatedWebViewProcesses()
+    {
+        var ownedPids = AppBenchmarkRunner.DescendantsAndSelf(Environment.ProcessId);
+        return Process.GetProcessesByName("msedgewebview2")
             .Where(process =>
             {
                 try
                 {
-                    if (preexistingPids.Contains(process.Id))
+                    if (!ownedPids.Contains(process.Id))
                     {
                         process.Dispose();
                         return false;
                     }
-                    return process.SessionId == Process.GetCurrentProcess().SessionId;
+                    return true;
                 }
                 catch
                 {
@@ -707,6 +678,7 @@ internal static class Program
                 }
             })
             .ToList();
+    }
 
     private static long SafePrivateBytes(Process process)
     {

@@ -115,6 +115,13 @@ public class StandbyAutoCleanerService : IDisposable
             if (mem.StandbyGb < config.ThresholdGb) return;
             if (config.LastPurgedUtc is DateTime last && now - last < TimeSpan.FromMinutes(config.IntervalMinutes)) return;
 
+            // A session can start while a slow memory query is in flight.
+            if (_protectedWorkloadActive())
+            {
+                _pressureSinceUtc = null;
+                return;
+            }
+
             if (!_standbyPurger()) return;
 
             config.LastPurgedUtc = now;

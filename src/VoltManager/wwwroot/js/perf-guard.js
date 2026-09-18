@@ -69,7 +69,7 @@
     const profile = ['full', 'balanced', 'gaming', 'workload', 'critical'].includes(candidate)
       ? candidate
       : 'full';
-    const previous = document.documentElement.dataset.resourceProfile || '';
+    const previous = window.VoltResourceProfile;
     document.documentElement.dataset.resourceProfile = profile;
     window.VoltResourceProfile = Object.assign({}, state, { profile });
 
@@ -77,7 +77,9 @@
     syncEffectiveLite();
     if (resourceLite && window.VoltFx && window.VoltFx.stopMotion) window.VoltFx.stopMotion();
 
-    if (previous !== profile) {
+    if (!previous || ['profile', 'uiVisible', 'uiActive', 'reducedEffects',
+      'allowProcessPolling', 'processPollingIntervalMs', 'metricsIntervalMs']
+      .some(key => previous[key] !== window.VoltResourceProfile[key])) {
       document.dispatchEvent(new CustomEvent('resourceprofilechange', {
         detail: window.VoltResourceProfile
       }));

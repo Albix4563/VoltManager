@@ -221,7 +221,6 @@ public partial class MainWindow : Window
             _app.Monitor.MetricsUpdated += OnMetricsUpdated;
             _app.ActivePlanChanged += p => _bridge?.PushEvent("activePlanChanged", new { plan = p?.PlanId, guid = p?.Guid, name = p?.Name });
             _app.Settings.SettingsChanged += s => _bridge?.PushEvent("automationStateChanged", new { masterEnabled = s.MasterAutomationEnabled, @override = s.Override });
-            _app.CpuAutomationStateChanged += s => _bridge?.PushEvent("cpuAutomationStateChanged", s);
             _app.ManualOverrideChanged += o =>
             {
                 _bridge?.PushEvent("manualOverrideChanged", new { @override = o });
@@ -231,8 +230,8 @@ public partial class MainWindow : Window
             };
             _app.Awake.StateChanged += s => _bridge?.PushEvent("keepAwakeChanged", s);
             _app.PowerSourcePlans.StateChanged += s => _bridge?.PushEvent("powerSourcePlanChanged", s);
-            _app.ThermalGuard.StateChanged += s => _bridge?.PushEvent("thermalGuardChanged", s);
-            _app.IdlePowerGuard.StateChanged += s => _bridge?.PushEvent("idlePowerGuardChanged", s);
+            _app.ThermalGuard.StateChanged += s => { if (_webViewVisible) _bridge?.PushEvent("thermalGuardChanged", s); };
+            _app.IdlePowerGuard.StateChanged += s => { if (_webViewVisible) _bridge?.PushEvent("idlePowerGuardChanged", s); };
             _app.Widgets.StateChanged += s => _bridge?.PushEvent("widgetsStateChanged", s);
             _app.ScheduledPowerActions.StateChanged += state =>
             {

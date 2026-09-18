@@ -148,6 +148,8 @@ public partial class WidgetWindow : Window
                 _bridge?.PushEvent("languageChanged", new { language = _app.Loc.CurrentLanguage, locale = _app.Loc.CurrentCulture.Name });
                 _bridge?.PushEvent("fontChanged", new { font = _app.Settings.Current.Font });
                 PushResourceProfile(_app.ResourcePressure?.Current ?? new ResourcePressureState());
+                // Navigation resumes WebView2 even when coverage was detected before initialization.
+                if (!HasVisibleResourceSurface) TrySuspendWebView();
             };
 
             core.Navigate(WidgetUrl());
@@ -364,7 +366,9 @@ public partial class WidgetWindow : Window
     }
 
     private void OnCpuAutomationStateChanged(CpuAutomationState state)
-        => _bridge?.PushEvent("cpuAutomationStateChanged", state);
+    {
+        if (HasVisibleResourceSurface) _bridge?.PushEvent("cpuAutomationStateChanged", state);
+    }
 
     private void OnActivePlanChanged(PowerPlan? plan)
         => _bridge?.PushEvent("activePlanChanged", new { plan = plan?.PlanId, guid = plan?.Guid, name = plan?.Name });

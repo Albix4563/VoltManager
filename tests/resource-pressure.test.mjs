@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { runInNewContext } from 'node:vm';
 
 const perfGuard = readFileSync(
   new URL('../src/VoltManager/wwwroot/js/perf-guard.js', import.meta.url),
@@ -22,6 +23,34 @@ const mainWindowHost = readFileSync(
   new URL('../src/VoltManager/MainWindow.xaml.cs', import.meta.url),
   'utf8'
 );
+
+test('same profile updates polling on focus and visibility changes without duplicate events', () => {
+  const handlers = new Map();
+  const events = [];
+  const document = {
+    documentElement: { dataset: {} },
+    addEventListener() {},
+    dispatchEvent(event) { events.push(event); },
+  };
+  const Host = { on(name, callback) { handlers.set(name, callback); } };
+  const window = { Host };
+  runInNewContext(perfGuard, {
+    window, document, Host, console,
+    CustomEvent: class { constructor(type, options) { this.type = type; this.detail = options.detail; } },
+  });
+  const emit = handlers.get('resourceProfileChanged');
+  const active = { profile: 'full', uiActive: true, uiVisible: true, allowProcessPolling: true,
+    processPollingIntervalMs: 3000, metricsIntervalMs: 1000, reducedEffects: false };
+  emit(active);
+  emit({ ...active });
+  emit({ ...active, uiActive: false, processPollingIntervalMs: 10000, reducedEffects: true });
+  assert.equal(document.documentElement.dataset.perf, 'lite');
+  emit({ ...active, uiVisible: false, allowProcessPolling: false, processPollingIntervalMs: 0 });
+  emit(active);
+  assert.equal(document.documentElement.dataset.perf, '');
+  const changes = events.filter(event => event.type === 'resourceprofilechange');
+  assert.deepEqual(changes.map(event => event.detail.processPollingIntervalMs), [3000, 10000, 0, 3000]);
+});
 
 test('frontend consumes one host resource profile signal', () => {
   assert.match(perfGuard, /Host\.on\(['"]resourceProfileChanged['"]/);

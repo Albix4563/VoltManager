@@ -204,23 +204,21 @@ public sealed class HeavyAppDetectionService : IDisposable
                     isForeground,
                     gpu3DPercent,
                     d3dFullscreen);
-                if (assessment.PrimaryReason == null)
-                {
-                    if (explicitPriority)
-                        detected.Add(CreatePriorityDetection(process, path, startedAtUtc, workingSetMb));
-                    continue;
-                }
-
                 string? kind = ClassifyKind(
                     assessment, NormalizePath(path), process.Name, process.WorkingSetBytes, config);
                 if (kind == null) continue;
+                if (kind == "priorityApp")
+                {
+                    detected.Add(CreatePriorityDetection(process, path, startedAtUtc, workingSetMb));
+                    continue;
+                }
 
                 detected.Add(new DetectedHeavyApp
                 {
                     ProcessId = process.Pid,
                     Name = string.IsNullOrWhiteSpace(process.Name) ? System.IO.Path.GetFileNameWithoutExtension(path) : process.Name,
                     Path = path,
-                    Reason = assessment.PrimaryReason,
+                    Reason = assessment.PrimaryReason!,
                     Kind = kind,
                     WorkingSetMb = workingSetMb,
                     StartedAtUtc = startedAtUtc,
@@ -240,6 +238,7 @@ public sealed class HeavyAppDetectionService : IDisposable
         // no-longer-qualifying real game processes (e.g. minimized after alt-tab) as detected.
         lock (_lock)
         {
+            if (!config.Enabled) _sticky.Clear();
             detected = MergeStickyDetections(_sticky, detected, observed, config.MinWorkingSetMb);
         }
 
@@ -313,6 +312,15 @@ public sealed class HeavyAppDetectionService : IDisposable
     /// workloads (never sticky), null for everything else.
     /// </summary>
     public static string? ClassifyKind(
+        GameDetectionAssessment assessment,
+        string normalizedPath,
+        string processName,
+        long workingSetBytes,
+        HeavyAppDetectionSettings config)
+        => (config.Enabled ? ClassifyAutomaticKind(assessment, normalizedPath, processName, workingSetBytes, config) : null)
+            ?? (MatchesExactExecutablePath(normalizedPath, config.PriorityApplicationPaths) ? "priorityApp" : null);
+
+    private static string? ClassifyAutomaticKind(
         GameDetectionAssessment assessment,
         string normalizedPath,
         string processName,
