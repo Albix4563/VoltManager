@@ -169,10 +169,13 @@
 
         const updateButton = $('btn-check-updates');
         move(updateButton && updateButton.closest('.glass-panel'), $('vm-settings-updates'));
-        ['pref-autostart', 'pref-tray', 'pref-show-welcome', 'pref-show-tour', 'pref-backup', 'pref-global-hotkeys']
+        ['pref-autostart', 'pref-tray', 'pref-show-welcome', 'pref-show-tour', 'pref-global-hotkeys']
             .forEach(id => move($(id), $('vm-settings-general')));
         ['pref-theme', 'pref-lang', 'pref-font', 'font-specimen-preview']
             .forEach(id => move($(id), $('vm-settings-appearance')));
+        move($('pref-backup'), $('vm-settings-maintenance'));
+        const diagnosticsButton = $('btn-export-diagnostics');
+        move(diagnosticsButton && diagnosticsButton.closest('.glass-panel'), $('vm-settings-maintenance'));
         const info = $('info-version');
         move(info && info.closest('.glass-panel'), $('vm-settings-info'));
 
@@ -204,8 +207,10 @@
                 node.style.opacity = '1';
                 node.style.overflow = 'visible';
             });
+        document.querySelectorAll('#vm-automation-rules [data-rule][data-field="thresholdPct"]')
+            .forEach(input => input.closest('.glass-panel')?.classList.add('vm-rule-row'));
 
-        document.querySelectorAll('#vm-settings-general > *, #vm-settings-appearance > *')
+        document.querySelectorAll('#vm-settings-general > *, #vm-settings-appearance > *, #vm-settings-maintenance > *')
             .forEach(node => {
                 node.classList.remove('mt-md');
                 node.classList.add('vm-settings-row');

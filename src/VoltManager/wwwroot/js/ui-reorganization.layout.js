@@ -64,6 +64,13 @@
         return `<div class="vm-subview${active ? ' active' : ' hidden'}" data-vm-panel-group="${group}" data-vm-panel="${id}">${html}</div>`;
     }
 
+    function denseShell(group, items, panels) {
+        return `<div class="vm-dense-shell" data-vm-dense="${group}">
+            <aside class="vm-dense-shell__rail">${subnav(group, items)}</aside>
+            <div class="vm-subview-stack vm-dense-shell__content">${panels}</div>
+        </div>`;
+    }
+
     function view(id, title, subtitle, html) {
         const section = document.createElement('section');
         section.id = 'view-' + id;
@@ -144,19 +151,22 @@
 
     function powerPlans() {
         return view('power-plans', 'power_title', 'power_subtitle',
-            subnav('power-plans', [
+            denseShell('power-plans', [
                 { id: 'active', icon: 'bolt', label: 'tab_active_plan' },
                 { id: 'source', icon: 'power', label: 'tab_power_source' },
+                { id: 'keep-awake', icon: 'bedtime_off', label: 'tab_keep_awake' },
                 { id: 'history', icon: 'history', label: 'tab_plan_history' },
                 { id: 'advanced', icon: 'tune', label: 'tab_advanced' }
-            ]) + `<div class="vm-subview-stack">
+            ], `
                 ${panel('power-plans', 'active', `<section class="glass-panel rounded-xl p-lg vm-section-card">
                     <p class="text-body-md text-on-surface-variant mb-md" data-vm-i18n="active_plan_hint"></p><div id="vm-power-active"></div>
                 </section>`, true)}
                 ${panel('power-plans', 'source', `<section class="glass-panel rounded-xl p-lg vm-section-card">
                     <p class="text-body-md text-on-surface-variant mb-md" data-vm-i18n="power_source_hint"></p>
                     <div id="power-timeouts-mount"></div><div class="vm-divider"></div>
-                    <div id="vm-power-source" class="vm-stack"></div><div class="vm-divider"></div>
+                    <div id="vm-power-source" class="vm-stack"></div>
+                </section>`, false)}
+                ${panel('power-plans', 'keep-awake', `<section class="glass-panel rounded-xl p-lg vm-section-card">
                     <h3 class="vm-section-title"><span class="material-symbols-outlined">bedtime_off</span><span data-vm-i18n="keep_awake_primary"></span></h3>
                     <div id="vm-keep-awake"></div>
                 </section>`, false)}
@@ -167,35 +177,35 @@
                     <div class="vm-advanced-warning"><span class="material-symbols-outlined">info</span><span data-vm-i18n="advanced_hint"></span></div>
                     <div id="vm-power-advanced"></div>
                 </section>`, false)}
-            </div>`);
+            `));
     }
 
     function automations() {
         return view('automations', 'automations_title', 'automations_subtitle',
-            subnav('automations', [
+            denseShell('automations', [
                 { id: 'rules', icon: 'tune', label: 'tab_cpu_rules' },
                 { id: 'profiles', icon: 'app_shortcut', label: 'tab_app_profiles' },
                 { id: 'gaming', icon: 'sports_esports', label: 'tab_gaming' }
-            ]) + `<div class="vm-subview-stack">
+            ], `
                 ${panel('automations', 'rules', `<div class="vm-rules-summary glass-panel rounded-xl p-md mb-md">
                     <span class="material-symbols-outlined">rule</span><span data-vm-i18n="rules_summary"></span><strong id="vm-rules-count">--</strong>
                 </div><div id="vm-automation-rules"></div>`, true)}
                 ${panel('automations', 'profiles', '<div id="vm-automation-profiles"></div>', false)}
                 ${panel('automations', 'gaming', '<div id="vm-automation-gaming" class="vm-stack"></div>', false)}
-            </div>`);
+            `));
     }
 
     function systemTools() {
         return view('system-tools', 'system_title', 'system_subtitle',
-            subnav('system-tools', [
+            denseShell('system-tools', [
                 { id: 'scheduled', icon: 'schedule', label: 'tab_scheduled' },
                 { id: 'startup', icon: 'rocket_launch', label: 'tab_startup' },
                 { id: 'memory', icon: 'memory', label: 'tab_memory' }
-            ]) + `<div class="vm-subview-stack">
+            ], `
                 ${panel('system-tools', 'scheduled', '<div id="vm-system-scheduled"></div>', true)}
                 ${panel('system-tools', 'startup', '<div id="vm-system-startup"></div>', false)}
                 ${panel('system-tools', 'memory', '<div id="vm-system-memory"></div>', false)}
-            </div>`);
+            `));
     }
 
     function widgets() {
@@ -209,24 +219,28 @@
 
     function settings() {
         return view('settings', 'settings_title', 'settings_subtitle',
-            subnav('settings', [
+            denseShell('settings', [
                 { id: 'general', icon: 'settings', label: 'tab_general' },
                 { id: 'appearance', icon: 'palette', label: 'tab_appearance' },
+                { id: 'maintenance', icon: 'build', label: 'tab_maintenance' },
                 { id: 'updates', icon: 'system_update', label: 'tab_updates' },
                 { id: 'info', icon: 'info', label: 'tab_info' }
-            ]) + `<div class="vm-subview-stack">
+            ], `
                 ${panel('settings', 'general', `<section class="glass-panel rounded-xl p-lg vm-section-card">
                     <p class="text-body-md text-on-surface-variant mb-md" data-vm-i18n="settings_general_hint"></p><div id="vm-settings-general" class="vm-settings-list"></div>
                 </section>`, true)}
                 ${panel('settings', 'appearance', `<section class="glass-panel rounded-xl p-lg vm-section-card">
                     <p class="text-body-md text-on-surface-variant mb-md" data-vm-i18n="settings_appearance_hint"></p><div id="vm-settings-appearance" class="vm-settings-list"></div>
                 </section>`, false)}
+                ${panel('settings', 'maintenance', `<section class="glass-panel rounded-xl p-lg vm-section-card">
+                    <div id="vm-settings-maintenance" class="vm-settings-list"></div>
+                </section>`, false)}
                 ${panel('settings', 'updates', `<div id="vm-settings-updates" class="vm-stack"></div>
                     <section class="glass-panel rounded-xl p-lg vm-section-card"><div class="vm-section-title-row">
                     <h3 class="vm-section-title"><span class="material-symbols-outlined">history</span><span data-vm-i18n="changelog_panel"></span></h3>
                     <div id="vm-changelog-actions"></div></div><div id="vm-settings-changelog" class="vm-stack"></div></section>`, false)}
                 ${panel('settings', 'info', '<div id="vm-settings-info"></div>', false)}
-            </div>`);
+            `));
     }
 
     api.installViews = function () {

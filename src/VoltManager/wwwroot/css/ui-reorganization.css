@@ -716,3 +716,215 @@
         transition: none !important;
     }
 }
+
+/* VoltManager technical desktop-tool redesign */
+.vm-reorg-view {
+    --vm-panel-radius: 8px;
+    --vm-control-radius: 6px;
+    gap: 20px;
+}
+
+.vm-reorg-view .glass-panel,
+.vm-reorg-view .vm-section-card,
+.vm-status-card,
+.vm-compact-metric,
+.vm-summary-row,
+.vm-rules-summary {
+    border-radius: var(--vm-panel-radius) !important;
+    box-shadow: none;
+}
+
+.vm-reorg-view button:not(.switch):not([role="switch"]),
+.vm-reorg-view input,
+.vm-reorg-view select,
+.vm-reorg-view textarea {
+    border-radius: var(--vm-control-radius) !important;
+}
+
+.vm-dense-shell {
+    display: grid;
+    grid-template-columns: 220px minmax(0, 1fr);
+    align-items: start;
+    gap: 22px;
+    min-width: 0;
+}
+
+.vm-dense-shell__rail {
+    position: sticky;
+    top: 8px;
+    min-width: 0;
+}
+
+.vm-dense-shell .vm-subnav {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 3px;
+    padding: 6px;
+    overflow: visible;
+    border-radius: var(--vm-panel-radius);
+    background: color-mix(in srgb, var(--md-sys-color-surface-container-low, #10192c) 86%, transparent);
+}
+
+.vm-dense-shell .vm-subnav__item {
+    position: relative;
+    flex: 0 0 auto;
+    justify-content: flex-start;
+    min-width: 0;
+    min-height: 42px;
+    padding: 9px 11px;
+    border-radius: var(--vm-control-radius);
+    text-align: left;
+    transition: color .22s ease, background .22s ease, border-color .22s ease;
+}
+
+.vm-dense-shell .vm-subnav__item::before {
+    content: '';
+    position: absolute;
+    inset: 7px auto 7px 0;
+    width: 2px;
+    border-radius: 999px;
+    background: var(--vm-accent);
+    opacity: 0;
+    transform: scaleY(.35);
+    transition: opacity .42s ease, transform .42s cubic-bezier(.2,.8,.2,1);
+}
+
+.vm-dense-shell .vm-subnav__item.active::before {
+    opacity: 1;
+    transform: scaleY(1);
+}
+
+.vm-dense-shell__content {
+    min-width: 0;
+}
+
+.vm-reorg-view:not(.hidden) {
+    animation: vmReorgViewIn .5s cubic-bezier(.2,.8,.2,1) both;
+}
+
+.vm-subview.active {
+    animation: vmReorgPanelIn .42s cubic-bezier(.2,.8,.2,1) both;
+}
+
+.vm-subview.active > * {
+    animation: vmReorgGroupIn .45s cubic-bezier(.2,.8,.2,1) both;
+}
+
+.vm-subview.active > *:nth-child(2) { animation-delay: 55ms; }
+.vm-subview.active > *:nth-child(3) { animation-delay: 110ms; }
+.vm-subview.active > *:nth-child(4) { animation-delay: 165ms; }
+
+@keyframes vmReorgViewIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes vmReorgGroupIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+html[data-perf-tier="balanced"] .vm-reorg-view:not(.hidden),
+body[data-perf-tier="balanced"] .vm-reorg-view:not(.hidden),
+html[data-perf-tier="balanced"] .vm-subview.active,
+body[data-perf-tier="balanced"] .vm-subview.active {
+    animation-duration: .28s;
+}
+
+html[data-perf-tier="balanced"] .vm-subview.active > *,
+body[data-perf-tier="balanced"] .vm-subview.active > * {
+    animation-duration: .3s;
+    animation-delay: 0s;
+}
+
+html[data-perf-tier="lite"] .vm-reorg-view:not(.hidden),
+body[data-perf-tier="lite"] .vm-reorg-view:not(.hidden),
+html[data-perf-tier="lite"] .vm-subview.active,
+body[data-perf-tier="lite"] .vm-subview.active,
+html[data-perf-tier="lite"] .vm-subview.active > *,
+body[data-perf-tier="lite"] .vm-subview.active > * {
+    animation-duration: .16s;
+    animation-delay: 0s;
+}
+
+.vm-subview[data-vm-panel-group="monitoring"][data-vm-panel="processes"].active,
+.vm-subview[data-vm-panel-group="monitoring"][data-vm-panel="processes"].active > * {
+    animation: none;
+    transform: none;
+}
+
+#vm-automation-rules .vm-rule-row {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 14px !important;
+}
+
+#vm-automation-rules .vm-rule-row > .flex:first-child {
+    min-width: 0;
+}
+
+#vm-automation-rules .vm-rule-row .flex-1.flex.flex-wrap {
+    display: grid !important;
+    grid-template-columns: max-content 54px max-content 54px max-content 20px minmax(110px, 1fr);
+    align-items: center;
+    gap: 8px;
+}
+
+#vm-settings-maintenance {
+    gap: 12px;
+}
+
+@media (max-width: 780px) {
+    .vm-dense-shell {
+        grid-template-columns: 1fr;
+        gap: 14px;
+    }
+
+    .vm-dense-shell__rail {
+        position: static;
+        min-width: 0;
+        overflow: hidden;
+    }
+
+    .vm-dense-shell .vm-subnav {
+        flex-direction: row;
+        overflow-x: auto;
+        overscroll-behavior-inline: contain;
+        scrollbar-width: thin;
+    }
+
+    .vm-dense-shell .vm-subnav__item {
+        flex: 0 0 auto;
+        justify-content: center;
+        min-width: max-content;
+    }
+
+    .vm-dense-shell .vm-subnav__item::before {
+        inset: auto 8px 0;
+        width: auto;
+        height: 2px;
+        transform: scaleX(.35);
+    }
+
+    .vm-dense-shell .vm-subnav__item.active::before {
+        transform: scaleX(1);
+    }
+
+    #vm-automation-rules .vm-rule-row .flex-1.flex.flex-wrap {
+        grid-template-columns: max-content 50px max-content 50px max-content;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .vm-reorg-view:not(.hidden),
+    .vm-dense-shell .vm-subnav__item::before,
+    .vm-subview.active,
+    .vm-subview.active > * {
+        animation: none !important;
+        transition: none !important;
+        transform: none !important;
+    }
+}
