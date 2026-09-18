@@ -53,15 +53,18 @@
     function subnav(group, items) {
         return `<div class="vm-subnav" role="tablist" data-vm-subnav="${group}">
             ${items.map((item, index) => `<button type="button" class="vm-subnav__item${index ? '' : ' active'}"
+                id="vm-tab-${group}-${item.id}" aria-controls="vm-panel-${group}-${item.id}"
                 data-vm-subnav-group="${group}" data-vm-subnav-target="${item.id}"
-                role="tab" aria-selected="${index ? 'false' : 'true'}">
+                role="tab" aria-selected="${index ? 'false' : 'true'}" tabindex="${index ? '-1' : '0'}">
                 <span class="material-symbols-outlined">${item.icon}</span><span data-vm-i18n="${item.label}"></span>
             </button>`).join('')}
         </div>`;
     }
 
     function panel(group, id, html, active) {
-        return `<div class="vm-subview${active ? ' active' : ' hidden'}" data-vm-panel-group="${group}" data-vm-panel="${id}">${html}</div>`;
+        return `<div class="vm-subview${active ? ' active' : ' hidden'}" id="vm-panel-${group}-${id}"
+            data-vm-panel-group="${group}" data-vm-panel="${id}" role="tabpanel"
+            aria-labelledby="vm-tab-${group}-${id}">${html}</div>`;
     }
 
     function denseShell(group, items, panels) {
@@ -73,7 +76,7 @@
 
     function view(id, title, subtitle, html) {
         const section = document.createElement('section');
-        section.id = 'view-' + id;
+        section.id = api.el('view-' + id) ? 'vm-view-' + id : 'view-' + id;
         section.className = 'view vm-reorg-view flex-1 flex-col hidden';
         section.dataset.vmView = id;
         section.innerHTML = `<div class="vm-view-heading"><div>
@@ -245,7 +248,7 @@
 
     api.installViews = function () {
         const main = api.el('main-content');
-        if (!main || api.el('view-overview')) return;
+        if (!main || main.querySelector('.vm-reorg-view')) return;
         const first = main.querySelector('.view');
         const fragment = document.createDocumentFragment();
         [overview(), monitoring(), powerPlans(), automations(), systemTools(), widgets(), settings()]

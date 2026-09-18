@@ -14,6 +14,10 @@ const css = readFileSync(
   new URL('../src/VoltManager/wwwroot/css/ui-reorganization.css', import.meta.url),
   'utf8'
 );
+const indexHtml = readFileSync(
+  new URL('../src/VoltManager/wwwroot/index.html', import.meta.url),
+  'utf8'
+);
 
 test('dense views use the shared rail shell and keep compact navigation responsive', () => {
   for (const view of ['power-plans', 'automations', 'system-tools', 'settings']) {
@@ -47,4 +51,43 @@ test('motion tiers keep the live Processes panel out of transform animation', ()
     css,
     /\.vm-subview\[data-vm-panel-group="monitoring"\]\[data-vm-panel="processes"\]\.active\s*\{[^}]*animation\s*:\s*none[^}]*transform\s*:\s*none/s
   );
+});
+
+test('motion timings match the rich, balanced and lite tiers', () => {
+  assert.ok(css.includes('animation: vmReorgViewIn .5s cubic-bezier'));
+  assert.ok(css.includes('animation: vmReorgPanelIn .42s cubic-bezier'));
+  assert.ok(css.includes('animation-delay: 55ms'));
+  assert.ok(css.includes('animation-duration: .28s'));
+  assert.ok(css.includes('animation-duration: .3s'));
+  assert.ok(css.includes('animation-duration: .16s'));
+});
+
+test('subviews expose accessible tab semantics and keyboard navigation', () => {
+  assert.match(layout, /aria-controls="vm-panel-\$\{group\}-\$\{item\.id\}"/);
+  assert.match(layout, /role="tabpanel"/);
+  assert.match(layout, /aria-labelledby="vm-tab-\$\{group\}-\$\{id\}"/);
+  assert.match(router, /button\.tabIndex = active \? 0 : -1/);
+  assert.match(router, /ArrowLeft/);
+  assert.match(router, /ArrowRight/);
+  assert.match(router, /ArrowUp/);
+  assert.match(router, /ArrowDown/);
+  assert.match(router, /event\.key === 'Home'/);
+  assert.match(router, /event\.key === 'End'/);
+});
+
+test('relocated UI keeps literal DOM ids unique and preserves subview state', () => {
+  const literalIds = [indexHtml, layout]
+    .flatMap(source => [...source.matchAll(/\bid="([^"$]+)"/g)].map(match => match[1]));
+  const duplicates = literalIds.filter((id, index) => literalIds.indexOf(id) !== index);
+  assert.deepEqual([...new Set(duplicates)], []);
+
+  assert.match(router, /state\.subviews\[group\] = name/);
+  assert.match(router, /api\.activateView = function \(name, updateHash\)/);
+  assert.match(router, /viewchange/);
+  assert.match(router, /voltuiviewchanged/);
+});
+
+test('reorganized views avoid collisions with legacy view ids', () => {
+  assert.ok(layout.includes("section.id = api.el('view-' + id) ? 'vm-view-' + id : 'view-' + id;"));
+  assert.ok(router.includes('.vm-reorg-view[data-vm-view='));
 });

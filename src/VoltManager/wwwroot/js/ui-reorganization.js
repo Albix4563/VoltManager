@@ -224,7 +224,7 @@
     }
 
     api.activateView = function (name, updateHash) {
-        const target = $('view-' + name);
+        const target = document.querySelector(`.vm-reorg-view[data-vm-view="${name}"]`);
         if (!target) return;
         state.view = name;
 
@@ -288,6 +288,7 @@
             const active = button.dataset.vmSubnavTarget === name;
             button.classList.toggle('active', active);
             button.setAttribute('aria-selected', active ? 'true' : 'false');
+            button.tabIndex = active ? 0 : -1;
         });
         document.querySelectorAll(`[data-vm-panel-group="${group}"]`).forEach(panel => {
             const active = panel.dataset.vmPanel === name;
@@ -417,6 +418,33 @@
                 filterWidgets(filter.dataset.widgetFilter);
             }
         });
+
+        document.addEventListener('keydown', event => {
+            const current = event.target.closest?.('[data-vm-subnav-target]');
+            if (!current) return;
+            const keys = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'];
+            if (!keys.includes(event.key)) return;
+
+            const group = current.dataset.vmSubnavGroup;
+            const tabs = Array.from(document.querySelectorAll(`[data-vm-subnav-group="${group}"]`))
+                .filter(tab => !hidden(tab));
+            if (!tabs.length) return;
+
+            const index = Math.max(0, tabs.indexOf(current));
+            let nextIndex = index;
+            if (event.key === 'Home') nextIndex = 0;
+            else if (event.key === 'End') nextIndex = tabs.length - 1;
+            else if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
+                nextIndex = (index + 1) % tabs.length;
+            } else {
+                nextIndex = (index - 1 + tabs.length) % tabs.length;
+            }
+
+            event.preventDefault();
+            const next = tabs[nextIndex];
+            next.focus();
+            api.activateSubview(group, next.dataset.vmSubnavTarget);
+        });
     }
 
     function applyLanguage() {
@@ -426,7 +454,7 @@
 
     function initialView() {
         const hash = location.hash.replace(/^#/, '');
-        return $('view-' + hash) ? hash : 'overview';
+        return document.querySelector(`.vm-reorg-view[data-vm-view="${hash}"]`) ? hash : 'overview';
     }
 
     function boot() {
