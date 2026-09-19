@@ -41,4 +41,3 @@ public record KeepAwakeState
     // none | battery | timeout
     [JsonPropertyName("lastAutoDisableReason")] public string? LastAutoDisableReason { get; init; }
 }
-

@@ -85,4 +85,3 @@ public record MemoryStatus
     [JsonPropertyName("standbyPct")]  public double StandbyPct  { get; init; }
     [JsonPropertyName("inUsePct")]    public double InUsePct    { get; init; }
 }
-

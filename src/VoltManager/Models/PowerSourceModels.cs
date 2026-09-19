@@ -25,4 +25,3 @@ public record PowerSourcePlanState
     [JsonPropertyName("manualOverrideActive")] public bool ManualOverrideActive { get; init; }
     [JsonPropertyName("message")] public string Message { get; init; } = "";
 }
-

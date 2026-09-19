@@ -56,4 +56,3 @@ public record CpuAutomationState
     [JsonPropertyName("activePlan")] public PlanId? ActivePlan { get; init; }
     [JsonPropertyName("manualOverrideActive")] public bool ManualOverrideActive { get; init; }
 }
-

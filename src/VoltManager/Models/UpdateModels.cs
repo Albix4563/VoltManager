@@ -7,12 +7,12 @@ public class AutoUpdateSettings
     [JsonPropertyName("enabled")] public bool Enabled { get; set; } = true;
     [JsonPropertyName("silentInstallEnabled")] public bool SilentInstallEnabled { get; set; } = true;
     [JsonPropertyName("updateChannel")] public string UpdateChannel { get; set; } = "stable";
-    
+
     [JsonPropertyName("previewChannel")]
-    public bool PreviewChannel 
-    { 
-        get => UpdateChannel == "preview"; 
-        set { if (value) UpdateChannel = "preview"; } 
+    public bool PreviewChannel
+    {
+        get => UpdateChannel == "preview";
+        set { if (value) UpdateChannel = "preview"; }
     }
 
     [JsonIgnore] public bool IsPreview => UpdateChannel == "preview";
@@ -62,4 +62,3 @@ public record ReleaseHistory
     [JsonPropertyName("commits")] public List<CommitInfo> Commits { get; init; } = new(); // fallback se nessuna release
     [JsonPropertyName("message")] public string? Message { get; init; }
 }
-

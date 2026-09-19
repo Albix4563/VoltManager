@@ -87,4 +87,3 @@ public record BatteryHistorySample
     [JsonPropertyName("ac")] public bool Ac { get; init; }
     [JsonPropertyName("temp")] public double? Temp { get; init; }
 }
-

@@ -84,4 +84,3 @@ public class WidgetSettings
         return Items.First(i => string.Equals(i.Type, type, StringComparison.OrdinalIgnoreCase));
     }
 }
-

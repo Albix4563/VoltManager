@@ -42,4 +42,3 @@ public class AppSettings
         new AutomationRule { Id = "performance", Comparison = "gt", ThresholdPct = 70, DurationMinutes = 2, TargetPlan = PlanId.Performance },
     };
 }
-

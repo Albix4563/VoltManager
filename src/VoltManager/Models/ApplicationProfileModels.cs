@@ -33,4 +33,3 @@ public class AppPowerProfileSettings
     [JsonPropertyName("enabled")] public bool Enabled { get; set; } = true;
     [JsonPropertyName("rules")] public List<AppPowerProfileRule> Rules { get; set; } = new();
 }
-

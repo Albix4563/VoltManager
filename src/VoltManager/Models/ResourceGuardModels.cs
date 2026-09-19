@@ -99,4 +99,3 @@ public record IdlePowerGuardState
     // idle | active | waiting | disabled | battery_skip | no_input | manual_override
     [JsonPropertyName("message")] public string Message { get; init; } = "";
 }
-

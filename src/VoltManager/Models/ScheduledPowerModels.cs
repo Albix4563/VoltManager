@@ -62,4 +62,3 @@ public record ScheduledPowerActionState
 
     [JsonPropertyName("expired")] public bool Expired { get; init; }
 }
-
