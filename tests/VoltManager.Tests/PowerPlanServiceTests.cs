@@ -8,7 +8,7 @@ public sealed class PowerPlanServiceTests
     [Fact]
     public void GetActivePlan_UsesNativeGuidAndResolvesMappedPlan()
     {
-        var settings = new SettingsService();
+        var settings = TestSettings.Create();
         const string customGuid = "906662eb-8c87-46e1-9ff1-9548cb110d77";
         settings.Current.PlanGuidMap["PowerSaver"] = customGuid;
         var service = new PowerPlanService(
@@ -27,7 +27,7 @@ public sealed class PowerPlanServiceTests
     [Fact]
     public void GetActivePlan_UsesPowercfgOnlyForUnknownFriendlyName()
     {
-        var settings = new SettingsService();
+        var settings = TestSettings.Create();
         const string customGuid = "7ac7ce31-fbb1-4ab6-859d-9a74517dfcd4";
         var service = new PowerPlanService(
             settings,
@@ -46,7 +46,7 @@ public sealed class PowerPlanServiceTests
     public void GetActivePlan_NativeReadFailureDegradesToNoPlan()
     {
         var service = new PowerPlanService(
-            new SettingsService(),
+            TestSettings.Create(),
             () => throw new Win32Exception(5),
             _ => "");
 

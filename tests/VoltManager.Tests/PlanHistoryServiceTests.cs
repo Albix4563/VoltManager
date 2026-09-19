@@ -285,7 +285,7 @@ public sealed class PlanHistoryServiceTests
     }
 
     private static PowerPlanService CreateService(Func<Guid?> read, Func<string, string> run)
-        => new(new SettingsService(), read, run, new PlanHistoryService(), new FixedClock());
+        => new(TestSettings.Create(), read, run, new PlanHistoryService(), new FixedClock());
 
     private sealed class FixedClock : ISystemClock
     {
