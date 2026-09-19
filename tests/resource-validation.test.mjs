@@ -4,10 +4,73 @@ import { mkdtempSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
+import {
+  classifyResourceValidationProcess,
+  persistResourceValidationFailure,
+  selectResourceValidationShell,
+} from './helpers/resource-validation-process.mjs';
+
+const failureArtifactRoot = resolve('TestResults', 'resource-validation-process-failures');
+
+function probePowerShellRuntime(shell) {
+  const command = [
+    '$info = [ordered]@{',
+    'version=$PSVersionTable.PSVersion.ToString();',
+    'runtime=[Environment]::Version.ToString();',
+    'os=[Environment]::OSVersion.VersionString',
+    '}; $info | ConvertTo-Json -Compress',
+  ].join('');
+  const result = spawnSync(shell, ['-NoProfile', '-NonInteractive', '-Command', command], {
+    encoding: 'utf8',
+    timeout: 10000,
+  });
+  const classification = classifyResourceValidationProcess(result, 0);
+  if (classification.kind !== 'benchmark' || !classification.matchesExpectedExit) {
+    const diagnosticDir = persistResourceValidationFailure({
+      artifactRoot: failureArtifactRoot,
+      scenario: 'runtime-probe',
+      short: false,
+      expectedExitCode: 0,
+      classification,
+      result,
+      shellInfo: { executable: shell },
+      output: null,
+    });
+    assert.fail('PowerShell runtime probe failed: ' + classification.kind + '. Diagnostics: ' + diagnosticDir);
+  }
+
+  try {
+    return { executable: shell, ...JSON.parse(result.stdout.trim()) };
+  } catch (error) {
+    const diagnosticDir = persistResourceValidationFailure({
+      artifactRoot: failureArtifactRoot,
+      scenario: 'runtime-probe',
+      short: false,
+      expectedExitCode: 0,
+      classification: {
+        kind: 'runtime-probe-error',
+        status: result.status,
+        signal: result.signal ?? null,
+      },
+      result: {
+        ...result,
+        stderr: (result.stderr ?? '') + '\n' + String(error),
+      },
+      shellInfo: { executable: shell },
+      output: null,
+    });
+    assert.fail('PowerShell runtime probe returned invalid JSON. Diagnostics: ' + diagnosticDir);
+  }
+}
 
 // Exercise the complete report/exit-code path with deterministic measurements,
 // without launching VoltManager or requiring GPU hardware.
 test('resource benchmark rejects regressions and short protocols', { skip: process.platform !== 'win32' }, () => {
+  const shell = selectResourceValidationShell(
+    process.platform,
+    process.env.VOLT_RESOURCE_VALIDATION_SHELL,
+  );
+  const shellInfo = probePowerShellRuntime(shell);
   const root = mkdtempSync(join(tmpdir(), 'volt-validation-'));
   const harness = join(root, 'measure.ps1');
   writeFileSync(harness, `
@@ -49,12 +112,30 @@ $global:LASTEXITCODE = 0
       ['ok', true, 2, 'keep_swiftshader', 'inconclusive'],
     ]) {
       const output = join(root, `${scenario}-${short}`);
-      const result = spawnSync('pwsh', ['-NoProfile', '-File', script,
+      const result = spawnSync(shell, ['-NoProfile', '-NonInteractive', '-File', script,
         '-BaselineApp', process.execPath, '-CandidateApp', process.execPath,
         '-Supervisor', process.execPath, '-Harness', harness, '-Output', output,
         '-StabilizationSeconds', short ? '1' : '30', '-MeasurementSeconds', short ? '1' : '120',
         '-Repetitions', short ? '1' : '5', '-UnstableExtraRepetitions', '0'],
         { encoding: 'utf8', timeout: 60000, env: { ...process.env, VOLT_TEST_CASE: scenario } });
+      const classification = classifyResourceValidationProcess(result, exitCode);
+      if (classification.kind !== 'benchmark' || !classification.matchesExpectedExit) {
+        const diagnosticDir = persistResourceValidationFailure({
+          artifactRoot: failureArtifactRoot,
+          scenario,
+          short,
+          expectedExitCode: exitCode,
+          classification,
+          result,
+          shellInfo,
+          output,
+        });
+        assert.fail(
+          scenario + ': support process ' + classification.kind +
+          ' (expected exit ' + exitCode + ', actual ' + String(result.status) +
+          '). Diagnostics: ' + diagnosticDir,
+        );
+      }
       assert.equal(result.status, exitCode, `${scenario}: ${result.stderr}\n${result.stdout}`);
       const summary = JSON.parse(readFileSync(join(output, 'benchmark-summary.json'), 'utf8').replace(/^\uFEFF/, ''));
       assert.equal(summary.status, status, scenario);
