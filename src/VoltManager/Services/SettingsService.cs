@@ -16,9 +16,25 @@ public class SettingsService
     private readonly string _path;
     private readonly object _lock = new();
     private bool _needsThemeMigrationSave;
+    private AppSettings _current = new();
 
-    public AppSettings Current { get; private set; }
+    /// <summary>
+    /// Returns a detached snapshot of the persisted settings state.
+    /// Mutations must go through one of the Update overloads.
+    /// </summary>
+    public AppSettings Current
+    {
+        get
+        {
+            lock (_lock)
+                return CloneSettings(_current);
+        }
+    }
 
+    /// <summary>
+    /// Raised after settings have been successfully persisted. Each subscriber receives
+    /// its own detached snapshot; one subscriber failure does not block the others.
+    /// </summary>
     public event Action<AppSettings>? SettingsChanged;
 
     public SettingsService(string? path = null)
@@ -26,7 +42,7 @@ public class SettingsService
         _path = path ?? Path.Combine(
             ValidationEnvironment.ApplicationDataRoot,
             "VoltManager", "settings.json");
-        Current = Load();
+        _current = Load();
         if (_needsThemeMigrationSave)
             Save();
     }
@@ -41,56 +57,7 @@ public class SettingsService
                 InspectThemeMigration(json);
                 var loaded = JsonSerializer.Deserialize<AppSettings>(json, JsonOpts);
                 if (loaded != null)
-                {
-                    if (loaded.Rules == null || loaded.Rules.Count == 0)
-                        loaded.Rules = AppSettings.DefaultRules();
-                    else if (IsOldDefaultRules(loaded.Rules))
-                        loaded.Rules = AppSettings.DefaultRules();
-
-                    if (loaded.AutoShutdown == null)
-                        loaded.AutoShutdown = new AutoShutdownSettings();
-                    if (loaded.AutoUpdates == null)
-                        loaded.AutoUpdates = new AutoUpdateSettings();
-                    if (loaded.HeavyAppDetection == null)
-                        loaded.HeavyAppDetection = new HeavyAppDetectionSettings();
-                    if (loaded.AppPowerProfiles == null)
-                        loaded.AppPowerProfiles = new AppPowerProfileSettings();
-                    if (loaded.KeepAwake == null)
-                        loaded.KeepAwake = new KeepAwakeSettings();
-                    if (loaded.PowerSourcePlan == null)
-                        loaded.PowerSourcePlan = new PowerSourcePlanSettings();
-                    if (loaded.ThermalGuard == null)
-                        loaded.ThermalGuard = new ThermalGuardSettings();
-                    if (loaded.IdlePowerGuard == null)
-                        loaded.IdlePowerGuard = new IdlePowerGuardSettings();
-                    if (loaded.CpuAutomation == null)
-                        loaded.CpuAutomation = new CpuAutomationSettings();
-                    if (loaded.GlobalHotkeys == null)
-                        loaded.GlobalHotkeys = new GlobalHotkeySettings();
-                    if (loaded.StandbyAutoCleaner == null)
-                        loaded.StandbyAutoCleaner = new StandbyAutoCleanerSettings();
-                    if (loaded.Widgets == null)
-                        loaded.Widgets = new WidgetSettings();
-                    NormalizeScheduledPowerAction(loaded.AutoShutdown);
-                    NormalizeAutoUpdateSettings(loaded.AutoUpdates);
-                    NormalizeHeavyAppDetectionSettings(loaded.HeavyAppDetection);
-                    NormalizeAppPowerProfileSettings(loaded.AppPowerProfiles);
-                    NormalizeKeepAwakeSettings(loaded.KeepAwake);
-                    NormalizePowerSourcePlanSettings(loaded.PowerSourcePlan);
-                    NormalizeGlobalHotkeySettings(loaded.GlobalHotkeys);
-                    NormalizeThermalGuardSettings(loaded.ThermalGuard);
-                    NormalizeIdlePowerGuardSettings(loaded.IdlePowerGuard);
-                    NormalizeCpuAutomationSettings(loaded.CpuAutomation);
-                    NormalizeStandbyAutoCleanerSettings(loaded.StandbyAutoCleaner);
-                    NormalizeWidgetSettings(loaded.Widgets);
-                    NormalizeThemeColor(loaded);
-                    NormalizeLanguage(loaded);
-                    NormalizeFont(loaded);
-                    // Migrate stale repo name from pre-release installs.
-                    if (loaded.UpdateRepo == "Albix4563/VoltManager")
-                        loaded.UpdateRepo = "Albix4563/power_efficency";
-                    return loaded;
-                }
+                    return NormalizeSettings(loaded);
             }
         }
         catch (Exception ex)
@@ -100,7 +67,56 @@ public class SettingsService
             Logger.Error("Failed to load settings from " + _path + "; using defaults.", ex);
             BackupCorruptSettings();
         }
-        return new AppSettings();
+        return NormalizeSettings(new AppSettings());
+    }
+
+    private static AppSettings NormalizeSettings(AppSettings settings)
+    {
+        if (settings.Rules == null || settings.Rules.Count == 0 || IsOldDefaultRules(settings.Rules))
+            settings.Rules = AppSettings.DefaultRules();
+
+        settings.AutoShutdown ??= new AutoShutdownSettings();
+        settings.AutoUpdates ??= new AutoUpdateSettings();
+        settings.HeavyAppDetection ??= new HeavyAppDetectionSettings();
+        settings.AppPowerProfiles ??= new AppPowerProfileSettings();
+        settings.KeepAwake ??= new KeepAwakeSettings();
+        settings.PowerSourcePlan ??= new PowerSourcePlanSettings();
+        settings.GlobalHotkeys ??= new GlobalHotkeySettings();
+        settings.ThermalGuard ??= new ThermalGuardSettings();
+        settings.IdlePowerGuard ??= new IdlePowerGuardSettings();
+        settings.CpuAutomation ??= new CpuAutomationSettings();
+        settings.StandbyAutoCleaner ??= new StandbyAutoCleanerSettings();
+        settings.Widgets ??= new WidgetSettings();
+        settings.PlanGuidMap ??= new Dictionary<string, string>();
+
+        NormalizeScheduledPowerAction(settings.AutoShutdown);
+        NormalizeAutoUpdateSettings(settings.AutoUpdates);
+        NormalizeHeavyAppDetectionSettings(settings.HeavyAppDetection);
+        NormalizeAppPowerProfileSettings(settings.AppPowerProfiles);
+        NormalizeKeepAwakeSettings(settings.KeepAwake);
+        NormalizePowerSourcePlanSettings(settings.PowerSourcePlan);
+        NormalizeGlobalHotkeySettings(settings.GlobalHotkeys);
+        NormalizeThermalGuardSettings(settings.ThermalGuard);
+        NormalizeIdlePowerGuardSettings(settings.IdlePowerGuard);
+        NormalizeCpuAutomationSettings(settings.CpuAutomation);
+        NormalizeStandbyAutoCleanerSettings(settings.StandbyAutoCleaner);
+        NormalizeWidgetSettings(settings.Widgets);
+        NormalizeThemeColor(settings);
+        NormalizeLanguage(settings);
+        NormalizeFont(settings);
+
+        // Migrate stale repo name from pre-release installs.
+        if (settings.UpdateRepo == "Albix4563/VoltManager")
+            settings.UpdateRepo = "Albix4563/power_efficency";
+
+        return settings;
+    }
+
+    private static AppSettings CloneSettings(AppSettings settings)
+    {
+        string json = JsonSerializer.Serialize(settings, JsonOpts);
+        return JsonSerializer.Deserialize<AppSettings>(json, JsonOpts)
+            ?? throw new InvalidOperationException("Could not clone application settings.");
     }
 
     private void BackupCorruptSettings()
@@ -372,47 +388,45 @@ public class SettingsService
 
     public void Save()
     {
+        AppSettings notification;
         lock (_lock)
         {
-            Current.AutoShutdown ??= new AutoShutdownSettings();
-            Current.AutoUpdates ??= new AutoUpdateSettings();
-            Current.HeavyAppDetection ??= new HeavyAppDetectionSettings();
-            Current.AppPowerProfiles ??= new AppPowerProfileSettings();
-            Current.KeepAwake ??= new KeepAwakeSettings();
-            Current.PowerSourcePlan ??= new PowerSourcePlanSettings();
-            Current.GlobalHotkeys ??= new GlobalHotkeySettings();
-            Current.ThermalGuard ??= new ThermalGuardSettings();
-            Current.IdlePowerGuard ??= new IdlePowerGuardSettings();
-            Current.CpuAutomation ??= new CpuAutomationSettings();
-            Current.StandbyAutoCleaner ??= new StandbyAutoCleanerSettings();
-            Current.Widgets ??= new WidgetSettings();
-            NormalizeScheduledPowerAction(Current.AutoShutdown);
-            NormalizeAutoUpdateSettings(Current.AutoUpdates);
-            NormalizeHeavyAppDetectionSettings(Current.HeavyAppDetection);
-            NormalizeAppPowerProfileSettings(Current.AppPowerProfiles);
-            NormalizeKeepAwakeSettings(Current.KeepAwake);
-            NormalizePowerSourcePlanSettings(Current.PowerSourcePlan);
-            NormalizeGlobalHotkeySettings(Current.GlobalHotkeys);
-            NormalizeThermalGuardSettings(Current.ThermalGuard);
-            NormalizeIdlePowerGuardSettings(Current.IdlePowerGuard);
-            NormalizeCpuAutomationSettings(Current.CpuAutomation);
-            NormalizeStandbyAutoCleanerSettings(Current.StandbyAutoCleaner);
-            NormalizeWidgetSettings(Current.Widgets);
-            NormalizeThemeColor(Current);
-            NormalizeLanguage(Current);
-            NormalizeFont(Current);
-            var dir = Path.GetDirectoryName(_path)!;
-            Directory.CreateDirectory(dir);
-            var tmp = _path + ".tmp";
-            File.WriteAllText(tmp, JsonSerializer.Serialize(Current, JsonOpts));
-            // Atomic replace: the previous file survives intact until the move
-            // completes, so a crash mid-write can never leave settings.json gone.
-            File.Move(tmp, _path, overwrite: true);
+            var next = NormalizeSettings(CloneSettings(_current));
+            Persist(next);
+            _current = next;
+            notification = CloneSettings(next);
         }
-        // A throwing subscriber must not surface as a save failure: the file is
-        // already written at this point.
-        try { SettingsChanged?.Invoke(Current); }
-        catch (Exception ex) { Logger.Error("SettingsChanged subscriber failed", ex); }
+
+        NotifySettingsChanged(notification);
+    }
+
+    private void Persist(AppSettings settings)
+    {
+        var dir = Path.GetDirectoryName(_path);
+        if (!string.IsNullOrEmpty(dir))
+            Directory.CreateDirectory(dir);
+
+        var tmp = _path + ".tmp";
+        File.WriteAllText(tmp, JsonSerializer.Serialize(settings, JsonOpts));
+        // Atomic replace: the previous file survives intact until the move
+        // completes, so a crash mid-write can never leave settings.json gone.
+        File.Move(tmp, _path, overwrite: true);
+    }
+
+    private void NotifySettingsChanged(AppSettings snapshot)
+    {
+        Delegate[] subscribers = SettingsChanged?.GetInvocationList() ?? [];
+        foreach (Action<AppSettings> subscriber in subscribers.Cast<Action<AppSettings>>())
+        {
+            try
+            {
+                subscriber(CloneSettings(snapshot));
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("SettingsChanged subscriber failed", ex);
+            }
+        }
     }
 
     private static bool IsOldDefaultRules(List<AutomationRule>? rules)
@@ -444,7 +458,35 @@ public class SettingsService
 
     public void Update(AppSettings settings)
     {
-        Current = settings;
-        Save();
+        ArgumentNullException.ThrowIfNull(settings);
+
+        AppSettings notification;
+        lock (_lock)
+        {
+            var next = NormalizeSettings(CloneSettings(settings));
+            Persist(next);
+            _current = next;
+            notification = CloneSettings(next);
+        }
+
+        NotifySettingsChanged(notification);
+    }
+
+    public void Update(Action<AppSettings> mutation)
+    {
+        ArgumentNullException.ThrowIfNull(mutation);
+
+        AppSettings notification;
+        lock (_lock)
+        {
+            var next = CloneSettings(_current);
+            mutation(next);
+            NormalizeSettings(next);
+            Persist(next);
+            _current = next;
+            notification = CloneSettings(next);
+        }
+
+        NotifySettingsChanged(notification);
     }
 }

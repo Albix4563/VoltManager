@@ -82,7 +82,7 @@ public sealed class WidgetManager : IDisposable
         return BuildSnapshotFromCurrent();
     }
 
-    // Kept for internal callers that need the mutable settings model.
+    // Returns a detached settings snapshot for callers that need widget configuration.
     public WidgetSettings GetState()
     {
         var widgets = GetSettings();
@@ -91,18 +91,16 @@ public sealed class WidgetManager : IDisposable
 
     public WidgetStateSnapshot SetMasterEnabled(bool enabled)
     {
-        var widgets = GetSettings();
-        widgets.Enabled = enabled;
+        _app.Settings.Update(state => state.Widgets.Enabled = enabled);
         if (!enabled)
         {
             CloseAll();
-            _app.Settings.Save();
             var closed = BuildSnapshotFromCurrent();
             StateChanged?.Invoke(closed);
             return closed;
         }
 
-        return Relayout(save: true);
+        return Relayout(save: false);
     }
 
     public WidgetStateSnapshot SetEnabled(string type, bool enabled)
@@ -110,10 +108,8 @@ public sealed class WidgetManager : IDisposable
         if (!WidgetSettings.IsKnownType(type))
             throw new ArgumentException(_app.Loc.T("Error_UnknownWidget", type));
 
-        var widgets = GetSettings();
-        var item = widgets.GetOrAdd(type);
-        item.Enabled = enabled;
-        return Relayout(save: true);
+        _app.Settings.Update(state => state.Widgets.GetOrAdd(type).Enabled = enabled);
+        return Relayout(save: false);
     }
 
     public void ShowEnabled()
@@ -125,10 +121,7 @@ public sealed class WidgetManager : IDisposable
     public WidgetStateSnapshot SetPinned(string type, bool pinned)
     {
         if (_disposing || !WidgetSettings.IsKnownType(type)) return GetSnapshot();
-        var widgets = GetSettings();
-        var item = widgets.GetOrAdd(type);
-        item.Pinned = pinned;
-        _app.Settings.Save();
+        _app.Settings.Update(state => state.Widgets.GetOrAdd(type).Pinned = pinned);
 
         if (_windows.TryGetValue(type, out var window))
             window.Topmost = pinned;
@@ -141,20 +134,21 @@ public sealed class WidgetManager : IDisposable
     public WidgetStateSnapshot SetSize(string type, string size)
     {
         if (_disposing || !WidgetSettings.IsKnownType(type)) return GetSnapshot();
-        var widgets = GetSettings();
-        var item = widgets.GetOrAdd(type);
-        item.Size = WidgetSettings.NormalizeSize(size);
-        return Relayout(save: true);
+        string normalizedSize = WidgetSettings.NormalizeSize(size);
+        _app.Settings.Update(state => state.Widgets.GetOrAdd(type).Size = normalizedSize);
+        return Relayout(save: false);
     }
 
     public WidgetStateSnapshot ResetPosition(string type)
     {
         if (_disposing || !WidgetSettings.IsKnownType(type)) return GetSnapshot();
-        var widgets = GetSettings();
-        var item = widgets.GetOrAdd(type);
-        item.OffsetX = 0;
-        item.OffsetY = 0;
-        return Relayout(save: true);
+        _app.Settings.Update(state =>
+        {
+            var item = state.Widgets.GetOrAdd(type);
+            item.OffsetX = 0;
+            item.OffsetY = 0;
+        });
+        return Relayout(save: false);
     }
 
     public WidgetStateSnapshot SetPlacement(string type, string monitorId, string anchor)
@@ -168,13 +162,16 @@ public sealed class WidgetManager : IDisposable
         if (display == null)
             throw new ArgumentException("Unknown monitor: " + monitorId);
 
-        var widgets = GetSettings();
-        var item = widgets.GetOrAdd(type);
-        item.MonitorId = display.Id;
-        item.MonitorName = display.Name;
-        item.MonitorNumber = display.Number;
-        item.Anchor = WidgetSettings.NormalizeAnchor(anchor);
-        return Relayout(save: true);
+        string normalizedAnchor = WidgetSettings.NormalizeAnchor(anchor);
+        _app.Settings.Update(state =>
+        {
+            var item = state.Widgets.GetOrAdd(type);
+            item.MonitorId = display.Id;
+            item.MonitorName = display.Name;
+            item.MonitorNumber = display.Number;
+            item.Anchor = normalizedAnchor;
+        });
+        return Relayout(save: false);
     }
 
     internal void SaveDragOffset(string type, PixelRect draggedBoundsPixels)
@@ -182,17 +179,21 @@ public sealed class WidgetManager : IDisposable
         if (_disposing || !WidgetSettings.IsKnownType(type)) return;
         if (!_lastPlacements.TryGetValue(type, out var placement)) return;
 
-        var widgets = GetSettings();
-        var item = widgets.GetOrAdd(type);
         double sx = placement.EffectiveDisplay.DpiScaleX <= 0 ? 1 : placement.EffectiveDisplay.DpiScaleX;
         double sy = placement.EffectiveDisplay.DpiScaleY <= 0 ? 1 : placement.EffectiveDisplay.DpiScaleY;
 
         // Delta from the nominal (pre-offset) base bounds.
-        item.OffsetX = (draggedBoundsPixels.X - placement.BaseBounds.X) / sx;
-        item.OffsetY = (draggedBoundsPixels.Y - placement.BaseBounds.Y) / sy;
-        if (!double.IsFinite(item.OffsetX)) item.OffsetX = 0;
-        if (!double.IsFinite(item.OffsetY)) item.OffsetY = 0;
-        Relayout(save: true);
+        double offsetX = (draggedBoundsPixels.X - placement.BaseBounds.X) / sx;
+        double offsetY = (draggedBoundsPixels.Y - placement.BaseBounds.Y) / sy;
+        if (!double.IsFinite(offsetX)) offsetX = 0;
+        if (!double.IsFinite(offsetY)) offsetY = 0;
+        _app.Settings.Update(state =>
+        {
+            var item = state.Widgets.GetOrAdd(type);
+            item.OffsetX = offsetX;
+            item.OffsetY = offsetY;
+        });
+        Relayout(save: false);
     }
 
     internal void RequestRelayout()
@@ -287,9 +288,9 @@ public sealed class WidgetManager : IDisposable
 
     private WidgetSettings GetSettings()
     {
-        _app.Settings.Current.Widgets ??= new WidgetSettings();
-        _app.Settings.Current.Widgets.Normalize();
-        return _app.Settings.Current.Widgets;
+        var widgets = _app.Settings.Current.Widgets;
+        widgets.Normalize();
+        return widgets;
     }
 
     private WidgetStateSnapshot Relayout(bool save)
@@ -372,7 +373,7 @@ public sealed class WidgetManager : IDisposable
         }
 
         if (save || changed)
-            _app.Settings.Save();
+            _app.Settings.Update(state => state.Widgets = widgets);
 
         var snapshot = BuildSnapshot(placements, widgets);
         StateChanged?.Invoke(snapshot);

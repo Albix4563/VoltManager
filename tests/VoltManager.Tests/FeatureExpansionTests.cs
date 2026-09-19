@@ -13,7 +13,7 @@ public sealed class FeatureExpansionTests
         try
         {
             var settings = new SettingsService(path);
-            settings.Current.PowerSourcePlan.LowBatteryThresholdPercent = 30;
+            settings.Update(state => state.PowerSourcePlan.LowBatteryThresholdPercent = 30);
             PowerSourceSnapshot source = new(false, 25);
             var service = new PowerSourcePlanService(settings, () => source);
 
@@ -92,18 +92,20 @@ public sealed class FeatureExpansionTests
         try
         {
             var settings = new SettingsService(path);
-            settings.Current.PowerSourcePlan.LowBatteryThresholdPercent = 31;
-            settings.Current.GlobalHotkeys.Enabled = true;
-            settings.Current.GlobalHotkeys.PowerSaver = "Ctrl+Shift+9";
-            settings.Current.AppPowerProfiles.Rules.Add(new AppPowerProfileRule
+            settings.Update(state =>
             {
-                Id = "video",
-                Name = "Video",
-                Path = @"C:\Apps\Video.exe",
-                TargetPlan = PlanId.Balanced,
-                KeepAwake = true,
+                state.PowerSourcePlan.LowBatteryThresholdPercent = 31;
+                state.GlobalHotkeys.Enabled = true;
+                state.GlobalHotkeys.PowerSaver = "Ctrl+Shift+9";
+                state.AppPowerProfiles.Rules.Add(new AppPowerProfileRule
+                {
+                    Id = "video",
+                    Name = "Video",
+                    Path = @"C:\Apps\Video.exe",
+                    TargetPlan = PlanId.Balanced,
+                    KeepAwake = true,
+                });
             });
-            settings.Save();
 
             var loaded = new SettingsService(path).Current;
             Assert.Equal(31, loaded.PowerSourcePlan.LowBatteryThresholdPercent);

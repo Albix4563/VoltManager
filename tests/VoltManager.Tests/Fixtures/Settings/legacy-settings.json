@@ -1,0 +1,48 @@
+{
+  "theme": "dark",
+  "themeColor": "blue",
+  "masterAutomationEnabled": false,
+  "closeToTray": false,
+  "startWithWindows": true,
+  "updateRepo": "Albix4563/VoltManager",
+  "language": "it-IT",
+  "font": "ARIAL",
+  "rules": [
+    {
+      "id": "saver",
+      "enabled": true,
+      "comparison": "lt",
+      "thresholdPct": 10,
+      "durationMinutes": 1,
+      "targetPlan": "PowerSaver"
+    },
+    {
+      "id": "balanced",
+      "enabled": true,
+      "comparison": "gt",
+      "thresholdPct": 10,
+      "durationMinutes": 1,
+      "targetPlan": "Balanced"
+    },
+    {
+      "id": "performance",
+      "enabled": true,
+      "comparison": "gt",
+      "thresholdPct": 50,
+      "durationMinutes": 1,
+      "targetPlan": "Performance"
+    }
+  ],
+  "autoUpdates": {
+    "enabled": true,
+    "silentInstallEnabled": false,
+    "updateChannel": "unsupported",
+    "intervalMinutes": 2
+  },
+  "powerSourcePlan": {
+    "enabled": true,
+    "pluggedPlan": "Performance",
+    "lowBatteryThresholdPercent": 99,
+    "unpluggedMode": "previous"
+  }
+}

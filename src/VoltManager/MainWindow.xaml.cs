@@ -488,12 +488,9 @@ public partial class MainWindow : Window
 
     private void InitializeAutoUpdateLifecycle()
     {
-        _app.Settings.Current.AutoUpdates ??= new AutoUpdateSettings();
         if (_app.Settings.Current.AutoUpdates.IntervalMinutes != UpdateSchedulePolicy.AutomaticCheckIntervalMinutes)
-        {
-            _app.Settings.Current.AutoUpdates.IntervalMinutes = UpdateSchedulePolicy.AutomaticCheckIntervalMinutes;
-            _app.Settings.Save();
-        }
+            _app.Settings.Update(state =>
+                state.AutoUpdates.IntervalMinutes = UpdateSchedulePolicy.AutomaticCheckIntervalMinutes);
 
         StartAutoUpdateLoop();
         _ = CheckForUpdatesOnStartupAsync();
@@ -679,19 +676,19 @@ public partial class MainWindow : Window
     private void SnoozeUpdate(int minutes)
     {
         minutes = UpdateSchedulePolicy.NormalizeSnoozeMinutes(minutes);
-        _app.Settings.Current.AutoUpdates ??= new AutoUpdateSettings();
-        _app.Settings.Current.AutoUpdates.SnoozedUntilUtc = DateTime.UtcNow.AddMinutes(minutes);
-        _app.Settings.Save();
+        DateTime snoozedUntilUtc = DateTime.UtcNow.AddMinutes(minutes);
+        _app.Settings.Update(state => state.AutoUpdates.SnoozedUntilUtc = snoozedUntilUtc);
     }
 
     private void SkipUpdateVersion(string? version)
     {
         string normalized = NormalizeVersion(version);
         if (normalized.Length == 0) return;
-        _app.Settings.Current.AutoUpdates ??= new AutoUpdateSettings();
-        _app.Settings.Current.AutoUpdates.SkippedVersion = normalized;
-        _app.Settings.Current.AutoUpdates.SnoozedUntilUtc = null;
-        _app.Settings.Save();
+        _app.Settings.Update(state =>
+        {
+            state.AutoUpdates.SkippedVersion = normalized;
+            state.AutoUpdates.SnoozedUntilUtc = null;
+        });
     }
 
     private void OnClosingToTray(object? sender, CancelEventArgs e)
@@ -923,8 +920,8 @@ public partial class MainWindow : Window
 
     private void TrayAutomation_Click(object sender, RoutedEventArgs e)
     {
-        _app.Settings.Current.MasterAutomationEnabled = TrayAutomationItem.IsChecked;
-        _app.Settings.Save();
+        _app.Settings.Update(state =>
+            state.MasterAutomationEnabled = TrayAutomationItem.IsChecked);
     }
 
     private void TrayExit_Click(object sender, RoutedEventArgs e)

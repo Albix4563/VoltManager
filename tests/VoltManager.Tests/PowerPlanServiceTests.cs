@@ -10,7 +10,7 @@ public sealed class PowerPlanServiceTests
     {
         var settings = TestSettings.Create();
         const string customGuid = "906662eb-8c87-46e1-9ff1-9548cb110d77";
-        settings.Current.PlanGuidMap["PowerSaver"] = customGuid;
+        settings.Update(state => state.PlanGuidMap["PowerSaver"] = customGuid);
         var service = new PowerPlanService(
             settings,
             () => Guid.Parse(customGuid),

@@ -265,6 +265,7 @@ public class PowerPlanService
             var plans = ParseListOutput(_runPowercfg("/list"), _settings.Current.PlanGuidMap);
             var present = plans.Where(p => p.PlanId != null).Select(p => p.PlanId!.Value).ToHashSet();
             var missing = Enum.GetValues<PlanId>().Where(pid => !present.Contains(pid)).ToList();
+            var discoveredMappings = new Dictionary<string, string>();
             bool ok = true;
             foreach (var pid in missing)
             {
@@ -272,11 +273,18 @@ public class PowerPlanService
                 var output = _runPowercfg($"-duplicatescheme {canonical}");
                 var m = GuidRegex.Match(output);
                 if (m.Success)
-                    _settings.Current.PlanGuidMap[pid.ToString()] = m.Groups["guid"].Value.ToLowerInvariant();
+                    discoveredMappings[pid.ToString()] = m.Groups["guid"].Value.ToLowerInvariant();
                 else
                     ok = false;
             }
-            if (ok) _settings.Save();
+            if (ok)
+            {
+                _settings.Update(state =>
+                {
+                    foreach (var (plan, guid) in discoveredMappings)
+                        state.PlanGuidMap[plan] = guid;
+                });
+            }
             return ok;
         }
     }

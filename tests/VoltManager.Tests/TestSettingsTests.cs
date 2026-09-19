@@ -13,8 +13,7 @@ public sealed class TestSettingsTests
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "VoltManager", "settings.json"));
 
-        settings.Current.Language = "en";
-        settings.Save();
+        settings.Update(state => state.Language = "en");
 
         Assert.True(File.Exists(path));
         Assert.NotEqual(production, Path.GetFullPath(path));

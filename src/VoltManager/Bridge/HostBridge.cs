@@ -400,8 +400,7 @@ public class HostBridge : IDisposable
                     ? themeColorElement.GetString()
                     : null;
                 AppThemeColorExtensions.TryParse(requested, out var themeColor);
-                _settings.Current.ThemeColor = themeColor;
-                _settings.Save();
+                _settings.Update(state => state.ThemeColor = themeColor);
                 return _app.Theme.GetWebTheme();
             }
 
@@ -423,8 +422,7 @@ public class HostBridge : IDisposable
                 if (!LanguageResolver.IsSupported(lang))
                     throw new ArgumentException(_loc.T("Error_UnknownMethod", lang));
                 var normalized = LanguageResolver.Normalize(lang);
-                _settings.Current.Language = normalized;
-                _settings.Save();
+                _settings.Update(state => state.Language = normalized);
                 _loc.SetLanguage(normalized);
                 // Rebuild jump list with new language.
                 try { _app.Dispatcher.Invoke(() => _app.SetupJumpListPublic()); } catch { }
@@ -435,44 +433,40 @@ public class HostBridge : IDisposable
             {
                 bool enable = payload.GetProperty("enabled").GetBoolean();
                 bool okStart = await Task.Run(() => _startup.SetStartWithWindows(enable));
-                _settings.Current.StartWithWindows = enable && okStart;
-                _settings.Save();
+                _settings.Update(state => state.StartWithWindows = enable && okStart);
                 return new { success = okStart };
             }
 
             case "setCloseToTray":
             {
-                _settings.Current.CloseToTray = payload.GetProperty("enabled").GetBoolean();
-                _settings.Save();
+                bool enabled = payload.GetProperty("enabled").GetBoolean();
+                _settings.Update(state => state.CloseToTray = enabled);
                 return new { success = true };
             }
 
             case "setAutoUpdateChecks":
             {
                 bool enable = payload.GetProperty("enabled").GetBoolean();
-                _settings.Current.AutoUpdates ??= new AutoUpdateSettings();
-                _settings.Current.AutoUpdates.Enabled = enable;
-                if (enable)
-                    _settings.Current.AutoUpdates.SnoozedUntilUtc = null;
-                _settings.Save();
+                _settings.Update(state =>
+                {
+                    state.AutoUpdates.Enabled = enable;
+                    if (enable)
+                        state.AutoUpdates.SnoozedUntilUtc = null;
+                });
                 return new { success = true, autoUpdates = _settings.Current.AutoUpdates };
             }
 
             case "setSilentAutoUpdates":
             {
                 bool enable = payload.GetProperty("enabled").GetBoolean();
-                _settings.Current.AutoUpdates ??= new AutoUpdateSettings();
-                _settings.Current.AutoUpdates.SilentInstallEnabled = enable;
-                _settings.Save();
+                _settings.Update(state => state.AutoUpdates.SilentInstallEnabled = enable);
                 return new { success = true, autoUpdates = _settings.Current.AutoUpdates };
             }
 
             case "setUpdateChannel":
             {
                 string channel = payload.GetProperty("channel").GetString() ?? "stable";
-                _settings.Current.AutoUpdates ??= new AutoUpdateSettings();
-                _settings.Current.AutoUpdates.UpdateChannel = channel;
-                _settings.Save();
+                _settings.Update(state => state.AutoUpdates.UpdateChannel = channel);
                 return new { success = true, autoUpdates = _settings.Current.AutoUpdates };
             }
 
@@ -482,9 +476,8 @@ public class HostBridge : IDisposable
                     ? minutesEl.GetInt32()
                     : 30;
                 minutes = UpdateSchedulePolicy.NormalizeSnoozeMinutes(minutes);
-                _settings.Current.AutoUpdates ??= new AutoUpdateSettings();
-                _settings.Current.AutoUpdates.SnoozedUntilUtc = DateTime.UtcNow.AddMinutes(minutes);
-                _settings.Save();
+                DateTime snoozedUntilUtc = DateTime.UtcNow.AddMinutes(minutes);
+                _settings.Update(state => state.AutoUpdates.SnoozedUntilUtc = snoozedUntilUtc);
                 return new { success = true, snoozedUntilUtc = _settings.Current.AutoUpdates.SnoozedUntilUtc };
             }
 
@@ -494,10 +487,11 @@ public class HostBridge : IDisposable
                 version = version.Trim().TrimStart('v', 'V');
                 if (version.Length == 0)
                     throw new ArgumentException(_loc.T("Error_MissingUpdateVersion"));
-                _settings.Current.AutoUpdates ??= new AutoUpdateSettings();
-                _settings.Current.AutoUpdates.SkippedVersion = version;
-                _settings.Current.AutoUpdates.SnoozedUntilUtc = null;
-                _settings.Save();
+                _settings.Update(state =>
+                {
+                    state.AutoUpdates.SkippedVersion = version;
+                    state.AutoUpdates.SnoozedUntilUtc = null;
+                });
                 return new { success = true, skippedVersion = version };
             }
 
@@ -915,8 +909,7 @@ public class HostBridge : IDisposable
         SettingsService settingsService,
         StandbyAutoCleanerSettings autoSettings)
     {
-        settingsService.Current.StandbyAutoCleaner = autoSettings;
-        settingsService.Save();
+        settingsService.Update(state => state.StandbyAutoCleaner = autoSettings);
         return settingsService.Current.StandbyAutoCleaner;
     }
 

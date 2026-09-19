@@ -49,16 +49,17 @@ public sealed class ScheduledPowerActionService : IDisposable
             DateTime now = _clock.UtcNow;
             DateTime executeAt = now.Add(delay);
 
-            var config = _settings.Current.AutoShutdown;
-            config.Enabled = true;
-            config.Mode = ScheduledPowerMode.Relative;
-            config.Action = action;
-            config.CreatedAtUtc = now;
-            config.ExecuteAtUtc = executeAt;
-            config.DelayMinutes = (int)Math.Ceiling(delay.TotalMinutes);
-            config.LastTriggeredLocalDate = null;
-
-            _settings.Save();
+            _settings.Update(state =>
+            {
+                var config = state.AutoShutdown;
+                config.Enabled = true;
+                config.Mode = ScheduledPowerMode.Relative;
+                config.Action = action;
+                config.CreatedAtUtc = now;
+                config.ExecuteAtUtc = executeAt;
+                config.DelayMinutes = (int)Math.Ceiling(delay.TotalMinutes);
+                config.LastTriggeredLocalDate = null;
+            });
 
             long generation = ++_generation;
 
@@ -88,23 +89,25 @@ public sealed class ScheduledPowerActionService : IDisposable
         {
             CancelTimersUnsafe();
 
-            var config = _settings.Current.AutoShutdown;
-            config.Enabled = true;
-            config.Mode = ScheduledPowerMode.Daily;
-            config.Action = action;
-            config.Time = time.ToString("HH:mm", CultureInfo.InvariantCulture);
-            config.ExecuteAtUtc = null;
-            config.DelayMinutes = null;
-            config.CreatedAtUtc = null;
-            config.LastTriggeredLocalDate = null;
-
-            _settings.Save();
+            string dailyTime = time.ToString("HH:mm", CultureInfo.InvariantCulture);
+            _settings.Update(state =>
+            {
+                var config = state.AutoShutdown;
+                config.Enabled = true;
+                config.Mode = ScheduledPowerMode.Daily;
+                config.Action = action;
+                config.Time = dailyTime;
+                config.ExecuteAtUtc = null;
+                config.DelayMinutes = null;
+                config.CreatedAtUtc = null;
+                config.LastTriggeredLocalDate = null;
+            });
 
             StartDailyTimerUnsafe();
 
             state = CreateStateUnsafe();
 
-            Logger.Info($"Daily schedule created: action={action}, time={config.Time}");
+            Logger.Info($"Daily schedule created: action={action}, time={dailyTime}");
         }
 
         PublishState(state);
@@ -121,13 +124,15 @@ public sealed class ScheduledPowerActionService : IDisposable
 
             var config = _settings.Current.AutoShutdown;
             var action = config.Action;
-            config.Enabled = false;
-            config.Mode = ScheduledPowerMode.Daily;
-            config.ExecuteAtUtc = null;
-            config.DelayMinutes = null;
-            config.CreatedAtUtc = null;
-
-            _settings.Save();
+            _settings.Update(state =>
+            {
+                var persisted = state.AutoShutdown;
+                persisted.Enabled = false;
+                persisted.Mode = ScheduledPowerMode.Daily;
+                persisted.ExecuteAtUtc = null;
+                persisted.DelayMinutes = null;
+                persisted.CreatedAtUtc = null;
+            });
 
             ++_generation;
             state = CreateStateUnsafe();
@@ -196,13 +201,15 @@ public sealed class ScheduledPowerActionService : IDisposable
 
     private void DisableInvalidScheduleUnsafe()
     {
-        var config = _settings.Current.AutoShutdown;
-        config.Enabled = false;
-        config.ExecuteAtUtc = null;
-        config.DelayMinutes = null;
-        config.CreatedAtUtc = null;
-        config.Mode = ScheduledPowerMode.Daily;
-        _settings.Save();
+        _settings.Update(state =>
+        {
+            var config = state.AutoShutdown;
+            config.Enabled = false;
+            config.ExecuteAtUtc = null;
+            config.DelayMinutes = null;
+            config.CreatedAtUtc = null;
+            config.Mode = ScheduledPowerMode.Daily;
+        });
         ++_generation;
     }
 
@@ -222,13 +229,14 @@ public sealed class ScheduledPowerActionService : IDisposable
                 return;
 
             action = config.Action;
-
-            config.Enabled = false;
-            config.ExecuteAtUtc = null;
-            config.DelayMinutes = null;
-            config.CreatedAtUtc = null;
-
-            _settings.Save();
+            _settings.Update(state =>
+            {
+                var persisted = state.AutoShutdown;
+                persisted.Enabled = false;
+                persisted.ExecuteAtUtc = null;
+                persisted.DelayMinutes = null;
+                persisted.CreatedAtUtc = null;
+            });
 
             _relativeTimer?.Dispose();
             _relativeTimer = null;
@@ -275,8 +283,7 @@ public sealed class ScheduledPowerActionService : IDisposable
             string today = now.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
             if (string.Equals(scheduled.LastTriggeredLocalDate, today, StringComparison.Ordinal)) return;
 
-            scheduled.LastTriggeredLocalDate = today;
-            _settings.Save();
+            _settings.Update(state => state.AutoShutdown.LastTriggeredLocalDate = today);
 
             Logger.Info($"Executing daily action: action={scheduled.Action}, time={scheduled.Time}");
 

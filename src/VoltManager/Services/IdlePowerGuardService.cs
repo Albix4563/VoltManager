@@ -109,10 +109,7 @@ public sealed class IdlePowerGuardService
 
     public IdlePowerGuardState SetEnabled(bool enabled)
     {
-        var cfg = EnsureSettings();
-        cfg.Enabled = enabled;
-        cfg.Normalize();
-        _settings.Save();
+        _settings.Update(state => state.IdlePowerGuard.Enabled = enabled);
         lock (_lock)
         {
             if (!enabled)
@@ -129,8 +126,7 @@ public sealed class IdlePowerGuardService
     public IdlePowerGuardState ApplySettings(IdlePowerGuardSettings incoming)
     {
         incoming.Normalize();
-        _settings.Current.IdlePowerGuard = incoming;
-        _settings.Save();
+        _settings.Update(state => state.IdlePowerGuard = incoming);
         lock (_lock)
         {
             var state = BuildState(0, null, true, "settings");
@@ -203,9 +199,9 @@ public sealed class IdlePowerGuardService
 
     private IdlePowerGuardSettings EnsureSettings()
     {
-        _settings.Current.IdlePowerGuard ??= new IdlePowerGuardSettings();
-        _settings.Current.IdlePowerGuard.Normalize();
-        return _settings.Current.IdlePowerGuard;
+        var settings = _settings.Current.IdlePowerGuard;
+        settings.Normalize();
+        return settings;
     }
 
     private void Publish(IdlePowerGuardState state)

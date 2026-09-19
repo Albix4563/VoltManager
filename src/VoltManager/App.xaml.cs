@@ -260,8 +260,8 @@ public partial class App : Application
                 // Autostart off: nothing to migrate, and a task registered later is already
                 // built from the current schema — stamp anyway, or this retries every launch.
                 if (AutoStart.IsEnabled() && !AutoStart.SetStartWithWindows(true)) return;
-                Settings.Current.AutostartTaskSchemaVersion = StartupService.CurrentTaskSchemaVersion;
-                Settings.Save();
+                Settings.Update(state =>
+                    state.AutostartTaskSchemaVersion = StartupService.CurrentTaskSchemaVersion);
                 Logger.Info("Autostart task schema now v" + StartupService.CurrentTaskSchemaVersion);
             }
             catch (Exception ex)
@@ -531,9 +531,9 @@ public partial class App : Application
 
     private TimeSpan CpuAutomationSampleInterval()
     {
-        Settings.Current.CpuAutomation ??= new CpuAutomationSettings();
-        Settings.Current.CpuAutomation.Normalize();
-        return TimeSpan.FromSeconds(Settings.Current.CpuAutomation.SampleIntervalSeconds);
+        var state = Settings.Current;
+        state.CpuAutomation.Normalize();
+        return TimeSpan.FromSeconds(state.CpuAutomation.SampleIntervalSeconds);
     }
 
     private void UpdateSamplingPeriod()
@@ -553,17 +553,17 @@ public partial class App : Application
 
     private void PublishCpuAutomationState(DateTime now)
     {
-        Settings.Current.CpuAutomation ??= new CpuAutomationSettings();
-        Settings.Current.CpuAutomation.Normalize();
-        bool manualOverrideActive = Settings.Current.Override?.IsActive(now) == true;
+        var settings = Settings.Current;
+        settings.CpuAutomation.Normalize();
+        bool manualOverrideActive = settings.Override?.IsActive(now) == true;
         var candidate = string.IsNullOrWhiteSpace(Automation.CandidateRuleId)
             ? null
-            : Settings.Current.Rules.FirstOrDefault(r => r.Id == Automation.CandidateRuleId);
+            : settings.Rules.FirstOrDefault(r => r.Id == Automation.CandidateRuleId);
 
         CpuAutomationState = new CpuAutomationState
         {
-            Enabled = Settings.Current.MasterAutomationEnabled && !manualOverrideActive,
-            SampleIntervalSeconds = Settings.Current.CpuAutomation.SampleIntervalSeconds,
+            Enabled = settings.MasterAutomationEnabled && !manualOverrideActive,
+            SampleIntervalSeconds = settings.CpuAutomation.SampleIntervalSeconds,
             RawCpu = Automation.LastRawCpu,
             AverageCpu = Automation.LastAverageCpu,
             SampledAtUtc = Automation.LastSampledAtUtc,
@@ -936,19 +936,19 @@ public partial class App : Application
                     ("durationMinutes", duration?.TotalMinutes.ToString(CultureInfo.InvariantCulture)))))
             return false;
 
-        Settings.Current.Override = new ManualOverride
+        var manualOverride = new ManualOverride
         {
             Plan = ToPlanKey(plan),
             ExpiresAtUtc = duration == null ? null : DateTime.UtcNow.Add(duration.Value),
         };
+        Settings.Update(state => state.Override = manualOverride);
         _planGuard.SetExpected(plan, "manualOverride", ToPlanKey(plan));
-        Settings.Save();
         Automation.Reset();
 
         var current = Power.GetActivePlan();
         ActivePlan = current;
         ActivePlanChanged?.Invoke(current);
-        ManualOverrideChanged?.Invoke(Settings.Current.Override);
+        ManualOverrideChanged?.Invoke(manualOverride);
         PublishCpuAutomationState(DateTime.UtcNow);
         PublishActivePlanReason();
         return true;
@@ -957,11 +957,13 @@ public partial class App : Application
     /// <summary>Removes any manual override and re-enables automation ("Automatico").</summary>
     public void SetAutomaticMode()
     {
-        Settings.Current.Override = null;
-        Settings.Current.MasterAutomationEnabled = true;
+        Settings.Update(state =>
+        {
+            state.Override = null;
+            state.MasterAutomationEnabled = true;
+        });
         _planGuard.ClearExpected();
         _fallbackPlanReason = new ActivePlanReasonState { Plan = ActivePlan?.PlanId };
-        Settings.Save();
         Automation.Reset();
         ManualOverrideChanged?.Invoke(null);
         PublishCpuAutomationState(DateTime.UtcNow);
@@ -972,9 +974,8 @@ public partial class App : Application
     {
         if (Settings.Current.Override == null) return;
 
-        Settings.Current.Override = null;
+        Settings.Update(state => state.Override = null);
         _planGuard.ClearExpected("manualOverride");
-        Settings.Save();
         Automation.Reset();
         ManualOverrideChanged?.Invoke(null);
         PublishCpuAutomationState(DateTime.UtcNow);
@@ -1059,12 +1060,12 @@ public partial class App : Application
 
     private void ClearExpiredManualOverride(DateTime now)
     {
-        if (Settings.Current.Override?.ExpiresAtUtc == null) return;
-        if (Settings.Current.Override.ExpiresAtUtc > now) return;
+        var currentOverride = Settings.Current.Override;
+        if (currentOverride?.ExpiresAtUtc == null) return;
+        if (currentOverride.ExpiresAtUtc > now) return;
 
-        Settings.Current.Override = null;
+        Settings.Update(state => state.Override = null);
         _planGuard.ClearExpected("manualOverride");
-        Settings.Save();
         Automation.Reset();
         ManualOverrideChanged?.Invoke(null);
         PublishCpuAutomationState(now);

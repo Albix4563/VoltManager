@@ -108,9 +108,7 @@ public sealed class PowerSourcePlanService
 
     public PowerSourcePlanState SetEnabled(bool enabled, bool manualOverrideActive)
     {
-        _settings.Current.PowerSourcePlan ??= new PowerSourcePlanSettings();
-        _settings.Current.PowerSourcePlan.Enabled = enabled;
-        _settings.Save();
+        _settings.Update(state => state.PowerSourcePlan.Enabled = enabled);
         return RefreshState(manualOverrideActive);
     }
 
@@ -122,7 +120,6 @@ public sealed class PowerSourcePlanService
 
     private PowerSourcePlanSettings EnsureSettings()
     {
-        _settings.Current.PowerSourcePlan ??= new PowerSourcePlanSettings();
         return _settings.Current.PowerSourcePlan;
     }
 

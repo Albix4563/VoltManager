@@ -54,14 +54,14 @@ public sealed class PowerAwakeService : IDisposable
 
     public KeepAwakeState SetEnabled(bool enabled)
     {
-        _settings.Current.KeepAwake ??= new KeepAwakeSettings();
-        var cfg = _settings.Current.KeepAwake;
-        cfg.Normalize();
-        cfg.Enabled = enabled;
-        cfg.LastChangedUtc = _utcNow();
+        DateTime now = _utcNow();
+        _settings.Update(state =>
+        {
+            state.KeepAwake.Enabled = enabled;
+            state.KeepAwake.LastChangedUtc = now;
+        });
         if (enabled)
             _lastAutoDisableReason = null;
-        _settings.Save(); // triggers ApplyFromSettings via SettingsChanged
         // Immediate safety pass (e.g. user enables while already on battery).
         EvaluateSafetyAndApply(forceNotify: true);
         return GetState();
@@ -69,12 +69,11 @@ public sealed class PowerAwakeService : IDisposable
 
     public KeepAwakeState SetSafetyOptions(bool autoDisableOnBattery, int maxMinutes)
     {
-        _settings.Current.KeepAwake ??= new KeepAwakeSettings();
-        var cfg = _settings.Current.KeepAwake;
-        cfg.AutoDisableOnBattery = autoDisableOnBattery;
-        cfg.MaxMinutes = maxMinutes;
-        cfg.Normalize();
-        _settings.Save();
+        _settings.Update(state =>
+        {
+            state.KeepAwake.AutoDisableOnBattery = autoDisableOnBattery;
+            state.KeepAwake.MaxMinutes = maxMinutes;
+        });
         EvaluateSafetyAndApply(forceNotify: true);
         return GetState();
     }
@@ -172,8 +171,7 @@ public sealed class PowerAwakeService : IDisposable
                 }
                 cfg.Enabled = false;
                 cfg.LastChangedUtc = now;
-                _settings.Current.KeepAwake = cfg;
-                _settings.Save();
+                _settings.Update(state => state.KeepAwake = cfg);
             }
             finally
             {

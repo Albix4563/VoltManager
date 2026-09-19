@@ -112,10 +112,7 @@ public sealed class ThermalGuardService
 
     public ThermalGuardState SetEnabled(bool enabled)
     {
-        var cfg = EnsureSettings();
-        cfg.Enabled = enabled;
-        cfg.Normalize();
-        _settings.Save();
+        _settings.Update(state => state.ThermalGuard.Enabled = enabled);
         lock (_lock)
         {
             if (!enabled && _sessionActive)
@@ -134,8 +131,7 @@ public sealed class ThermalGuardService
     public ThermalGuardState ApplySettings(ThermalGuardSettings incoming)
     {
         incoming.Normalize();
-        _settings.Current.ThermalGuard = incoming;
-        _settings.Save();
+        _settings.Update(state => state.ThermalGuard = incoming);
         lock (_lock)
         {
             var state = BuildState(_lastCpu, _lastGpu, _sessionActive, "settings");
@@ -227,9 +223,9 @@ public sealed class ThermalGuardService
 
     private ThermalGuardSettings EnsureSettings()
     {
-        _settings.Current.ThermalGuard ??= new ThermalGuardSettings();
-        _settings.Current.ThermalGuard.Normalize();
-        return _settings.Current.ThermalGuard;
+        var settings = _settings.Current.ThermalGuard;
+        settings.Normalize();
+        return settings;
     }
 
     private void Publish(ThermalGuardState state)

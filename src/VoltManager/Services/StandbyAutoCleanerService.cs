@@ -62,9 +62,8 @@ public class StandbyAutoCleanerService : IDisposable
             bool success = _standbyPurger();
             if (success)
             {
-                var config = _settings.Current.StandbyAutoCleaner;
-                config.LastPurgedUtc = DateTime.UtcNow;
-                _settings.Save();
+                DateTime purgedAt = DateTime.UtcNow;
+                _settings.Update(state => state.StandbyAutoCleaner.LastPurgedUtc = purgedAt);
             }
             return success;
         }
@@ -124,8 +123,7 @@ public class StandbyAutoCleanerService : IDisposable
 
             if (!_standbyPurger()) return;
 
-            config.LastPurgedUtc = now;
-            _settings.Save();
+            _settings.Update(state => state.StandbyAutoCleaner.LastPurgedUtc = now);
             _pressureSinceUtc = null;
             AutoCleaned?.Invoke(_memoryStatusReader());
         }

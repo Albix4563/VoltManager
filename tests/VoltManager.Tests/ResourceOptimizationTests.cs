@@ -12,7 +12,7 @@ public sealed class ResourceOptimizationTests
     public void Standby_clean_rechecks_protection_after_a_slow_memory_read()
     {
         var settings = new SettingsService(Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".json"));
-        settings.Current.StandbyAutoCleaner.Enabled = true;
+        settings.Update(state => state.StandbyAutoCleaner.Enabled = true);
         bool protectedSession = false;
         int reads = 0, purges = 0;
         using var cleaner = new StandbyAutoCleanerService(settings,
@@ -28,9 +28,12 @@ public sealed class ResourceOptimizationTests
     {
         string path = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".json");
         var settings = new SettingsService(path);
-        settings.Current.StandbyAutoCleaner.Enabled = true;
-        settings.Current.StandbyAutoCleaner.ThresholdGb = 2;
-        settings.Current.StandbyAutoCleaner.IntervalMinutes = 60;
+        settings.Update(state =>
+        {
+            state.StandbyAutoCleaner.Enabled = true;
+            state.StandbyAutoCleaner.ThresholdGb = 2;
+            state.StandbyAutoCleaner.IntervalMinutes = 60;
+        });
         int purges = 0;
         var memory = new MemoryStatus { InUsePct = 93, StandbyGb = 3 };
         using var cleaner = new StandbyAutoCleanerService(settings, () => memory, () => { purges++; return true; });
@@ -52,8 +55,11 @@ public sealed class ResourceOptimizationTests
     {
         string path = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".json");
         var settings = new SettingsService(path);
-        settings.Current.StandbyAutoCleaner.Enabled = true;
-        settings.Current.StandbyAutoCleaner.ThresholdGb = 1;
+        settings.Update(state =>
+        {
+            state.StandbyAutoCleaner.Enabled = true;
+            state.StandbyAutoCleaner.ThresholdGb = 1;
+        });
         bool protectedSession = false;
         int purges = 0;
         var memory = new MemoryStatus { InUsePct = 95, StandbyGb = 3 };
@@ -77,10 +83,13 @@ public sealed class ResourceOptimizationTests
     {
         string path = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".json");
         var settings = new SettingsService(path);
-        settings.Current.StandbyAutoCleaner.Enabled = true;
-        settings.Current.StandbyAutoCleaner.ThresholdGb = 1;
-        settings.Current.StandbyAutoCleaner.IntervalMinutes = 60;
-        settings.Current.StandbyAutoCleaner.LastPurgedUtc = DateTime.UnixEpoch;
+        settings.Update(state =>
+        {
+            state.StandbyAutoCleaner.Enabled = true;
+            state.StandbyAutoCleaner.ThresholdGb = 1;
+            state.StandbyAutoCleaner.IntervalMinutes = 60;
+            state.StandbyAutoCleaner.LastPurgedUtc = DateTime.UnixEpoch;
+        });
         int attempts = 0;
         var memory = new MemoryStatus { InUsePct = 95, StandbyGb = 3 };
         using var cleaner = new StandbyAutoCleanerService(settings, () => memory, () => { attempts++; return false; });
@@ -225,7 +234,7 @@ public sealed class ResourceOptimizationTests
     public async Task App_profile_refresh_never_overlaps_a_running_scan_and_recovers_after_it()
     {
         var settings = new SettingsService(Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".json"));
-        settings.Current.AppPowerProfiles.Enabled = true;
+        settings.Update(state => state.AppPowerProfiles.Enabled = true);
         using var service = new AppPowerProfileService(settings);
         using var entered = new ManualResetEventSlim();
         using var release = new ManualResetEventSlim();
@@ -234,7 +243,7 @@ public sealed class ResourceOptimizationTests
         try
         {
             Assert.True(entered.Wait(TimeSpan.FromSeconds(3)));
-            settings.Current.AppPowerProfiles.Enabled = false;
+            settings.Update(state => state.AppPowerProfiles.Enabled = false);
             Assert.True(service.Refresh().Enabled);
         }
         finally { release.Set(); }
@@ -246,8 +255,11 @@ public sealed class ResourceOptimizationTests
     public async Task Heavy_app_refresh_never_overlaps_a_running_scan_and_recovers_after_it()
     {
         var settings = new SettingsService(Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".json"));
-        settings.Current.HeavyAppDetection.Enabled = false;
-        settings.Current.HeavyAppDetection.TargetPlan = PlanId.Balanced;
+        settings.Update(state =>
+        {
+            state.HeavyAppDetection.Enabled = false;
+            state.HeavyAppDetection.TargetPlan = PlanId.Balanced;
+        });
         using var service = new HeavyAppDetectionService(settings);
         using var entered = new ManualResetEventSlim();
         using var release = new ManualResetEventSlim();
@@ -256,7 +268,7 @@ public sealed class ResourceOptimizationTests
         try
         {
             Assert.True(entered.Wait(TimeSpan.FromSeconds(3)));
-            settings.Current.HeavyAppDetection.TargetPlan = PlanId.PowerSaver;
+            settings.Update(state => state.HeavyAppDetection.TargetPlan = PlanId.PowerSaver);
             Assert.Equal(PlanId.Balanced, service.Refresh().TargetPlan);
         }
         finally { release.Set(); }
