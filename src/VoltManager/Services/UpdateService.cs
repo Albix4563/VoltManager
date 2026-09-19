@@ -272,21 +272,62 @@ public class UpdateService
     public async Task<string> DownloadUpdateAsync(string url)
     {
         string dest = Path.Combine(Path.GetTempPath(), "VoltManagerUpdate.exe");
-        using var resp = await _http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
-        resp.EnsureSuccessStatusCode();
-        long total = resp.Content.Headers.ContentLength ?? -1;
-        await using var src = await resp.Content.ReadAsStreamAsync();
-        await using var dst = File.Create(dest);
-        var buffer = new byte[81920];
-        long readTotal = 0;
-        int read;
-        while ((read = await src.ReadAsync(buffer)) > 0)
+        try
         {
-            await dst.WriteAsync(buffer.AsMemory(0, read));
-            readTotal += read;
-            if (total > 0) DownloadProgress?.Invoke(Math.Round(readTotal * 100.0 / total, 1));
+            using var resp = await _http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
+            resp.EnsureSuccessStatusCode();
+            long total = resp.Content.Headers.ContentLength ?? -1;
+
+            await using (var src = await resp.Content.ReadAsStreamAsync())
+            await using (var dst = File.Create(dest))
+            {
+                var buffer = new byte[81920];
+                long readTotal = 0;
+                int read;
+                while ((read = await ReadDownloadChunkAsync(src, buffer)) > 0)
+                {
+                    await dst.WriteAsync(buffer.AsMemory(0, read));
+                    readTotal += read;
+                    if (total > 0)
+                    {
+                        double pct = Math.Min(99.9, Math.Round(readTotal * 100.0 / total, 1));
+                        DownloadProgress?.Invoke(pct);
+                    }
+                }
+
+                if (total > 0 && readTotal != total)
+                    throw new EndOfStreamException($"Download incompleto: ricevuti {readTotal} byte su {total}.");
+
+                await dst.FlushAsync();
+            }
+
+            DownloadProgress?.Invoke(100);
+            return dest;
         }
-        DownloadProgress?.Invoke(100);
-        return dest;
+        catch
+        {
+            try
+            {
+                if (File.Exists(dest)) File.Delete(dest);
+            }
+            catch
+            {
+                // Best effort: a failed download must never mask its original error.
+            }
+            throw;
+        }
+    }
+
+    private async Task<int> ReadDownloadChunkAsync(Stream source, Memory<byte> buffer)
+    {
+        using var inactivityTimeout = new CancellationTokenSource(_http.Timeout);
+        try
+        {
+            return await source.ReadAsync(buffer, inactivityTimeout.Token);
+        }
+        catch (OperationCanceledException ex) when (inactivityTimeout.IsCancellationRequested)
+        {
+            throw new TimeoutException("Download aggiornamento bloccato: nessun dato ricevuto entro il timeout.", ex);
+        }
     }
 }
