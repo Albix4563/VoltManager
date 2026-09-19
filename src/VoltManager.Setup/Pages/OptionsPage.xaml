@@ -41,7 +41,9 @@
             </Setter>
         </Style>
     </UserControl.Resources>
-    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                  HorizontalScrollBarVisibility="Disabled"
+                  PanningMode="VerticalOnly">
         <Grid Style="{StaticResource PageEntrance}" Margin="0,4,8,4">
             <Grid.RenderTransform><TranslateTransform Y="12"/></Grid.RenderTransform>
             <StackPanel>
