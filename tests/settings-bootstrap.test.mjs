@@ -78,3 +78,54 @@ test('settings bootstrap loads and wires the shipped rule inputs before notifyin
     assert.equal(settings.masterAutomationEnabled, false);
     assert.equal(saves, 13);
 });
+
+test('settings save debounce persists the latest state once', async () => {
+    const timers = new Map();
+    const calls = [];
+    let nextTimer = 1;
+    const settings = { language: 'it', marker: 1 };
+    const I18n = { getLang: () => 'en' };
+    const window = { I18n };
+    const context = vm.createContext({
+        window,
+        I18n,
+        Host: {
+            call(method, payload) {
+                calls.push([method, payload == null ? null : structuredClone(payload)]);
+                if (method === 'getAppPowerProfileStatus') return Promise.resolve({ enabled: true });
+                if (method === 'getHeavyAppStatus') return Promise.resolve({ enabled: false });
+                return Promise.resolve({});
+            },
+        },
+        console,
+        setTimeout(handler, delay) {
+            const id = nextTimer++;
+            timers.set(id, { handler, delay });
+            return id;
+        },
+        clearTimeout(id) { timers.delete(id); },
+    });
+    vm.runInContext(
+        'let settings = globalThis.testSettings, saveTimer = null, appProfileStatus, heavyAppStatus;' +
+        'function renderAppPowerProfileStatus(){} function renderAppPowerProfiles(){} function renderHeavyAppStatus(){}' +
+        power.slice(power.indexOf('    function saveSettingsNow()'), power.indexOf('    function clamp(')) +
+        'globalThis.api = { scheduleSave };',
+        Object.assign(context, { testSettings: settings }),
+    );
+
+    context.api.scheduleSave();
+    settings.marker = 2;
+    context.api.scheduleSave();
+
+    assert.equal(timers.size, 1);
+    const timer = [...timers.values()][0];
+    assert.equal(timer.delay, 400);
+    timer.handler();
+    await new Promise(resolve => setImmediate(resolve));
+    await new Promise(resolve => setImmediate(resolve));
+
+    const saves = calls.filter(([method]) => method === 'saveSettings');
+    assert.equal(saves.length, 1);
+    assert.equal(saves[0][1].marker, 2);
+    assert.equal(saves[0][1].language, 'en');
+});

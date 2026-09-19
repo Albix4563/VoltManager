@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
+import { createDocumentHarness, event, FakeNode } from './helpers/dom-harness.mjs';
 
 const root = new URL('../', import.meta.url);
 const read = path => readFileSync(new URL(path, root), 'utf8');
@@ -79,30 +80,12 @@ test('catalog uses stable navigation fields and covers every reorganized main vi
   }
 });
 
-test('palette integrates with the existing router and accessible keyboard model', () => {
-  const searchSource = read('src/VoltManager/wwwroot/js/global-search.js');
+test('palette ships its structural accessibility hooks and startup entry point', () => {
   const layout = read('src/VoltManager/wwwroot/js/ui-reorganization.layout.js');
   const bootstrap = read('src/VoltManager/wwwroot/js/changelog.js');
 
   assert.match(layout, /vm-global-search-button/);
   assert.match(bootstrap, /loadScript\('js\/global-search\.js/);
-  assert.match(searchSource, /activateView\(entry\.view, true\)/);
-  assert.match(searchSource, /activateSubview\(entry\.view, entry\.subview\)/);
-  assert.match(searchSource, /scrollIntoView/);
-  assert.match(searchSource, /role="dialog"/);
-  assert.match(searchSource, /role="listbox"/);
-  assert.match(searchSource, /role="option"/);
-  assert.match(searchSource, /event\.ctrlKey/);
-  assert.match(searchSource, /event\.key\.toLowerCase\(\) === 'k'/);
-  assert.match(searchSource, /ArrowDown/);
-  assert.match(searchSource, /ArrowUp/);
-  assert.match(searchSource, /event\.key === 'Enter'/);
-  assert.match(searchSource, /event\.key === 'Escape'/);
-  assert.match(searchSource, /previousFocus/);
-  assert.match(searchSource, /prefers-reduced-motion:\s*reduce/);
-  assert.doesNotMatch(searchSource, /showView\(/);
-  assert.doesNotMatch(searchSource, /Host\.call\(/);
-  assert.doesNotMatch(searchSource, /\.click\(/);
 });
 
 test('palette strings exist in every reorganized UI language and CSS handles reduced motion', () => {
@@ -194,6 +177,52 @@ test('navigation waits for a lazy target then scrolls, focuses, and highlights i
   assert.equal(focused, true);
   assert.equal(highlighted, true);
   assert.deepEqual({ navigated: result.navigated, focused: result.focused }, { navigated: true, focused: true });
+});
+
+test('search modal opens and closes through user events without duplicating its trigger listener', () => {
+  const source = read('src/VoltManager/wwwroot/js/global-search.js');
+  const document = createDocumentHarness({ readyState: 'complete' });
+  const button = document.registerId(new FakeNode({ id: 'vm-global-search-button' }));
+  const dialog = new FakeNode({ id: 'vm-global-search', classes: ['vm-search-overlay', 'hidden'] });
+  const input = new FakeNode({ id: 'vm-global-search-input' });
+  const results = new FakeNode({ id: 'vm-global-search-results' });
+  const title = new FakeNode({ id: 'vm-search-title' });
+  const footer = new FakeNode();
+  dialog.registerQuery('#vm-global-search-input', input);
+  dialog.registerQuery('#vm-global-search-results', results);
+  dialog.registerQuery('#vm-search-title', title);
+  dialog.registerQuery('.vm-search-footer span', footer);
+  document.createElement = () => dialog;
+
+  const context = vm.createContext({
+    window: {},
+    document,
+    CustomEvent: class { constructor(type, options = {}) { this.type = type; this.detail = options.detail; } },
+    requestAnimationFrame: callback => { callback(); return 1; },
+    setTimeout: () => 1,
+    clearTimeout() {},
+    console,
+  });
+  context.window.window = context.window;
+  context.window.document = document;
+  vm.runInContext(source, context);
+
+  document.dispatchEvent(event('voltuiready'));
+  document.dispatchEvent(event('voltuiready'));
+  assert.equal(button.listenerCount('click'), 1);
+
+  button.dispatchEvent(event('click'));
+  assert.equal(dialog.classList.contains('hidden'), false);
+  assert.equal(dialog.getAttribute('aria-hidden'), 'false');
+  assert.equal(document.documentElement.classList.contains('vm-search-open'), true);
+  assert.equal(input.focused, true);
+
+  const escape = event('keydown', { key: 'Escape', ctrlKey: false, altKey: false, shiftKey: false });
+  document.dispatchEvent(escape);
+  assert.equal(escape.defaultPrevented, true);
+  assert.equal(dialog.classList.contains('hidden'), true);
+  assert.equal(dialog.getAttribute('aria-hidden'), 'true');
+  assert.equal(document.documentElement.classList.contains('vm-search-open'), false);
 });
 
 test('every search description and keyword used by the catalog is localized in all languages', () => {

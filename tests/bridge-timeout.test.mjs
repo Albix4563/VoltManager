@@ -67,3 +67,28 @@ test('bridge clears a rejected RPC timeout immediately', async () => {
   await assert.rejects(result, /failure/);
   assert.equal(bridge.timers.size, 0);
 });
+
+test('bridge resolves concurrent RPC replies by id even when replies arrive out of order', async () => {
+  const bridge = loadBridge();
+  const first = bridge.window.Host.call('firstMethod');
+  const second = bridge.window.Host.call('secondMethod');
+
+  bridge.respond({ id: bridge.sent[1].id, ok: true, result: 'second' });
+  bridge.respond({ id: bridge.sent[0].id, ok: true, result: 'first' });
+
+  assert.equal(await first, 'first');
+  assert.equal(await second, 'second');
+  assert.equal(bridge.timers.size, 0);
+});
+
+test('bridge event subscriptions stop receiving events after unsubscribe', () => {
+  const bridge = loadBridge();
+  const received = [];
+  const unsubscribe = bridge.window.Host.on('themeChanged', data => received.push(data.themeColor));
+
+  bridge.respond({ event: 'themeChanged', data: { themeColor: 'red' } });
+  unsubscribe();
+  bridge.respond({ event: 'themeChanged', data: { themeColor: 'green' } });
+
+  assert.deepEqual(received, ['red']);
+});

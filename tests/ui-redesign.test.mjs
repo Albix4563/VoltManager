@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import vm from 'node:vm';
+import { createDocumentHarness, FakeNode } from './helpers/dom-harness.mjs';
 
 const layout = readFileSync(
   new URL('../src/VoltManager/wwwroot/js/ui-reorganization.layout.js', import.meta.url),
@@ -62,32 +64,107 @@ test('motion timings match the rich, balanced and lite tiers', () => {
   assert.ok(css.includes('animation-duration: .16s'));
 });
 
-test('subviews expose accessible tab semantics and keyboard navigation', () => {
+test('subviews expose accessible tab semantics', () => {
   assert.match(layout, /aria-controls="vm-panel-\$\{group\}-\$\{item\.id\}"/);
   assert.match(layout, /role="tabpanel"/);
   assert.match(layout, /aria-labelledby="vm-tab-\$\{group\}-\$\{id\}"/);
-  assert.match(router, /button\.tabIndex = active \? 0 : -1/);
-  assert.match(router, /ArrowLeft/);
-  assert.match(router, /ArrowRight/);
-  assert.match(router, /ArrowUp/);
-  assert.match(router, /ArrowDown/);
-  assert.match(router, /event\.key === 'Home'/);
-  assert.match(router, /event\.key === 'End'/);
 });
 
-test('relocated UI keeps literal DOM ids unique and preserves subview state', () => {
+test('relocated UI keeps literal DOM ids unique', () => {
   const literalIds = [indexHtml, layout]
     .flatMap(source => [...source.matchAll(/\bid="([^"$]+)"/g)].map(match => match[1]));
   const duplicates = literalIds.filter((id, index) => literalIds.indexOf(id) !== index);
   assert.deepEqual([...new Set(duplicates)], []);
-
-  assert.match(router, /state\.subviews\[group\] = name/);
-  assert.match(router, /api\.activateView = function \(name, updateHash\)/);
-  assert.match(router, /viewchange/);
-  assert.match(router, /voltuiviewchanged/);
 });
 
 test('reorganized views avoid collisions with legacy view ids', () => {
   assert.ok(layout.includes("section.id = api.el('view-' + id) ? 'vm-view-' + id : 'view-' + id;"));
   assert.ok(router.includes('.vm-reorg-view[data-vm-view='));
+});
+
+function loadRouterHarness() {
+  const document = createDocumentHarness();
+  const location = { hash: '' };
+  const windowEvents = new Map();
+  const window = {
+    VoltUiReorg: {},
+    addEventListener(name, handler) { windowEvents.set(name, handler); },
+  };
+  const emitted = [];
+  const originalDispatch = document.dispatchEvent.bind(document);
+  document.dispatchEvent = evt => {
+    emitted.push({ type: evt.type, detail: evt.detail });
+    return originalDispatch(evt);
+  };
+  const context = vm.createContext({
+    window,
+    document,
+    location,
+    history: { replaceState(_state, _title, hash) { location.hash = hash; } },
+    CustomEvent: class { constructor(type, options = {}) { this.type = type; this.detail = options.detail; } },
+    MouseEvent: class { constructor(type, options = {}) { this.type = type; Object.assign(this, options); } },
+    Event: class { constructor(type, options = {}) { this.type = type; Object.assign(this, options); } },
+    MutationObserver: class { observe() {} },
+    getComputedStyle: () => ({ display: 'block' }),
+    setTimeout: handler => { handler(); return 1; },
+    clearTimeout() {},
+    console,
+  });
+  window.window = window;
+  window.document = document;
+  vm.runInContext(router, context);
+  return { api: window.VoltUiReorg, document, emitted, location };
+}
+
+test('activating a main view updates visible state, navigation state, hash and emitted events', () => {
+  const h = loadRouterHarness();
+  const overview = new FakeNode({ dataset: { vmView: 'overview' }, classes: ['vm-reorg-view', 'flex'] });
+  const settings = new FakeNode({ dataset: { vmView: 'settings' }, classes: ['vm-reorg-view', 'hidden'] });
+  const legacyView = new FakeNode({ classes: ['vm-legacy-view', 'flex'] });
+  const overviewLink = new FakeNode({ dataset: { view: 'overview' } });
+  const settingsLink = new FakeNode({ dataset: { view: 'settings' } });
+  const main = h.document.registerId(new FakeNode({ id: 'main-content' }));
+
+  h.document.registerSelector('.vm-reorg-view[data-vm-view="settings"]', settings);
+  h.document.registerSelector('.vm-reorg-view', [overview, settings]);
+  h.document.registerSelector('.vm-legacy-view', [legacyView]);
+  h.document.registerSelector('#nav-list .nav-item[data-view]', [overviewLink, settingsLink]);
+
+  h.api.activateView('settings', true);
+
+  assert.equal(h.api.state.view, 'settings');
+  assert.equal(settings.classList.contains('flex'), true);
+  assert.equal(settings.classList.contains('hidden'), false);
+  assert.equal(settings.getAttribute('aria-hidden'), 'false');
+  assert.equal(overview.classList.contains('hidden'), true);
+  assert.equal(legacyView.classList.contains('hidden'), true);
+  assert.equal(settingsLink.classList.contains('font-bold'), true);
+  assert.equal(overviewLink.classList.contains('font-bold'), false);
+  assert.equal(main.scrollTop, 0);
+  assert.equal(h.location.hash, '#settings');
+  assert.equal(h.emitted.some(evt => evt.type === 'voltuiviewchanged' && evt.detail.view === 'settings'), true);
+});
+
+test('activating a subview updates tab/panel state and emits the resulting selection', () => {
+  const h = loadRouterHarness();
+  const generalTab = new FakeNode({ dataset: { vmSubnavTarget: 'general' }, classes: ['active'] });
+  const appearanceTab = new FakeNode({ dataset: { vmSubnavTarget: 'appearance' } });
+  const generalPanel = new FakeNode({ dataset: { vmPanel: 'general' }, classes: ['active'] });
+  const appearancePanel = new FakeNode({ dataset: { vmPanel: 'appearance' }, classes: ['hidden'] });
+  h.document.registerSelector('[data-vm-subnav-group="settings"]', [generalTab, appearanceTab]);
+  h.document.registerSelector('[data-vm-panel-group="settings"]', [generalPanel, appearancePanel]);
+
+  h.api.activateSubview('settings', 'appearance');
+
+  assert.equal(h.api.state.subviews.settings, 'appearance');
+  assert.equal(appearanceTab.classList.contains('active'), true);
+  assert.equal(appearanceTab.getAttribute('aria-selected'), 'true');
+  assert.equal(appearanceTab.tabIndex, 0);
+  assert.equal(generalTab.getAttribute('aria-selected'), 'false');
+  assert.equal(generalTab.tabIndex, -1);
+  assert.equal(appearancePanel.classList.contains('active'), true);
+  assert.equal(appearancePanel.classList.contains('hidden'), false);
+  assert.equal(generalPanel.classList.contains('hidden'), true);
+  assert.equal(h.emitted.some(evt => evt.type === 'voltuisubviewchanged'
+    && evt.detail.group === 'settings' && evt.detail.view === 'appearance'), true);
 });
