@@ -49,6 +49,9 @@ public static class BridgeRpc
     public static string FormatFailure(string id, Exception ex)
         => FormatFailure(id, OnDispatchException(id, ex).ErrorMessage);
 
+    public static string FormatEvent(string name, object data)
+        => JsonSerializer.Serialize(new { @event = name, data }, JsonOpts);
+
     /// <summary>
     /// Safe handling of the JS <c>logError</c> method: never throws into the dispatch
     /// loop. Returns a success payload matching the existing host contract.

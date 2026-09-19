@@ -70,6 +70,15 @@ public class BridgeRpcTests
     }
 
     [Fact]
+    public void FormatEvent_uses_event_data_shape_and_camel_case()
+    {
+        string json = BridgeRpc.FormatEvent("activePlanChanged", new { planId = "x" });
+        using var doc = JsonDocument.Parse(json);
+        Assert.Equal("activePlanChanged", doc.RootElement.GetProperty("event").GetString());
+        Assert.Equal("x", doc.RootElement.GetProperty("data").GetProperty("planId").GetString());
+    }
+
+    [Fact]
     public void HandleLogError_invokes_logger_and_never_throws()
     {
         string? logged = null;
