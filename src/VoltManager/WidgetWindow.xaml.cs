@@ -144,9 +144,9 @@ public partial class WidgetWindow : Window
                 if (_type == "power") OnCpuAutomationStateChanged(_app.CpuAutomationState);
                 if (_type == "plans") OnKeepAwakeStateChanged(_app.Awake.GetState());
                 // Initialize this document only: broadcasting on every widget load was O(n²).
-                _bridge?.PushEvent("themeChanged", _app.Theme.GetWebTheme());
-                _bridge?.PushEvent("languageChanged", new { language = _app.Loc.CurrentLanguage, locale = _app.Loc.CurrentCulture.Name });
-                _bridge?.PushEvent("fontChanged", new { font = _app.Settings.Current.Font });
+                _bridge?.PushEvent(BridgeEventNames.ThemeChanged, _app.Theme.GetWebTheme());
+                _bridge?.PushEvent(BridgeEventNames.LanguageChanged, new { language = _app.Loc.CurrentLanguage, locale = _app.Loc.CurrentCulture.Name });
+                _bridge?.PushEvent(BridgeEventNames.FontChanged, new { font = _app.Settings.Current.Font });
                 PushResourceProfile(_app.ResourcePressure?.Current ?? new ResourcePressureState());
                 // Navigation resumes WebView2 even when coverage was detected before initialization.
                 if (!HasVisibleResourceSurface) TrySuspendWebView();
@@ -277,7 +277,7 @@ public partial class WidgetWindow : Window
             visible: true,
             active: false);
         if (_metricsPublisher.TryTake(metrics, plan, DateTime.UtcNow, out var latest) && latest != null)
-            _bridge?.PushEvent("metrics", MetricsPayload(_type, latest)!);
+            _bridge?.PushEvent(BridgeEventNames.Metrics, MetricsPayload(_type, latest)!);
     }
 
     internal static object? MetricsPayload(string type, MetricsSnapshot metrics) => type switch
@@ -293,7 +293,7 @@ public partial class WidgetWindow : Window
         if (_closed) return;
         _metricsPublisher.ResetCadence();
         var plan = _resourceController.Resolve(state.Profile, HasVisibleResourceSurface, active: false);
-        _bridge?.PushEvent("resourceProfileChanged", new
+        _bridge?.PushEvent(BridgeEventNames.ResourceProfileChanged, new
         {
             profile = state.Profile.ToString().ToLowerInvariant(),
             reason = state.Reason,
@@ -367,20 +367,20 @@ public partial class WidgetWindow : Window
 
     private void OnCpuAutomationStateChanged(CpuAutomationState state)
     {
-        if (HasVisibleResourceSurface) _bridge?.PushEvent("cpuAutomationStateChanged", state);
+        if (HasVisibleResourceSurface) _bridge?.PushEvent(BridgeEventNames.CpuAutomationStateChanged, state);
     }
 
     private void OnActivePlanChanged(PowerPlan? plan)
-        => _bridge?.PushEvent("activePlanChanged", new { plan = plan?.PlanId, guid = plan?.Guid, name = plan?.Name });
+        => _bridge?.PushEvent(BridgeEventNames.ActivePlanChanged, new { plan = plan?.PlanId, guid = plan?.Guid, name = plan?.Name });
 
     private void OnKeepAwakeStateChanged(KeepAwakeState state)
-        => _bridge?.PushEvent("keepAwakeChanged", state);
+        => _bridge?.PushEvent(BridgeEventNames.KeepAwakeChanged, state);
 
     private void SetTopmostFromWidget(bool topmost)
     {
         Topmost = topmost;
         _manager.SetPinned(_type, topmost);
-        _bridge?.PushEvent("widgetTopmostChanged", new { topmost });
+        _bridge?.PushEvent(BridgeEventNames.WidgetTopmostChanged, new { topmost });
     }
 
     private void BeginNativeDrag()

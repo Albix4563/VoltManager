@@ -22,7 +22,8 @@ public sealed class ApplicationRpcHandler : IBridgeRpcHandler
         _actions = actions;
     }
 
-    public IReadOnlyCollection<string> Methods => RegisteredMethods;
+    public static IReadOnlyCollection<string> MethodNames => RegisteredMethods;
+    public IReadOnlyCollection<string> Methods => MethodNames;
 
     public async Task<object?> HandleAsync(string method, JsonElement payload, CancellationToken cancellationToken)
     {

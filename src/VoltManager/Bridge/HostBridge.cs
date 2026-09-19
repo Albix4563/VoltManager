@@ -1,11 +1,6 @@
-using System.Globalization;
-using System.Diagnostics;
-using System.IO;
-using System.Text.Json;
-using System.Text.Json.Serialization;
-using Microsoft.Win32;
-using Microsoft.Web.WebView2.Wpf;
 using Microsoft.Web.WebView2.Core;
+using Microsoft.Web.WebView2.Wpf;
+using VoltManager.Bridge.Rpc;
 using VoltManager.Localization;
 using VoltManager.Models;
 using VoltManager.Performance;
@@ -14,41 +9,22 @@ using VoltManager.Services;
 namespace VoltManager.Bridge;
 
 /// <summary>
-/// JSON-RPC over WebView2 postMessage.
-/// JS sends {id, method, payload}; C# replies {id, ok, result|error}.
-/// C# pushes events as {event, data}.
+/// JSON-RPC transport over WebView2. Domain routing is delegated to BridgeRpcDispatcher.
 /// </summary>
 public class HostBridge : IDisposable
 {
-    // Shared with BridgeRpc so reply JSON and dispatch serialization stay identical.
-    private static readonly JsonSerializerOptions JsonOpts = BridgeRpc.JsonOpts;
-
-    // Same shape as settings.json on disk (PascalCase, enum names), so a backup
-    // is interchangeable with the real settings file.
-    private static readonly JsonSerializerOptions BackupJsonOpts = new()
-    {
-        WriteIndented = true,
-        Converters = { new JsonStringEnumConverter() },
-    };
-
     private readonly WebView2 _webView;
-    private readonly HardwareInfoService _hardware;
-    private readonly PowerPlanService _power;
-    private readonly SettingsService _settings;
     private readonly UpdateService _updates;
-    private readonly StartupService _startup;
-    private readonly StartupAppsService _startupApps = new();
-    private readonly PowerPlanParameterService _planParams;
-    private readonly MemoryOptimizerService _memoryOptimizer;
-    private readonly BatteryHealthService _batteryHealth = new();
-    private readonly PowerFlowService _powerFlow = new();
-    private readonly BatteryPowerSmoother _batteryPowerSmoother = new();
-    private readonly MonitorService _monitor;
+    private readonly PowerPlanService _power;
     private readonly App _app;
     private readonly LocalizationService _loc;
     private readonly bool _subscribeGlobalEvents;
+    private readonly BridgeLifetime _lifetime = new();
+    private readonly BridgeRpcDispatcher _dispatcher;
+    private readonly UiMetricsPublisher _metricsPublisher = new();
     private CoreWebView2? _attachedCore;
     private volatile bool _disposed;
+    private bool _pushEventFaulted;
 
     public event Action? ExitRequested;
     public event Action? MinimizeToTrayRequested;
@@ -58,44 +34,93 @@ public class HostBridge : IDisposable
     public event Action<bool>? WidgetTopmostRequested;
     public event Action? WidgetCloseRequested;
 
-    public HostBridge(WebView2 webView, HardwareInfoService hardware, PowerPlanService power,
-        SettingsService settings, UpdateService updates, StartupService startup, MonitorService monitor, App app,
+    public HostBridge(
+        WebView2 webView,
+        HardwareInfoService hardware,
+        PowerPlanService power,
+        SettingsService settings,
+        UpdateService updates,
+        StartupService startup,
+        MonitorService monitor,
+        App app,
         bool subscribeGlobalEvents = true)
     {
         _webView = webView;
-        _hardware = hardware;
-        _power = power;
-        _settings = settings;
         _updates = updates;
-        _startup = startup;
-        _monitor = monitor;
-        _planParams = new PowerPlanParameterService(power);
-        _memoryOptimizer = new MemoryOptimizerService();
+        _power = power;
         _app = app;
         _loc = app.Loc;
         _subscribeGlobalEvents = subscribeGlobalEvents;
+
+        var dialogs = new WebViewBridgeFileDialogService(webView);
+        _dispatcher = new BridgeRpcDispatcher(
+            BridgeHandlerFactory.Create(
+                hardware,
+                power,
+                settings,
+                updates,
+                startup,
+                monitor,
+                app,
+                _loc,
+                dialogs,
+                () => GamingModeStateRequested?.Invoke() ?? new { active = false },
+                HandleGamingModeRequestedAsync,
+                () => ExitRequested?.Invoke(),
+                () => MinimizeToTrayRequested?.Invoke(),
+                () => WidgetDragRequested?.Invoke(),
+                topmost => WidgetTopmostRequested?.Invoke(topmost),
+                () => WidgetCloseRequested?.Invoke()),
+            method => _loc.T("Error_UnknownMethod", method));
     }
 
     public void Attach()
     {
-        if (_disposed || _attachedCore != null) return;
-        _attachedCore = _webView.CoreWebView2;
-        _attachedCore.WebMessageReceived += OnWebMessageReceived;
+        if (_disposed)
+            return;
 
-        if (!_subscribeGlobalEvents) return;
+        CoreWebView2? core = _webView.CoreWebView2;
+        if (core == null || !_lifetime.TryBeginAttach())
+            return;
+
+        _attachedCore = core;
+        core.WebMessageReceived += OnWebMessageReceived;
+        _lifetime.RegisterDetach(() =>
+        {
+            try { core.WebMessageReceived -= OnWebMessageReceived; }
+            catch { }
+        });
+
+        if (!_subscribeGlobalEvents)
+            return;
 
         _updates.DownloadProgress += OnDownloadProgress;
+        _lifetime.RegisterDetach(() => _updates.DownloadProgress -= OnDownloadProgress);
+
         _app.HeavyApps.ActivityChanged += OnHeavyAppsChanged;
+        _lifetime.RegisterDetach(() => _app.HeavyApps.ActivityChanged -= OnHeavyAppsChanged);
+
         _app.AppProfiles.ActivityChanged += OnAppProfilesChanged;
+        _lifetime.RegisterDetach(() => _app.AppProfiles.ActivityChanged -= OnAppProfilesChanged);
+
         _app.ActivePlanReasonChanged += OnPlanReasonChanged;
+        _lifetime.RegisterDetach(() => _app.ActivePlanReasonChanged -= OnPlanReasonChanged);
+
         _app.PowerPlanConflictDetected += OnPlanConflict;
+        _lifetime.RegisterDetach(() => _app.PowerPlanConflictDetected -= OnPlanConflict);
+
         _power.History.Changed += OnPlanHistoryChanged;
+        _lifetime.RegisterDetach(() => _power.History.Changed -= OnPlanHistoryChanged);
+
         _app.StandbyAutoCleaner.AutoCleaned += OnStandbyCleaned;
+        _lifetime.RegisterDetach(() => _app.StandbyAutoCleaner.AutoCleaned -= OnStandbyCleaned);
     }
 
     private async void OnWebMessageReceived(object? sender, CoreWebView2WebMessageReceivedEventArgs e)
     {
-        if (_disposed) return;
+        if (IsStopped)
+            return;
+
         string json;
         try { json = e.WebMessageAsJson; }
         catch (Exception ex)
@@ -103,50 +128,47 @@ public class HostBridge : IDisposable
             Logger.Error("Could not read web message", ex);
             return;
         }
+
         await HandleMessageAsync(json);
     }
 
-    private void OnDownloadProgress(double pct) => PushEvent("updateDownloadProgress", new { pct });
-    private void OnHeavyAppsChanged(HeavyAppDetectionState state) => PushEvent("heavyAppActivityChanged", state);
-    private void OnAppProfilesChanged(AppPowerProfileState state) => PushEvent("appPowerProfileActivityChanged", state);
-    private void OnPlanReasonChanged(ActivePlanReasonState state) => PushEvent("activePlanReasonChanged", state);
-    private void OnPlanConflict(PowerPlanConflictNotification notice) => PushEvent("powerPlanConflictDetected", notice);
-    private void OnPlanHistoryChanged(long revision) => PushEvent("planHistoryChanged", new { revision });
-    private void OnStandbyCleaned(MemoryStatus memory) => PushEvent("standbyAutoCleaned", memory);
+    private void OnDownloadProgress(double pct) => PushEvent(BridgeEventNames.UpdateDownloadProgress, new { pct });
+    private void OnHeavyAppsChanged(HeavyAppDetectionState state) => PushEvent(BridgeEventNames.HeavyAppActivityChanged, state);
+    private void OnAppProfilesChanged(AppPowerProfileState state) => PushEvent(BridgeEventNames.AppPowerProfileActivityChanged, state);
+    private void OnPlanReasonChanged(ActivePlanReasonState state) => PushEvent(BridgeEventNames.ActivePlanReasonChanged, state);
+    private void OnPlanConflict(PowerPlanConflictNotification notice) => PushEvent(BridgeEventNames.PowerPlanConflictDetected, notice);
+    private void OnPlanHistoryChanged(long revision) => PushEvent(BridgeEventNames.PlanHistoryChanged, new { revision });
+    private void OnStandbyCleaned(MemoryStatus memory) => PushEvent(BridgeEventNames.StandbyAutoCleaned, memory);
 
     public void Dispose()
     {
-        if (_disposed) return;
-        _disposed = true;
-        try { if (_attachedCore != null) _attachedCore.WebMessageReceived -= OnWebMessageReceived; }
-        catch { /* A crashed browser may have already disposed the COM object. */ }
-        _attachedCore = null;
-        if (!_subscribeGlobalEvents) return;
-        _updates.DownloadProgress -= OnDownloadProgress;
-        _app.HeavyApps.ActivityChanged -= OnHeavyAppsChanged;
-        _app.AppProfiles.ActivityChanged -= OnAppProfilesChanged;
-        _app.ActivePlanReasonChanged -= OnPlanReasonChanged;
-        _app.PowerPlanConflictDetected -= OnPlanConflict;
-        _power.History.Changed -= OnPlanHistoryChanged;
-        _app.StandbyAutoCleaner.AutoCleaned -= OnStandbyCleaned;
-    }
+        if (_disposed)
+            return;
 
-    private bool _pushEventFaulted;
-    private readonly UiMetricsPublisher _metricsPublisher = new();
+        _disposed = true;
+        _lifetime.Dispose();
+        _attachedCore = null;
+    }
 
     public void PushEvent(string name, object data)
     {
-        if (_disposed) return;
-        if (name != "metrics")
+        if (IsStopped)
+            return;
+
+        if (!string.Equals(name, BridgeEventNames.Metrics, StringComparison.Ordinal))
         {
             PostEvent(name, data);
             return;
         }
+
         try
         {
-            _metricsPublisher.QueueLatest(data,
-                action => _webView.Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Background, action),
-                latest => PostEvent("metrics", latest));
+            _metricsPublisher.QueueLatest(
+                data,
+                action => _webView.Dispatcher.BeginInvoke(
+                    System.Windows.Threading.DispatcherPriority.Background,
+                    action),
+                latest => PostEvent(BridgeEventNames.Metrics, latest));
         }
         catch (Exception ex)
         {
@@ -156,773 +178,61 @@ public class HostBridge : IDisposable
 
     private void PostEvent(string name, object data)
     {
-        if (_disposed) return;
+        if (IsStopped)
+            return;
+
         try
         {
-            if (name == "metrics")
+            if (string.Equals(name, BridgeEventNames.Metrics, StringComparison.Ordinal))
                 ValidationMetrics.Increment(ValidationCounter.UiMetricPublications);
-            var payload = JsonSerializer.Serialize(new { @event = name, data }, JsonOpts);
+
+            string payload = BridgeRpc.FormatEvent(name, data);
             _webView.Dispatcher.Invoke(() =>
             {
+                if (IsStopped)
+                    return;
                 try { _webView.CoreWebView2?.PostWebMessageAsJson(payload); }
-                catch { /* WebView torn down mid-push */ }
+                catch { }
             });
             _pushEventFaulted = false;
         }
         catch (Exception ex)
         {
-            // Serialization bugs or a shutting-down dispatcher must not crash the
-            // event source; log the first failure of a streak only.
             _pushEventFaulted = Logger.WarnOnce(_pushEventFaulted, "PushEvent failed: " + name, ex);
         }
     }
 
     private async Task HandleMessageAsync(string json)
     {
-        string? id = null;
-        try
-        {
-            using var doc = JsonDocument.Parse(json);
-            var root = doc.RootElement;
-            id = root.GetProperty("id").GetString();
-            string method = root.GetProperty("method").GetString() ?? "";
-            JsonElement payload = root.TryGetProperty("payload", out var p) ? p.Clone() : default;
+        BridgeRpcDispatchResult result = await _dispatcher.DispatchAsync(json, _lifetime.Token);
+        if (result.Exception != null && result.LogMessage != null)
+            Logger.Error(result.LogMessage, result.Exception);
 
-            object? result = await DispatchAsync(method, payload);
-            PostReplyJson(BridgeRpc.FormatSuccess(id!, result));
-        }
-        catch (Exception ex)
-        {
-            // Dispatch failures are non-fatal: log + non-ok reply; process stays up.
-            var failure = BridgeRpc.OnDispatchException(id, ex);
-            Logger.Error(failure.LogMessage, ex);
-            if (failure.ShouldReply)
-                PostReplyJson(BridgeRpc.FormatFailure(failure.Id!, failure.ErrorMessage));
-        }
+        if (!IsStopped && result.ReplyJson != null)
+            PostReplyJson(result.ReplyJson);
     }
 
-    private void PostReplyJson(string msg)
+    private void PostReplyJson(string message)
     {
-        if (_disposed) return;
+        if (IsStopped)
+            return;
+
         _webView.Dispatcher.Invoke(() =>
         {
-            try { _webView.CoreWebView2?.PostWebMessageAsJson(msg); }
-            catch { /* WebView torn down mid-reply */ }
+            if (IsStopped)
+                return;
+            try { _webView.CoreWebView2?.PostWebMessageAsJson(message); }
+            catch { }
         });
     }
 
-    private async Task<object?> DispatchAsync(string method, JsonElement payload)
+    private async Task<object?> HandleGamingModeRequestedAsync(bool enabled)
     {
-        switch (method)
-        {
-            case "getSystemInfo":
-                // WMI (GPU/CPU fallback) can stall; keep first render off the UI thread.
-                return await Task.Run(() => _hardware.GetSystemInfo());
-
-            case "getBatteryHealth":
-                return await Task.Run(() => _batteryHealth.GetHealth());
-
-            case "getBatteryPower":
-                return await Task.Run(() =>
-                {
-                    var raw = _powerFlow.GetState();
-                    // Stabilize noisy WMI rates and attach session Wh from history.
-                    IReadOnlyList<BatteryHistorySample>? history = null;
-                    try { history = _app.BatteryHistory.GetHistory(); }
-                    catch { /* history is best-effort enrichment */ }
-                    return _batteryPowerSmoother.Apply(raw, history, DateTime.UtcNow);
-                });
-
-            case "getBatteryHistory":
-                return await Task.Run(() =>
-                {
-                    var all = _app.BatteryHistory.GetHistory();
-                    int hours = payload.TryGetProperty("hours", out var value) && value.TryGetInt32(out int parsed)
-                        ? parsed
-                        : 48;
-                    return new { samples = BatteryHistoryService.SelectWindow(all, DateTime.UtcNow, hours) };
-                });
-
-            case "beginWidgetDrag":
-                WidgetDragRequested?.Invoke();
-                return new { success = true };
-
-            case "setWidgetTopmost":
-            {
-                bool topmost = payload.GetProperty("topmost").GetBoolean();
-                WidgetTopmostRequested?.Invoke(topmost);
-                return new { success = true, topmost };
-            }
-
-            case "closeWidget":
-                WidgetCloseRequested?.Invoke();
-                return new { success = true };
-
-            case "getWidgetsState":
-                return _app.Widgets.GetSnapshot();
-
-            case "setWidgetEnabled":
-            {
-                string type = payload.GetProperty("type").GetString() ?? "";
-                bool enabled = payload.GetProperty("enabled").GetBoolean();
-                return _app.Widgets.SetEnabled(type, enabled);
-            }
-
-            case "setWidgetsMaster":
-            {
-                bool enabled = payload.GetProperty("enabled").GetBoolean();
-                return _app.Widgets.SetMasterEnabled(enabled);
-            }
-
-            case "setWidgetPinned":
-            {
-                string type = payload.GetProperty("type").GetString() ?? "";
-                bool pinned = payload.GetProperty("pinned").GetBoolean();
-                return _app.Widgets.SetPinned(type, pinned);
-            }
-
-            case "setWidgetSize":
-            {
-                string type = payload.GetProperty("type").GetString() ?? "";
-                string size = payload.GetProperty("size").GetString() ?? "medium";
-                return _app.Widgets.SetSize(type, size);
-            }
-
-            case "setWidgetPlacement":
-            {
-                string type = payload.GetProperty("type").GetString() ?? "";
-                string monitorId = payload.GetProperty("monitorId").GetString() ?? "";
-                string anchor = payload.GetProperty("anchor").GetString() ?? "";
-                return _app.Widgets.SetPlacement(type, monitorId, anchor);
-            }
-
-            case "resetWidgetPosition":
-            {
-                string type = payload.GetProperty("type").GetString() ?? "";
-                return _app.Widgets.ResetPosition(type);
-            }
-
-            case "checkDefaultPlans":
-            {
-                var (allPresent, missing) = await Task.Run(() => _power.CheckDefaultPlans());
-                return new { allPresent, missing = missing.Select(m => m.ToString()).ToList() };
-            }
-
-            case "restoreDefaultPlans":
-                return new { success = await Task.Run(() => _power.RestoreDefaultPlans()) };
-
-            case "getActivePlan":
-                return await Task.Run(() => _power.GetActivePlan());
-
-            case "getActivePlanReason":
-                return _app.GetActivePlanReason();
-
-            case "getPlanHistory":
-                return _power.History.GetSnapshot();
-
-            case "clearPlanHistory":
-                return new { revision = _power.History.Clear() };
-
-            case "listPowerPlans":
-                return await Task.Run(() => _planParams.ListPlans());
-
-            case "getKeepAwakeState":
-                return _app.Awake.GetState();
-
-            case "setKeepAwake":
-            {
-                bool enabled = payload.GetProperty("enabled").GetBoolean();
-                return _app.SetKeepAwake(enabled);
-            }
-
-            case "setKeepAwakeSafety":
-            {
-                var current = _app.Settings.Current.KeepAwake ?? new KeepAwakeSettings();
-                bool autoOffBattery = current.AutoDisableOnBattery;
-                if (payload.TryGetProperty("autoDisableOnBattery", out var batProp)
-                    && (batProp.ValueKind == JsonValueKind.True || batProp.ValueKind == JsonValueKind.False))
-                    autoOffBattery = batProp.GetBoolean();
-                int maxMinutes = current.MaxMinutes;
-                if (payload.TryGetProperty("maxMinutes", out var maxProp) && maxProp.TryGetInt32(out var mm))
-                    maxMinutes = mm;
-                return await Task.Run(() => _app.Awake.SetSafetyOptions(autoOffBattery, maxMinutes));
-            }
-
-            case "getCpuAutomationState":
-                return _app.CpuAutomationState;
-
-            case "setManualOverride":
-            {
-                var planStr = payload.GetProperty("plan").GetString() ?? "";
-                if (!Enum.TryParse<PlanId>(planStr, true, out var plan))
-                    throw new ArgumentException(_loc.T("Error_UnknownPlan", planStr));
-
-                TimeSpan? duration = null;
-                if (payload.TryGetProperty("hours", out var hoursEl) &&
-                    hoursEl.ValueKind == JsonValueKind.Number)
-                {
-                    duration = TimeSpan.FromHours(hoursEl.GetDouble());
-                }
-
-                bool okOverride = await Task.Run(() => _app.SetManualOverride(plan, duration));
-                return new { success = okOverride, @override = _settings.Current.Override };
-            }
-
-            case "clearManualOverride":
-                await Task.Run(_app.ClearManualOverride);
-                return new { success = true, @override = _settings.Current.Override };
-
-            case "getGamingMode":
-                return GamingModeStateRequested?.Invoke() ?? new { active = false };
-
-            case "setGamingMode":
-            {
-                bool enabled = payload.GetProperty("enabled").GetBoolean();
-                if (GamingModeRequested == null)
-                    throw new InvalidOperationException(_loc.T("Error_GamingControlUnavailable"));
-                return await GamingModeRequested(enabled);
-            }
-
-            case "getSettings":
-                return new
-                {
-                    settings = _settings.Current,
-                    startWithWindows = _startup.IsEnabled(),
-                    theme = _app.Theme.GetWebTheme(),
-                    themeCatalog = _app.Theme.GetWebThemeCatalog(),
-                    resolvedLanguage = _loc.CurrentLanguage,
-                    resolvedLocale = _loc.CurrentCulture.Name,
-                };
-
-            case "setThemeColor":
-            {
-                string? requested = payload.TryGetProperty("themeColor", out var themeColorElement)
-                    ? themeColorElement.GetString()
-                    : null;
-                AppThemeColorExtensions.TryParse(requested, out var themeColor);
-                _settings.Update(state => state.ThemeColor = themeColor);
-                return _app.Theme.GetWebTheme();
-            }
-
-            case "saveSettings":
-            {
-                var settings = payload.Deserialize<AppSettings>(JsonOpts)
-                    ?? throw new ArgumentException(_loc.T("Error_InvalidSettings"));
-                // Preserve machine-local/runtime-owned settings: UI never edits them.
-                PreserveRuntimeOwnedSettings(settings, _settings.Current);
-                _settings.Update(settings);
-                _app.RefreshAppPowerProfiles();
-                _app.RefreshHeavyAppDetection();
-                return new { success = true };
-            }
-
-            case "setLanguage":
-            {
-                string lang = payload.GetProperty("language").GetString() ?? "";
-                if (!LanguageResolver.IsSupported(lang))
-                    throw new ArgumentException(_loc.T("Error_UnknownMethod", lang));
-                var normalized = LanguageResolver.Normalize(lang);
-                _settings.Update(state => state.Language = normalized);
-                _loc.SetLanguage(normalized);
-                // Rebuild jump list with new language.
-                try { _app.Dispatcher.Invoke(() => _app.SetupJumpListPublic()); } catch { }
-                return new { success = true, language = normalized, locale = _loc.CurrentCulture.Name };
-            }
-
-            case "setStartWithWindows":
-            {
-                bool enable = payload.GetProperty("enabled").GetBoolean();
-                bool okStart = await Task.Run(() => _startup.SetStartWithWindows(enable));
-                _settings.Update(state => state.StartWithWindows = enable && okStart);
-                return new { success = okStart };
-            }
-
-            case "setCloseToTray":
-            {
-                bool enabled = payload.GetProperty("enabled").GetBoolean();
-                _settings.Update(state => state.CloseToTray = enabled);
-                return new { success = true };
-            }
-
-            case "setAutoUpdateChecks":
-            {
-                bool enable = payload.GetProperty("enabled").GetBoolean();
-                _settings.Update(state =>
-                {
-                    state.AutoUpdates.Enabled = enable;
-                    if (enable)
-                        state.AutoUpdates.SnoozedUntilUtc = null;
-                });
-                return new { success = true, autoUpdates = _settings.Current.AutoUpdates };
-            }
-
-            case "setSilentAutoUpdates":
-            {
-                bool enable = payload.GetProperty("enabled").GetBoolean();
-                _settings.Update(state => state.AutoUpdates.SilentInstallEnabled = enable);
-                return new { success = true, autoUpdates = _settings.Current.AutoUpdates };
-            }
-
-            case "setUpdateChannel":
-            {
-                string channel = payload.GetProperty("channel").GetString() ?? "stable";
-                _settings.Update(state => state.AutoUpdates.UpdateChannel = channel);
-                return new { success = true, autoUpdates = _settings.Current.AutoUpdates };
-            }
-
-            case "snoozeUpdate":
-            {
-                int minutes = payload.TryGetProperty("minutes", out var minutesEl) && minutesEl.ValueKind == JsonValueKind.Number
-                    ? minutesEl.GetInt32()
-                    : 30;
-                minutes = UpdateSchedulePolicy.NormalizeSnoozeMinutes(minutes);
-                DateTime snoozedUntilUtc = DateTime.UtcNow.AddMinutes(minutes);
-                _settings.Update(state => state.AutoUpdates.SnoozedUntilUtc = snoozedUntilUtc);
-                return new { success = true, snoozedUntilUtc = _settings.Current.AutoUpdates.SnoozedUntilUtc };
-            }
-
-            case "skipUpdateVersion":
-            {
-                string version = payload.GetProperty("version").GetString() ?? "";
-                version = version.Trim().TrimStart('v', 'V');
-                if (version.Length == 0)
-                    throw new ArgumentException(_loc.T("Error_MissingUpdateVersion"));
-                _settings.Update(state =>
-                {
-                    state.AutoUpdates.SkippedVersion = version;
-                    state.AutoUpdates.SnoozedUntilUtc = null;
-                });
-                return new { success = true, skippedVersion = version };
-            }
-
-            case "getHeavyAppStatus":
-                return await Task.Run(_app.GetHeavyAppStatus);
-
-            case "refreshHeavyAppDetection":
-                return await Task.Run(_app.RefreshHeavyAppDetection);
-
-            case "getAppPowerProfileStatus":
-                return await Task.Run(_app.GetAppPowerProfileStatus);
-
-            case "getPowerSourcePlanState":
-                return await Task.Run(() => _app.GetPowerSourcePlanState());
-
-            case "setPowerSourcePlanSwitch":
-            {
-                bool enable = payload.GetProperty("enabled").GetBoolean();
-                return await Task.Run(() => _app.SetPowerSourcePlanSwitch(enable));
-            }
-
-            case "getThermalGuardState":
-                return await Task.Run(() => _app.ThermalGuard.Current);
-
-            case "setThermalGuardEnabled":
-            {
-                bool enabled = payload.GetProperty("enabled").GetBoolean();
-                return await Task.Run(() => _app.ThermalGuard.SetEnabled(enabled));
-            }
-
-            case "setThermalGuardSettings":
-            {
-                var raw = payload.Deserialize<ThermalGuardSettings>(JsonOpts)
-                    ?? throw new ArgumentException("Invalid thermal guard settings");
-                return await Task.Run(() => _app.ThermalGuard.ApplySettings(raw));
-            }
-
-            case "getIdlePowerGuardState":
-                return await Task.Run(() => _app.IdlePowerGuard.Current);
-
-            case "setIdlePowerGuardEnabled":
-            {
-                bool enabled = payload.GetProperty("enabled").GetBoolean();
-                return await Task.Run(() => _app.IdlePowerGuard.SetEnabled(enabled));
-            }
-
-            case "setIdlePowerGuardSettings":
-            {
-                var raw = payload.Deserialize<IdlePowerGuardSettings>(JsonOpts)
-                    ?? throw new ArgumentException("Invalid idle power guard settings");
-                return await Task.Run(() => _app.IdlePowerGuard.ApplySettings(raw));
-            }
-
-            case "pickAppPowerProfileExecutable":
-            {
-                string? path = await _webView.Dispatcher.InvokeAsync(PickAppPowerProfileExecutable);
-                return new { path };
-            }
-
-            case "getTopProcesses":
-            {
-                int count = payload.ValueKind != JsonValueKind.Undefined &&
-                            payload.TryGetProperty("count", out var cntEl) &&
-                            cntEl.ValueKind == JsonValueKind.Number
-                    ? cntEl.GetInt32() : 8;
-                return await Task.Run(() => _monitor.GetTopProcesses(count, _app.ResourcePressure?.Current));
-            }
-
-            case "getStartupApps":
-                return await Task.Run(() => _startupApps.GetStartupApps());
-
-            case "pickStartupExecutable":
-            {
-                string? path = await _webView.Dispatcher.InvokeAsync(() => _startupApps.PickExecutablePath());
-                return new { path };
-            }
-
-            case "addStartupApp":
-            {
-                string path = payload.GetProperty("path").GetString()
-                    ?? throw new ArgumentException(_loc.T("Error_MissingPath"));
-                var entry = await Task.Run(() => _startupApps.AddManagedStartupApp(path));
-                return new { success = true, entry };
-            }
-
-            case "setStartupAppEnabled":
-            {
-                string id = payload.GetProperty("id").GetString()
-                    ?? throw new ArgumentException(_loc.T("Error_MissingId"));
-                bool enabled = payload.GetProperty("enabled").GetBoolean();
-                bool changed = await Task.Run(() => _startupApps.SetStartupAppEnabled(id, enabled));
-                return new { success = changed };
-            }
-
-            case "removeStartupApp":
-            {
-                string id = payload.GetProperty("id").GetString()
-                    ?? throw new ArgumentException(_loc.T("Error_MissingId"));
-                bool removed = await Task.Run(() => _startupApps.RemoveManagedStartupApp(id));
-                return new { success = removed };
-            }
-
-            case "checkForUpdates":
-                return await _updates.CheckForUpdatesAsync();
-
-            case "getReleaseHistory":
-                return await _updates.GetReleaseHistoryAsync();
-
-            case "downloadUpdate":
-            {
-                var url = payload.GetProperty("url").GetString()
-                    ?? throw new ArgumentException("URL mancante");
-
-                // Do not restart while a game is running — queue and install after the session.
-                if (_app.IsHeavyAppSessionActive())
-                {
-                    _app.DeferUpdateUntilGameEnds(url);
-                    return new
-                    {
-                        success = false,
-                        deferred = true,
-                        reason = "heavyAppActive",
-                        message = _loc.T("Dialog_UpdateDeferredGame"),
-                    };
-                }
-
-                string path = await _updates.DownloadUpdateAsync(url);
-                if (_app.IsHeavyAppSessionActive())
-                {
-                    _app.DeferUpdateUntilGameEnds(url);
-                    return new
-                    {
-                        success = false,
-                        deferred = true,
-                        reason = "heavyAppActive",
-                        message = _loc.T("Dialog_UpdateDeferredGame"),
-                    };
-                }
-
-                Process.Start(new ProcessStartInfo(path,
-                    $"/update --pid {Environment.ProcessId} --lang {_loc.CurrentLanguage}") { UseShellExecute = true });
-                ExitRequested?.Invoke();
-                return new { success = true };
-            }
-
-            case "logError":
-            {
-                string message = payload.TryGetProperty("message", out var msgEl)
-                    ? msgEl.GetString() ?? "" : "";
-                string? stack = payload.TryGetProperty("stack", out var stEl)
-                    ? stEl.GetString() : null;
-                return BridgeRpc.HandleLogError(message, stack, Logger.Error);
-            }
-
-            case "openExternal":
-            {
-                var url = payload.GetProperty("url").GetString() ?? "";
-                if (url.StartsWith("https://") || url.StartsWith("http://"))
-                    Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
-                return new { success = true };
-            }
-
-            case "exitApp":
-                ExitRequested?.Invoke();
-                return new { success = true };
-
-            case "minimizeToTray":
-                MinimizeToTrayRequested?.Invoke();
-                return new { success = true };
-
-            case "getScheduledPowerAction":
-                return _app.ScheduledPowerActions.GetState();
-
-            case "executePowerAction":
-            {
-                string actionText = payload.GetProperty("action").GetString() ?? "";
-                if (!Enum.TryParse<ScheduledPowerActionType>(actionText, ignoreCase: true, out var action)
-                    || action is not (ScheduledPowerActionType.Shutdown or ScheduledPowerActionType.Restart))
-                    throw new ArgumentException(_loc.T("Error_InvalidPowerAction"));
-
-                _app.ScheduledPowerActions.ExecuteNow(action);
-                return new { success = true };
-            }
-
-            case "schedulePowerAction":
-            {
-                string modeText = payload.GetProperty("mode").GetString() ?? "";
-                string actionText = payload.GetProperty("action").GetString() ?? "";
-
-                if (!Enum.TryParse<ScheduledPowerActionType>(actionText, ignoreCase: true, out var action))
-                    throw new ArgumentException(_loc.T("Error_InvalidPowerAction"));
-
-                if (string.Equals(modeText, "relative", StringComparison.OrdinalIgnoreCase))
-                {
-                    int delayMinutes = payload.GetProperty("delayMinutes").GetInt32();
-                    return _app.ScheduledPowerActions.ScheduleAfter(TimeSpan.FromMinutes(delayMinutes), action);
-                }
-
-                if (string.Equals(modeText, "daily", StringComparison.OrdinalIgnoreCase))
-                {
-                    string timeText = payload.GetProperty("time").GetString() ?? "";
-                    if (!TimeOnly.TryParseExact(timeText, "HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.None, out var time))
-                        throw new ArgumentException(_loc.T("Error_InvalidPowerTime"));
-                    return _app.ScheduledPowerActions.ScheduleDaily(time, action);
-                }
-
-                throw new ArgumentException(_loc.T("Error_InvalidScheduleMode"));
-            }
-
-            case "cancelScheduledPowerAction":
-                return _app.ScheduledPowerActions.Cancel();
-
-            case "getPlanTimeouts":
-            {
-                string? guid = payload.TryGetProperty("planGuid", out var guidEl)
-                    ? guidEl.GetString() : null;
-                return await Task.Run(() => _planParams.GetPlanTimeouts(guid));
-            }
-
-            case "getPlanParameters":
-            {
-                string? guid = payload.TryGetProperty("planGuid", out var guidEl)
-                    ? guidEl.GetString() : null;
-                return await Task.Run(() => _planParams.GetPlanParameters(guid));
-            }
-
-            case "setPlanParameter":
-            {
-                string planGuid = payload.GetProperty("planGuid").GetString()
-                    ?? throw new ArgumentException(_loc.T("Error_MissingPlanGuid"));
-                string settingKey = payload.GetProperty("settingKey").GetString()
-                    ?? throw new ArgumentException(_loc.T("Error_MissingSettingKey"));
-                int acValue = payload.GetProperty("acValue").GetInt32();
-                int dcValue = payload.GetProperty("dcValue").GetInt32();
-                bool ok = await Task.Run(() => _planParams.SetPlanParameter(planGuid, settingKey, acValue, dcValue));
-                return new { success = ok };
-            }
-
-            case "getMemoryStatus":
-                return await Task.Run(() => _memoryOptimizer.GetMemoryStatus());
-
-            case "purgeStandbyList":
-            {
-                bool purged = await Task.Run(() => _app.StandbyAutoCleaner.PurgeManual());
-                var status = await Task.Run(() => _memoryOptimizer.GetMemoryStatus());
-                return new { success = purged, memory = status };
-            }
-
-            case "getStandbyAutoCleanSettings":
-                return _settings.Current.StandbyAutoCleaner;
-
-            case "setStandbyAutoCleanSettings":
-            {
-                var autoSettings = payload.Deserialize<StandbyAutoCleanerSettings>(JsonOpts)
-                    ?? throw new ArgumentException("Impostazioni StandbyAutoCleaner non valide");
-                var savedSettings = SaveStandbyAutoCleanSettings(_settings, autoSettings);
-                return new { success = true, settings = savedSettings };
-            }
-
-            case "exportSettings":
-            {
-                string? path = await _webView.Dispatcher.InvokeAsync(() =>
-                {
-                    var dialog = new SaveFileDialog
-                    {
-                        Title = _loc.T("FilePicker_ExportTitle"),
-                        Filter = _loc.T("FilePicker_JsonFilter"),
-                        FileName = $"voltmanager-settings-{DateTime.Now:yyyyMMdd}.json",
-                    };
-                    return dialog.ShowDialog() == true ? dialog.FileName : null;
-                });
-                if (path == null) return new { success = false, cancelled = true };
-                await Task.Run(() => System.IO.File.WriteAllText(path,
-                    JsonSerializer.Serialize(_settings.Current, BackupJsonOpts)));
-                return new { success = true, path };
-            }
-
-            case "exportBatteryHistory":
-            {
-                string? path = await _webView.Dispatcher.InvokeAsync(() =>
-                {
-                    var dialog = new SaveFileDialog
-                    {
-                        Title = "Export battery history",
-                        Filter = "CSV (*.csv)|*.csv|All files (*.*)|*.*",
-                        FileName = $"voltmanager-battery-history-{DateTime.Now:yyyyMMdd-HHmm}.csv",
-                    };
-                    return dialog.ShowDialog() == true ? dialog.FileName : null;
-                });
-                if (path == null) return new { success = false, cancelled = true };
-
-                var csv = await Task.Run(() => BatteryHistoryService.ToCsv(_app.BatteryHistory.GetHistory()));
-                await Task.Run(() => System.IO.File.WriteAllText(path, csv, System.Text.Encoding.UTF8));
-                return new { success = true, path };
-            }
-
-            case "openLogFolder":
-            {
-                bool ok = DiagnosticsReportService.TryOpenLogFolder(out var logDir, out var err);
-                return new { success = ok, path = logDir, error = err };
-            }
-
-            case "exportDiagnostics":
-            {
-                string? path = await _webView.Dispatcher.InvokeAsync(() =>
-                {
-                    var dialog = new SaveFileDialog
-                    {
-                        Title = _loc.T("FilePicker_DiagnosticsTitle"),
-                        Filter = _loc.T("FilePicker_TextFilter"),
-                        FileName = $"voltmanager-diagnostics-{DateTime.Now:yyyyMMdd-HHmm}.txt",
-                    };
-                    return dialog.ShowDialog() == true ? dialog.FileName : null;
-                });
-                if (path == null) return new { success = false, cancelled = true };
-
-                var report = await Task.Run(() =>
-                {
-                    var plan = _power.GetActivePlan();
-                    var planSummary = plan == null
-                        ? "(none)"
-                        : $"{plan.PlanId?.ToString() ?? "?"}  {plan.Name}  [{plan.Guid}]  active={plan.IsActive}";
-
-                    BatteryPowerState? bat = null;
-                    try
-                    {
-                        var raw = _powerFlow.GetState();
-                        IReadOnlyList<BatteryHistorySample>? hist = null;
-                        try { hist = _app.BatteryHistory.GetHistory(); } catch { }
-                        bat = _batteryPowerSmoother.Apply(raw, hist, DateTime.UtcNow);
-                    }
-                    catch { /* optional */ }
-
-                    var snap = new DiagnosticsSnapshot
-                    {
-                        AppVersion = DiagnosticsReportService.ResolveAppVersion(),
-                        LogPath = DiagnosticsReportService.LogFilePath,
-                        SystemInfo = _hardware.GetSystemInfo(),
-                        Metrics = _monitor.Latest,
-                        ActivePlanSummary = planSummary,
-                        KeepAwake = _app.Awake.GetState(),
-                        PowerSource = _app.PowerSourcePlans.Current,
-                        ThermalGuard = _app.ThermalGuard.Current,
-                        IdlePowerGuard = _app.IdlePowerGuard.Current,
-                        CpuAutomation = _app.CpuAutomationState,
-                        BatteryPower = bat,
-                        BatteryHealth = _batteryHealth.GetHealth(),
-                        Memory = _memoryOptimizer.GetMemoryStatus(),
-                        SettingsJson = DiagnosticsReportService.SanitizeSettingsJson(_settings.Current),
-                    };
-                    return DiagnosticsReportService.BuildReport(snap);
-                });
-
-                await Task.Run(() => System.IO.File.WriteAllText(path, report));
-                return new { success = true, path, bytes = report.Length };
-            }
-
-            case "importSettings":
-            {
-                string? path = await _webView.Dispatcher.InvokeAsync(() =>
-                {
-                    var dialog = new OpenFileDialog
-                    {
-                        Title = _loc.T("FilePicker_ImportTitle"),
-                        Filter = _loc.T("FilePicker_JsonFilter"),
-                        CheckFileExists = true,
-                    };
-                    return dialog.ShowDialog() == true ? dialog.FileName : null;
-                });
-                if (path == null) return new { success = false, cancelled = true };
-                var json = await Task.Run(() => System.IO.File.ReadAllText(path));
-                var imported = JsonSerializer.Deserialize<AppSettings>(json, BackupJsonOpts)
-                    ?? throw new ArgumentException(_loc.T("Error_InvalidBackupFile"));
-                // Machine-local/runtime state must survive an import from another PC.
-                PreserveRuntimeOwnedSettings(imported, _settings.Current);
-                _settings.Update(imported);
-                _app.RefreshAppPowerProfiles();
-                _app.RefreshHeavyAppDetection();
-                return new { success = true, path };
-            }
-
-            default:
-                throw new ArgumentException(_loc.T("Error_UnknownMethod", method));
-        }
+        Func<bool, Task<object?>>? handler = GamingModeRequested;
+        if (handler == null)
+            throw new InvalidOperationException(_loc.T("Error_GamingControlUnavailable"));
+        return await handler(enabled);
     }
 
-    internal static void PreserveRuntimeOwnedSettings(AppSettings settings, AppSettings current)
-    {
-        settings.PlanGuidMap = current.PlanGuidMap;
-        settings.Override = current.Override;
-        // Host-owned: UI payloads do not carry task-schema migration state.
-        settings.AutostartTaskSchemaVersion = current.AutostartTaskSchemaVersion;
-        settings.StandbyAutoCleaner = current.StandbyAutoCleaner;
-        settings.AutoShutdown ??= new AutoShutdownSettings();
-        settings.AutoUpdates ??= new AutoUpdateSettings();
-        settings.HeavyAppDetection ??= new HeavyAppDetectionSettings();
-        settings.AppPowerProfiles ??= new AppPowerProfileSettings();
-        settings.CpuAutomation ??= new CpuAutomationSettings();
-        current.AutoShutdown ??= new AutoShutdownSettings();
-        current.AutoUpdates ??= new AutoUpdateSettings();
-        current.Widgets ??= new WidgetSettings();
-        current.Widgets.Normalize();
-        settings.Widgets = current.Widgets;
-        settings.AutoShutdown = current.AutoShutdown;
-        settings.AutoUpdates.SnoozedUntilUtc = current.AutoUpdates.SnoozedUntilUtc;
-        settings.AutoUpdates.SkippedVersion = current.AutoUpdates.SkippedVersion;
-        // UI saveSettings often omits language; never wipe a previously chosen locale.
-        if (string.IsNullOrWhiteSpace(settings.Language) || !LanguageResolver.IsSupported(settings.Language))
-            settings.Language = current.Language ?? "";
-        else
-            settings.Language = LanguageResolver.Normalize(settings.Language);
-    }
-
-    internal static StandbyAutoCleanerSettings SaveStandbyAutoCleanSettings(
-        SettingsService settingsService,
-        StandbyAutoCleanerSettings autoSettings)
-    {
-        settingsService.Update(state => state.StandbyAutoCleaner = autoSettings);
-        return settingsService.Current.StandbyAutoCleaner;
-    }
-
-    private string? PickAppPowerProfileExecutable()
-    {
-        var dialog = new OpenFileDialog
-        {
-            Title = _loc.T("FilePicker_AppProfileTitle"),
-            Filter = _loc.T("FilePicker_AppProfileFilter"),
-            CheckFileExists = true,
-            Multiselect = false,
-        };
-
-        return dialog.ShowDialog() == true ? dialog.FileName : null;
-    }
+    private bool IsStopped => _disposed || _lifetime.Token.IsCancellationRequested;
 }

@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Threading;
 using Microsoft.Web.WebView2.Core;
+using VoltManager.Bridge;
 using VoltManager.Models;
 using VoltManager.Performance;
 using VoltManager.Services;
@@ -100,7 +101,7 @@ public partial class MainWindow
         var state = _app.ResourcePressure.Current;
         var plan = _webViewResourceController.Resolve(state.Profile, _webViewVisible, _adaptiveWindowActive);
         if (_adaptiveUiMetricsPublisher.TryTake(metrics, plan, DateTime.UtcNow, out var snapshot) && snapshot != null)
-            _bridge?.PushEvent("metrics", snapshot);
+            _bridge?.PushEvent(BridgeEventNames.Metrics, snapshot);
 
         // Keep the existing manual-performance gaming reminder at the safety sampling
         // cadence; only the WebView transport above is downsampled.
@@ -128,7 +129,7 @@ public partial class MainWindow
     private void PushAdaptiveResourceProfile(ResourcePressureState state)
     {
         var plan = _webViewResourceController.Resolve(state.Profile, state.UiVisible, _adaptiveWindowActive);
-        _bridge?.PushEvent("resourceProfileChanged", new
+        _bridge?.PushEvent(BridgeEventNames.ResourceProfileChanged, new
         {
             profile = state.Profile.ToString().ToLowerInvariant(),
             reason = state.Reason,
@@ -196,8 +197,8 @@ public partial class MainWindow
         _adaptiveUiMetricsPublisher.ResetCadence();
         OnAdaptiveMetricsUpdated(_app.Monitor.Latest);
         PushAdaptiveResourceProfile(_app.ResourcePressure.Current);
-        _bridge?.PushEvent("thermalGuardChanged", _app.ThermalGuard.Current);
-        _bridge?.PushEvent("idlePowerGuardChanged", _app.IdlePowerGuard.Current);
+        _bridge?.PushEvent(BridgeEventNames.ThermalGuardChanged, _app.ThermalGuard.Current);
+        _bridge?.PushEvent(BridgeEventNames.IdlePowerGuardChanged, _app.IdlePowerGuard.Current);
     }
 
     private void OnAdaptiveWindowClosed(object? sender, EventArgs e)

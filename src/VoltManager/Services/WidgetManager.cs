@@ -1,5 +1,6 @@
 using System.Windows;
 using Microsoft.Web.WebView2.Core;
+using VoltManager.Bridge;
 using VoltManager.Localization;
 using VoltManager.Models;
 using VoltManager.Performance;
@@ -218,21 +219,21 @@ public sealed class WidgetManager : IDisposable
     {
         var data = _app.Theme.GetWebTheme();
         foreach (var window in _windows.Values.ToList())
-            window.PushEvent("themeChanged", data);
+            window.PushEvent(BridgeEventNames.ThemeChanged, data);
     }
 
     internal void PushLanguage()
     {
         var data = new { language = _app.Loc.CurrentLanguage, locale = _app.Loc.CurrentCulture.Name };
         foreach (var window in _windows.Values.ToList())
-            window.PushEvent("languageChanged", data);
+            window.PushEvent(BridgeEventNames.LanguageChanged, data);
     }
 
     internal void PushFont()
     {
         var data = new { font = _app.Settings.Current.Font };
         foreach (var window in _windows.Values.ToList())
-            window.PushEvent("fontChanged", data);
+            window.PushEvent(BridgeEventNames.FontChanged, data);
     }
 
     internal void PushResourceProfile(ResourcePressureState state)

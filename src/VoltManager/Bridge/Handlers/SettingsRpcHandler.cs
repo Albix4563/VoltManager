@@ -52,7 +52,8 @@ public sealed class SettingsRpcHandler : IBridgeRpcHandler
         _dialogs = dialogs;
     }
 
-    public IReadOnlyCollection<string> Methods => RegisteredMethods;
+    public static IReadOnlyCollection<string> MethodNames => RegisteredMethods;
+    public IReadOnlyCollection<string> Methods => MethodNames;
 
     public async Task<object?> HandleAsync(string method, JsonElement payload, CancellationToken cancellationToken)
     {

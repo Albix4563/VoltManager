@@ -12,6 +12,8 @@ const power = source('src/VoltManager/wwwroot/js/power.js');
 const settings = source('src/VoltManager/wwwroot/js/settings.js');
 const app = source('src/VoltManager/wwwroot/js/app.js');
 const hostBridge = source('src/VoltManager/Bridge/HostBridge.cs');
+const energyRpcHandler = source('src/VoltManager/Bridge/Handlers/EnergyRpcHandler.cs');
+const bridgeHandlerFactory = source('src/VoltManager/Bridge/BridgeHandlerFactory.cs');
 
 test('advanced battery history exposes range, metrics and CSV export', () => {
   assert.match(html, /data-hours="6"/);
@@ -62,7 +64,9 @@ test('immediate shutdown and restart are confirmed and delegated to the host', (
   assert.match(app, /data-power-action="restart"/);
   assert.match(app, /window\.confirm\(t\(confirmKey\)\)/);
   assert.match(app, /Host\.call\('executePowerAction', \{ action: immediateAction \}\)/);
-  assert.match(hostBridge, /case "executePowerAction":/);
-  assert.match(hostBridge, /action is not \(ScheduledPowerActionType\.Shutdown or ScheduledPowerActionType\.Restart\)/);
-  assert.match(hostBridge, /ScheduledPowerActions\.ExecuteNow\(action\)/);
+  assert.doesNotMatch(hostBridge, /case "executePowerAction":/);
+  assert.match(energyRpcHandler, /case "executePowerAction":/);
+  assert.match(energyRpcHandler, /action is not \(ScheduledPowerActionType\.Shutdown or ScheduledPowerActionType\.Restart\)/);
+  assert.match(energyRpcHandler, /_actions\.ExecutePowerAction\(action\)/);
+  assert.match(bridgeHandlerFactory, /app\.ScheduledPowerActions\.ExecuteNow/);
 });

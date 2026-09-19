@@ -83,19 +83,19 @@ public partial class MainWindow : Window
         {
             _app.Theme.SetTheme(s.ThemeColor);
             // Keep the main WebView font in sync with disk (import/other writers).
-            _bridge?.PushEvent("fontChanged", new { font = s.Font });
+            _bridge?.PushEvent(BridgeEventNames.FontChanged, new { font = s.Font });
             BindGlobalHotkeys();
         });
         _app.Theme.ThemeChanged += themeColor => Dispatcher.Invoke(() =>
         {
             ApplyHostTheme(themeColor);
-            _bridge?.PushEvent("themeChanged", _app.Theme.GetWebTheme());
+            _bridge?.PushEvent(BridgeEventNames.ThemeChanged, _app.Theme.GetWebTheme());
         });
         _app.Loc.LanguageChanged += (code, culture) => Dispatcher.Invoke(() =>
         {
             LocalizeTrayMenu();
             _app.Widgets.PushLanguage();
-            _bridge?.PushEvent("languageChanged", new { language = code, locale = culture.Name });
+            _bridge?.PushEvent(BridgeEventNames.LanguageChanged, new { language = code, locale = culture.Name });
         });
         _app.HeavyApps.ActivityChanged += OnHeavyAppActivityChangedForUpdates;
         LocalizeTrayMenu();
@@ -123,7 +123,7 @@ public partial class MainWindow : Window
         }
 
         var registrations = _globalHotkeys.Rebind(hwnd, _app.Settings.Current.GlobalHotkeys);
-        _bridge?.PushEvent("globalHotkeysChanged", new { registrations });
+        _bridge?.PushEvent(BridgeEventNames.GlobalHotkeysChanged, new { registrations });
     }
 
     private bool _hotkeyHookInstalled;
@@ -219,23 +219,23 @@ public partial class MainWindow : Window
         if (firstBoot)
         {
             _app.Monitor.MetricsUpdated += OnMetricsUpdated;
-            _app.ActivePlanChanged += p => _bridge?.PushEvent("activePlanChanged", new { plan = p?.PlanId, guid = p?.Guid, name = p?.Name });
-            _app.Settings.SettingsChanged += s => _bridge?.PushEvent("automationStateChanged", new { masterEnabled = s.MasterAutomationEnabled, @override = s.Override });
+            _app.ActivePlanChanged += p => _bridge?.PushEvent(BridgeEventNames.ActivePlanChanged, new { plan = p?.PlanId, guid = p?.Guid, name = p?.Name });
+            _app.Settings.SettingsChanged += s => _bridge?.PushEvent(BridgeEventNames.AutomationStateChanged, new { masterEnabled = s.MasterAutomationEnabled, @override = s.Override });
             _app.ManualOverrideChanged += o =>
             {
-                _bridge?.PushEvent("manualOverrideChanged", new { @override = o });
+                _bridge?.PushEvent(BridgeEventNames.ManualOverrideChanged, new { @override = o });
                 if (!IsPerformanceOverride(o, DateTime.UtcNow))
                     _gamingReminder.Stop();
                 PushGamingModeState();
             };
-            _app.Awake.StateChanged += s => _bridge?.PushEvent("keepAwakeChanged", s);
-            _app.PowerSourcePlans.StateChanged += s => _bridge?.PushEvent("powerSourcePlanChanged", s);
-            _app.ThermalGuard.StateChanged += s => { if (_webViewVisible) _bridge?.PushEvent("thermalGuardChanged", s); };
-            _app.IdlePowerGuard.StateChanged += s => { if (_webViewVisible) _bridge?.PushEvent("idlePowerGuardChanged", s); };
-            _app.Widgets.StateChanged += s => _bridge?.PushEvent("widgetsStateChanged", s);
+            _app.Awake.StateChanged += s => _bridge?.PushEvent(BridgeEventNames.KeepAwakeChanged, s);
+            _app.PowerSourcePlans.StateChanged += s => _bridge?.PushEvent(BridgeEventNames.PowerSourcePlanChanged, s);
+            _app.ThermalGuard.StateChanged += s => { if (_webViewVisible) _bridge?.PushEvent(BridgeEventNames.ThermalGuardChanged, s); };
+            _app.IdlePowerGuard.StateChanged += s => { if (_webViewVisible) _bridge?.PushEvent(BridgeEventNames.IdlePowerGuardChanged, s); };
+            _app.Widgets.StateChanged += s => _bridge?.PushEvent(BridgeEventNames.WidgetsStateChanged, s);
             _app.ScheduledPowerActions.StateChanged += state =>
             {
-                _bridge?.PushEvent("scheduledPowerActionChanged", state);
+                _bridge?.PushEvent(BridgeEventNames.ScheduledPowerActionChanged, state);
                 Dispatcher.Invoke(() => RefreshScheduledPowerTrayState(state));
             };
             _hostEventsWired = true;
@@ -358,7 +358,7 @@ public partial class MainWindow : Window
     private void OnMetricsUpdated(MetricsSnapshot metrics)
     {
         if (_webViewVisible)
-            _bridge?.PushEvent("metrics", metrics);
+            _bridge?.PushEvent(BridgeEventNames.Metrics, metrics);
 
         if (_gamingReminder.ObserveCpu(metrics.Cpu, DateTime.UtcNow) != GamingModeReminderDecision.Prompt)
             return;
@@ -418,7 +418,7 @@ public partial class MainWindow : Window
     }
 
     private void PushGamingModeState()
-        => _bridge?.PushEvent("gamingModeChanged", GetGamingModeState());
+        => _bridge?.PushEvent(BridgeEventNames.GamingModeChanged, GetGamingModeState());
 
     private async Task<object?> SetGamingModeFromBridgeAsync(bool enabled)
     {
@@ -483,7 +483,7 @@ public partial class MainWindow : Window
     {
         await Task.Delay(TimeSpan.FromSeconds(2));
         string ver = _app.Updates.CurrentVersion;
-        _bridge?.PushEvent("appUpdated", new { version = ver });
+        _bridge?.PushEvent(BridgeEventNames.AppUpdated, new { version = ver });
     }
 
     private void InitializeAutoUpdateLifecycle()
@@ -543,7 +543,7 @@ public partial class MainWindow : Window
             if (ShouldInstallUpdatesSilently())
                 await DownloadAndInstallUpdateAsync(info.DownloadUrl);
             else if (IsAppInForeground() && _bridge != null)
-                _bridge.PushEvent("updateAvailable", info);
+                _bridge.PushEvent(BridgeEventNames.UpdateAvailable, info);
             else
                 await ShowBackgroundUpdatePromptAsync(info);
         }
