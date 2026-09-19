@@ -146,7 +146,7 @@
     background: color-mix(in srgb, var(--md-sys-color-surface-container-low, #10192c) 66%, transparent);
     cursor: pointer;
     text-align: left;
-    transition: transform .18s ease, border-color .18s ease, background .18s ease, color .18s ease;
+    transition: transform var(--vm-motion-fast) var(--vm-ease-standard), border-color var(--vm-motion-fast) var(--vm-ease-standard), background var(--vm-motion-fast) var(--vm-ease-standard), color var(--vm-motion-fast) var(--vm-ease-standard);
 }
 
 .vm-quick-action:hover,
@@ -217,7 +217,7 @@
     border-radius: inherit;
     background: linear-gradient(90deg, var(--vm-accent-hover), var(--vm-accent));
     box-shadow: 0 0 10px color-mix(in srgb, var(--vm-accent) 45%, transparent);
-    transition: width .45s ease;
+    transition: width var(--vm-motion-base) var(--vm-ease-standard);
 }
 
 .vm-automation-summary {
@@ -288,7 +288,7 @@
     background: transparent;
     cursor: pointer;
     font-weight: 600;
-    transition: color .18s ease, background .18s ease, box-shadow .18s ease;
+    transition: color var(--vm-motion-fast) var(--vm-ease-standard), background var(--vm-motion-fast) var(--vm-ease-standard), box-shadow var(--vm-motion-fast) var(--vm-ease-standard);
 }
 
 .vm-subnav__item .material-symbols-outlined {
@@ -312,7 +312,7 @@
 }
 
 .vm-subview.active {
-    animation: vmReorgPanelIn .2s ease both;
+    animation: vmReorgPanelIn var(--vm-motion-enter) var(--vm-ease-emphasized) both;
 }
 
 @keyframes vmReorgPanelIn {
@@ -474,7 +474,7 @@
     font-weight: 650;
     line-height: 1.2;
     text-align: center;
-    transition: color .18s ease, background .18s ease;
+    transition: color var(--vm-motion-fast) var(--vm-ease-standard), background var(--vm-motion-fast) var(--vm-ease-standard);
 }
 
 .schedule-mode-tab:hover {
@@ -967,7 +967,7 @@
     padding: 9px 11px;
     border-radius: var(--vm-control-radius);
     text-align: left;
-    transition: color .22s ease, background .22s ease, border-color .22s ease;
+    transition: color var(--vm-motion-fast) var(--vm-ease-standard), background var(--vm-motion-fast) var(--vm-ease-standard), border-color var(--vm-motion-fast) var(--vm-ease-standard);
 }
 
 .vm-dense-shell .vm-subnav__item::before {
@@ -979,7 +979,7 @@
     background: var(--vm-accent);
     opacity: 0;
     transform: scaleY(.35);
-    transition: opacity .42s ease, transform .42s cubic-bezier(.2,.8,.2,1);
+    transition: opacity var(--vm-motion-base) var(--vm-ease-standard), transform var(--vm-motion-base) var(--vm-ease-standard);
 }
 
 .vm-dense-shell .vm-subnav__item.active::before {
@@ -992,20 +992,20 @@
 }
 
 .vm-reorg-view:not(.hidden) {
-    animation: vmReorgViewIn .5s cubic-bezier(.2,.8,.2,1) both;
+    animation: vmReorgViewIn 600ms var(--vm-ease-standard) both;
 }
 
 .vm-subview.active {
-    animation: vmReorgPanelIn .42s cubic-bezier(.2,.8,.2,1) both;
+    animation: vmReorgPanelIn 560ms var(--vm-ease-emphasized) both;
 }
 
 .vm-subview.active > * {
-    animation: vmReorgGroupIn .45s cubic-bezier(.2,.8,.2,1) both;
+    animation: vmReorgGroupIn 600ms var(--vm-ease-emphasized) both;
 }
 
-.vm-subview.active > *:nth-child(2) { animation-delay: 55ms; }
-.vm-subview.active > *:nth-child(3) { animation-delay: 110ms; }
-.vm-subview.active > *:nth-child(4) { animation-delay: 165ms; }
+.vm-subview.active > *:nth-child(2) { animation-delay: 80ms; }
+.vm-subview.active > *:nth-child(3) { animation-delay: 160ms; }
+.vm-subview.active > *:nth-child(4) { animation-delay: 240ms; }
 
 @keyframes vmReorgViewIn {
     from { opacity: 0; transform: translateY(8px); }

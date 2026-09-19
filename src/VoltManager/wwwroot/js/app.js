@@ -162,13 +162,13 @@
 .startup-summary-icon{position:relative;z-index:1;width:36px;height:36px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:rgb(var(--vm-accent-rgb) / .1);border:1px solid rgb(var(--vm-accent-rgb) / .22);color:var(--vm-accent);box-shadow:0 0 20px rgb(var(--vm-accent-rgb) / .1);}
 .startup-summary-card[data-tone="off"] .startup-summary-icon{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.1);color:rgba(211,222,239,.78);box-shadow:none;}
 .startup-summary-card>div:not(.startup-summary-icon){position:relative;z-index:1;}
-.startup-card{position:relative;overflow:hidden;border:1px solid rgba(255,255,255,.1);border-radius:16px;background:linear-gradient(135deg,rgba(18,33,49,.66),rgba(10,17,40,.54));padding:16px;display:flex;flex-direction:column;gap:12px;animation:startupCardIn .32s cubic-bezier(.2,.8,.2,1) both;transition:border-color .25s ease,transform .25s ease,background .25s ease,box-shadow .25s ease;container-type:inline-size;}
+.startup-card{position:relative;overflow:hidden;border:1px solid rgba(255,255,255,.1);border-radius:16px;background:linear-gradient(135deg,rgba(18,33,49,.66),rgba(10,17,40,.54));padding:16px;display:flex;flex-direction:column;gap:12px;animation:startupCardIn var(--vm-motion-base) var(--vm-ease-standard) both;transition:border-color var(--vm-motion-fast) var(--vm-ease-standard),transform var(--vm-motion-fast) var(--vm-ease-standard),background var(--vm-motion-fast) var(--vm-ease-standard),box-shadow var(--vm-motion-fast) var(--vm-ease-standard);container-type:inline-size;}
 .startup-card:hover{transform:translateY(-1px);border-color:rgb(var(--vm-accent-rgb) / .26);background:linear-gradient(135deg,rgba(18,33,49,.82),rgba(10,17,40,.66));box-shadow:0 18px 35px rgba(0,0,0,.18),0 0 0 1px rgb(var(--vm-accent-rgb) / .04);}
-.startup-card__accent{position:absolute;left:0;top:14px;bottom:14px;width:3px;border-radius:999px;background:rgba(148,163,184,.45);box-shadow:none;transition:background .25s ease,box-shadow .25s ease;}
+.startup-card__accent{position:absolute;left:0;top:14px;bottom:14px;width:3px;border-radius:999px;background:rgba(148,163,184,.45);box-shadow:none;transition:background var(--vm-motion-fast) var(--vm-ease-standard),box-shadow var(--vm-motion-fast) var(--vm-ease-standard);}
 .startup-card[data-state="on"] .startup-card__accent{background:var(--vm-accent);box-shadow:0 0 16px rgb(var(--vm-accent-rgb) / .58);}
 .startup-card__header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;}
 .startup-card__title-wrap{min-width:0;max-width:100%;display:flex;align-items:flex-start;gap:12px;flex:1 1 120px;}
-.startup-card__app-icon{width:42px;height:42px;border-radius:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);color:rgba(211,222,239,.8);transition:background .25s ease,border-color .25s ease,color .25s ease,box-shadow .25s ease;}
+.startup-card__app-icon{width:42px;height:42px;border-radius:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);color:rgba(211,222,239,.8);transition:background var(--vm-motion-fast) var(--vm-ease-standard),border-color var(--vm-motion-fast) var(--vm-ease-standard),color var(--vm-motion-fast) var(--vm-ease-standard),box-shadow var(--vm-motion-fast) var(--vm-ease-standard);}
 .startup-card[data-state="on"] .startup-card__app-icon{background:rgb(var(--vm-accent-rgb) / .1);border-color:rgb(var(--vm-accent-rgb) / .22);color:var(--vm-accent);box-shadow:0 0 18px rgb(var(--vm-accent-rgb) / .08);}
 .startup-card__meta{min-width:0;}
 .startup-card__name{font-weight:700;color:#d3deef;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}
@@ -185,13 +185,13 @@
 .startup-actions{display:flex;align-items:center;justify-content:flex-end;gap:10px;flex:0 1 auto;flex-wrap:wrap;max-width:100%;min-width:0;}
 .startup-switch{--knob-x:3px;position:relative;width:96px;height:40px;border:0;padding:0;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;outline:none;flex:0 0 auto;isolation:isolate;}
 .startup-switch:focus-visible{box-shadow:0 0 0 3px rgb(var(--vm-accent-rgb) / .28);}
-.startup-switch__track{position:absolute;inset:0;border-radius:999px;overflow:hidden;background:linear-gradient(135deg,rgba(50,61,78,.92),rgba(18,33,49,.92));border:1px solid rgba(255,255,255,.12);box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 8px 20px rgba(0,0,0,.22);transition:background .32s ease,border-color .32s ease,box-shadow .32s ease;}
+.startup-switch__track{position:absolute;inset:0;border-radius:999px;overflow:hidden;background:linear-gradient(135deg,rgba(50,61,78,.92),rgba(18,33,49,.92));border:1px solid rgba(255,255,255,.12);box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 8px 20px rgba(0,0,0,.22);transition:background 480ms var(--vm-ease-standard),border-color 480ms var(--vm-ease-standard),box-shadow 480ms var(--vm-ease-standard);}
 .startup-switch__track:after{content:"";position:absolute;top:0;bottom:0;width:34px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.24),transparent);opacity:0;animation:startupShimmer 2.4s ease-in-out infinite;}
-.startup-switch__knob{position:absolute;z-index:2;left:3px;top:3px;width:34px;height:34px;border-radius:999px;background:linear-gradient(135deg,#f4fbff,#9fb4c8);display:flex;align-items:center;justify-content:center;color:#122131;box-shadow:0 8px 16px rgba(0,0,0,.32),inset 0 1px 0 rgba(255,255,255,.8);transform:translateX(var(--knob-x));transition:transform .32s cubic-bezier(.2,.85,.25,1.2),background .32s ease,color .32s ease;}
-.startup-switch__icon{position:absolute;font-size:17px;line-height:1;transition:opacity .18s ease,transform .18s ease;}
+.startup-switch__knob{position:absolute;z-index:2;left:3px;top:3px;width:34px;height:34px;border-radius:999px;background:linear-gradient(135deg,#f4fbff,#9fb4c8);display:flex;align-items:center;justify-content:center;color:#122131;box-shadow:0 8px 16px rgba(0,0,0,.32),inset 0 1px 0 rgba(255,255,255,.8);transform:translateX(var(--knob-x));transition:transform 480ms var(--vm-ease-emphasized),background 480ms var(--vm-ease-standard),color var(--vm-motion-fast) var(--vm-ease-standard);}
+.startup-switch__icon{position:absolute;font-size:17px;line-height:1;transition:opacity var(--vm-motion-fast) var(--vm-ease-standard),transform var(--vm-motion-fast) var(--vm-ease-standard);}
 .startup-switch__icon-on{opacity:0;transform:scale(.65) rotate(-45deg);}
 .startup-switch__icon-off{opacity:1;transform:scale(1) rotate(0deg);}
-.startup-switch__label{position:absolute;top:50%;transform:translateY(-50%);z-index:1;font-size:11px;font-weight:800;letter-spacing:.08em;line-height:1;transition:opacity .22s ease,transform .22s ease;color:rgba(211,222,239,.78);}
+.startup-switch__label{position:absolute;top:50%;transform:translateY(-50%);z-index:1;font-size:11px;font-weight:800;letter-spacing:.08em;line-height:1;transition:opacity var(--vm-motion-fast) var(--vm-ease-standard),transform var(--vm-motion-fast) var(--vm-ease-standard);color:rgba(211,222,239,.78);}
 .startup-switch__label-on{left:15px;opacity:0;transform:translateY(-50%) translateX(-4px);color:#06262c;}
 .startup-switch__label-off{right:13px;opacity:1;transform:translateY(-50%) translateX(0);}
 .startup-switch[data-state="on"],.startup-switch[data-on="true"]{--knob-x:56px;animation:startupSwitchPulse .7s ease-out;}
@@ -205,7 +205,7 @@
 .startup-switch:disabled{opacity:.65;cursor:wait;filter:saturate(.65);}
 .system-power-switch{width:106px;height:44px;}
 .system-power-switch.startup-switch[data-on="true"]{--knob-x:62px;}
-.startup-remove-btn{width:38px;height:38px;border-radius:12px;border:1px solid rgba(255,255,255,.1);display:inline-flex;align-items:center;justify-content:center;color:rgba(211,222,239,.72);background:rgba(255,255,255,.04);transition:color .2s ease,border-color .2s ease,background .2s ease,transform .2s ease;}
+.startup-remove-btn{width:38px;height:38px;border-radius:12px;border:1px solid rgba(255,255,255,.1);display:inline-flex;align-items:center;justify-content:center;color:rgba(211,222,239,.72);background:rgba(255,255,255,.04);transition:color var(--vm-motion-fast) var(--vm-ease-standard),border-color var(--vm-motion-fast) var(--vm-ease-standard),background var(--vm-motion-fast) var(--vm-ease-standard),transform var(--vm-motion-fast) var(--vm-ease-standard);}
 .startup-remove-btn:hover{color:#ffb4ab;border-color:rgba(255,180,171,.25);background:rgba(255,180,171,.08);transform:translateY(-1px);}
 .startup-pin-btn--active{color:var(--vm-accent);border-color:rgb(var(--vm-accent-rgb) / .32);background:rgb(var(--vm-accent-rgb) / .12);}
 .startup-pin-btn--active:hover{color:var(--vm-accent-dim);border-color:rgb(var(--vm-accent-rgb) / .42);background:rgb(var(--vm-accent-rgb) / .18);transform:translateY(-1px);}
@@ -319,13 +319,29 @@
         if (needsPowerScripts(e.detail && e.detail.view)) ensurePowerScripts().catch(() => {});
     });
 
+    let viewTransitionEpoch = 0;
+
+    function cssTimeListMax(value) {
+        return String(value || '')
+            .split(',')
+            .map(part => {
+                const text = part.trim();
+                const amount = Number.parseFloat(text);
+                if (!Number.isFinite(amount)) return 0;
+                return text.endsWith('ms') ? amount : amount * 1000;
+            })
+            .reduce((max, value) => Math.max(max, value), 0);
+    }
+
     function showView(name) {
+        const requestId = ++viewTransitionEpoch;
         const views = getViews();
         const next = views[name];
         const current = Object.values(views).find(el => !el.classList.contains('hidden'));
         const reduce = prefersReducedMotion();
 
         const swap = () => {
+            if (requestId !== viewTransitionEpoch) return;
             Object.entries(views).forEach(([key, el]) => el.classList.toggle('hidden', key !== name));
             if (!reduce) staggerIn(next);
             document.dispatchEvent(new CustomEvent('viewchange', { detail: { view: name } }));
@@ -333,17 +349,32 @@
 
         // Ensure deferred tab code is present before the first paint of that tab.
         const afterScripts = () => {
+            if (requestId !== viewTransitionEpoch) return;
             if (reduce || !current || current === next) {
                 swap();
                 return;
             }
             current.classList.add('vm-leaving');
-            // vmLeave runs .24s; swap just after it completes. A timer (not
-            // animationend) avoids bubbled child-animation events ending it early.
-            setTimeout(() => {
+            let settled = false;
+            let fallback = 0;
+            const finishLeave = () => {
+                if (settled) return;
+                settled = true;
+                current.removeEventListener('animationend', onLeaveEnd);
+                clearTimeout(fallback);
                 current.classList.remove('vm-leaving');
                 swap();
-            }, 250);
+            };
+            const onLeaveEnd = (event) => {
+                if (event.target !== current || event.animationName !== 'vmLeave') return;
+                finishLeave();
+            };
+            current.addEventListener('animationend', onLeaveEnd);
+
+            const style = getComputedStyle(current);
+            const animationMs = cssTimeListMax(style.animationDuration)
+                + cssTimeListMax(style.animationDelay);
+            fallback = setTimeout(finishLeave, Math.max(animationMs + 120, 450));
         };
 
         if (needsPowerScripts(name)) {
@@ -882,7 +913,7 @@
         Host.call('minimizeToTray').catch(() => {});
     });
 
-    document.getElementById('side-nav')?.addEventListener('transitionend', (e) => { if (e.target.id === 'side-nav' && e.propertyName === 'width') _sidebarReposition(); }); // Collapsible side rail: re-measure glow after the 280ms width transition
+    document.getElementById('side-nav')?.addEventListener('transitionend', (e) => { if (e.target.id === 'side-nav' && e.propertyName === 'width') _sidebarReposition(); }); // Collapsible side rail: re-measure glow after the width transition
     const _sidebarReposition = () => {
         const activeLink = document.querySelector('#nav-list a.text-secondary-container[data-view]') || getNavLinks()[0];
         if (activeLink) positionIndicator(activeLink);

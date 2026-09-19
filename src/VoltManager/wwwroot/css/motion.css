@@ -1,0 +1,68 @@
+:root {
+  --vm-motion-fast: 280ms;
+  --vm-motion-base: 420ms;
+  --vm-motion-slow: 600ms;
+  --vm-motion-enter: 560ms;
+  --vm-motion-exit: 360ms;
+  --vm-motion-stagger: 80ms;
+  --vm-ease-standard: cubic-bezier(.2,.8,.2,1);
+  --vm-ease-emphasized: cubic-bezier(.16,1,.3,1);
+  --vm-ease-exit: cubic-bezier(.4,0,.2,1);
+}
+
+/* Keep utility-driven micro-interactions responsive, but less abrupt. */
+.transition,
+.transition-all,
+.transition-colors,
+.transition-opacity,
+.transition-transform {
+  transition-duration: var(--vm-motion-fast);
+  transition-timing-function: var(--vm-ease-standard);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .transition,
+  .transition-all,
+  .transition-colors,
+  .transition-opacity,
+  .transition-transform {
+    transition-duration: 0.01ms !important;
+  }
+
+  .welcome-step,
+  .adv-panel > *,
+  .ram-btn-cleaning,
+  .startup-card,
+  .startup-switch,
+  .startup-switch__track::after,
+  .startup-switch__knob,
+  .heavy-app-badge,
+  .keep-awake-badge {
+    animation: none !important;
+  }
+
+  .welcome-dot,
+  .welcome-theme-card,
+  .welcome-theme-check,
+  .vm-tour-hole,
+  .vm-tour-pop,
+  .vm-tour-btn,
+  .vm-tour-skip,
+  .pm-seg,
+  .vm-acc-header,
+  .vm-acc-chevron,
+  .vm-acc-body,
+  .vm-acc-body-inner,
+  .startup-card,
+  .startup-card__accent,
+  .startup-card__app-icon,
+  .startup-switch__track,
+  .startup-switch__knob,
+  .startup-switch__icon,
+  .startup-switch__label,
+  .startup-remove-btn,
+  .heavy-app-option,
+  .app-profile-icon-btn {
+    transition: none !important;
+  }
+}

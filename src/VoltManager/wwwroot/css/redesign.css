@@ -10,29 +10,29 @@
    sequence is always visible (a View-Transitions snapshot would hide the
    incoming stagger). */
 .view.vm-leaving{
-  animation: vmLeave .24s cubic-bezier(.4, 0, .2, 1) both;
+  animation: vmLeave var(--vm-motion-exit) var(--vm-ease-exit) both;
   pointer-events: none;
 }
 @keyframes vmLeave{
-  to{ opacity: 0; transform: scale(.97) translateY(-6px); filter: blur(4px); }
+  to{ opacity: 0; transform: scale(.985) translateY(-3px); filter: blur(2px); }
 }
 
 /* Incoming view/panel wrapper: soft scale/fade in under cascading children. */
 .vm-enter{
-  animation: vmEnter .32s cubic-bezier(.22, 1, .36, 1) both;
+  animation: vmEnter var(--vm-motion-enter) var(--vm-ease-emphasized) both;
 }
 @keyframes vmEnter{
-  from{ opacity: 0; transform: scale(1.015); }
+  from{ opacity: 0; transform: scale(1.008); }
   to{ opacity: 1; transform: none; }
 }
 
 /* Staggered child cascade. --vm-i is set per child in JS. */
 .vm-stagger > *{
-  animation: vmRise .5s cubic-bezier(.22, 1, .36, 1) both;
-  animation-delay: calc(var(--vm-i, 0) * 55ms);
+  animation: vmRise var(--vm-motion-slow) var(--vm-ease-emphasized) both;
+  animation-delay: calc(var(--vm-i, 0) * var(--vm-motion-stagger));
 }
 @keyframes vmRise{
-  from{ opacity: 0; transform: translateY(16px); }
+  from{ opacity: 0; transform: translateY(10px); }
   to{ opacity: 1; transform: none; }
 }
 
@@ -83,15 +83,15 @@
   line-height: 1;
   cursor: pointer;
   white-space: nowrap;
-  transition: background .25s cubic-bezier(.4, 0, .2, 1),
-              border-color .25s cubic-bezier(.4, 0, .2, 1),
-              color .25s cubic-bezier(.4, 0, .2, 1),
-              box-shadow .25s cubic-bezier(.4, 0, .2, 1),
-              transform .15s ease;
+  transition: background var(--vm-motion-exit) var(--vm-ease-standard),
+              border-color var(--vm-motion-exit) var(--vm-ease-standard),
+              color var(--vm-motion-fast) var(--vm-ease-standard),
+              box-shadow var(--vm-motion-exit) var(--vm-ease-standard),
+              transform var(--vm-motion-fast) var(--vm-ease-standard);
 }
 .pm-seg .material-symbols-outlined{ font-size: 20px; flex: 0 0 auto; }
 .pm-seg:hover{ background: rgba(255, 255, 255, .05); color: #d4e4fa; }
-.pm-seg:active{ transform: scale(.97); }
+.pm-seg:active{ transform: scale(.985); }
 .pm-seg.active{
   background: rgba(0, 241, 254, .12);
   border-color: rgba(0, 241, 254, .4);
@@ -135,17 +135,17 @@ html[data-perf-tier="balanced"] .vm-scrim{
 }
 .side-nav{
   width: var(--side-nav-w);
-  transition: width .28s cubic-bezier(.22, 1, .36, 1);
+  transition: width var(--vm-motion-base) var(--vm-ease-standard);
   overflow: hidden;
 }
 .app-main{
   margin-left: var(--side-nav-w);
   min-width: 0;
-  transition: margin-left .28s cubic-bezier(.22, 1, .36, 1);
+  transition: margin-left var(--vm-motion-base) var(--vm-ease-standard);
 }
 .side-nav__header{ min-height: 40px; }
 .side-nav__brand{
-  transition: opacity .18s ease, width .28s ease, margin .28s ease;
+  transition: opacity var(--vm-motion-fast) var(--vm-ease-standard), width var(--vm-motion-base) var(--vm-ease-standard), margin var(--vm-motion-base) var(--vm-ease-standard);
   overflow: hidden;
 }
 .side-nav__toggle{ flex-shrink: 0; }
@@ -155,9 +155,9 @@ html[data-perf-tier="balanced"] .vm-scrim{
 .side-nav #sidebar-version,
 .side-nav .side-nav__brand,
 .side-nav .mt-sm{
-  transition: opacity .16s ease, max-width .28s ease, margin .28s ease, padding .28s ease;
+  transition: opacity var(--vm-motion-fast) var(--vm-ease-standard), max-width var(--vm-motion-base) var(--vm-ease-standard), margin var(--vm-motion-base) var(--vm-ease-standard), padding var(--vm-motion-base) var(--vm-ease-standard);
 }
-/* Keep nav labels single-line: while the 280ms rail width transition runs the
+/* Keep nav labels single-line: while the relaxed rail width transition runs the
    rail is momentarily narrow, and wrapping text would inflate the measured
    link height, misplacing the glowing nav indicator. */
 .side-nav .nav-item span:not(.material-symbols-outlined),

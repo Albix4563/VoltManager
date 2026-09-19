@@ -16,6 +16,7 @@
  */
 (function () {
     if (!window.Host || !Host.available) return;
+    const TOUR_TRANSITION_SETTLE_MS = 520;
 
     // step.view: app view to switch to before showing (home|power|settings).
     // step.el: CSS selector of the element to spotlight (null = centered card).
@@ -76,14 +77,14 @@
 .vm-tour-blocker{position:fixed;inset:0;pointer-events:auto;background:transparent;}
 .vm-tour-hole{position:fixed;top:0;left:0;width:0;height:0;border-radius:14px;
   box-shadow:0 0 0 9999px rgba(5,9,20,.66);border:2px solid var(--vm-accent);
-  pointer-events:none;transition:top .32s cubic-bezier(.2,.8,.2,1),left .32s cubic-bezier(.2,.8,.2,1),width .32s cubic-bezier(.2,.8,.2,1),height .32s cubic-bezier(.2,.8,.2,1),box-shadow .32s ease;}
+  pointer-events:none;transition:top .42s var(--vm-ease-standard),left .42s var(--vm-ease-standard),width .42s var(--vm-ease-standard),height .42s var(--vm-ease-standard),box-shadow .42s var(--vm-ease-standard);}
 .vm-tour-hole[data-glow="true"]{box-shadow:0 0 0 9999px rgba(5,9,20,.66),0 0 22px 2px rgb(var(--vm-accent-rgb) / .45),inset 0 0 14px rgb(var(--vm-accent-rgb) / .25);}
 .vm-tour-pop{position:fixed;top:0;left:0;width:320px;max-width:calc(100vw - 32px);pointer-events:auto;
   background:linear-gradient(135deg,var(--vm-surface-high),var(--vm-surface));
   border:1px solid var(--vm-border);border-radius:18px;padding:18px 18px 14px;
   box-shadow:0 24px 60px rgba(0,0,0,.5),0 0 0 1px rgba(255,255,255,.04),0 0 30px rgb(var(--vm-accent-rgb) / .12);
   backdrop-filter:blur(20px);color:var(--vm-text);opacity:0;transform:translateY(6px) scale(.98);
-  transition:top .28s cubic-bezier(.2,.8,.2,1),left .28s cubic-bezier(.2,.8,.2,1),opacity .22s ease,transform .22s ease;}
+  transition:top .5s var(--vm-ease-standard),left .5s var(--vm-ease-standard),opacity .42s var(--vm-ease-standard),transform .42s var(--vm-ease-emphasized);}
 .vm-tour-pop[data-show="true"]{opacity:1;transform:translateY(0) scale(1);}
 .vm-tour-pop__title{font-size:16px;font-weight:800;letter-spacing:.01em;margin:0 0 6px;color:var(--vm-text);display:flex;align-items:center;gap:8px;}
 .vm-tour-pop__title .material-symbols-outlined{font-size:20px;color:var(--vm-accent);}
@@ -91,13 +92,13 @@
 .vm-tour-pop__foot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:16px;}
 .vm-tour-counter{font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--vm-accent-dim);font-variant-numeric:tabular-nums;}
 .vm-tour-actions{display:flex;align-items:center;gap:8px;}
-.vm-tour-btn{border:0;cursor:pointer;font-size:13px;font-weight:700;border-radius:10px;padding:8px 14px;transition:transform .15s ease,background .2s ease,color .2s ease,border-color .2s ease;line-height:1;}
-.vm-tour-btn:active{transform:scale(.96);}
+.vm-tour-btn{border:0;cursor:pointer;font-size:13px;font-weight:700;border-radius:10px;padding:8px 14px;transition:transform var(--vm-motion-fast) var(--vm-ease-standard),background var(--vm-motion-fast) var(--vm-ease-standard),color var(--vm-motion-fast) var(--vm-ease-standard),border-color var(--vm-motion-fast) var(--vm-ease-standard);line-height:1;}
+.vm-tour-btn:active{transform:scale(.98);}
 .vm-tour-btn--ghost{background:transparent;color:var(--vm-muted);border:1px solid var(--vm-border);}
 .vm-tour-btn--ghost:hover{color:var(--vm-text);border-color:var(--vm-border-strong);background:rgba(255,255,255,.05);}
 .vm-tour-btn--primary{background:linear-gradient(135deg,var(--vm-accent),var(--vm-accent-hover));color:var(--vm-on-accent);box-shadow:0 6px 18px rgb(var(--vm-accent-rgb) / .28);}
 .vm-tour-btn--primary:hover{box-shadow:0 8px 22px rgb(var(--vm-accent-rgb) / .4);}
-.vm-tour-skip{background:transparent;border:0;cursor:pointer;font-size:12px;color:var(--vm-muted);padding:4px 6px;transition:color .2s ease;}
+.vm-tour-skip{background:transparent;border:0;cursor:pointer;font-size:12px;color:var(--vm-muted);padding:4px 6px;transition:color var(--vm-motion-fast) var(--vm-ease-standard);}
 .vm-tour-skip:hover{color:var(--vm-text);}
 #vm-tour-root[data-reduce="true"] .vm-tour-hole,#vm-tour-root[data-reduce="true"] .vm-tour-pop{transition:none;}
         `.trim();
@@ -255,8 +256,8 @@
         if (s.view && s.view !== curView) {
             curView = s.view;
             switchView(s.view);
-            // Let the view-swap animation (~250ms) settle before measuring.
-            setTimeout(() => measureAndPlace(s), 330);
+            // Let the relaxed view-swap animation settle before measuring.
+            setTimeout(() => measureAndPlace(s), TOUR_TRANSITION_SETTLE_MS);
         } else {
             requestAnimationFrame(() => measureAndPlace(s));
         }

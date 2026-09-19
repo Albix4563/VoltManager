@@ -74,7 +74,7 @@ body {
   color: rgba(212,228,250,.74);
   background: rgba(255,255,255,.045);
   cursor: pointer;
-  transition: background .2s ease, border-color .2s ease, color .2s ease, transform .15s ease;
+  transition: background var(--vm-motion-fast) var(--vm-ease-standard), border-color var(--vm-motion-fast) var(--vm-ease-standard), color var(--vm-motion-fast) var(--vm-ease-standard), transform var(--vm-motion-fast) var(--vm-ease-standard);
 }
 
 .widget-action:hover,
@@ -247,7 +247,7 @@ html[data-size=large] .widget-stat strong {
   width: 0;
   border-radius: inherit;
   background: linear-gradient(90deg, var(--vm-accent), var(--vm-accent-dim));
-  transition: width .28s ease;
+  transition: width var(--vm-motion-fast) var(--vm-ease-standard);
 }
 
 .calendar-head,
@@ -376,7 +376,7 @@ html[data-size=large] .power-row strong {
   background: linear-gradient(180deg, rgb(var(--vm-accent-rgb) / .28), rgb(var(--vm-accent-rgb) / .12));
   border: 1px solid rgb(var(--vm-accent-rgb) / .36);
   box-shadow: 0 0 18px rgb(var(--vm-accent-rgb) / .18);
-  transition: transform .22s ease, opacity .18s ease;
+  transition: transform var(--vm-motion-fast) var(--vm-ease-standard), opacity var(--vm-motion-fast) var(--vm-ease-standard);
   pointer-events: none;
   z-index: 0;
 }
@@ -396,7 +396,7 @@ html[data-size=large] .power-row strong {
   background: transparent;
   color: rgba(212,228,250,.72);
   cursor: pointer;
-  transition: color .18s ease, transform .12s ease;
+  transition: color var(--vm-motion-fast) var(--vm-ease-standard), transform var(--vm-motion-fast) var(--vm-ease-standard);
 }
 
 html[data-size=mini] .plan-option {

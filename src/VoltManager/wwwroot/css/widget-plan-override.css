@@ -111,7 +111,7 @@
   font-weight: 700;
   line-height: 1.1;
   cursor: pointer;
-  transition: background .16s ease, border-color .16s ease, color .16s ease, transform .12s ease;
+  transition: background var(--vm-motion-fast) var(--vm-ease-standard), border-color var(--vm-motion-fast) var(--vm-ease-standard), color var(--vm-motion-fast) var(--vm-ease-standard), transform var(--vm-motion-fast) var(--vm-ease-standard);
 }
 
 .widget-override-option:hover,

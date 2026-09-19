@@ -625,7 +625,7 @@
             'position:fixed;bottom:24px;right:24px;z-index:2000;' +
             'border-radius:12px;padding:14px 18px;' +
             'font-size:13px;display:flex;align-items:flex-start;gap:12px;max-width:min(420px,calc(100vw - 48px));' +
-            'overflow-wrap:anywhere;animation:slideInRight 0.3s ease;';
+            'overflow-wrap:anywhere;animation:slideInRight .45s var(--vm-ease-emphasized);';
         toast.innerHTML =
             '<span class="material-symbols-outlined toast-icon" style="font-size:20px;margin-top:1px;">new_releases</span>' +
             '<span style="display:flex;flex-direction:column;gap:6px;min-width:0;">' +
