@@ -37,9 +37,16 @@ internal static class Program
             Commit = TryGitCommit(),
         };
 
-        RunDeterministicChecks(results, options);
-        if (options.Mode is "webview" or "all")
-            RunWebViewChecks(results, options);
+        if (options.Mode == "ui-smoke")
+        {
+            RunUiSmokeChecks(results, options);
+        }
+        else
+        {
+            RunDeterministicChecks(results, options);
+            if (options.Mode is "webview" or "all")
+                RunWebViewChecks(results, options);
+        }
 
         results.CompletedAtUtc = DateTime.UtcNow;
         WriteReport(results, options.OutputDirectory);
@@ -182,6 +189,115 @@ internal static class Program
         if (failure != null)
             report.Checks.Add(new HarnessCheck("webview_interactive", "failed", failure.ToString()));
     }
+
+    private static void RunUiSmokeChecks(HarnessReport report, HarnessOptions options)
+    {
+        string isolatedRoot = Path.Combine(options.OutputDirectory, "isolated-appdata");
+        Environment.SetEnvironmentVariable(ValidationEnvironment.RootVariable, isolatedRoot);
+        Environment.SetEnvironmentVariable(ValidationEnvironment.SuppressPowerVariable, "1");
+        Environment.SetEnvironmentVariable(ValidationEnvironment.RendererVariable, "swiftshader");
+
+        AddCheck(report, "ui_smoke_validation_isolation", () =>
+            Path.GetFullPath(ValidationEnvironment.ApplicationDataRoot) == Path.GetFullPath(isolatedRoot)
+            && ValidationEnvironment.SuppressPowerChanges
+            && ValidationEnvironment.RendererVariant == WebViewRendererVariant.SwiftShader,
+            "isolated appdata, suppressed power mutations, SwiftShader renderer");
+
+        if (!Environment.UserInteractive)
+        {
+            report.Checks.Add(new HarnessCheck("ui_smoke_webview", "failed",
+                "WebView2 UI smoke requires an interactive Windows session"));
+            return;
+        }
+
+        var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
+        Exception? failure = null;
+        var completed = new ManualResetEventSlim();
+        app.Dispatcher.BeginInvoke(async () =>
+        {
+            try { await RunUiSmokeChecksAsync(report, options); }
+            catch (Exception ex) { failure = ex; }
+            finally
+            {
+                completed.Set();
+                app.Shutdown();
+            }
+        });
+        app.Run();
+        completed.Wait();
+
+        if (failure != null)
+            report.Checks.Add(new HarnessCheck("ui_smoke_webview", "failed", failure.ToString()));
+    }
+
+    private static async Task RunUiSmokeChecksAsync(HarnessReport report, HarnessOptions options)
+    {
+        string profileRoot = Path.Combine(options.OutputDirectory, "ui-smoke-profile");
+        Directory.CreateDirectory(profileRoot);
+        var environment = await CoreWebView2Environment.CreateAsync(null, profileRoot,
+            new CoreWebView2EnvironmentOptions(
+                WebViewRuntimeOptions.BrowserArguments(WebViewRendererVariant.SwiftShader)));
+
+        string theme = ReadRepositoryText("src", "VoltManager", "wwwroot", "js", "theme.js");
+        string search = ReadRepositoryText("src", "VoltManager", "wwwroot", "js", "global-search.js");
+        string html = "<!doctype html><html data-theme-color=\"blue\"><head><meta charset=\"utf-8\"></head><body>" +
+            "<button id=\"vm-global-search-button\" type=\"button\">Search</button>" +
+            "<script>window.__voltSmokeErrors=[];" +
+            "window.addEventListener('error',e=>window.__voltSmokeErrors.push(String(e.message||e.error||'error')));" +
+            "window.addEventListener('unhandledrejection',e=>window.__voltSmokeErrors.push(String(e.reason||'rejection')));</script>" +
+            "<script>" + EscapeInlineScript(theme) + "</script>" +
+            "<script>" + EscapeInlineScript(search) + "</script></body></html>";
+
+        await using var surface = new WebViewSurface(environment, "ui-smoke");
+        await surface.OpenHtmlAsync(html);
+
+        const string probeScript = """
+            (() => {
+              const button = document.getElementById('vm-global-search-button');
+              button.click();
+              const dialog = document.getElementById('vm-global-search');
+              const opened = !!dialog && !dialog.classList.contains('hidden') && dialog.getAttribute('aria-hidden') === 'false';
+              const accessible = !!dialog?.querySelector('[role="dialog"]') && !!dialog?.querySelector('[role="listbox"]');
+              document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+              const closed = !!dialog && dialog.classList.contains('hidden') && dialog.getAttribute('aria-hidden') === 'true';
+              const palette = {
+                background:'#101010', surface:'#202020', surfaceElevated:'#303030', border:'#404040',
+                text:'#ffffff', mutedText:'#aaaaaa', primary:'#ff0000', secondary:'#cc0000',
+                hover:'#ee0000', onPrimary:'#000000'
+              };
+              const applied = window.VoltTheme.apply('red', palette);
+              return {
+                opened, closed, accessible, applied,
+                theme: document.documentElement.dataset.themeColor,
+                accent: getComputedStyle(document.documentElement).getPropertyValue('--vm-accent').trim(),
+                errors: window.__voltSmokeErrors.slice()
+              };
+            })()
+            """;
+        string json = await surface.ExecuteAsync(probeScript).WaitAsync(TimeSpan.FromSeconds(10));
+        var probe = JsonSerializer.Deserialize<UiSmokeProbe>(json,
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        bool passed = probe is not null
+            && probe.Opened && probe.Closed && probe.Accessible
+            && probe.Applied == "red" && probe.Theme == "red" && probe.Accent == "#ff0000"
+            && probe.Errors.Length == 0;
+        report.Checks.Add(new HarnessCheck("ui_smoke_webview", passed ? "passed" : "failed",
+            probe is null
+                ? "WebView2 returned no probe result"
+                : $"search={probe.Opened}/{probe.Closed}; accessible={probe.Accessible}; " +
+                  $"theme={probe.Theme}; accent={probe.Accent}; errors={probe.Errors.Length}"));
+    }
+
+    private static string ReadRepositoryText(params string[] segments)
+    {
+        string path = Path.Combine(new[] { Directory.GetCurrentDirectory() }.Concat(segments).ToArray());
+        if (!File.Exists(path))
+            throw new FileNotFoundException("Required UI smoke asset was not found", path);
+        return File.ReadAllText(path);
+    }
+
+    private static string EscapeInlineScript(string script)
+        => script.Replace("</script", "<\\/script", StringComparison.OrdinalIgnoreCase);
 
     private static async Task RunWebViewChecksAsync(HarnessReport report, HarnessOptions options)
     {
@@ -783,14 +899,16 @@ internal sealed class WebViewSurface : IDisposable, IAsyncDisposable
     public IntPtr WindowHandle => new WindowInteropHelper(_window).Handle;
 
     public async Task OpenAsync()
+        => await OpenHtmlAsync($"<html><body><h1>{_name}</h1><script>window.__ticks=0;</script></body></html>");
+
+    public async Task OpenHtmlAsync(string html)
     {
         _window.Show();
         await _webView.EnsureCoreWebView2Async(_environment);
         var navigation = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         void Completed(object? sender, CoreWebView2NavigationCompletedEventArgs args) => navigation.TrySetResult(args.IsSuccess);
         _webView.CoreWebView2.NavigationCompleted += Completed;
-        string html = Uri.EscapeDataString($"<html><body><h1>{_name}</h1><script>window.__ticks=0;</script></body></html>");
-        _webView.CoreWebView2.Navigate("data:text/html," + html);
+        _webView.CoreWebView2.NavigateToString(html);
         bool ok = await navigation.Task.WaitAsync(TimeSpan.FromSeconds(15));
         _webView.CoreWebView2.NavigationCompleted -= Completed;
         if (!ok) throw new InvalidOperationException("WebView navigation failed: " + _name);
@@ -850,6 +968,17 @@ internal sealed class HarnessHardwareAccess : IHardwareAccess
 }
 
 internal sealed record HarnessCheck(string Name, string Status, string Detail);
+
+internal sealed class UiSmokeProbe
+{
+    public bool Opened { get; set; }
+    public bool Closed { get; set; }
+    public bool Accessible { get; set; }
+    public string Applied { get; set; } = "";
+    public string Theme { get; set; } = "";
+    public string Accent { get; set; } = "";
+    public string[] Errors { get; set; } = Array.Empty<string>();
+}
 
 internal sealed class HarnessReport
 {

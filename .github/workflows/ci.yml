@@ -42,6 +42,9 @@ jobs:
       - name: Run deterministic resource validation
         run: dotnet run --project tests/VoltManager.WindowsHarness/VoltManager.WindowsHarness.csproj -c Release --no-build -- --mode deterministic --output TestResults/resource-validation
 
+      - name: Run WebView2 UI smoke
+        run: dotnet run --project tests/VoltManager.WindowsHarness/VoltManager.WindowsHarness.csproj -c Release --no-build -- --mode ui-smoke --output TestResults/ui-smoke
+
       - name: Run JavaScript regression tests
         shell: pwsh
         run: |
