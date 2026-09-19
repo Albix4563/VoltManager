@@ -12,12 +12,29 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  verify:
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+
   release:
+    needs: verify
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ github.sha }}
+
+      - name: Verify release commit
+        shell: pwsh
+        run: |
+          $head = (git rev-parse HEAD).Trim()
+          $expected = '${{ github.sha }}'
+          if ($head -ne $expected) {
+            throw "Release checkout mismatch: expected $expected, got $head"
+          }
+          Write-Host "Verified release SHA: $head"
 
       - name: Compute version
         id: ver
@@ -56,66 +73,9 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
-      - name: Publish application (self-contained win-x64)
-        run: >
-          dotnet publish src/VoltManager/VoltManager.csproj
-          -c Release -r win-x64 --self-contained true
-          -p:PublishSingleFile=false
-          -p:Version=${{ steps.ver.outputs.version }}
-          -p:AssemblyVersion=${{ steps.ver.outputs.version }}.0
-          -p:FileVersion=${{ steps.ver.outputs.version }}.0
-          -o publish
-
-      - name: Publish external supervisor
+      - name: Build release payload and installer
         shell: pwsh
-        run: |
-          dotnet publish src/VoltManager.Supervisor/VoltManager.Supervisor.csproj `
-            -c Release -r win-x64 --self-contained true `
-            -p:PublishSingleFile=true `
-            -p:Version=${{ steps.ver.outputs.version }} `
-            -p:AssemblyVersion=${{ steps.ver.outputs.version }}.0 `
-            -p:FileVersion=${{ steps.ver.outputs.version }}.0 `
-            -o publish-supervisor
-          ./scripts/Copy-SupervisorPayload.ps1 `
-            -Source publish-supervisor `
-            -Destination publish
-          Remove-Item publish-supervisor -Recurse -Force
-
-      - name: Build jump-list helper (PlanSwitch)
-        shell: pwsh
-        run: |
-          dotnet build src/VoltManager.PlanSwitch/VoltManager.PlanSwitch.csproj `
-            -c Release `
-            -p:Version=${{ steps.ver.outputs.version }} `
-            -p:AssemblyVersion=${{ steps.ver.outputs.version }}.0 `
-            -p:FileVersion=${{ steps.ver.outputs.version }}.0 `
-            -o publish-planswitch
-          Copy-Item publish-planswitch/VoltManagerPlanSwitch.exe publish -Force
-          if (Test-Path publish-planswitch/VoltManagerPlanSwitch.exe.config) {
-            Copy-Item publish-planswitch/VoltManagerPlanSwitch.exe.config publish -Force
-          }
-
-      - name: Download WebView2 bootstrapper
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force src/VoltManager.Setup/Payload | Out-Null
-          Invoke-WebRequest -UseBasicParsing `
-            -Uri 'https://go.microsoft.com/fwlink/p/?LinkId=2124703' `
-            -OutFile 'src/VoltManager.Setup/Payload/MicrosoftEdgeWebview2Setup.exe'
-
-      - name: Refresh Setup project icon
-        shell: pwsh
-        run: |
-          Copy-Item src/VoltManager/Assets/voltmanager.ico src/VoltManager.Setup/Assets/voltmanager.ico -Force
-
-      - name: Zip publish folder into payload
-        shell: pwsh
-        run: |
-          Add-Type -Assembly 'System.IO.Compression.FileSystem'
-          [IO.Compression.ZipFile]::CreateFromDirectory(
-            (Resolve-Path 'publish').Path,
-            (Join-Path (Resolve-Path 'src/VoltManager.Setup/Payload').Path 'payload.zip'),
-            [IO.Compression.CompressionLevel]::Optimal, $false)
+        run: .\build.ps1 -Version '${{ steps.ver.outputs.version }}'
 
       - name: Build portable zip (self-contained, no installer)
         shell: pwsh
@@ -130,25 +90,11 @@ jobs:
             [IO.Compression.CompressionLevel]::Optimal, $false)
           Write-Host "Portable zip: $zip"
 
-      - name: Build Setup project
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force dist | Out-Null
-          dotnet build src/VoltManager.Setup/VoltManager.Setup.csproj `
-            -c Release `
-            -p:Platform=x64 `
-            -p:Version=${{ steps.ver.outputs.version }} `
-            -p:AssemblyVersion=${{ steps.ver.outputs.version }}.0 `
-            -p:FileVersion=${{ steps.ver.outputs.version }}.0 `
-            -o dist/setup-build
-          Copy-Item dist/setup-build/VoltManagerSetup.exe `
-            dist/VoltManagerSetup-${{ steps.ver.outputs.version }}.exe -Force
-          Get-ChildItem dist
-
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.ver.outputs.tag }}
+          target_commitish: ${{ github.sha }}
           name: ${{ steps.ver.outputs.name }}
           prerelease: ${{ steps.ver.outputs.is_preview }}
           generate_release_notes: true

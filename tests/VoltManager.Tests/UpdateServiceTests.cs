@@ -2,7 +2,6 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Sockets;
 using System.IO;
-using System.Reflection;
 using System.Text;
 using VoltManager.Services;
 
@@ -45,9 +44,7 @@ public class UpdateServiceTests
     public async Task Download_times_out_when_response_body_stops_making_progress()
     {
         await using var server = StallingHttpServer.Start(totalBytes: 10_000, initialBytes: 100);
-        var service = CreateService();
-        HttpClient http = GetHttpClient(service);
-        http.Timeout = TimeSpan.FromMilliseconds(150);
+        var service = CreateService(TimeSpan.FromMilliseconds(150));
 
         Task<string> download = service.DownloadUpdateAsync(server.Url);
 
@@ -65,18 +62,13 @@ public class UpdateServiceTests
         }
     }
 
-    private static UpdateService CreateService()
+    private static UpdateService CreateService(TimeSpan? downloadInactivityTimeout = null)
     {
         string settingsPath = Path.Combine(Path.GetTempPath(), $"voltmanager-update-test-{Guid.NewGuid():N}.json");
-        return new UpdateService(new SettingsService(settingsPath));
-    }
-
-    private static HttpClient GetHttpClient(UpdateService service)
-    {
-        FieldInfo field = typeof(UpdateService).GetField("_http", BindingFlags.Instance | BindingFlags.NonPublic)
-            ?? throw new InvalidOperationException("UpdateService._http not found.");
-        return (HttpClient)(field.GetValue(service)
-            ?? throw new InvalidOperationException("UpdateService._http is null."));
+        var settings = new SettingsService(settingsPath);
+        return downloadInactivityTimeout is { } timeout
+            ? new UpdateService(settings, timeout)
+            : new UpdateService(settings);
     }
 
     private static void DeleteIfExists(string path)

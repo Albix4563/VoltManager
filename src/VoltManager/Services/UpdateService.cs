@@ -10,12 +10,19 @@ public class UpdateService
 {
     private readonly SettingsService _settings;
     private readonly HttpClient _http;
+    private readonly TimeSpan _downloadInactivityTimeout;
 
     public event Action<double>? DownloadProgress;
 
     public UpdateService(SettingsService settings)
+        : this(settings, TimeSpan.FromSeconds(10))
+    {
+    }
+
+    internal UpdateService(SettingsService settings, TimeSpan downloadInactivityTimeout)
     {
         _settings = settings;
+        _downloadInactivityTimeout = downloadInactivityTimeout;
         _http = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
         _http.DefaultRequestHeaders.UserAgent.ParseAdd("VoltManager");
         _http.DefaultRequestHeaders.Accept.ParseAdd("application/vnd.github+json");
@@ -320,7 +327,7 @@ public class UpdateService
 
     private async Task<int> ReadDownloadChunkAsync(Stream source, Memory<byte> buffer)
     {
-        using var inactivityTimeout = new CancellationTokenSource(_http.Timeout);
+        using var inactivityTimeout = new CancellationTokenSource(_downloadInactivityTimeout);
         try
         {
             return await source.ReadAsync(buffer, inactivityTimeout.Token);
