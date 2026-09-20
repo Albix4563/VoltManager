@@ -24,16 +24,14 @@ public partial class MainWindow : Window
     private bool _updatePromptOpen;
     private readonly GamingModeReminderService _gamingReminder = new();
     private int _gamingReminderPromptRunning;
-    private int _rendererReloadCount;
     private bool _hostEventsWired;
-    private bool _webViewRecovering;
     private volatile bool _webViewVisible;
     private readonly bool _startMinimized;
     private bool _webViewReady;
     private int _webViewInitRunning;
-    private int _webViewSuspendRunning;
-    private int _webViewSuspendGeneration;
-    private System.Threading.Timer? _trayTeardownTimer;
+    private readonly WebViewTrayCoordinator _webViewTray;
+    private readonly WebViewLifecycleBinding<CoreWebView2> _webViewLifecycleBinding;
+    private bool _startupToastDone;
     // Stable document version for HTTP/V8 code cache across tray reopens (not wall-clock).
     private static readonly string AppDocumentVersion =
         typeof(App).Assembly.GetName().Version?.ToString(3) ?? "1.0.0";
@@ -54,13 +52,24 @@ public partial class MainWindow : Window
         _justUpdated = justUpdated;
         _startMinimized = startMinimized;
         InitializeComponent();
+        _webViewLifecycleBinding = new WebViewLifecycleBinding<CoreWebView2>(
+            AttachWebViewLifecycle,
+            DetachWebViewLifecycle);
+        _webViewTray = new WebViewTrayCoordinator(
+            new DashboardSurface(this),
+            CreateTrayTimer,
+            TrayTeardownDelay);
+        _webViewTray.Start(initiallyVisible: false);
         SourceInitialized += (_, _) => BindGlobalHotkeys();
         ApplyHostTheme(_app.Theme.CurrentTheme);
         // Tray-only launch: keep Chromium unborn until the user opens the window.
         Loaded += async (_, _) =>
         {
             if (!_startMinimized || IsVisible && WindowState != WindowState.Minimized)
+            {
                 await EnsureWebViewAsync();
+                _webViewTray.SetVisible(true);
+            }
         };
         IsVisibleChanged += (_, _) => UpdateWebViewVisibility();
         StateChanged += (_, _) => UpdateWebViewVisibility();
@@ -71,7 +80,8 @@ public partial class MainWindow : Window
             _app.UpdateCoordinator.UpdateAvailable -= OnCoordinatorUpdateAvailable;
             _app.UpdateCoordinator.InstallRequested -= OnCoordinatorInstallRequested;
             _app.UpdateCoordinator.Stop();
-            _trayTeardownTimer?.Dispose();
+            _webViewLifecycleBinding.Dispose();
+            _webViewTray.Dispose();
             _hotkeySource?.RemoveHook(GlobalHotkeyWndProc);
             _globalHotkeys.Dispose();
         };
@@ -242,36 +252,42 @@ public partial class MainWindow : Window
             _hostEventsWired = true;
         }
 
-        core.ProcessFailed += OnWebViewProcessFailed;
-
-        bool startupToastDone = false;
-        core.NavigationCompleted += (_, args) =>
-        {
-            if (!args.IsSuccess) return;
-            _rendererReloadCount = 0; // a clean load means the renderer recovered
-            string src = core.Source ?? "";
-            if (!src.StartsWith("about:", StringComparison.OrdinalIgnoreCase))
-            {
-                if (_navStopwatch.IsRunning)
-                {
-                    Logger.Info($"NavigationCompleted in {_navStopwatch.ElapsedMilliseconds}ms (source={src})");
-                    _navStopwatch.Reset();
-                }
-                LoadUpdateSuspensionUi(core);
-            }
-            if (!_webViewVisible)
-            {
-                TrySuspendWebView();
-                if (!IsVisible && !src.StartsWith("about:", StringComparison.OrdinalIgnoreCase))
-                    ScheduleTrayTeardown();
-            }
-            if (startupToastDone) return;
-            startupToastDone = true;
-            if (_justUpdated)
-                _ = PushUpdatedToastAsync();
-        };
+        _webViewLifecycleBinding.Attach(core);
 
         NavigateToAppDocument(core);
+    }
+
+    private void AttachWebViewLifecycle(CoreWebView2 core)
+    {
+        core.ProcessFailed += OnWebViewProcessFailed;
+        core.NavigationCompleted += OnWebViewNavigationCompleted;
+    }
+
+    private void DetachWebViewLifecycle(CoreWebView2 core)
+    {
+        core.ProcessFailed -= OnWebViewProcessFailed;
+        core.NavigationCompleted -= OnWebViewNavigationCompleted;
+    }
+
+    private void OnWebViewNavigationCompleted(object? sender, CoreWebView2NavigationCompletedEventArgs args)
+    {
+        if (!args.IsSuccess || sender is not CoreWebView2 core) return;
+        _webViewTray.NotifyNavigationSucceeded();
+        string src = core.Source ?? "";
+        if (!src.StartsWith("about:", StringComparison.OrdinalIgnoreCase))
+        {
+            if (_navStopwatch.IsRunning)
+            {
+                Logger.Info($"NavigationCompleted in {_navStopwatch.ElapsedMilliseconds}ms (source={src})");
+                _navStopwatch.Reset();
+            }
+            LoadUpdateSuspensionUi(core);
+        }
+
+        if (_startupToastDone) return;
+        _startupToastDone = true;
+        if (_justUpdated)
+            _ = PushUpdatedToastAsync();
     }
 
     private void NavigateToAppDocument(CoreWebView2 core)
@@ -290,70 +306,28 @@ public partial class MainWindow : Window
 
     private void OnWebViewProcessFailed(object? sender, CoreWebView2ProcessFailedEventArgs e)
     {
-        // Under memory pressure the OS can kill the WebView2 renderer; without this
-        // the dashboard just goes blank and the app looks crashed. Reload so it
-        // self-heals. Cap retries so a renderer that keeps dying can't spin forever.
         Logger.Warn($"WebView2 process failed: {e.ProcessFailedKind} (reason: {e.Reason})");
-        if (Interlocked.Increment(ref _rendererReloadCount) > 5)
-        {
-            Logger.Error("WebView2 renderer kept failing; giving up auto-reload.");
-            return;
-        }
+        WebViewFailureKind kind = e.ProcessFailedKind == CoreWebView2ProcessFailedKind.BrowserProcessExited
+            ? WebViewFailureKind.BrowserProcessExited
+            : WebViewFailureKind.Renderer;
+        _ = _webViewTray.HandleProcessFailureAsync(kind);
+    }
 
-        // Browser process exit kills CoreWebView2; re-create host without stacking
-        // app-level event handlers.
-        if (e.ProcessFailedKind == CoreWebView2ProcessFailedKind.BrowserProcessExited)
-        {
-            if (_webViewRecovering) return;
-            _webViewRecovering = true;
-            _ = Dispatcher.InvokeAsync(async () =>
-            {
-                try
-                {
-                    Logger.Info("Re-initializing WebView2 after browser process exit…");
-                    _webViewEnvironment ??= _app.WebViewEnvironment;
-                    await WebView.EnsureCoreWebView2Async(await _webViewEnvironment);
-                    WireWebViewCore(firstBoot: false);
-                }
-                catch (Exception ex)
-                {
-                    Logger.Error("WebView re-init after browser exit failed", ex);
-                }
-                finally
-                {
-                    _webViewRecovering = false;
-                }
-            });
-            return;
-        }
-
-        _ = Dispatcher.InvokeAsync(() =>
-        {
-            try { WebView.CoreWebView2?.Reload(); }
-            catch (Exception ex) { Logger.Error("WebView reload after crash failed", ex); }
-        });
+    private async Task RecoverWebViewBrowserAsync(CancellationToken cancellationToken)
+    {
+        Logger.Info("Re-initializing WebView2 after browser process exit…");
+        _webViewEnvironment ??= _app.WebViewEnvironment;
+        cancellationToken.ThrowIfCancellationRequested();
+        await WebView.EnsureCoreWebView2Async(await _webViewEnvironment);
+        cancellationToken.ThrowIfCancellationRequested();
+        WireWebViewCore(firstBoot: false);
     }
 
     private void UpdateWebViewVisibility()
     {
         bool visible = IsVisible && WindowState != WindowState.Minimized && !_adaptiveFullscreenCovered;
         if (_webViewVisible == visible) return;
-        _webViewVisible = visible;
-        // TrySuspendAsync requires an invisible controller, including taskbar minimize.
-        WebView.Visibility = visible ? Visibility.Visible : Visibility.Hidden;
-        if (!visible)
-        {
-            if (_webViewReady)
-            {
-                TrySuspendWebView();
-                // Preserve the current page/forms on a normal taskbar minimize.
-                if (!IsVisible) ScheduleTrayTeardown();
-            }
-            return;
-        }
-
-        CancelTrayTeardown();
-        ResumeWebView();
+        _webViewTray.SetVisible(visible);
     }
 
     private void OnMetricsUpdated(MetricsSnapshot metrics)
@@ -630,96 +604,13 @@ public partial class MainWindow : Window
     }
 
     private void HideToTray()
-    {
-        Hide();
-        ShowInTaskbar = false;
-        _webViewVisible = false;
-        // Suspending is the single WebView2 memory policy while hidden. It pauses
-        // script timers/animations and lowers renderer memory without mixing APIs.
-        TrySuspendWebView();
-        ScheduleTrayTeardown();
-    }
+        => _webViewTray.HideToTray();
 
     public void ShowFromTray()
-    {
-        CancelTrayTeardown();
-        ShowInTaskbar = true;
-        Show();
-        WindowState = WindowState.Normal;
-        Activate();
-        _ = Dispatcher.InvokeAsync(async () =>
-        {
-            await EnsureWebViewAsync();
-            ResumeWebView();
-        });
-    }
+        => _ = _webViewTray.ShowFromTrayAsync();
 
-    private async void TrySuspendWebView()
-    {
-        if (Interlocked.Exchange(ref _webViewSuspendRunning, 1) != 0)
-            return;
-        int generation = Interlocked.Increment(ref _webViewSuspendGeneration);
-        try
-        {
-            var core = WebView.CoreWebView2;
-            if (core == null || _webViewVisible) return;
-            // WebView2 requires the controller to be invisible before suspension.
-            WebView.Visibility = Visibility.Hidden;
-            bool suspended = await core.TrySuspendAsync();
-            if (!suspended && !_webViewVisible)
-                Logger.Info("WebView2 declined suspension for the dashboard.");
-            // A restore can overtake an in-flight suspend. The visible document must win.
-            if (_webViewVisible || (generation != Volatile.Read(ref _webViewSuspendGeneration) && _webViewVisible))
-                core.Resume();
-        }
-        catch (Exception ex) { Logger.Warn("WebView TrySuspend failed: " + ex.Message); }
-        finally { Interlocked.Exchange(ref _webViewSuspendRunning, 0); }
-    }
-
-    private void ResumeWebView()
-    {
-        if (!_webViewVisible) return;
-        Interlocked.Increment(ref _webViewSuspendGeneration);
-        try
-        {
-            WebView.Visibility = Visibility.Visible;
-            var core = WebView.CoreWebView2;
-            core?.Resume();
-            if (_webViewReady && core != null &&
-                (string.IsNullOrEmpty(core.Source) || core.Source.StartsWith("about:", StringComparison.OrdinalIgnoreCase)))
-                NavigateToAppDocument(core);
-            PublishFreshAdaptiveStateAfterResume();
-            _app.RefreshHardwareSamplingDemand(requestFresh: true);
-        }
-        catch (Exception ex) { Logger.Warn("WebView restore failed: " + ex.Message); }
-    }
-
-    private void ScheduleTrayTeardown()
-    {
-        _trayTeardownTimer?.Dispose();
-        _trayTeardownTimer = new System.Threading.Timer(_ =>
-        {
-            _ = Dispatcher.InvokeAsync(() =>
-            {
-                if (_webViewVisible || _exiting) return;
-                try
-                {
-                    // Navigate auto-resumes a suspended WebView. Re-suspend immediately
-                    // after dropping DOM/JS heap + most GPU tiles to keep the tray state lean.
-                    WebView.CoreWebView2?.Navigate("about:blank");
-                    TrySuspendWebView();
-                    Logger.Info("WebView blanked after tray park.");
-                }
-                catch (Exception ex) { Logger.Warn("Tray WebView teardown failed: " + ex.Message); }
-            });
-        }, null, TrayTeardownDelay, Timeout.InfiniteTimeSpan);
-    }
-
-    private void CancelTrayTeardown()
-    {
-        _trayTeardownTimer?.Dispose();
-        _trayTeardownTimer = null;
-    }
+    private static IDisposable CreateTrayTimer(TimeSpan delay, Action callback)
+        => new System.Threading.Timer(_ => callback(), null, delay, Timeout.InfiniteTimeSpan);
 
     /// <summary>Applies localized strings to tray menu items with x:Name in XAML.</summary>
     private void LocalizeTrayMenu()
@@ -956,6 +847,108 @@ public partial class MainWindow : Window
             return $"{actionName} {_app.Loc.T("Tray_ScheduledAt")} {state.DailyTime}";
 
         return actionName;
+    }
+
+    private sealed class DashboardSurface : IDashboardSurface
+    {
+        private readonly MainWindow _owner;
+
+        public DashboardSurface(MainWindow owner) => _owner = owner;
+
+        public bool IsVisible => _owner._webViewVisible;
+
+        public void HideWindow() => Run(() =>
+        {
+            _owner.Hide();
+            _owner.ShowInTaskbar = false;
+        });
+
+        public void ShowAndActivateWindow() => Run(() =>
+        {
+            _owner.ShowInTaskbar = true;
+            _owner.Show();
+            _owner.WindowState = WindowState.Normal;
+            _owner.Activate();
+        });
+
+        public Task EnsureWebViewAsync(CancellationToken cancellationToken)
+            => RunAsync(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                await _owner.EnsureWebViewAsync();
+                cancellationToken.ThrowIfCancellationRequested();
+            });
+
+        public void SetWebViewVisible(bool visible) => Run(() =>
+        {
+            _owner._webViewVisible = visible;
+            _owner.WebView.Visibility = visible ? Visibility.Visible : Visibility.Hidden;
+        });
+
+        public Task<bool> SuspendAsync(CancellationToken cancellationToken)
+            => RunAsync(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                CoreWebView2? core = _owner.WebView.CoreWebView2;
+                if (core == null || _owner._webViewVisible) return false;
+                _owner.WebView.Visibility = Visibility.Hidden;
+                bool suspended = await core.TrySuspendAsync();
+                cancellationToken.ThrowIfCancellationRequested();
+                return suspended;
+            });
+
+        public void Resume() => Run(() =>
+        {
+            if (!_owner._webViewVisible || _owner._exiting) return;
+            _owner.WebView.Visibility = Visibility.Visible;
+            _owner.WebView.CoreWebView2?.Resume();
+        });
+
+        public void NavigateBlank() => Run(() =>
+        {
+            if (_owner._exiting) return;
+            _owner.WebView.CoreWebView2?.Navigate("about:blank");
+        });
+
+        public void NavigateApp() => Run(() =>
+        {
+            if (!_owner._webViewVisible || _owner._exiting) return;
+            CoreWebView2? core = _owner.WebView.CoreWebView2;
+            if (_owner._webViewReady && core != null &&
+                (string.IsNullOrEmpty(core.Source) || core.Source.StartsWith("about:", StringComparison.OrdinalIgnoreCase)))
+                _owner.NavigateToAppDocument(core);
+        });
+
+        public void Reload() => Run(() =>
+        {
+            try { _owner.WebView.CoreWebView2?.Reload(); }
+            catch (Exception ex) { Logger.Error("WebView reload after crash failed", ex); }
+        });
+
+        public Task RecoverBrowserAsync(CancellationToken cancellationToken)
+            => RunAsync(() => _owner.RecoverWebViewBrowserAsync(cancellationToken));
+
+        public void PublishFreshState() => Run(() =>
+        {
+            _owner.PublishFreshAdaptiveStateAfterResume();
+            _owner._app.RefreshHardwareSamplingDemand(requestFresh: true);
+        });
+
+        private void Run(Action action)
+        {
+            if (_owner.Dispatcher.CheckAccess()) action();
+            else _owner.Dispatcher.Invoke(action);
+        }
+
+        private Task RunAsync(Func<Task> action)
+            => _owner.Dispatcher.CheckAccess()
+                ? action()
+                : _owner.Dispatcher.InvokeAsync(action).Task.Unwrap();
+
+        private Task<T> RunAsync<T>(Func<Task<T>> action)
+            => _owner.Dispatcher.CheckAccess()
+                ? action()
+                : _owner.Dispatcher.InvokeAsync(action).Task.Unwrap();
     }
 
     /// <summary>Navigate WebView to the system/schedule section.</summary>

@@ -176,15 +176,9 @@ public partial class MainWindow
         if (!_adaptiveResourcesEnabled) return;
         bool windowVisible = IsVisible && WindowState != WindowState.Minimized;
         bool visible = windowVisible && !_adaptiveFullscreenCovered;
-        bool wasVisible = _webViewVisible;
         bool active = visible && IsActive;
-        _webViewVisible = visible;
         _adaptiveWindowActive = active;
-        WebView.Visibility = visible ? Visibility.Visible : Visibility.Hidden;
-        if (!visible && windowVisible && _adaptiveFullscreenCovered)
-            TrySuspendWebView();
-        else if (visible && !wasVisible)
-            ResumeWebView();
+        _webViewTray.SetVisible(visible);
         _app.ResourcePressure.SetUiVisible(visible);
         if (visible) _adaptiveUiMetricsPublisher.ResetCadence();
         PushAdaptiveResourceProfile(_app.ResourcePressure.Current);
