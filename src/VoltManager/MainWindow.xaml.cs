@@ -21,9 +21,6 @@ public partial class MainWindow : Window
     private HostBridge? _bridge;
     private bool _exiting;
     private readonly bool _justUpdated;
-    private System.Threading.Timer? _autoUpdateTimer;
-    private int _autoUpdateCheckRunning;
-    private bool _autoUpdateCheckDeferredForProtectedWorkload;
     private bool _updatePromptOpen;
     private readonly GamingModeReminderService _gamingReminder = new();
     private int _gamingReminderPromptRunning;
@@ -71,7 +68,9 @@ public partial class MainWindow : Window
         Closed += (_, _) =>
         {
             _bridge?.Dispose();
-            _autoUpdateTimer?.Dispose();
+            _app.UpdateCoordinator.UpdateAvailable -= OnCoordinatorUpdateAvailable;
+            _app.UpdateCoordinator.InstallRequested -= OnCoordinatorInstallRequested;
+            _app.UpdateCoordinator.Stop();
             _trayTeardownTimer?.Dispose();
             _hotkeySource?.RemoveHook(GlobalHotkeyWndProc);
             _globalHotkeys.Dispose();
@@ -98,6 +97,8 @@ public partial class MainWindow : Window
             _bridge?.PushEvent(BridgeEventNames.LanguageChanged, new { language = code, locale = culture.Name });
         });
         _app.HeavyApps.ActivityChanged += OnHeavyAppActivityChangedForUpdates;
+        _app.UpdateCoordinator.UpdateAvailable += OnCoordinatorUpdateAvailable;
+        _app.UpdateCoordinator.InstallRequested += OnCoordinatorInstallRequested;
         LocalizeTrayMenu();
         InitializeAutoUpdateLifecycle();
 
@@ -492,121 +493,48 @@ public partial class MainWindow : Window
             _app.Settings.Update(state =>
                 state.AutoUpdates.IntervalMinutes = UpdateSchedulePolicy.AutomaticCheckIntervalMinutes);
 
-        StartAutoUpdateLoop();
-        _ = CheckForUpdatesOnStartupAsync();
+        _app.UpdateCoordinator.Start();
+        _ = _app.UpdateCoordinator.CheckNowAsync(automatic: true);
     }
 
-    private Task CheckForUpdatesOnStartupAsync()
-        => RunAutoUpdateCheckAsync();
-
-    private void StartAutoUpdateLoop()
-    {
-        var interval = GetAutoUpdateInterval();
-        _autoUpdateTimer = new System.Threading.Timer(_ =>
+    private void OnCoordinatorUpdateAvailable(UpdateInfo info)
+        => _ = Dispatcher.InvokeAsync(async () =>
         {
-            _ = Dispatcher.InvokeAsync(async () => await RunAutoUpdateCheckAsync());
-        }, null, interval, interval);
-    }
-
-    private static TimeSpan GetAutoUpdateInterval()
-        => UpdateSchedulePolicy.AutomaticCheckInterval;
-
-    private async Task RunAutoUpdateCheckAsync()
-    {
-        if (Interlocked.Exchange(ref _autoUpdateCheckRunning, 1) == 1) return;
-
-        try
-        {
-            var autoUpdates = _app.Settings.Current.AutoUpdates;
-            if (!UpdateSchedulePolicy.IsAutomaticCheckAllowed(autoUpdates, DateTime.UtcNow)) return;
-
-            if (_app.IsHeavyAppSessionActive())
-            {
-                _autoUpdateCheckDeferredForProtectedWorkload = true;
-                Logger.Info("Automatic update check deferred: protected workload active.");
-                return;
-            }
-
-            var info = await _app.Updates.CheckForUpdatesAsync();
-            if (!info.UpdateAvailable || string.IsNullOrWhiteSpace(info.DownloadUrl)) return;
-            if (IsUpdateSuppressed(info, respectSnooze: true)) return;
-
-            // Never install or interrupt while a game is running.
-            if (_app.IsHeavyAppSessionActive())
-            {
-                if (ShouldInstallUpdatesSilently())
-                    _app.DeferUpdateUntilGameEnds(info.DownloadUrl);
-                Logger.Info("Automatic update deferred: game/heavy app session active.");
-                return;
-            }
-
-            if (ShouldInstallUpdatesSilently())
-                await DownloadAndInstallUpdateAsync(info.DownloadUrl);
+            if (string.IsNullOrWhiteSpace(info.DownloadUrl)) return;
+            if (_app.Settings.Current.AutoUpdates is { Enabled: true, SilentInstallEnabled: true })
+                await PrepareUpdateInstallAsync(info.DownloadUrl);
             else if (IsAppInForeground() && _bridge != null)
                 _bridge.PushEvent(BridgeEventNames.UpdateAvailable, info);
             else
                 await ShowBackgroundUpdatePromptAsync(info);
-        }
-        catch (Exception ex)
-        {
-            // Automatic checks must stay silent when the network or GitHub is unavailable.
-            Logger.Warn("Automatic update check failed: " + ex.Message);
-        }
-        finally
-        {
-            Interlocked.Exchange(ref _autoUpdateCheckRunning, 0);
-        }
-    }
+        });
+
+    private void OnCoordinatorInstallRequested(string path)
+        => _ = Dispatcher.InvokeAsync(() => LaunchDownloadedInstaller(path));
 
     private void OnHeavyAppActivityChangedForUpdates(HeavyAppDetectionState state)
     {
-        // ActivityChanged may fire from the detection timer thread.
-        if (state.Active) return;
-        _ = Dispatcher.InvokeAsync(ResumeDeferredUpdateWorkAsync);
+        _ = Dispatcher.InvokeAsync(async () =>
+            await ResumeDeferredUpdateWorkAsync(state.Active));
     }
 
     private void ResumeDeferredUpdateWorkAfterProtectedSession(VoltManager.Performance.ResourcePressureState state)
     {
-        if (state.ProtectedWorkloadActive) return;
-        _ = Dispatcher.InvokeAsync(ResumeDeferredUpdateWorkAsync);
+        _ = Dispatcher.InvokeAsync(async () =>
+            await ResumeDeferredUpdateWorkAsync(state.ProtectedWorkloadActive));
     }
 
-    private async Task ResumeDeferredUpdateWorkAsync()
+    private async Task ResumeDeferredUpdateWorkAsync(bool active)
     {
-        if (_app.IsHeavyAppSessionActive()) return;
-
-        string? url = _app.TakeDeferredUpdateUrl();
-        if (!string.IsNullOrWhiteSpace(url))
+        try
         {
-            Logger.Info("Protected workload ended — installing deferred update.");
-            await DownloadAndInstallUpdateAsync(url);
-            return;
+            await _app.UpdateCoordinator.NotifyProtectedWorkloadChangedAsync(active);
         }
-
-        if (!_autoUpdateCheckDeferredForProtectedWorkload) return;
-        _autoUpdateCheckDeferredForProtectedWorkload = false;
-        await RunAutoUpdateCheckAsync();
+        catch (Exception ex)
+        {
+            ShowUpdateDownloadError(ex);
+        }
     }
-
-    private bool IsUpdateSuppressed(UpdateInfo info, bool respectSnooze)
-    {
-        var autoUpdates = _app.Settings.Current.AutoUpdates;
-        if (autoUpdates == null) return false;
-
-        if (respectSnooze && autoUpdates.SnoozedUntilUtc is DateTime snoozedUntil && snoozedUntil > DateTime.UtcNow)
-            return true;
-
-        string latest = NormalizeVersion(info.LatestVersion);
-        string skipped = NormalizeVersion(autoUpdates.SkippedVersion);
-        return latest.Length > 0 && skipped.Length > 0 &&
-               string.Equals(latest, skipped, StringComparison.OrdinalIgnoreCase);
-    }
-
-    private bool ShouldInstallUpdatesSilently()
-        => _app.Settings.Current.AutoUpdates is { Enabled: true, SilentInstallEnabled: true };
-
-    private static string NormalizeVersion(string? version)
-        => string.IsNullOrWhiteSpace(version) ? "" : version.Trim().TrimStart('v', 'V');
 
     private bool IsAppInForeground()
         => IsVisible && WindowState != WindowState.Minimized && IsActive;
@@ -625,7 +553,7 @@ public partial class MainWindow : Window
             switch (prompt.Action)
             {
                 case UpdatePromptAction.Install:
-                    await DownloadAndInstallUpdateAsync(info.DownloadUrl!);
+                    await PrepareUpdateInstallAsync(info.DownloadUrl!);
                     break;
                 case UpdatePromptAction.Snooze:
                     SnoozeUpdate(prompt.SnoozeMinutes);
@@ -642,24 +570,26 @@ public partial class MainWindow : Window
     }
 
     private async Task DownloadAndInstallUpdateAsync(string url)
-    {
-        // Last-line guard: never restart the host while a game is running.
-        if (_app.IsHeavyAppSessionActive())
-        {
-            _app.DeferUpdateUntilGameEnds(url);
-            return;
-        }
+        => await PrepareUpdateInstallAsync(url);
 
+    private async Task PrepareUpdateInstallAsync(string url)
+    {
         try
         {
-            string path = await _app.Updates.DownloadUpdateAsync(url);
-            // Game may have started during download — re-check before launching installer.
-            if (_app.IsHeavyAppSessionActive())
-            {
-                _app.DeferUpdateUntilGameEnds(url);
-                return;
-            }
+            await _app.UpdateCoordinator.PrepareInstallAsync(
+                url,
+                (downloadUrl, _) => _app.Updates.DownloadUpdateAsync(downloadUrl));
+        }
+        catch (Exception ex)
+        {
+            ShowUpdateDownloadError(ex);
+        }
+    }
 
+    private void LaunchDownloadedInstaller(string path)
+    {
+        try
+        {
             Process.Start(new ProcessStartInfo(path,
                 $"/update --pid {Environment.ProcessId} --lang {_app.Loc.CurrentLanguage}") { UseShellExecute = true });
             _exiting = true;
@@ -667,29 +597,22 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            Logger.Error("Update download/install failed", ex);
-            MessageBox.Show(_app.Loc.T("Dialog_UpdateDownloadFailed", ex.Message),
-                _app.Loc.T("Dialog_VoltManagerTitle"), MessageBoxButton.OK, MessageBoxImage.Error);
+            ShowUpdateDownloadError(ex);
         }
     }
 
-    private void SnoozeUpdate(int minutes)
+    private void ShowUpdateDownloadError(Exception ex)
     {
-        minutes = UpdateSchedulePolicy.NormalizeSnoozeMinutes(minutes);
-        DateTime snoozedUntilUtc = DateTime.UtcNow.AddMinutes(minutes);
-        _app.Settings.Update(state => state.AutoUpdates.SnoozedUntilUtc = snoozedUntilUtc);
+        Logger.Error("Update download/install failed", ex);
+        MessageBox.Show(_app.Loc.T("Dialog_UpdateDownloadFailed", ex.Message),
+            _app.Loc.T("Dialog_VoltManagerTitle"), MessageBoxButton.OK, MessageBoxImage.Error);
     }
 
+    private void SnoozeUpdate(int minutes)
+        => _app.UpdateCoordinator.Snooze(minutes);
+
     private void SkipUpdateVersion(string? version)
-    {
-        string normalized = NormalizeVersion(version);
-        if (normalized.Length == 0) return;
-        _app.Settings.Update(state =>
-        {
-            state.AutoUpdates.SkippedVersion = normalized;
-            state.AutoUpdates.SnoozedUntilUtc = null;
-        });
-    }
+        => _app.UpdateCoordinator.SkipVersion(version);
 
     private void OnClosingToTray(object? sender, CancelEventArgs e)
     {

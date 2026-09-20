@@ -35,6 +35,7 @@ public partial class App : Application
     public IHardwareAccess HardwareAccess { get; private set; } = null!;
     public MonitorService Monitor { get; private set; } = null!;
     public UpdateService Updates { get; private set; } = null!;
+    public UpdateCoordinator UpdateCoordinator { get; private set; } = null!;
     public StartupService AutoStart { get; private set; } = null!;
     public AutomationEngine Automation { get; private set; } = null!;
     public HeavyAppDetectionService HeavyApps { get; private set; } = null!;
@@ -79,8 +80,6 @@ public partial class App : Application
     private static readonly TimeSpan AppProfileTeardownGrace = TimeSpan.FromSeconds(15);
 
     // Update install deferred while a detected game/heavy app is running.
-    private readonly object _deferredUpdateLock = new();
-    private string? _deferredUpdateUrl;
 
     public PowerPlan? ActivePlan { get; private set; }
     public CpuAutomationState CpuAutomationState { get; private set; } = new();
@@ -208,6 +207,7 @@ public partial class App : Application
         };
         PowerRequests.ActivePlanReasonChanged += state => ActivePlanReasonChanged?.Invoke(state);
         PowerRequests.PowerPlanConflictDetected += notification => PowerPlanConflictDetected?.Invoke(notification);
+        UpdateCoordinator = new UpdateCoordinator(Updates, Settings, IsHeavyAppSessionActive);
         StandbyAutoCleaner = new StandbyAutoCleanerService(Settings,
             protectedWorkloadActive: () => IsHeavyAppSessionActive());
         _powerFlow = new PowerFlowService();
@@ -1048,29 +1048,14 @@ public partial class App : Application
     /// Overwrites any previous deferred URL (latest available installer wins).
     /// </summary>
     public void DeferUpdateUntilGameEnds(string downloadUrl)
-    {
-        if (string.IsNullOrWhiteSpace(downloadUrl)) return;
-        lock (_deferredUpdateLock)
-            _deferredUpdateUrl = downloadUrl.Trim();
-        Logger.Info("Update install deferred until game/heavy app session ends.");
-    }
+        => UpdateCoordinator.DeferInstall(downloadUrl);
 
     /// <summary>Returns and clears a previously deferred update URL, if any.</summary>
     public string? TakeDeferredUpdateUrl()
-    {
-        lock (_deferredUpdateLock)
-        {
-            var url = _deferredUpdateUrl;
-            _deferredUpdateUrl = null;
-            return url;
-        }
-    }
+        => UpdateCoordinator.TakeDeferredInstall();
 
     public bool HasDeferredUpdate()
-    {
-        lock (_deferredUpdateLock)
-            return !string.IsNullOrWhiteSpace(_deferredUpdateUrl);
-    }
+        => UpdateCoordinator.HasDeferredInstall;
 
     public AppPowerProfileState GetAppPowerProfileStatus()
         => PowerRequests != null ? PowerRequests.GetAppPowerProfileStatus() : AppProfiles.Current;
@@ -1187,6 +1172,7 @@ public partial class App : Application
     {
         if (Interlocked.Exchange(ref _serviceDisposalStarted, 1) != 0) return;
         SafeCleanup("power requests", PowerRequests.Dispose);
+        SafeCleanup("update coordinator", UpdateCoordinator.Dispose);
         SafeCleanup("scheduled power action service", ScheduledPowerActions.Dispose);
         SafeCleanup("remote commands", () => _remoteCommands?.Dispose());
         SafeCleanup("standby cleaner", StandbyAutoCleaner.Dispose);
