@@ -35,8 +35,12 @@ public sealed record WidgetStateSnapshot(
 
 public sealed class WidgetManager : IDisposable
 {
-    private readonly App _app;
+    private readonly SettingsService _settings;
+    private readonly ThemeService _theme;
+    private readonly LocalizationService _loc;
     private readonly Func<Task<CoreWebView2Environment>> _envFactory;
+    private readonly Action<bool> _refreshSamplingDemand;
+    private readonly Func<WidgetManager, WidgetItem, Task<CoreWebView2Environment>, Size, WidgetPlacement, WidgetWindow> _windowFactory;
     private readonly Dictionary<string, WidgetWindow> _windows = new(StringComparer.OrdinalIgnoreCase);
     private DisplayService? _displays;
     private readonly Dictionary<string, WidgetPlacement> _lastPlacements = new(StringComparer.OrdinalIgnoreCase);
@@ -51,19 +55,29 @@ public sealed class WidgetManager : IDisposable
 
     public event Action<WidgetStateSnapshot>? StateChanged;
 
-    public WidgetManager(App app, Func<Task<CoreWebView2Environment>> envFactory)
+    public WidgetManager(
+        SettingsService settings,
+        ThemeService theme,
+        LocalizationService loc,
+        Func<Task<CoreWebView2Environment>> environmentFactory,
+        Action<bool> refreshSamplingDemand,
+        Func<WidgetManager, WidgetItem, Task<CoreWebView2Environment>, Size, WidgetPlacement, WidgetWindow> windowFactory)
     {
-        _app = app;
-        _envFactory = envFactory;
+        _settings = settings;
+        _theme = theme;
+        _loc = loc;
+        _envFactory = environmentFactory;
+        _refreshSamplingDemand = refreshSamplingDemand;
+        _windowFactory = windowFactory;
         // Defer DisplayService init: display enumeration queries monitor APIs
         // and subscribes SystemEvents — not needed if widgets are disabled.
         _snapshot = DisplaySnapshot.SyntheticPrimary();
 
-        _app.Settings.SettingsChanged += _ => {
+        _settings.SettingsChanged += _ => {
             PushTheme();
             PushFont();
         };
-        _app.Theme.ThemeChanged += _ => PushTheme();
+        _theme.ThemeChanged += _ => PushTheme();
     }
 
     private Task<CoreWebView2Environment> EnvTask() => _envFactory();
@@ -92,7 +106,7 @@ public sealed class WidgetManager : IDisposable
 
     public WidgetStateSnapshot SetMasterEnabled(bool enabled)
     {
-        _app.Settings.Update(state => state.Widgets.Enabled = enabled);
+        _settings.Update(state => state.Widgets.Enabled = enabled);
         if (!enabled)
         {
             CloseAll();
@@ -107,9 +121,9 @@ public sealed class WidgetManager : IDisposable
     public WidgetStateSnapshot SetEnabled(string type, bool enabled)
     {
         if (!WidgetSettings.IsKnownType(type))
-            throw new ArgumentException(_app.Loc.T("Error_UnknownWidget", type));
+            throw new ArgumentException(_loc.T("Error_UnknownWidget", type));
 
-        _app.Settings.Update(state => state.Widgets.GetOrAdd(type).Enabled = enabled);
+        _settings.Update(state => state.Widgets.GetOrAdd(type).Enabled = enabled);
         return Relayout(save: false);
     }
 
@@ -122,7 +136,7 @@ public sealed class WidgetManager : IDisposable
     public WidgetStateSnapshot SetPinned(string type, bool pinned)
     {
         if (_disposing || !WidgetSettings.IsKnownType(type)) return GetSnapshot();
-        _app.Settings.Update(state => state.Widgets.GetOrAdd(type).Pinned = pinned);
+        _settings.Update(state => state.Widgets.GetOrAdd(type).Pinned = pinned);
 
         if (_windows.TryGetValue(type, out var window))
             window.Topmost = pinned;
@@ -136,14 +150,14 @@ public sealed class WidgetManager : IDisposable
     {
         if (_disposing || !WidgetSettings.IsKnownType(type)) return GetSnapshot();
         string normalizedSize = WidgetSettings.NormalizeSize(size);
-        _app.Settings.Update(state => state.Widgets.GetOrAdd(type).Size = normalizedSize);
+        _settings.Update(state => state.Widgets.GetOrAdd(type).Size = normalizedSize);
         return Relayout(save: false);
     }
 
     public WidgetStateSnapshot ResetPosition(string type)
     {
         if (_disposing || !WidgetSettings.IsKnownType(type)) return GetSnapshot();
-        _app.Settings.Update(state =>
+        _settings.Update(state =>
         {
             var item = state.Widgets.GetOrAdd(type);
             item.OffsetX = 0;
@@ -164,7 +178,7 @@ public sealed class WidgetManager : IDisposable
             throw new ArgumentException("Unknown monitor: " + monitorId);
 
         string normalizedAnchor = WidgetSettings.NormalizeAnchor(anchor);
-        _app.Settings.Update(state =>
+        _settings.Update(state =>
         {
             var item = state.Widgets.GetOrAdd(type);
             item.MonitorId = display.Id;
@@ -188,7 +202,7 @@ public sealed class WidgetManager : IDisposable
         double offsetY = (draggedBoundsPixels.Y - placement.BaseBounds.Y) / sy;
         if (!double.IsFinite(offsetX)) offsetX = 0;
         if (!double.IsFinite(offsetY)) offsetY = 0;
-        _app.Settings.Update(state =>
+        _settings.Update(state =>
         {
             var item = state.Widgets.GetOrAdd(type);
             item.OffsetX = offsetX;
@@ -212,26 +226,26 @@ public sealed class WidgetManager : IDisposable
     {
         _windows.Remove(type);
         _hasOpenWindows = _windows.Count != 0;
-        _app.RefreshHardwareSamplingDemand();
+        _refreshSamplingDemand(false);
     }
 
     internal void PushTheme()
     {
-        var data = _app.Theme.GetWebTheme();
+        var data = _theme.GetWebTheme();
         foreach (var window in _windows.Values.ToList())
             window.PushEvent(BridgeEventNames.ThemeChanged, data);
     }
 
     internal void PushLanguage()
     {
-        var data = new { language = _app.Loc.CurrentLanguage, locale = _app.Loc.CurrentCulture.Name };
+        var data = new { language = _loc.CurrentLanguage, locale = _loc.CurrentCulture.Name };
         foreach (var window in _windows.Values.ToList())
             window.PushEvent(BridgeEventNames.LanguageChanged, data);
     }
 
     internal void PushFont()
     {
-        var data = new { font = _app.Settings.Current.Font };
+        var data = new { font = _settings.Current.Font };
         foreach (var window in _windows.Values.ToList())
             window.PushEvent(BridgeEventNames.FontChanged, data);
     }
@@ -289,7 +303,7 @@ public sealed class WidgetManager : IDisposable
 
     private WidgetSettings GetSettings()
     {
-        var widgets = _app.Settings.Current.Widgets;
+        var widgets = _settings.Current.Widgets;
         widgets.Normalize();
         return widgets;
     }
@@ -374,11 +388,11 @@ public sealed class WidgetManager : IDisposable
         }
 
         if (save || changed)
-            _app.Settings.Update(state => state.Widgets = widgets);
+            _settings.Update(state => state.Widgets = widgets);
 
         var snapshot = BuildSnapshot(placements, widgets);
         StateChanged?.Invoke(snapshot);
-        _app.RefreshHardwareSamplingDemand();
+        _refreshSamplingDemand(false);
         return snapshot;
     }
 
@@ -431,7 +445,7 @@ public sealed class WidgetManager : IDisposable
             return;
         }
 
-        var window = new WidgetWindow(_app, this, item, EnvTask(), GetWidgetSize(item.Type, item.Size), placement);
+        var window = _windowFactory(this, item, EnvTask(), GetWidgetSize(item.Type, item.Size), placement);
         _windows[item.Type] = window;
         _hasOpenWindows = true;
         window.Closed += (_, _) => ForgetWindow(item.Type);

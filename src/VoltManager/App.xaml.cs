@@ -7,6 +7,7 @@ using System.Windows.Shell;
 using System.Windows.Threading;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Win32;
+using VoltManager.Bridge;
 using VoltManager.Localization;
 using VoltManager.Models;
 using VoltManager.Reliability;
@@ -212,7 +213,30 @@ public partial class App : Application
             protectedWorkloadActive: () => IsHeavyAppSessionActive());
         _powerFlow = new PowerFlowService();
         BatteryHistory = new BatteryHistoryService();
-        Widgets = new WidgetManager(this, () => WebViewEnvironment);
+        var widgetRuntime = new WidgetRuntimeContext(
+            Hardware,
+            Power,
+            Settings,
+            Updates,
+            AutoStart,
+            Monitor,
+            Theme,
+            Loc,
+            Awake,
+            FullscreenCoverage,
+            PowerRequests,
+            () => _adaptiveResourcesInitialized ? ResourcePressure.Current : new Performance.ResourcePressureState(),
+            requestFresh => RefreshHardwareSamplingDemand(requestFresh),
+            (webView, subscribeGlobalEvents) => new HostBridge(
+                webView, Hardware, Power, Settings, Updates, AutoStart, Monitor, this, subscribeGlobalEvents));
+        Widgets = new WidgetManager(
+            Settings,
+            Theme,
+            Loc,
+            () => WebViewEnvironment,
+            requestFresh => RefreshHardwareSamplingDemand(requestFresh),
+            (manager, item, environment, size, placement) =>
+                new WidgetWindow(widgetRuntime, manager, item, environment, size, placement));
         ScheduledPowerActions = new ScheduledPowerActionService(Settings, new PowerActionExecutor(), new SystemClock());
         _remoteCommands = new RemoteCommandService();
         Services = new AppServiceGraph(

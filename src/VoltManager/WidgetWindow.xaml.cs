@@ -25,7 +25,7 @@ public partial class WidgetWindow : Window
     private const uint SwpNoZOrder = 0x0004;
     private const int NativeBoundsTolerancePx = 2;
 
-    private readonly App _app;
+    private readonly WidgetRuntimeContext _context;
     private readonly WidgetManager _manager;
     private readonly Task<CoreWebView2Environment> _envTask;
     private readonly string _type;
@@ -45,10 +45,10 @@ public partial class WidgetWindow : Window
     private readonly WebViewResourceController _resourceController = new();
     private static readonly string DocumentVersion = typeof(App).Assembly.GetName().Version?.ToString(3) ?? "1.0.0";
 
-    public WidgetWindow(App app, WidgetManager manager, WidgetItem item,
+    internal WidgetWindow(WidgetRuntimeContext context, WidgetManager manager, WidgetItem item,
         Task<CoreWebView2Environment> envTask, Size size, WidgetPlacement placement)
     {
-        _app = app;
+        _context = context;
         _manager = manager;
         _envTask = envTask;
         _type = item.Type;
@@ -69,7 +69,7 @@ public partial class WidgetWindow : Window
             _visible = IsVisible;
             ApplyEffectiveWebViewVisibility();
             if (HasVisibleResourceSurface) _metricsPublisher.ResetCadence();
-            _app.RefreshHardwareSamplingDemand();
+            _context.RefreshSamplingDemand(false);
         };
         SourceInitialized += (_, _) =>
         {
@@ -78,14 +78,14 @@ public partial class WidgetWindow : Window
             ApplyPlacement(placement, item.Size);
             ApplyRoundedRegion();
             _coverageHwnd = new WindowInteropHelper(this).Handle;
-            _app.FullscreenCoverage.RegisterSurface(_coverageHwnd);
+            _context.FullscreenCoverage.RegisterSurface(_coverageHwnd);
         };
         DpiChanged += (_, _) =>
         {
             ApplyRoundedRegion();
             _manager.RequestRelayout();
         };
-        _app.FullscreenCoverage.CoverageChanged += OnFullscreenCoverageChanged;
+        _context.FullscreenCoverage.CoverageChanged += OnFullscreenCoverageChanged;
     }
 
     internal bool HasVisibleResourceSurface => _visible && !_fullscreenCovered && !_closed;
@@ -121,17 +121,16 @@ public partial class WidgetWindow : Window
             // Widgets are tiny surfaces — keep the renderer on a low memory target.
             try { core.MemoryUsageTargetLevel = CoreWebView2MemoryUsageTargetLevel.Low; } catch { }
 
-            _bridge = new HostBridge(WebView, _app.Hardware, _app.Power, _app.Settings,
-                _app.Updates, _app.AutoStart, _app.Monitor, _app, subscribeGlobalEvents: false);
+            _bridge = _context.CreateBridge(WebView, false);
             _bridge.Attach();
             _bridge.WidgetDragRequested += BeginNativeDrag;
             _bridge.WidgetTopmostRequested += SetTopmostFromWidget;
             _bridge.WidgetCloseRequested += () => _manager.SetEnabled(_type, false);
 
-            if (_type is "usage" or "temps") _app.Monitor.MetricsUpdated += OnMetricsUpdated;
-            if (_type is "power" or "plans") _app.ActivePlanChanged += OnActivePlanChanged;
-            if (_type == "power") _app.CpuAutomationStateChanged += OnCpuAutomationStateChanged;
-            if (_type == "plans") _app.Awake.StateChanged += OnKeepAwakeStateChanged;
+            if (_type is "usage" or "temps") _context.Monitor.MetricsUpdated += OnMetricsUpdated;
+            if (_type is "power" or "plans") _context.PowerRequests.ActivePlanChanged += OnActivePlanChanged;
+            if (_type == "power") _context.PowerRequests.CpuAutomationStateChanged += OnCpuAutomationStateChanged;
+            if (_type == "plans") _context.Awake.StateChanged += OnKeepAwakeStateChanged;
 
             core.ProcessFailed += OnWidgetProcessFailed;
 
@@ -139,15 +138,15 @@ public partial class WidgetWindow : Window
             {
                 if (!args.IsSuccess) return;
                 _metricsPublisher.ResetCadence();
-                OnMetricsUpdated(_app.Monitor.Latest);
-                if (_type is "power" or "plans") OnActivePlanChanged(_app.ActivePlan);
-                if (_type == "power") OnCpuAutomationStateChanged(_app.CpuAutomationState);
-                if (_type == "plans") OnKeepAwakeStateChanged(_app.Awake.GetState());
+                OnMetricsUpdated(_context.Monitor.Latest);
+                if (_type is "power" or "plans") OnActivePlanChanged(_context.PowerRequests.ActivePlan);
+                if (_type == "power") OnCpuAutomationStateChanged(_context.PowerRequests.CpuAutomationState);
+                if (_type == "plans") OnKeepAwakeStateChanged(_context.Awake.GetState());
                 // Initialize this document only: broadcasting on every widget load was O(n²).
-                _bridge?.PushEvent(BridgeEventNames.ThemeChanged, _app.Theme.GetWebTheme());
-                _bridge?.PushEvent(BridgeEventNames.LanguageChanged, new { language = _app.Loc.CurrentLanguage, locale = _app.Loc.CurrentCulture.Name });
-                _bridge?.PushEvent(BridgeEventNames.FontChanged, new { font = _app.Settings.Current.Font });
-                PushResourceProfile(_app.ResourcePressure?.Current ?? new ResourcePressureState());
+                _bridge?.PushEvent(BridgeEventNames.ThemeChanged, _context.Theme.GetWebTheme());
+                _bridge?.PushEvent(BridgeEventNames.LanguageChanged, new { language = _context.Loc.CurrentLanguage, locale = _context.Loc.CurrentCulture.Name });
+                _bridge?.PushEvent(BridgeEventNames.FontChanged, new { font = _context.Settings.Current.Font });
+                PushResourceProfile(_context.ResourcePressureState());
                 // Navigation resumes WebView2 even when coverage was detected before initialization.
                 if (!HasVisibleResourceSurface) TrySuspendWebView();
             };
@@ -273,7 +272,7 @@ public partial class WidgetWindow : Window
     {
         if (_closed || !HasVisibleResourceSurface || _type is not ("usage" or "temps")) return;
         var plan = _resourceController.Resolve(
-            _app.ResourcePressure?.Current.Profile ?? ResourceProfile.Full,
+            _context.ResourcePressureState().Profile,
             visible: true,
             active: false);
         if (_metricsPublisher.TryTake(metrics, plan, DateTime.UtcNow, out var latest) && latest != null)
@@ -311,7 +310,7 @@ public partial class WidgetWindow : Window
             if (_closed || hwnd != _coverageHwnd) return;
             _fullscreenCovered = covered;
             ApplyEffectiveWebViewVisibility();
-            _app.RefreshHardwareSamplingDemand(requestFresh: !covered);
+            _context.RefreshSamplingDemand(!covered);
         });
     }
 
@@ -356,11 +355,11 @@ public partial class WidgetWindow : Window
             WebView.Visibility = Visibility.Visible;
             WebView.CoreWebView2?.Resume();
             _metricsPublisher.ResetCadence();
-            OnMetricsUpdated(_app.Monitor.Latest);
-            PushResourceProfile(_app.ResourcePressure?.Current ?? new ResourcePressureState());
-            if (_type is "power" or "plans") OnActivePlanChanged(_app.ActivePlan);
-            if (_type == "power") OnCpuAutomationStateChanged(_app.CpuAutomationState);
-            if (_type == "plans") OnKeepAwakeStateChanged(_app.Awake.GetState());
+            OnMetricsUpdated(_context.Monitor.Latest);
+            PushResourceProfile(_context.ResourcePressureState());
+            if (_type is "power" or "plans") OnActivePlanChanged(_context.PowerRequests.ActivePlan);
+            if (_type == "power") OnCpuAutomationStateChanged(_context.PowerRequests.CpuAutomationState);
+            if (_type == "plans") OnKeepAwakeStateChanged(_context.Awake.GetState());
         }
         catch (Exception ex) { Logger.Warn($"Widget '{_type}' resume failed: " + ex.Message); }
     }
@@ -436,14 +435,14 @@ public partial class WidgetWindow : Window
     {
         _closed = true;
         _visible = false;
-        try { _app.FullscreenCoverage.CoverageChanged -= OnFullscreenCoverageChanged; } catch { }
-        try { _app.FullscreenCoverage.UnregisterSurface(_coverageHwnd); } catch { }
+        try { _context.FullscreenCoverage.CoverageChanged -= OnFullscreenCoverageChanged; } catch { }
+        try { _context.FullscreenCoverage.UnregisterSurface(_coverageHwnd); } catch { }
         _hwndSource?.RemoveHook(WndProc);
         _hwndSource = null;
-        _app.Monitor.MetricsUpdated -= OnMetricsUpdated;
-        _app.ActivePlanChanged -= OnActivePlanChanged;
-        _app.CpuAutomationStateChanged -= OnCpuAutomationStateChanged;
-        _app.Awake.StateChanged -= OnKeepAwakeStateChanged;
+        _context.Monitor.MetricsUpdated -= OnMetricsUpdated;
+        _context.PowerRequests.ActivePlanChanged -= OnActivePlanChanged;
+        _context.PowerRequests.CpuAutomationStateChanged -= OnCpuAutomationStateChanged;
+        _context.Awake.StateChanged -= OnKeepAwakeStateChanged;
         _bridge?.Dispose();
         _bridge = null;
         try { WebView.Dispose(); }
