@@ -15,6 +15,7 @@ public sealed class ScheduledPowerActionService : IDisposable
 
     private System.Threading.Timer? _relativeTimer;
     private System.Threading.Timer? _dailyTimer;
+    private bool _started;
     private long _generation;
 
     public event Action<ScheduledPowerActionState>? StateChanged;
@@ -148,6 +149,8 @@ public sealed class ScheduledPowerActionService : IDisposable
     {
         lock (_sync)
         {
+            if (_started) return;
+            _started = true;
             var config = _settings.Current.AutoShutdown;
 
             if (!config.Enabled)
@@ -163,9 +166,13 @@ public sealed class ScheduledPowerActionService : IDisposable
     }
 
     public void Dispose()
+        => Stop();
+
+    public void Stop()
     {
         lock (_sync)
         {
+            _started = false;
             CancelTimersUnsafe();
         }
     }

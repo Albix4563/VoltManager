@@ -138,11 +138,16 @@ public class StandbyAutoCleanerService : IDisposable
     }
 
     public void Dispose()
+        => Stop();
+
+    public void Stop()
     {
+        Timer? timer;
         lock (_lock)
         {
-            _timer?.Dispose();
+            timer = _timer;
             _timer = null;
         }
+        timer?.Dispose();
     }
 }

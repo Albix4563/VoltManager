@@ -91,26 +91,12 @@ public partial class App
         // Widget windows and the application mutex are dispatcher/thread-affine.
         // Run them on the owning UI thread; the timer above remains the hard limit.
         TryInlineCleanup("widgets", () => Widgets?.Dispose());
+        TryInlineCleanup("application lifecycle", () => _applicationLifecycle?.Dispose());
         TryInlineCleanup("mutex", ReleaseApplicationMutex);
 
         var steps = new[]
         {
-            new CleanupStep("scheduled power action service", () => ScheduledPowerActions?.Dispose()),
-            new CleanupStep("metrics handler", () =>
-            {
-                if (Monitor != null)
-                    Monitor.MetricsUpdated -= OnMetricsSampled;
-            }),
-            new CleanupStep("plan poll timer", () => _planPollTimer?.Dispose()),
-            new CleanupStep("battery history timer", () => _batteryHistoryTimer?.Dispose()),
-            new CleanupStep("monitor", () => Monitor?.Dispose()),
-            new CleanupStep("hardware access", () => HardwareAccess?.Dispose()),
-            new CleanupStep("fullscreen coverage", () => FullscreenCoverage?.Dispose()),
-            new CleanupStep("heavy apps", () => HeavyApps?.Dispose()),
-            new CleanupStep("app profiles", () => AppProfiles?.Dispose()),
-            new CleanupStep("keep awake", () => Awake?.Dispose()),
-            new CleanupStep("standby cleaner", () => StandbyAutoCleaner?.Dispose()),
-            new CleanupStep("remote commands", () => _remoteCommands?.Dispose()),
+            new CleanupStep("application services", DisposeApplicationServices),
             new CleanupStep("show wait", () => _showWait?.Unregister(null)),
             new CleanupStep("show event", () => _showEvent?.Dispose()),
         };

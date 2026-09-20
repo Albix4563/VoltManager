@@ -23,6 +23,10 @@ public partial class App : Application
     private EventWaitHandle? _showEvent;
     private RegisteredWaitHandle? _showWait;
     private RemoteCommandService? _remoteCommands;
+    private ApplicationLifecycleCoordinator? _applicationLifecycle;
+    public AppServiceGraph Services { get; private set; } = null!;
+    private int _exitStarted;
+    private int _serviceDisposalStarted;
 
     public HardwareInfoService Hardware { get; private set; } = null!;
     public SettingsService Settings { get; private set; } = null!;
@@ -54,8 +58,6 @@ public partial class App : Application
     private PowerFlowService _powerFlow = null!;
     private int _automationTickRunning;
     private TimeSpan _currentSamplingInterval = TimeSpan.FromSeconds(1);
-    private System.Threading.Timer? _planPollTimer;
-    private System.Threading.Timer? _batteryHistoryTimer;
     private MainWindow? _mainWindow;
     private bool _heavyAppPlanSessionActive;
     private PlanId? _planBeforeHeavyAppSession;
@@ -167,7 +169,6 @@ public partial class App : Application
         HardwareAccess = new DeferredHardwareAccess(() =>
             (IHardwareAccess?)HardwareServiceClient.TryStart() ?? new HardwareAccessCoordinator());
         Monitor = new MonitorService(HardwareAccess);
-        SystemEvents.PowerModeChanged += OnSystemPowerModeChanged;
         Mark("MonitorService");
         Updates = new UpdateService(Settings);
         AutoStart = new StartupService();
@@ -179,7 +180,6 @@ public partial class App : Application
             if (!state.ProtectedWorkloadActive) return new HashSet<int>();
             return state.ProtectedProcesses.Select(process => process.ProcessId).ToHashSet();
         });
-        FullscreenCoverage.Start();
         AppProfiles = new AppPowerProfileService(Settings);
         PowerSourcePlans = new PowerSourcePlanService(Settings);
         ThermalGuard = new ThermalGuardService(Settings);
@@ -208,39 +208,21 @@ public partial class App : Application
         };
         PowerRequests.ActivePlanReasonChanged += state => ActivePlanReasonChanged?.Invoke(state);
         PowerRequests.PowerPlanConflictDetected += notification => PowerPlanConflictDetected?.Invoke(notification);
-        PowerRequests.Start();
-        Settings.SettingsChanged += _ =>
-        {
-            UpdateSamplingPeriod();
-            RefreshHardwareSamplingDemand();
-        };
         StandbyAutoCleaner = new StandbyAutoCleanerService(Settings,
             protectedWorkloadActive: () => IsHeavyAppSessionActive());
         _powerFlow = new PowerFlowService();
         BatteryHistory = new BatteryHistoryService();
         Widgets = new WidgetManager(this, () => WebViewEnvironment);
-        Monitor.MetricsUpdated += OnMetricsSampled;
-        Monitor.Start(PowerRequests.CurrentSamplingInterval);
-        Mark("Monitor.Start");
-        // Delay heavy process scans to avoid blocking startup: the first scan
-        // enumerates every running process and opens multiple WMI/proc handles.
-        // A 2 second staggered delay leaves the UI responsive before the first tick.
-        HeavyApps.StartDelayed(TimeSpan.FromSeconds(2));
-        AppProfiles.StartDelayed(TimeSpan.FromSeconds(3));
-        StandbyAutoCleaner.StartDelayed(TimeSpan.FromSeconds(5));
-        // Plan poll starts with a 1 s delay so the initial WMI call doesn't race
-        // the monitor's first tick (both query Win32_Processor via WMI).
-        StartPlanPollDelayed(TimeSpan.FromSeconds(1));
         ScheduledPowerActions = new ScheduledPowerActionService(Settings, new PowerActionExecutor(), new SystemClock());
-        ScheduledPowerActions.Start();
-        StartBatteryHistoryLoop();
-
         _remoteCommands = new RemoteCommandService();
-        _remoteCommands.CommandReceived += ApplyRemoteCommand;
-        // Jump-list remote command channel is best-effort: failing to register
-        // listeners must not block the rest of startup.
-        try { _remoteCommands.Start(); }
-        catch (Exception ex) { Logger.Error("Remote command listener failed to start", ex); }
+        Services = new AppServiceGraph(
+            Settings, Loc, Theme, Power, Awake, HardwareAccess, Monitor, Updates, AutoStart,
+            Automation, HeavyApps, FullscreenCoverage, AppProfiles, PowerSourcePlans,
+            ThermalGuard, IdlePowerGuard, StandbyAutoCleaner, _powerFlow, BatteryHistory,
+            ScheduledPowerActions, _remoteCommands, PowerRequests, Widgets);
+        _applicationLifecycle = CreateApplicationLifecycleCoordinator();
+        _applicationLifecycle.Start();
+        Mark("ApplicationLifecycle.Start");
 
         // Launched via jump list while closed: apply the command, stay in tray.
         bool startMinimized = e.Args.Contains("--minimized") || startupCommand != null;
@@ -448,32 +430,84 @@ public partial class App : Application
         }
     }
 
-    private void StartPlanPoll()
-    {
-        // Catches external switches (control panel, automation) too; bridge relays to UI.
-        _planPollTimer = new System.Threading.Timer(_ =>
-        {
-            try
+    private ApplicationLifecycleCoordinator CreateApplicationLifecycleCoordinator()
+        => new(new ApplicationLifecycleActions(
+            Attach: () =>
             {
-                PowerRequests.RefreshActivePlanFromSystem(DateTime.UtcNow);
-            }
-            catch (Exception ex) { Logger.Error("Plan poll failed", ex); }
-        }, null, 0, 3000);
+                Monitor.MetricsUpdated += OnMetricsSampled;
+                Settings.SettingsChanged += OnLifecycleSettingsChanged;
+                SystemEvents.PowerModeChanged += OnSystemPowerModeChanged;
+                if (_remoteCommands != null)
+                    _remoteCommands.CommandReceived += ApplyRemoteCommand;
+            },
+            Detach: () =>
+            {
+                Monitor.MetricsUpdated -= OnMetricsSampled;
+                Settings.SettingsChanged -= OnLifecycleSettingsChanged;
+                SystemEvents.PowerModeChanged -= OnSystemPowerModeChanged;
+                if (_remoteCommands != null)
+                    _remoteCommands.CommandReceived -= ApplyRemoteCommand;
+            },
+            StartServices: StartRuntimeServices,
+            StopServices: StopRuntimeServices,
+            CreatePlanPollTimer: CreatePlanPollTimer,
+            CreateBatteryHistoryTimer: CreateBatteryHistoryTimer));
+
+    private void OnLifecycleSettingsChanged(AppSettings _)
+    {
+        UpdateSamplingPeriod();
+        RefreshHardwareSamplingDemand();
     }
 
-    private void StartPlanPollDelayed(TimeSpan delay)
+    private void StartRuntimeServices()
     {
-        // Like StartPlanPoll but delays the first WMI query so it doesn't
-        // compete with the monitor's first tick and other startup work.
-        _planPollTimer = new System.Threading.Timer(_ =>
+        PowerRequests.Start();
+        Monitor.Start(PowerRequests.CurrentSamplingInterval);
+        FullscreenCoverage.Start();
+        HeavyApps.StartDelayed(TimeSpan.FromSeconds(2));
+        AppProfiles.StartDelayed(TimeSpan.FromSeconds(3));
+        StandbyAutoCleaner.StartDelayed(TimeSpan.FromSeconds(5));
+        ScheduledPowerActions.Start();
+        try { _remoteCommands?.Start(); }
+        catch (Exception ex) { Logger.Error("Remote command listener failed to start", ex); }
+    }
+
+    private void StopRuntimeServices()
+    {
+        SafeCleanup("remote commands", () => _remoteCommands?.Stop());
+        SafeCleanup("scheduled power action service", ScheduledPowerActions.Stop);
+        SafeCleanup("standby cleaner", StandbyAutoCleaner.Stop);
+        SafeCleanup("app profiles", AppProfiles.Stop);
+        SafeCleanup("heavy apps", HeavyApps.Stop);
+        SafeCleanup("fullscreen coverage", FullscreenCoverage.Stop);
+        SafeCleanup("monitor", Monitor.Stop);
+        SafeCleanup("power requests", () => PowerRequests.Stop());
+    }
+
+    private IDisposable CreatePlanPollTimer(CancellationToken epoch)
+        => new System.Threading.Timer(_ =>
         {
+            if (_applicationLifecycle?.IsCurrent(epoch) != true) return;
+            try { PowerRequests.RefreshActivePlanFromSystem(DateTime.UtcNow); }
+            catch (Exception ex) { Logger.Error("Plan poll failed", ex); }
+        }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(3));
+
+    private IDisposable CreateBatteryHistoryTimer(CancellationToken epoch)
+        => new System.Threading.Timer(_ =>
+        {
+            if (_applicationLifecycle?.IsCurrent(epoch) != true) return;
             try
             {
-                PowerRequests.RefreshActivePlanFromSystem(DateTime.UtcNow);
+                var state = _powerFlow.GetState();
+                double? temp = Monitor.Latest.CpuTemp ?? Monitor.Latest.GpuTemp;
+                if (_applicationLifecycle?.IsCurrent(epoch) == true)
+                    BatteryHistory.Record(state, temp, DateTime.UtcNow);
             }
-            catch (Exception ex) { Logger.Error("Plan poll failed", ex); }
-        }, null, delay, TimeSpan.FromMilliseconds(3000));
-    }
+            catch (Exception ex)
+            {
+                Logger.Error("Battery history sample failed", ex);
+            }
+        }, null, TimeSpan.FromSeconds(20), TimeSpan.FromSeconds(60));
 
     private void OnMetricsSampled(MetricsSnapshot metrics)
     {
@@ -909,27 +943,6 @@ public partial class App : Application
         return restored ?? current;
     }
 
-    private void StartBatteryHistoryLoop()
-    {
-        // Campiona la batteria ~1/min anche con la finestra in tray, così la cronologia
-        // riflette l'uso reale e non solo i momenti col dashboard aperto. Il servizio
-        // applica il proprio throttle; su desktop senza batteria Record() è un no-op.
-        _batteryHistoryTimer = new System.Threading.Timer(_ =>
-        {
-            try
-            {
-                var state = _powerFlow.GetState();
-                double? temp = Monitor.Latest.CpuTemp ?? Monitor.Latest.GpuTemp;
-                BatteryHistory.Record(state, temp, DateTime.UtcNow);
-            }
-            catch (Exception ex)
-            {
-                // Il campionamento storico non deve mai far crashare l'app.
-                Logger.Error("Battery history sample failed", ex);
-            }
-        }, null, TimeSpan.FromSeconds(20), TimeSpan.FromSeconds(60));
-    }
-
     public KeepAwakeState SetKeepAwake(bool enabled) => Awake.SetEnabled(enabled);
 
     public bool SetManualOverride(
@@ -1160,30 +1173,29 @@ public partial class App : Application
 
     public void ExitApp()
     {
-        // Each step is independent: one failing teardown must not skip the
-        // rest, and above all must not prevent Shutdown().
-        SafeCleanup("scheduled power action service", ScheduledPowerActions.Dispose);
-        SafeCleanup("metrics handler", () => Monitor.MetricsUpdated -= OnMetricsSampled);
-        SafeCleanup("plan poll timer", () => _planPollTimer?.Dispose());
-        SafeCleanup("battery history timer", () => _batteryHistoryTimer?.Dispose());
-        SafeCleanup("power mode handler", () => SystemEvents.PowerModeChanged -= OnSystemPowerModeChanged);
-        SafeCleanup("monitor", Monitor.Dispose);
-        SafeCleanup("hardware access", HardwareAccess.Dispose);
-        SafeCleanup("fullscreen coverage", FullscreenCoverage.Dispose);
-        SafeCleanup("heavy apps", HeavyApps.Dispose);
-        SafeCleanup("app profiles", AppProfiles.Dispose);
-        SafeCleanup("keep awake", Awake.Dispose);
-        SafeCleanup("standby cleaner", StandbyAutoCleaner.Dispose);
+        if (Interlocked.Exchange(ref _exitStarted, 1) != 0) return;
         SafeCleanup("widgets", Widgets.Dispose);
-        SafeCleanup("remote commands", () => _remoteCommands?.Dispose());
+        SafeCleanup("application lifecycle", () => _applicationLifecycle?.Dispose());
+        SafeCleanup("application services", DisposeApplicationServices);
         SafeCleanup("show wait", () => _showWait?.Unregister(null));
         SafeCleanup("show event", () => _showEvent?.Dispose());
-        SafeCleanup("mutex", () =>
-        {
-            _mutex?.ReleaseMutex();
-            _mutex?.Dispose();
-        });
+        SafeCleanup("mutex", ReleaseApplicationMutex);
         Shutdown();
+    }
+
+    private void DisposeApplicationServices()
+    {
+        if (Interlocked.Exchange(ref _serviceDisposalStarted, 1) != 0) return;
+        SafeCleanup("power requests", PowerRequests.Dispose);
+        SafeCleanup("scheduled power action service", ScheduledPowerActions.Dispose);
+        SafeCleanup("remote commands", () => _remoteCommands?.Dispose());
+        SafeCleanup("standby cleaner", StandbyAutoCleaner.Dispose);
+        SafeCleanup("app profiles", AppProfiles.Dispose);
+        SafeCleanup("heavy apps", HeavyApps.Dispose);
+        SafeCleanup("fullscreen coverage", FullscreenCoverage.Dispose);
+        SafeCleanup("monitor", Monitor.Dispose);
+        SafeCleanup("hardware access", HardwareAccess.Dispose);
+        SafeCleanup("keep awake", Awake.Dispose);
     }
 
     private static void SafeCleanup(string what, Action action)

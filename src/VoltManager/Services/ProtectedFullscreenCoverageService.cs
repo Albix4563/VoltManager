@@ -58,6 +58,21 @@ public sealed class ProtectedFullscreenCoverageService : IDisposable
         QueueScan();
     }
 
+    public void Stop()
+    {
+        lock (_gate)
+        {
+            _coalesceTimer.Change(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+            _fallbackTimer.Change(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+            foreach (IntPtr hook in _hooks)
+            {
+                try { UnhookWinEvent(hook); } catch { }
+            }
+            _hooks.Clear();
+            Interlocked.Exchange(ref _scanQueued, 0);
+        }
+    }
+
     public void RegisterSurface(IntPtr hwnd)
     {
         if (hwnd == IntPtr.Zero || _disposed) return;
@@ -243,17 +258,13 @@ public sealed class ProtectedFullscreenCoverageService : IDisposable
 
     public void Dispose()
     {
+        Stop();
         lock (_gate)
         {
             if (_disposed) return;
             _disposed = true;
             _coalesceTimer.Dispose();
             _fallbackTimer.Dispose();
-            foreach (IntPtr hook in _hooks)
-            {
-                try { UnhookWinEvent(hook); } catch { }
-            }
-            _hooks.Clear();
             _surfaces.Clear();
             _coverage.Clear();
         }

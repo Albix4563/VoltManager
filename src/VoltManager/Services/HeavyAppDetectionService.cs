@@ -95,14 +95,27 @@ public sealed class HeavyAppDetectionService : IDisposable
 
     public void Start()
     {
-        _timer = new Timer(_ => ScanSafe(), null, TimeSpan.Zero, ScanInterval);
+        lock (_lock)
+            _timer ??= new Timer(_ => ScanSafe(), null, TimeSpan.Zero, ScanInterval);
     }
 
     /// <summary>Starts detection after <paramref name="delay"/> to avoid
     /// competing with other startup work for process handles and WMI.</summary>
     public void StartDelayed(TimeSpan delay)
     {
-        _timer = new Timer(_ => ScanSafe(), null, delay, ScanInterval);
+        lock (_lock)
+            _timer ??= new Timer(_ => ScanSafe(), null, delay, ScanInterval);
+    }
+
+    public void Stop()
+    {
+        Timer? timer;
+        lock (_lock)
+        {
+            timer = _timer;
+            _timer = null;
+        }
+        timer?.Dispose();
     }
 
     public HeavyAppDetectionState Refresh()
@@ -1440,6 +1453,6 @@ public sealed class HeavyAppDetectionService : IDisposable
 
     public void Dispose()
     {
-        _timer?.Dispose();
+        Stop();
     }
 }

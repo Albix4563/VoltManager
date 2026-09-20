@@ -188,8 +188,24 @@ public class MonitorService : IDisposable
 
     public void Start(TimeSpan? interval = null)
     {
-        _interval = NormalizeInterval(interval ?? _interval);
-        _timer ??= new System.Threading.Timer(_ => Tick(), null, _interval, _interval);
+        lock (_cpuInfoGate)
+        {
+            if (_disposed)
+                throw new ObjectDisposedException(nameof(MonitorService));
+            _interval = NormalizeInterval(interval ?? _interval);
+            _timer ??= new System.Threading.Timer(_ => Tick(), null, _interval, _interval);
+        }
+    }
+
+    public void Stop()
+    {
+        System.Threading.Timer? timer;
+        lock (_cpuInfoGate)
+        {
+            timer = _timer;
+            _timer = null;
+        }
+        timer?.Dispose();
     }
 
     public void SetInterval(TimeSpan interval)
@@ -468,11 +484,12 @@ public class MonitorService : IDisposable
 
     public void Dispose()
     {
+        Stop();
         lock (_cpuInfoGate)
         {
+            if (_disposed) return;
             _disposed = true;
             _cpuInfoReady = false;
-            _timer?.Dispose();
             _cpuCounter?.Dispose();
             _diskCounter?.Dispose();
             _cpuFreqCounter?.Dispose();
