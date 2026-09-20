@@ -4,10 +4,12 @@ import fs from 'node:fs';
 
 const uiPath = new URL('../src/VoltManager/wwwroot/js/update-suspension.js', import.meta.url);
 const mainWindowPath = new URL('../src/VoltManager/MainWindow.xaml.cs', import.meta.url);
+const updateCoordinatorPath = new URL('../src/VoltManager/Services/UpdateCoordinator.cs', import.meta.url);
 const settingsPath = new URL('../src/VoltManager/wwwroot/js/settings.js', import.meta.url);
 
 const uiSource = fs.readFileSync(uiPath, 'utf8');
 const mainWindowSource = fs.readFileSync(mainWindowPath, 'utf8');
+const updateCoordinatorSource = fs.readFileSync(updateCoordinatorPath, 'utf8');
 const settingsSource = fs.readFileSync(settingsPath, 'utf8');
 
 test('update suspension UI exposes exactly the requested day presets', () => {
@@ -34,7 +36,8 @@ test('automatic update lifecycle starts before the minimized-tray branch', () =>
     assert.ok(lifecycleIndex >= 0, 'startup update lifecycle must be initialized');
     assert.ok(minimizedIndex >= 0, 'minimized startup branch must exist');
     assert.ok(lifecycleIndex < minimizedIndex, 'update lifecycle must not wait for WebView/tray restore');
-    assert.match(mainWindowSource, /StartAutoUpdateLoop\(\);\s*_ = CheckForUpdatesOnStartupAsync\(\);/s);
+    assert.match(mainWindowSource, /_app\.UpdateCoordinator\.Start\(\);\s*_ = _app\.UpdateCoordinator\.CheckNowAsync\(automatic: true\);/s);
+    assert.match(updateCoordinatorSource, /UpdateSchedulePolicy\.AutomaticCheckInterval/);
 });
 
 test('main WebView injects the suspension settings module after navigation', () => {

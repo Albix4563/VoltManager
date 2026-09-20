@@ -32,6 +32,7 @@ public partial class MainWindow : Window
     private readonly WebViewTrayCoordinator _webViewTray;
     private readonly WebViewLifecycleBinding<CoreWebView2> _webViewLifecycleBinding;
     private bool _startupToastDone;
+    private int _runtimeStopped;
     // Stable document version for HTTP/V8 code cache across tray reopens (not wall-clock).
     private static readonly string AppDocumentVersion =
         typeof(App).Assembly.GetName().Version?.ToString(3) ?? "1.0.0";
@@ -74,17 +75,7 @@ public partial class MainWindow : Window
         IsVisibleChanged += (_, _) => UpdateWebViewVisibility();
         StateChanged += (_, _) => UpdateWebViewVisibility();
         Closing += OnClosingToTray;
-        Closed += (_, _) =>
-        {
-            _bridge?.Dispose();
-            _app.UpdateCoordinator.UpdateAvailable -= OnCoordinatorUpdateAvailable;
-            _app.UpdateCoordinator.InstallRequested -= OnCoordinatorInstallRequested;
-            _app.UpdateCoordinator.Stop();
-            _webViewLifecycleBinding.Dispose();
-            _webViewTray.Dispose();
-            _hotkeySource?.RemoveHook(GlobalHotkeyWndProc);
-            _globalHotkeys.Dispose();
-        };
+        Closed += (_, _) => StopRuntime();
         // Fires from timer threads; tooltip lives on the UI thread.
         _app.ActivePlanChanged += p => Dispatcher.Invoke(() =>
             TrayIcon.ToolTipText = "VoltManager – " + PlanDisplayName(p));
@@ -508,6 +499,20 @@ public partial class MainWindow : Window
         {
             ShowUpdateDownloadError(ex);
         }
+    }
+
+    internal void StopRuntime()
+    {
+        if (Interlocked.Exchange(ref _runtimeStopped, 1) != 0) return;
+        _bridge?.Dispose();
+        _app.HeavyApps.ActivityChanged -= OnHeavyAppActivityChangedForUpdates;
+        _app.UpdateCoordinator.UpdateAvailable -= OnCoordinatorUpdateAvailable;
+        _app.UpdateCoordinator.InstallRequested -= OnCoordinatorInstallRequested;
+        _app.UpdateCoordinator.Stop();
+        _webViewLifecycleBinding.Dispose();
+        _webViewTray.Dispose();
+        _hotkeySource?.RemoveHook(GlobalHotkeyWndProc);
+        _globalHotkeys.Dispose();
     }
 
     private bool IsAppInForeground()

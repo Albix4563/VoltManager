@@ -23,6 +23,10 @@ const mainWindowHost = readFileSync(
   new URL('../src/VoltManager/MainWindow.xaml.cs', import.meta.url),
   'utf8'
 );
+const webViewTrayCoordinator = readFileSync(
+  new URL('../src/VoltManager/Services/WebViewTrayCoordinator.cs', import.meta.url),
+  'utf8'
+);
 
 test('same profile updates polling on focus and visibility changes without duplicate events', () => {
   const handlers = new Map();
@@ -75,10 +79,11 @@ test('top-process RPC is elastic while safety RPCs remain ungated', () => {
 });
 
 test('WebView lifecycle uses suspend-resume without mixing manual memory target levels', () => {
-  assert.match(mainWindowHost, /TrySuspendWebView\(\)/);
-  assert.match(mainWindowHost, /ResumeWebView\(\)/);
-  assert.doesNotMatch(mainWindowHost, /MemoryUsageTargetLevel/);
-  assert.doesNotMatch(mainWindowHost, /SetWebViewMemoryLevel/);
+  assert.match(mainWindowHost, /_webViewTray\.SetVisible\(visible\)/);
+  assert.match(webViewTrayCoordinator, /await _surface\.SuspendAsync\(epoch\)/);
+  assert.match(webViewTrayCoordinator, /_surface\.Resume\(\)/);
+  assert.doesNotMatch(mainWindowHost + webViewTrayCoordinator, /MemoryUsageTargetLevel/);
+  assert.doesNotMatch(mainWindowHost + webViewTrayCoordinator, /SetWebViewMemoryLevel/);
 });
 
 test('tray lifecycle does not trim the host or WebView working sets', () => {
@@ -86,14 +91,12 @@ test('tray lifecycle does not trim the host or WebView working sets', () => {
 });
 
 test('minimize hides the renderer before suspending and reserves teardown for the tray', () => {
-  const visibility = mainWindowHost.slice(mainWindowHost.indexOf('private void UpdateWebViewVisibility()'),
-    mainWindowHost.indexOf('private void OnMetricsUpdated('));
-  assert.match(visibility, /WebView\.Visibility = visible \? Visibility\.Visible : Visibility\.Hidden;/);
-  assert.match(visibility, /TrySuspendWebView\(\);\s*\/\/[^\n]*\n\s*if \(!IsVisible\) ScheduleTrayTeardown\(\);/);
-  assert.match(mainWindowHost, /WebView\.Visibility = Visibility\.Hidden;[\s\S]*?bool suspended = await core\.TrySuspendAsync\(\);/);
-  assert.match(mainWindowHost, /if \(!suspended && !_webViewVisible\)/);
-  assert.match(mainWindowHost, /private void ResumeWebView\(\)\s*\{\s*if \(!_webViewVisible\) return;/);
-  assert.match(mainWindowHost, /if \(_webViewVisible \|\| _exiting\) return;/);
+  assert.match(mainWindowHost, /private void UpdateWebViewVisibility\(\)[\s\S]*?_webViewTray\.SetVisible\(visible\);/);
+  assert.match(mainWindowHost, /private void HideToTray\(\)\s*=> _webViewTray\.HideToTray\(\);/);
+  assert.match(mainWindowHost, /WebView\.Visibility = visible \? Visibility\.Visible : Visibility\.Hidden;/);
+  assert.match(mainWindowHost, /bool suspended = await core\.TrySuspendAsync\(\);/);
+  assert.match(webViewTrayCoordinator, /HideToTray\(\)[\s\S]*?_surface\.SetWebViewVisible\(false\);[\s\S]*?SuspendHiddenAsync\(epoch\);[\s\S]*?ScheduleTrayTeardown\(epoch\);/);
+  assert.match(webViewTrayCoordinator, /if \(!_lifecycle\.IsCurrent\(epoch\) \|\| IsVisible\(\)\) return;/);
 });
 
 test('idle decorative animations require rich effects, while progress animations stay independent', () => {
