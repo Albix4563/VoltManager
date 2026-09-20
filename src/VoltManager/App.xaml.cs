@@ -39,6 +39,7 @@ public partial class App : Application
     public PowerSourcePlanService PowerSourcePlans { get; private set; } = null!;
     public ThermalGuardService ThermalGuard { get; private set; } = null!;
     public IdlePowerGuardService IdlePowerGuard { get; private set; } = null!;
+    public PowerRequestCoordinator PowerRequests { get; private set; } = null!;
     public StandbyAutoCleanerService StandbyAutoCleaner { get; private set; } = null!;
     public BatteryHistoryService BatteryHistory { get; private set; } = null!;
     public ThemeService Theme { get; private set; } = null!;
@@ -171,11 +172,6 @@ public partial class App : Application
         Updates = new UpdateService(Settings);
         AutoStart = new StartupService();
         Automation = new AutomationEngine();
-        Settings.SettingsChanged += _ =>
-        {
-            UpdateSamplingPeriod();
-            RefreshHardwareSamplingDemand();
-        };
         HeavyApps = new HeavyAppDetectionService(Settings, Monitor.ReadGpu3DByProcess);
         FullscreenCoverage = new ProtectedFullscreenCoverageService(() =>
         {
@@ -188,18 +184,43 @@ public partial class App : Application
         PowerSourcePlans = new PowerSourcePlanService(Settings);
         ThermalGuard = new ThermalGuardService(Settings);
         IdlePowerGuard = new IdlePowerGuardService(Settings);
+        PowerRequests = new PowerRequestCoordinator(
+            Settings,
+            Power,
+            Awake,
+            Automation,
+            AppProfiles,
+            HeavyApps,
+            PowerSourcePlans,
+            ThermalGuard,
+            IdlePowerGuard,
+            () => _adaptiveResourcesInitialized ? ResourcePressure.Current : null);
+        PowerRequests.ActivePlanChanged += plan =>
+        {
+            ActivePlan = plan;
+            ActivePlanChanged?.Invoke(plan);
+        };
+        PowerRequests.ManualOverrideChanged += state => ManualOverrideChanged?.Invoke(state);
+        PowerRequests.CpuAutomationStateChanged += state =>
+        {
+            CpuAutomationState = state;
+            CpuAutomationStateChanged?.Invoke(state);
+        };
+        PowerRequests.ActivePlanReasonChanged += state => ActivePlanReasonChanged?.Invoke(state);
+        PowerRequests.PowerPlanConflictDetected += notification => PowerPlanConflictDetected?.Invoke(notification);
+        PowerRequests.Start();
+        Settings.SettingsChanged += _ =>
+        {
+            UpdateSamplingPeriod();
+            RefreshHardwareSamplingDemand();
+        };
         StandbyAutoCleaner = new StandbyAutoCleanerService(Settings,
             protectedWorkloadActive: () => IsHeavyAppSessionActive());
         _powerFlow = new PowerFlowService();
         BatteryHistory = new BatteryHistoryService();
         Widgets = new WidgetManager(this, () => WebViewEnvironment);
-        var startupNow = DateTime.UtcNow;
-        ClearExpiredManualOverride(startupNow);
-        _planGuard.RefreshManualOverride(Settings.Current.Override, startupNow);
-
-        _currentSamplingInterval = CpuAutomationSampleInterval();
         Monitor.MetricsUpdated += OnMetricsSampled;
-        Monitor.Start(_currentSamplingInterval);
+        Monitor.Start(PowerRequests.CurrentSamplingInterval);
         Mark("Monitor.Start");
         // Delay heavy process scans to avoid blocking startup: the first scan
         // enumerates every running process and opens multiple WMI/proc handles.
@@ -434,13 +455,7 @@ public partial class App : Application
         {
             try
             {
-                var current = Power.GetActivePlan();
-                current = ReassertExpectedPlanIfNeeded(current, DateTime.UtcNow) ?? current;
-                if (current?.Guid != ActivePlan?.Guid)
-                {
-                    ActivePlan = current;
-                    ActivePlanChanged?.Invoke(current);
-                }
+                PowerRequests.RefreshActivePlanFromSystem(DateTime.UtcNow);
             }
             catch (Exception ex) { Logger.Error("Plan poll failed", ex); }
         }, null, 0, 3000);
@@ -454,13 +469,7 @@ public partial class App : Application
         {
             try
             {
-                var current = Power.GetActivePlan();
-                current = ReassertExpectedPlanIfNeeded(current, DateTime.UtcNow) ?? current;
-                if (current?.Guid != ActivePlan?.Guid)
-                {
-                    ActivePlan = current;
-                    ActivePlanChanged?.Invoke(current);
-                }
+                PowerRequests.RefreshActivePlanFromSystem(DateTime.UtcNow);
             }
             catch (Exception ex) { Logger.Error("Plan poll failed", ex); }
         }, null, delay, TimeSpan.FromMilliseconds(3000));
@@ -468,6 +477,12 @@ public partial class App : Application
 
     private void OnMetricsSampled(MetricsSnapshot metrics)
     {
+        if (PowerRequests != null)
+        {
+            PowerRequests.ProcessMetrics(metrics, DateTime.UtcNow);
+            return;
+        }
+
         if (Interlocked.Exchange(ref _automationTickRunning, 1) == 1)
             return;
 
@@ -538,6 +553,12 @@ public partial class App : Application
 
     private void UpdateSamplingPeriod()
     {
+        if (PowerRequests != null)
+        {
+            PowerRequests.UpdateSamplingPeriod(Monitor);
+            return;
+        }
+
         var interval = CpuAutomationSampleInterval();
         if (interval == _currentSamplingInterval)
         {
@@ -917,6 +938,9 @@ public partial class App : Application
         string source = "manual",
         string reasonCode = "manual_override")
     {
+        if (PowerRequests != null)
+            return PowerRequests.SetManualOverride(plan, duration, source, reasonCode);
+
         _appProfilePlanSessionActive = false;
         _planBeforeAppProfileSession = null;
         _appProfileHistoryName = "";
@@ -957,6 +981,12 @@ public partial class App : Application
     /// <summary>Removes any manual override and re-enables automation ("Automatico").</summary>
     public void SetAutomaticMode()
     {
+        if (PowerRequests != null)
+        {
+            PowerRequests.SetAutomaticMode();
+            return;
+        }
+
         Settings.Update(state =>
         {
             state.Override = null;
@@ -972,6 +1002,12 @@ public partial class App : Application
 
     public void ClearManualOverride()
     {
+        if (PowerRequests != null)
+        {
+            PowerRequests.ClearManualOverride();
+            return;
+        }
+
         if (Settings.Current.Override == null) return;
 
         Settings.Update(state => state.Override = null);
@@ -982,13 +1018,17 @@ public partial class App : Application
         PublishActivePlanReason();
     }
 
-    public HeavyAppDetectionState GetHeavyAppStatus() => HeavyApps.Current;
+    public HeavyAppDetectionState GetHeavyAppStatus()
+        => PowerRequests != null ? PowerRequests.GetHeavyAppStatus() : HeavyApps.Current;
 
-    public HeavyAppDetectionState RefreshHeavyAppDetection() => HeavyApps.Refresh();
+    public HeavyAppDetectionState RefreshHeavyAppDetection()
+        => PowerRequests != null ? PowerRequests.RefreshHeavyAppDetection() : HeavyApps.Refresh();
 
     /// <summary>True while a protected game/workload session, including teardown cooldown, is active.</summary>
     public bool IsHeavyAppSessionActive()
-        => (ResourcePressure?.Current.ProtectedWorkloadActive ?? false) || HeavyApps.Current.ProtectedWorkloadActive;
+        => PowerRequests != null
+            ? PowerRequests.IsProtectedWorkloadActive()
+            : (ResourcePressure?.Current.ProtectedWorkloadActive ?? false) || HeavyApps.Current.ProtectedWorkloadActive;
 
     /// <summary>
     /// Queues an update install URL for after the current game session ends.
@@ -1019,12 +1059,17 @@ public partial class App : Application
             return !string.IsNullOrWhiteSpace(_deferredUpdateUrl);
     }
 
-    public AppPowerProfileState GetAppPowerProfileStatus() => AppProfiles.Current;
+    public AppPowerProfileState GetAppPowerProfileStatus()
+        => PowerRequests != null ? PowerRequests.GetAppPowerProfileStatus() : AppProfiles.Current;
 
-    public AppPowerProfileState RefreshAppPowerProfiles() => AppProfiles.Refresh();
+    public AppPowerProfileState RefreshAppPowerProfiles()
+        => PowerRequests != null ? PowerRequests.RefreshAppPowerProfiles() : AppProfiles.Refresh();
 
     public ActivePlanReasonState GetActivePlanReason()
     {
+        if (PowerRequests != null)
+            return PowerRequests.GetActivePlanReason();
+
         var expected = _planGuard.Expectation;
         if (expected != null && expected.Plan == ActivePlan?.PlanId)
             return new ActivePlanReasonState
@@ -1048,10 +1093,15 @@ public partial class App : Application
     }
 
     public PowerSourcePlanState GetPowerSourcePlanState()
-        => PowerSourcePlans.RefreshState(Settings.Current.Override?.IsActive(DateTime.UtcNow) == true);
+        => PowerRequests != null
+            ? PowerRequests.GetPowerSourcePlanState()
+            : PowerSourcePlans.RefreshState(Settings.Current.Override?.IsActive(DateTime.UtcNow) == true);
 
     public PowerSourcePlanState SetPowerSourcePlanSwitch(bool enabled)
     {
+        if (PowerRequests != null)
+            return PowerRequests.SetPowerSourcePlanSwitch(enabled);
+
         PowerSourcePlans.SetEnabled(enabled, Settings.Current.Override?.IsActive(DateTime.UtcNow) == true);
 
         HandlePowerSourcePlans(DateTime.UtcNow);
