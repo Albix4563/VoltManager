@@ -28,11 +28,16 @@ AGENTS.md
 CLAUDE.md
 .claude/
 .codex/
+.superpowers/
 .agents/
 .commandcode/
 mcps/
 pinai/
 .scheduler/
+
+# Local agent planning and UI inspection artifacts
+/docs/superpowers/
+/.codex-webview-*
 
 # Local-only project files
 /tools/
