@@ -35,8 +35,8 @@ test('dense views use the shared rail shell and keep compact navigation responsi
   }
 
   assert.match(css, /\.vm-dense-shell\s*\{[^}]*grid-template-columns\s*:\s*220px\s+minmax\(0,\s*1fr\)/s);
-  assert.match(css, /@media\s*\(max-width:\s*780px\)[\s\S]*\.vm-dense-shell\s*\{[^}]*grid-template-columns\s*:\s*1fr/s);
-  assert.match(css, /@media\s*\(max-width:\s*780px\)[\s\S]*\.vm-subnav\s*\{[^}]*overflow-x\s*:\s*auto/s);
+  assert.match(css, /@media\s*\(max-width:\s*1100px\)[\s\S]*\.vm-dense-shell\s*\{[^}]*grid-template-columns\s*:\s*minmax\(0,\s*1fr\)/s);
+  assert.match(css, /@media\s*\(max-width:\s*1100px\)[\s\S]*\.vm-subnav\s*\{[^}]*overflow-x\s*:\s*auto/s);
 });
 
 test('Power Plans exposes Keep Awake as its own persisted subview', () => {
