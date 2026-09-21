@@ -40,6 +40,7 @@
         const wasHidden = node.classList.contains('hidden');
         const aria = node.getAttribute('aria-hidden');
         target.appendChild(node);
+        node.classList.add('vm-legacy-embedded');
         if (!preserveVisibility) {
             node.classList.remove('hidden');
             node.removeAttribute('aria-hidden');

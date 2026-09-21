@@ -62,15 +62,15 @@
     }
 
     function panel(group, id, html, active) {
-        return `<div class="vm-subview${active ? ' active' : ' hidden'}" id="vm-panel-${group}-${id}"
+        return `<div class="vm-subview vm-ui-group${active ? ' active' : ' hidden'}" id="vm-panel-${group}-${id}"
             data-vm-panel-group="${group}" data-vm-panel="${id}" role="tabpanel"
             aria-labelledby="vm-tab-${group}-${id}">${html}</div>`;
     }
 
     function denseShell(group, items, panels) {
-        return `<div class="vm-dense-shell" data-vm-dense="${group}">
+        return `<div class="vm-dense-shell vm-ui-group" data-vm-dense="${group}">
             <aside class="vm-dense-shell__rail">${subnav(group, items)}</aside>
-            <div class="vm-subview-stack vm-dense-shell__content">${panels}</div>
+            <div class="vm-subview-stack vm-dense-shell__content vm-ui-group">${panels}</div>
         </div>`;
     }
 
@@ -79,9 +79,9 @@
         section.id = api.el('view-' + id) ? 'vm-view-' + id : 'view-' + id;
         section.className = 'view vm-reorg-view flex-1 flex-col hidden';
         section.dataset.vmView = id;
-        section.innerHTML = `<div class="vm-view-heading"><div>
-            <h2 class="text-headline-lg text-on-surface" data-vm-i18n="${title}"></h2>
-            <p class="text-body-lg text-on-surface-variant mt-xs" data-vm-i18n="${subtitle}"></p>
+        section.innerHTML = `<div class="vm-view-heading"><div class="vm-ui-group">
+            <h2 class="vm-view-title text-on-surface" data-vm-i18n="${title}"></h2>
+            <p class="vm-view-subtitle text-on-surface-variant" data-vm-i18n="${subtitle}"></p>
         </div></div>${html}`;
         return section;
     }
@@ -89,7 +89,7 @@
     function overview() {
         return view('overview', 'overview_title', 'overview_subtitle', `
             <div class="vm-overview-grid">
-                <section class="glass-panel rounded-xl p-lg vm-section-card">
+                <section class="vm-ui-panel vm-section-card">
                     <h3 class="vm-section-title"><span class="material-symbols-outlined">info</span><span data-vm-i18n="overview_current_state"></span></h3>
                     <div class="vm-status-grid">
                         ${statusCard('electric_bolt', 'status_plan', 'ov-status-plan')}
@@ -99,7 +99,7 @@
                         ${statusCard('automation', 'status_automation', 'ov-status-automation')}
                     </div>
                 </section>
-                <section class="glass-panel rounded-xl p-lg vm-section-card">
+                <section class="vm-ui-panel vm-section-card">
                     <h3 class="vm-section-title"><span class="material-symbols-outlined">bolt</span><span data-vm-i18n="overview_quick_controls"></span></h3>
                     <div class="vm-quick-grid">
                         ${quick('battery_saver', 'quick_saver', 'saver')}
@@ -111,10 +111,10 @@
                     </div>
                 </section>
             </div>
-            <section class="glass-panel rounded-xl p-lg vm-section-card">
+            <section class="vm-ui-panel vm-section-card">
                 <div class="vm-section-title-row">
                     <h3 class="vm-section-title"><span class="material-symbols-outlined">memory</span><span data-vm-i18n="overview_metrics"></span></h3>
-                    <button type="button" class="btn-ghost rounded-lg py-2 px-3 text-label-md" data-vm-go="monitoring"><span data-vm-i18n="open_monitoring"></span></button>
+                    <button type="button" class="btn-ghost vm-ui-control vm-section-action" data-vm-go="monitoring"><span data-vm-i18n="open_monitoring"></span></button>
                 </div>
                 <div class="vm-compact-metrics">
                     ${metric('developer_board', 'metric_cpu', 'ov-metric-cpu', 'ov-meter-cpu')}
@@ -123,10 +123,10 @@
                     ${metric('hard_drive', 'metric_disk', 'ov-metric-disk', 'ov-meter-disk')}
                 </div>
             </section>
-            <section class="glass-panel rounded-xl p-lg vm-section-card">
+            <section class="vm-ui-panel vm-section-card">
                 <div class="vm-section-title-row">
                     <h3 class="vm-section-title"><span class="material-symbols-outlined">automation</span><span data-vm-i18n="overview_automation"></span></h3>
-                    <button type="button" class="btn-ghost rounded-lg py-2 px-3 text-label-md" data-vm-go="automations"><span data-vm-i18n="open_automations"></span></button>
+                    <button type="button" class="btn-ghost vm-ui-control vm-section-action" data-vm-go="automations"><span data-vm-i18n="open_automations"></span></button>
                 </div>
                 <div class="vm-automation-summary">
                     ${summary('tune', 'auto_cpu_rules', 'ov-auto-rules')}
@@ -144,11 +144,11 @@
                 { id: 'processes', icon: 'process_chart', label: 'tab_processes' },
                 { id: 'temperatures', icon: 'device_thermostat', label: 'tab_temperatures' },
                 { id: 'battery', icon: 'battery_horiz_075', label: 'tab_battery' }
-            ]) + `<div class="vm-subview-stack">
-                ${panel('monitoring', 'hardware', '<div id="vm-monitoring-hardware"></div>', true)}
-                ${panel('monitoring', 'processes', '<div id="vm-monitoring-processes"></div>', false)}
-                ${panel('monitoring', 'temperatures', '<div id="vm-monitoring-temperatures"></div>', false)}
-                ${panel('monitoring', 'battery', '<div id="vm-monitoring-battery" class="vm-stack"></div>', false)}
+            ]) + `<div class="vm-subview-stack vm-ui-group">
+                ${panel('monitoring', 'hardware', '<section class="vm-ui-panel vm-section-card"><div id="vm-monitoring-hardware" class="vm-ui-group"></div></section>', true)}
+                ${panel('monitoring', 'processes', '<section class="vm-ui-panel vm-section-card"><div id="vm-monitoring-processes" class="vm-ui-group"></div></section>', false)}
+                ${panel('monitoring', 'temperatures', '<section class="vm-ui-panel vm-section-card"><div id="vm-monitoring-temperatures" class="vm-ui-group"></div></section>', false)}
+                ${panel('monitoring', 'battery', '<section class="vm-ui-panel vm-section-card"><div id="vm-monitoring-battery" class="vm-stack vm-ui-group"></div></section>', false)}
             </div>`);
     }
 
@@ -161,22 +161,22 @@
                 { id: 'history', icon: 'history', label: 'tab_plan_history' },
                 { id: 'advanced', icon: 'tune', label: 'tab_advanced' }
             ], `
-                ${panel('power-plans', 'active', `<section class="glass-panel rounded-xl p-lg vm-section-card">
-                    <p class="text-body-md text-on-surface-variant mb-md" data-vm-i18n="active_plan_hint"></p><div id="vm-power-active"></div>
+                ${panel('power-plans', 'active', `<section class="vm-ui-panel vm-section-card">
+                    <p class="vm-panel-hint text-on-surface-variant" data-vm-i18n="active_plan_hint"></p><div id="vm-power-active"></div>
                 </section>`, true)}
-                ${panel('power-plans', 'source', `<section class="glass-panel rounded-xl p-lg vm-section-card">
-                    <p class="text-body-md text-on-surface-variant mb-md" data-vm-i18n="power_source_hint"></p>
+                ${panel('power-plans', 'source', `<section class="vm-ui-panel vm-section-card">
+                    <p class="vm-panel-hint text-on-surface-variant" data-vm-i18n="power_source_hint"></p>
                     <div id="power-timeouts-mount"></div><div class="vm-divider"></div>
                     <div id="vm-power-source" class="vm-stack"></div>
                 </section>`, false)}
-                ${panel('power-plans', 'keep-awake', `<section class="glass-panel rounded-xl p-lg vm-section-card">
+                ${panel('power-plans', 'keep-awake', `<section class="vm-ui-panel vm-section-card">
                     <h3 class="vm-section-title"><span class="material-symbols-outlined">bedtime_off</span><span data-vm-i18n="keep_awake_primary"></span></h3>
                     <div id="vm-keep-awake"></div>
                 </section>`, false)}
-                ${panel('power-plans', 'history', `<section class="glass-panel rounded-xl p-lg vm-section-card">
+                ${panel('power-plans', 'history', `<section class="vm-ui-panel vm-section-card">
                     <div id="vm-power-history"></div>
                 </section>`, false)}
-                ${panel('power-plans', 'advanced', `<section class="glass-panel rounded-xl p-lg vm-section-card">
+                ${panel('power-plans', 'advanced', `<section class="vm-ui-panel vm-section-card">
                     <div class="vm-advanced-warning"><span class="material-symbols-outlined">info</span><span data-vm-i18n="advanced_hint"></span></div>
                     <div id="vm-power-advanced"></div>
                 </section>`, false)}
@@ -191,12 +191,14 @@
                 { id: 'gaming', icon: 'sports_esports', label: 'tab_gaming' },
                 { id: 'protections', icon: 'health_and_safety', label: 'tab_protections' }
             ], `
-                ${panel('automations', 'rules', `<div class="vm-rules-summary glass-panel rounded-xl p-md mb-md">
-                    <span class="material-symbols-outlined">rule</span><span data-vm-i18n="rules_summary"></span><strong id="vm-rules-count">--</strong>
-                </div><div id="vm-automation-rules"></div>`, true)}
-                ${panel('automations', 'profiles', '<div id="vm-automation-profiles"></div>', false)}
-                ${panel('automations', 'gaming', '<div id="vm-automation-gaming" class="vm-stack"></div>', false)}
-                ${panel('automations', 'protections', '<div id="vm-automation-protections" class="vm-stack"></div>', false)}
+                ${panel('automations', 'rules', `<section class="vm-ui-panel vm-section-card">
+                    <div class="vm-ui-section vm-rules-summary">
+                        <span class="material-symbols-outlined">rule</span><span data-vm-i18n="rules_summary"></span><strong id="vm-rules-count">--</strong>
+                    </div><div id="vm-automation-rules" class="vm-ui-group"></div>
+                </section>`, true)}
+                ${panel('automations', 'profiles', '<section class="vm-ui-panel vm-section-card"><div id="vm-automation-profiles" class="vm-ui-group"></div></section>', false)}
+                ${panel('automations', 'gaming', '<section class="vm-ui-panel vm-section-card"><div id="vm-automation-gaming" class="vm-stack vm-ui-group"></div></section>', false)}
+                ${panel('automations', 'protections', '<section class="vm-ui-panel vm-section-card"><div id="vm-automation-protections" class="vm-stack vm-ui-group"></div></section>', false)}
             `));
     }
 
@@ -207,9 +209,9 @@
                 { id: 'startup', icon: 'rocket_launch', label: 'tab_startup' },
                 { id: 'memory', icon: 'memory', label: 'tab_memory' }
             ], `
-                ${panel('system-tools', 'scheduled', '<div id="vm-system-scheduled"></div>', true)}
-                ${panel('system-tools', 'startup', '<div id="vm-system-startup"></div>', false)}
-                ${panel('system-tools', 'memory', '<div id="vm-system-memory"></div>', false)}
+                ${panel('system-tools', 'scheduled', '<section class="vm-ui-panel vm-section-card"><div id="vm-system-scheduled" class="vm-ui-group"></div></section>', true)}
+                ${panel('system-tools', 'startup', '<section class="vm-ui-panel vm-section-card"><div id="vm-system-startup" class="vm-ui-group"></div></section>', false)}
+                ${panel('system-tools', 'memory', '<section class="vm-ui-panel vm-section-card"><div id="vm-system-memory" class="vm-ui-group"></div></section>', false)}
             `));
     }
 
@@ -219,7 +221,7 @@
                 <button type="button" class="vm-widget-filter active" data-widget-filter="all" aria-selected="true"><span data-vm-i18n="filter_all"></span></button>
                 <button type="button" class="vm-widget-filter" data-widget-filter="active" aria-selected="false"><span data-vm-i18n="filter_active"></span></button>
                 <button type="button" class="vm-widget-filter" data-widget-filter="disabled" aria-selected="false"><span data-vm-i18n="filter_disabled"></span></button>
-            </div><div id="vm-widgets-content"></div>`);
+            </div><section class="vm-ui-panel vm-section-card"><div id="vm-widgets-content" class="vm-ui-group"></div></section>`);
     }
 
     function settings() {
@@ -231,20 +233,20 @@
                 { id: 'updates', icon: 'system_update', label: 'tab_updates' },
                 { id: 'info', icon: 'info', label: 'tab_info' }
             ], `
-                ${panel('settings', 'general', `<section class="glass-panel rounded-xl p-lg vm-section-card">
-                    <p class="text-body-md text-on-surface-variant mb-md" data-vm-i18n="settings_general_hint"></p><div id="vm-settings-general" class="vm-settings-list"></div>
+                ${panel('settings', 'general', `<section class="vm-ui-panel vm-section-card">
+                    <p class="vm-panel-hint text-on-surface-variant" data-vm-i18n="settings_general_hint"></p><div id="vm-settings-general" class="vm-settings-list"></div>
                 </section>`, true)}
-                ${panel('settings', 'appearance', `<section class="glass-panel rounded-xl p-lg vm-section-card">
-                    <p class="text-body-md text-on-surface-variant mb-md" data-vm-i18n="settings_appearance_hint"></p><div id="vm-settings-appearance" class="vm-settings-list"></div>
+                ${panel('settings', 'appearance', `<section class="vm-ui-panel vm-section-card">
+                    <p class="vm-panel-hint text-on-surface-variant" data-vm-i18n="settings_appearance_hint"></p><div id="vm-settings-appearance" class="vm-settings-list"></div>
                 </section>`, false)}
-                ${panel('settings', 'maintenance', `<section class="glass-panel rounded-xl p-lg vm-section-card">
+                ${panel('settings', 'maintenance', `<section class="vm-ui-panel vm-section-card">
                     <div id="vm-settings-maintenance" class="vm-settings-list"></div>
                 </section>`, false)}
-                ${panel('settings', 'updates', `<div id="vm-settings-updates" class="vm-stack"></div>
-                    <section class="glass-panel rounded-xl p-lg vm-section-card"><div class="vm-section-title-row">
+                ${panel('settings', 'updates', `<section class="vm-ui-panel vm-section-card"><div id="vm-settings-updates" class="vm-stack vm-ui-group"></div></section>
+                    <section class="vm-ui-panel vm-section-card"><div class="vm-section-title-row">
                     <h3 class="vm-section-title"><span class="material-symbols-outlined">history</span><span data-vm-i18n="changelog_panel"></span></h3>
                     <div id="vm-changelog-actions"></div></div><div id="vm-settings-changelog" class="vm-stack"></div></section>`, false)}
-                ${panel('settings', 'info', '<div id="vm-settings-info"></div>', false)}
+                ${panel('settings', 'info', '<section class="vm-ui-panel vm-section-card"><div id="vm-settings-info" class="vm-ui-group"></div></section>', false)}
             `));
     }
 
