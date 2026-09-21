@@ -1,5 +1,4 @@
 using System;
-using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using VoltManager.Services;
@@ -13,18 +12,37 @@ namespace VoltManager.Setup.Engine
     /// </summary>
     public sealed class UpdateInstallCoordinator
     {
-        private readonly InstallEngine _engine;
+        private readonly IInstallUpdateEngine _engine;
+        private readonly IInstallProcessOperations _processOperations;
+        private readonly Func<string?> _clearWebView2Cache;
 
         public UpdateInstallCoordinator(InstallEngine engine)
+            : this(engine, new SystemInstallProcessOperations(), ClearWebView2Cache)
+        {
+        }
+
+        internal UpdateInstallCoordinator(
+            IInstallUpdateEngine engine,
+            IInstallProcessOperations processOperations,
+            Func<string?> clearWebView2Cache)
         {
             _engine = engine ?? throw new ArgumentNullException(nameof(engine));
+            _processOperations = processOperations ?? throw new ArgumentNullException(nameof(processOperations));
+            _clearWebView2Cache = clearWebView2Cache ?? throw new ArgumentNullException(nameof(clearWebView2Cache));
         }
 
         public async Task UpdateAsync(int waitPid, string version, CancellationToken ct = default)
         {
-            await WaitForMainProcessExitAsync(waitPid, ct);
+            if (waitPid > 0)
+            {
+                bool exited = await _processOperations.WaitForExitAsync(
+                    waitPid, TimeSpan.FromSeconds(30), ct).ConfigureAwait(false);
+                if (!exited)
+                    throw new InvalidOperationException("VoltManager did not exit before the update timeout.");
+            }
 
-            if (!WebView2UpdateCacheCleaner.TryClearDefault(out string cacheError))
+            string? cacheError = _clearWebView2Cache();
+            if (!string.IsNullOrWhiteSpace(cacheError))
             {
                 throw new InvalidOperationException(
                     "Unable to reset VoltManager WebView2 data before update: " + cacheError);
@@ -36,24 +54,8 @@ namespace VoltManager.Setup.Engine
             await _engine.UpdateAsync(0, version, ct);
         }
 
-        private static async Task WaitForMainProcessExitAsync(int waitPid, CancellationToken ct)
-        {
-            if (waitPid <= 0)
-                return;
+        private static string? ClearWebView2Cache()
+            => WebView2UpdateCacheCleaner.TryClearDefault(out string cacheError) ? null : cacheError;
 
-            try
-            {
-                using (var process = Process.GetProcessById(waitPid))
-                {
-                    bool exited = await Task.Run(() => process.WaitForExit(30_000), ct);
-                    if (!exited)
-                        throw new InvalidOperationException("VoltManager did not exit before the update timeout.");
-                }
-            }
-            catch (ArgumentException)
-            {
-                // Process already exited.
-            }
-        }
     }
 }

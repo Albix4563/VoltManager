@@ -598,6 +598,7 @@ public partial class App : Application
         if (Interlocked.Exchange(ref _serviceDisposalStarted, 1) != 0) return;
         SafeCleanup("power requests", PowerRequests.Dispose);
         SafeCleanup("update coordinator", UpdateCoordinator.Dispose);
+        SafeCleanup("update service", Updates.Dispose);
         SafeCleanup("scheduled power action service", ScheduledPowerActions.Dispose);
         SafeCleanup("remote commands", () => _remoteCommands?.Dispose());
         SafeCleanup("standby cleaner", StandbyAutoCleaner.Dispose);

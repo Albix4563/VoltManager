@@ -3,10 +3,10 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
+using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using System.Net.Http;
 using System.Threading;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -17,17 +17,25 @@ namespace VoltManager.Setup.Engine
     public sealed class UninstallResult
     {
         public List<string> Failures { get; } = new List<string>();
-        public bool Success => Failures.Count == 0;
-        public string Summary => string.Join("; ", Failures);
+        public List<string> Residuals { get; } = new List<string>();
+        public bool HasResiduals => Residuals.Count > 0;
+        public bool Success => Failures.Count == 0 && Residuals.Count == 0;
+        public string Summary => string.Join("; ", Failures.Concat(Residuals));
 
         public void Add(string failure)
         {
             if (!string.IsNullOrWhiteSpace(failure))
                 Failures.Add(failure);
         }
+
+        public void AddResidual(string residual)
+        {
+            if (!string.IsNullOrWhiteSpace(residual))
+                Residuals.Add(residual);
+        }
     }
 
-    public class InstallEngine
+    public class InstallEngine : IInstallUpdateEngine
     {
         private const string AppName        = "VoltManager";
         private const string AppExe         = "VoltManager.exe";
@@ -36,104 +44,174 @@ namespace VoltManager.Setup.Engine
         private const string STARTUP_TASK   = "VoltManagerAutostart";
         private const string WEBVIEW2_CLIENT = "{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}";
 
+        private readonly IInstallProcessOperations _processOperations;
+        private readonly IPreviewReleaseClient _previewReleaseClient;
+        private readonly SetupWorkflowRunner _workflowRunner = new SetupWorkflowRunner();
+
         public event Action<string, double>? Progress; // (statusText, 0-100)
+        public SetupWorkflowResult? LastOperationResult { get; private set; }
+
+        public InstallEngine()
+            : this(new SystemInstallProcessOperations(), GitHubPreviewReleaseClient.CreateDefault())
+        {
+        }
+
+        internal InstallEngine(IInstallProcessOperations processOperations)
+            : this(processOperations, GitHubPreviewReleaseClient.CreateDefault())
+        {
+        }
+
+        internal InstallEngine(IInstallProcessOperations processOperations, IPreviewReleaseClient previewReleaseClient)
+        {
+            _processOperations = processOperations ?? throw new ArgumentNullException(nameof(processOperations));
+            _previewReleaseClient = previewReleaseClient ?? throw new ArgumentNullException(nameof(previewReleaseClient));
+        }
 
         public async Task InstallAsync(InstallOptions opts, string version, CancellationToken ct = default)
         {
-            Report(I18n.T("status_kill"), 0);
-            if (!StopProcessesForInstall(opts.InstallDir))
-                throw new InvalidOperationException("VoltManager processes are still running.");
-            ct.ThrowIfCancellationRequested();
-
-            Report(I18n.T("status_migrate"), 5);
-            await RemoveLegacyInnoInstallAsync(ct);
-            ct.ThrowIfCancellationRequested();
-
-            // Preview channel: download the latest Preview (Beta) release and install
-            // its payload directly. The bundled stable payload is never used as a
-            // first step followed by a self-update — that would install the stable
-            // version first and then immediately replace it with the preview build.
-            // Stable channel: the bundled payload already IS the latest stable, so
-            // nothing extra has to be downloaded.
             string effectiveVersion = version;
             string? previewPayloadZip = null;
-            if (IsPreviewChannel(opts))
+            var steps = new List<SetupWorkflowStep>
             {
-                Report(I18n.T("status_download_preview"), 8);
-                PreviewReleaseDownload release = await DownloadLatestPreviewReleaseAsync(
-                    pct => Report(I18n.T("status_download_preview"), 8 + pct * 0.06), ct);
-                ct.ThrowIfCancellationRequested();
+                new SetupWorkflowStep("stop-processes", token =>
+                {
+                    Report(I18n.T("status_kill"), 0);
+                    if (!_processOperations.StopForInstall(opts.InstallDir))
+                        throw new InvalidOperationException("VoltManager processes are still running.");
+                    token.ThrowIfCancellationRequested();
+                    return Task.CompletedTask;
+                }),
+                new SetupWorkflowStep("remove-legacy-install", async token =>
+                {
+                    Report(I18n.T("status_migrate"), 5);
+                    await RemoveLegacyInnoInstallAsync(token).ConfigureAwait(false);
+                }),
+                new SetupWorkflowStep("prepare-channel-payload", async token =>
+                {
+                    if (!IsPreviewChannel(opts))
+                        return;
+                    Report(I18n.T("status_download_preview"), 8);
+                    PreviewReleaseDownload release = await _previewReleaseClient.DownloadLatestAsync(
+                        pct => Report(I18n.T("status_download_preview"), 8 + pct * 0.06), token).ConfigureAwait(false);
+                    token.ThrowIfCancellationRequested();
+                    previewPayloadZip = ExtractPreviewPayloadZip(release.ExePath, token);
+                    effectiveVersion = release.Version;
+                }),
+                new SetupWorkflowStep("extract-payload", async token =>
+                {
+                    Report(I18n.T("status_extract"), 15);
+                    await ExtractPayloadAsync(opts.InstallDir, token, previewPayloadZip).ConfigureAwait(false);
+                }),
+                new SetupWorkflowStep("ensure-webview2", async token =>
+                {
+                    if (!WebView2Missing())
+                        return;
+                    Report(I18n.T("status_webview"), 65);
+                    await InstallWebView2Async(token).ConfigureAwait(false);
+                }),
+                new SetupWorkflowStep("create-shortcuts", token =>
+                {
+                    Report(I18n.T("status_shortcuts"), 75);
+                    CreateShortcuts(opts);
+                    token.ThrowIfCancellationRequested();
+                    return Task.CompletedTask;
+                }),
+                new SetupWorkflowStep("configure-startup", token =>
+                {
+                    if (opts.StartWithWindows)
+                    {
+                        Report(I18n.T("status_startup"), 82);
+                        SetStartup(opts.InstallDir, true);
+                    }
+                    token.ThrowIfCancellationRequested();
+                    return Task.CompletedTask;
+                }),
+                new SetupWorkflowStep("register-installation", token =>
+                {
+                    Report(I18n.T("status_registry"), 88);
+                    WriteArpEntry(opts.InstallDir, effectiveVersion);
+                    CopyUninstaller(opts.InstallDir);
+                    WriteInitialAppSettings(opts);
+                    token.ThrowIfCancellationRequested();
+                    Report("", 100);
+                    return Task.CompletedTask;
+                }),
+            };
 
-                previewPayloadZip = ExtractPreviewPayloadZip(release.ExePath, ct);
-                effectiveVersion = release.Version;
-            }
-            ct.ThrowIfCancellationRequested();
-
-            Report(I18n.T("status_extract"), 15);
-            await ExtractPayloadAsync(opts.InstallDir, ct, previewPayloadZip);
-            ct.ThrowIfCancellationRequested();
-
-            if (WebView2Missing())
-            {
-                Report(I18n.T("status_webview"), 65);
-                await InstallWebView2Async(ct);
-                ct.ThrowIfCancellationRequested();
-            }
-
-            Report(I18n.T("status_shortcuts"), 75);
-            CreateShortcuts(opts);
-
-            if (opts.StartWithWindows)
-            {
-                Report(I18n.T("status_startup"), 82);
-                SetStartup(opts.InstallDir, true);
-            }
-
-            Report(I18n.T("status_registry"), 88);
-            WriteArpEntry(opts.InstallDir, effectiveVersion);
-            CopyUninstaller(opts.InstallDir);
-            WriteInitialAppSettings(opts);
-
-            Report("", 100);
+            CompleteWorkflow(await _workflowRunner.RunAsync(steps, ct).ConfigureAwait(false), ct);
         }
 
         public async Task UpdateAsync(int waitPid, string version, CancellationToken ct = default)
         {
-            // Wait for main app to exit.
-            if (waitPid > 0)
+            string? installDir = null;
+            var steps = new List<SetupWorkflowStep>
             {
-                try
+                new SetupWorkflowStep("wait-main-process", async token =>
                 {
-                    var proc = Process.GetProcessById(waitPid);
-                    await Task.Run(() => proc.WaitForExit(30_000), ct);
-                }
-                catch { /* process already exited */ }
+                    if (waitPid <= 0)
+                        return;
+                    bool exited = await _processOperations.WaitForExitAsync(
+                        waitPid, TimeSpan.FromSeconds(30), token).ConfigureAwait(false);
+                    if (!exited)
+                        throw new InvalidOperationException("VoltManager did not exit before the update timeout.");
+                }),
+                new SetupWorkflowStep("resolve-installation", token =>
+                {
+                    installDir = ReadInstallLocation();
+                    if (string.IsNullOrEmpty(installDir) || !Directory.Exists(installDir))
+                        throw new InvalidOperationException("VoltManager install directory not found in registry.");
+                    token.ThrowIfCancellationRequested();
+                    return Task.CompletedTask;
+                }),
+                new SetupWorkflowStep("stop-processes", token =>
+                {
+                    if (!_processOperations.StopInstalled(installDir!))
+                        throw new InvalidOperationException("VoltManager processes are still running.");
+                    token.ThrowIfCancellationRequested();
+                    return Task.CompletedTask;
+                }),
+                new SetupWorkflowStep("extract-payload", async token =>
+                {
+                    Report(I18n.T("status_extract"), 0);
+                    await ExtractPayloadAsync(installDir!, token).ConfigureAwait(false);
+                }),
+                new SetupWorkflowStep("register-update", token =>
+                {
+                    Report(I18n.T("status_registry"), 90);
+                    WriteArpEntry(installDir!, version);
+                    CopyUninstaller(installDir!);
+                    token.ThrowIfCancellationRequested();
+                    return Task.CompletedTask;
+                }),
+                new SetupWorkflowStep("cleanup-and-relaunch", token =>
+                {
+                    Report("", 100);
+                    ScheduleDownloadedUpdateDelete();
+                    string exe = Path.Combine(installDir!, AppExe);
+                    if (File.Exists(exe))
+                        _processOperations.Start(exe, "--updated");
+                    token.ThrowIfCancellationRequested();
+                    return Task.CompletedTask;
+                }),
+            };
+
+            CompleteWorkflow(await _workflowRunner.RunAsync(steps, ct).ConfigureAwait(false), ct);
+        }
+
+        private void CompleteWorkflow(SetupWorkflowResult result, CancellationToken cancellationToken)
+        {
+            LastOperationResult = result;
+            if (result.Success)
+                return;
+            if (result.Cancelled)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                throw new OperationCanceledException(result.Summary, result.FailureException);
             }
 
-            string? installDir = ReadInstallLocation();
-            if (string.IsNullOrEmpty(installDir) || !Directory.Exists(installDir))
-                throw new InvalidOperationException("VoltManager install directory not found in registry.");
-
-            // The app can delegate to the external supervisor before the updater starts.
-            // Stop both processes before clearing files so the supervisor executable cannot
-            // remain locked and leave the installation only partially replaced.
-            if (!StopRunningInstalledProcesses(installDir!))
-                throw new InvalidOperationException("VoltManager processes are still running.");
-
-            Report(I18n.T("status_extract"), 0);
-            await ExtractPayloadAsync(installDir!, ct);
-
-            Report(I18n.T("status_registry"), 90);
-            WriteArpEntry(installDir!, version);
-            CopyUninstaller(installDir!);
-
-            Report("", 100);
-            ScheduleDownloadedUpdateDelete();
-
-            // Relaunch the app with --updated flag.
-            string exe = Path.Combine(installDir!, AppExe);
-            if (File.Exists(exe))
-                Process.Start(new ProcessStartInfo(exe, "--updated") { UseShellExecute = true });
+            throw new InvalidOperationException(
+                "Setup step '" + (result.FailedStep ?? "unknown") + "' failed: " + result.Summary,
+                result.FailureException);
         }
 
         public static string ResolveInstallDir(string? targetDir = null)
@@ -242,106 +320,8 @@ namespace VoltManager.Setup.Engine
 
         // ── Private helpers ──────────────────────────────────────────────
 
-        private const string UPDATE_REPO = "Albix4563/power_efficency";
-
-        private static readonly Regex TagRegex = new(
-            "\"tag_name\"\\s*:\\s*\"v?(?<v>[^\"]+)\"",
-            RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
-
-        private static readonly Regex AssetUrlRegex = new(
-            "\"browser_download_url\"\\s*:\\s*\"(?<u>[^\"]+\\.exe)\"",
-            RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
-
-        private sealed class PreviewReleaseDownload
-        {
-            public string ExePath = "";
-            public string Version = "";
-        }
-
         private static bool IsPreviewChannel(InstallOptions opts)
             => InstallOptions.NormalizeChannel(opts?.UpdateChannel) == "preview";
-
-        /// <summary>
-        /// Downloads the latest Preview (Beta) release asset (the full setup exe
-        /// embedding that channel's payload.zip) from GitHub. Releases are listed
-        /// newest-first, so the first non-alpha "-beta" tag is the latest preview.
-        /// </summary>
-        private static async Task<PreviewReleaseDownload> DownloadLatestPreviewReleaseAsync(
-            Action<double> onProgress, CancellationToken ct)
-        {
-            try
-            {
-                using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
-                http.DefaultRequestHeaders.UserAgent.ParseAdd("VoltManager-Setup");
-                http.DefaultRequestHeaders.Accept.ParseAdd("application/vnd.github+json");
-
-                string releasesJson = await http.GetStringAsync(
-                    "https://api.github.com/repos/" + UPDATE_REPO + "/releases?per_page=20");
-                ct.ThrowIfCancellationRequested();
-
-                MatchCollection tags = TagRegex.Matches(releasesJson);
-                Match? chosen = null;
-                foreach (Match m in tags)
-                {
-                    string v = m.Groups["v"].Value;
-                    if (v.IndexOf("-beta", StringComparison.OrdinalIgnoreCase) >= 0 &&
-                        v.IndexOf("-alpha", StringComparison.OrdinalIgnoreCase) < 0)
-                    {
-                        chosen = m;
-                        break;
-                    }
-                }
-                if (chosen == null)
-                    throw new InvalidOperationException(I18n.T("err_preview_norelease"));
-
-                // The chosen release object spans up to the next tag_name (or the end).
-                int scopeEnd = releasesJson.Length;
-                foreach (Match m in tags)
-                    if (m.Index > chosen.Index) { scopeEnd = m.Index; break; }
-                string scope = releasesJson.Substring(chosen.Index, scopeEnd - chosen.Index);
-
-                Match asset = AssetUrlRegex.Match(scope);
-                if (!asset.Success)
-                    throw new InvalidOperationException(I18n.T("err_preview_noasset"));
-
-                string dest = Path.Combine(Path.GetTempPath(), "VoltManagerPreviewSetup.exe");
-                await DownloadFileAsync(http, asset.Groups["u"].Value, dest, onProgress, ct);
-
-                return new PreviewReleaseDownload
-                {
-                    ExePath = dest,
-                    Version = chosen.Groups["v"].Value,
-                };
-            }
-            catch (OperationCanceledException) { throw; }
-            catch (InvalidOperationException) { throw; }
-            catch (Exception ex)
-            {
-                throw new InvalidOperationException(
-                    I18n.T("err_preview_download") + " " + ex.Message, ex);
-            }
-        }
-
-        private static async Task DownloadFileAsync(
-            HttpClient http, string url, string dest, Action<double> onProgress, CancellationToken ct)
-        {
-            using var resp = await http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
-            resp.EnsureSuccessStatusCode();
-            long total = resp.Content.Headers.ContentLength ?? -1;
-
-            using var src = await resp.Content.ReadAsStreamAsync();
-            using var dst = File.Create(dest);
-            var buffer = new byte[81920];
-            long readTotal = 0;
-            int read;
-            while ((read = await src.ReadAsync(buffer, 0, buffer.Length, ct)) > 0)
-            {
-                await dst.WriteAsync(buffer, 0, read, ct);
-                readTotal += read;
-                if (total > 0)
-                    onProgress(Math.Round(readTotal * 100.0 / total, 1));
-            }
-        }
 
         /// <summary>
         /// Reads the payload.zip embedded resource out of the downloaded Preview
@@ -375,7 +355,7 @@ namespace VoltManager.Setup.Engine
 
         protected void Report(string msg, double pct) => Progress?.Invoke(msg, pct);
 
-        private static bool StopProcessesForInstall(string installDir)
+        internal static bool StopProcessesForInstall(string installDir)
         {
             string existingInstallDir = ResolveInstallDir();
             if (Directory.Exists(existingInstallDir) &&
@@ -391,7 +371,7 @@ namespace VoltManager.Setup.Engine
             return StopRunningInstalledProcesses(installDir);
         }
 
-        private static bool StopRunningInstalledProcesses(string installDir)
+        internal static bool StopRunningInstalledProcesses(string installDir)
         {
             foreach (string processName in new[] { "VoltManager.HardwareService", "VoltManager.Supervisor", "VoltManager" })
             {

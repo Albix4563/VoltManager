@@ -20,25 +20,39 @@ namespace VoltManager.Setup.Engine
         private static readonly TimeSpan ForcedShutdownVerificationTimeout = TimeSpan.FromSeconds(3);
         private static readonly TimeSpan ProcessPollInterval = TimeSpan.FromMilliseconds(150);
 
+        private readonly IUninstallSystemOperations _systemOperations;
+        private readonly Func<string> _currentExecutable;
+
+        public HardenedInstallEngine()
+            : this(new SystemUninstallSystemOperations(), () => Assembly.GetExecutingAssembly().Location)
+        {
+        }
+
+        internal HardenedInstallEngine(IUninstallSystemOperations systemOperations, Func<string> currentExecutable)
+        {
+            _systemOperations = systemOperations ?? throw new ArgumentNullException(nameof(systemOperations));
+            _currentExecutable = currentExecutable ?? throw new ArgumentNullException(nameof(currentExecutable));
+        }
+
         public async Task<UninstallResult> UninstallAsync(string? targetDir = null, CancellationToken ct = default)
         {
             var result = new UninstallResult();
             string installDir = ResolveInstallDir(targetDir);
-            string currentExecutable = Assembly.GetExecutingAssembly().Location;
+            string currentExecutable = _currentExecutable();
 
             Report(I18n.T("status_uninst_kill"), 5);
-            if (!await StopRunningInstalledProcessesAsync(installDir, ct).ConfigureAwait(false))
+            if (!await _systemOperations.StopRunningInstalledProcessesAsync(installDir, ct).ConfigureAwait(false))
                 result.Add("VoltManager process still running after graceful and forced shutdown");
 
             ct.ThrowIfCancellationRequested();
             Report(I18n.T("status_uninst_files"), 20);
-            if (!string.IsNullOrEmpty(installDir) && Directory.Exists(installDir))
+            if (!string.IsNullOrEmpty(installDir) && _systemOperations.DirectoryExists(installDir))
             {
                 if (IsPathUnder(currentExecutable, installDir))
                 {
                     result.Add("Uninstaller is still running from the install directory");
                 }
-                else if (!TryDeleteDirectoryTree(installDir, out string installError))
+                else if (!_systemOperations.TryDeleteDirectoryTree(installDir, out string installError))
                 {
                     result.Add("Install directory: " + installError);
                 }
@@ -46,28 +60,29 @@ namespace VoltManager.Setup.Engine
 
             ct.ThrowIfCancellationRequested();
             Report(I18n.T("status_uninst_files"), 42);
-            string appData = VoltManagerArtifacts.AppDataDirectory;
-            if (Directory.Exists(appData) && !TryDeleteDirectoryTree(appData, out string appDataError))
+            string appData = _systemOperations.AppDataDirectory;
+            if (_systemOperations.DirectoryExists(appData) && !_systemOperations.TryDeleteDirectoryTree(appData, out string appDataError))
                 result.Add("AppData: " + appDataError);
 
             ct.ThrowIfCancellationRequested();
             Report(I18n.T("status_startup"), 58);
-            DeleteStartupTask(result);
+            _systemOperations.DeleteStartupTask(result);
 
             ct.ThrowIfCancellationRequested();
             Report(I18n.T("status_uninst_files"), 70);
-            RemoveShortcuts(result);
+            _systemOperations.RemoveShortcuts(result);
 
             ct.ThrowIfCancellationRequested();
             Report(I18n.T("status_uninst_reg"), 82);
-            RemoveRegistryEntries(result);
+            _systemOperations.RemoveRegistryEntries(result);
 
             ct.ThrowIfCancellationRequested();
             Report(I18n.T("status_uninst_files"), 92);
-            foreach (string failure in VoltManagerArtifacts.CleanupOwnedTempArtifacts(Path.GetTempPath(), currentExecutable))
+            foreach (string failure in _systemOperations.CleanupOwnedTempArtifacts(currentExecutable))
                 result.Add("Temp artifact: " + failure);
 
-            VerifyNoResidualArtifacts(result, installDir, appData, currentExecutable);
+            foreach (string residual in _systemOperations.FindResidualArtifacts(installDir, appData, currentExecutable))
+                result.AddResidual(residual);
             Report("", 100);
             return result;
         }
@@ -115,7 +130,7 @@ namespace VoltManager.Setup.Engine
             }
         }
 
-        private static async Task<bool> StopRunningInstalledProcessesAsync(string installDir, CancellationToken ct)
+        internal static async Task<bool> StopRunningInstalledProcessesAsync(string installDir, CancellationToken ct)
         {
             if (string.IsNullOrWhiteSpace(installDir))
                 return true;
@@ -253,7 +268,7 @@ namespace VoltManager.Setup.Engine
             }
         }
 
-        private static void DeleteStartupTask(UninstallResult result)
+        internal static void DeleteStartupTask(UninstallResult result)
         {
             try
             {
@@ -264,11 +279,9 @@ namespace VoltManager.Setup.Engine
                 result.Add("Startup task delete: " + ex.Message);
             }
 
-            if (StartupTaskExists())
-                result.Add("Startup task still present: " + VoltManagerArtifacts.StartupTaskName);
         }
 
-        private static void RemoveShortcuts(UninstallResult result)
+        internal static void RemoveShortcuts(UninstallResult result)
         {
             try
             {
@@ -282,13 +295,9 @@ namespace VoltManager.Setup.Engine
                 result.Add("Shortcuts: " + ex.Message);
             }
 
-            if (Directory.Exists(VoltManagerArtifacts.StartMenuDirectory))
-                result.Add("Start menu shortcut directory still present: " + VoltManagerArtifacts.StartMenuDirectory);
-            if (File.Exists(VoltManagerArtifacts.DesktopShortcutPath))
-                result.Add("Desktop shortcut still present: " + VoltManagerArtifacts.DesktopShortcutPath);
         }
 
-        private static void RemoveRegistryEntries(UninstallResult result)
+        internal static void RemoveRegistryEntries(UninstallResult result)
         {
             TryDeleteRegistryKey(VoltManagerArtifacts.UninstallRegistryKey, result, "ARP");
             TryDeleteRegistryKey(VoltManagerArtifacts.LegacyUninstallRegistryKey, result, "legacy ARP");
@@ -364,31 +373,33 @@ namespace VoltManager.Setup.Engine
             }
         }
 
-        private static void VerifyNoResidualArtifacts(
-            UninstallResult result,
+        internal static IReadOnlyList<string> FindResidualArtifacts(
             string installDir,
             string appData,
             string currentExecutable)
         {
+            var residuals = new List<string>();
             if (AnyOwnedProcessRunningFromDirectory(installDir))
-                result.Add("Owned VoltManager process remains after uninstall");
+                residuals.Add("Owned VoltManager process remains after uninstall");
             if (!string.IsNullOrWhiteSpace(installDir) && Directory.Exists(installDir))
-                result.Add("Install directory still exists: " + installDir);
+                residuals.Add("Install directory still exists: " + installDir);
             if (Directory.Exists(appData))
-                result.Add("AppData still exists: " + appData);
+                residuals.Add("AppData still exists: " + appData);
             if (StartupTaskExists())
-                result.Add("Startup task still present: " + VoltManagerArtifacts.StartupTaskName);
+                residuals.Add("Startup task still present: " + VoltManagerArtifacts.StartupTaskName);
             if (Directory.Exists(VoltManagerArtifacts.StartMenuDirectory))
-                result.Add("Start menu shortcut directory still exists");
+                residuals.Add("Start menu shortcut directory still exists");
             if (File.Exists(VoltManagerArtifacts.DesktopShortcutPath))
-                result.Add("Desktop shortcut still exists");
+                residuals.Add("Desktop shortcut still exists");
             if (RegistryKeyExists(VoltManagerArtifacts.UninstallRegistryKey))
-                result.Add("ARP registry entry still exists");
+                residuals.Add("ARP registry entry still exists");
             if (RegistryKeyExists(VoltManagerArtifacts.LegacyUninstallRegistryKey))
-                result.Add("Legacy ARP registry entry still exists");
+                residuals.Add("Legacy ARP registry entry still exists");
 
             foreach (string path in VoltManagerArtifacts.FindOwnedTempArtifacts(Path.GetTempPath(), currentExecutable))
-                result.Add("Temp artifact still exists: " + path);
+                residuals.Add("Temp artifact still exists: " + path);
+
+            return residuals;
         }
     }
 }

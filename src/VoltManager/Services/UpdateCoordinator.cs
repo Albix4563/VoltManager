@@ -26,7 +26,7 @@ public sealed class UpdateCoordinator : IDisposable
             protectedWorkload,
             CreateRecurringTimer,
             settings,
-            (url, _) => updates.DownloadUpdateAsync(url))
+            (url, cancellationToken) => updates.DownloadUpdateAsync(url, cancellationToken))
     {
     }
 

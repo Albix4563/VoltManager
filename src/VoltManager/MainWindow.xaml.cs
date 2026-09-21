@@ -557,7 +557,7 @@ public partial class MainWindow : Window
         {
             await _app.UpdateCoordinator.PrepareInstallAsync(
                 url,
-                (downloadUrl, _) => _app.Updates.DownloadUpdateAsync(downloadUrl));
+                (downloadUrl, cancellationToken) => _app.Updates.DownloadUpdateAsync(downloadUrl, cancellationToken));
         }
         catch (Exception ex)
         {

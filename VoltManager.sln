@@ -21,6 +21,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VoltManager.Tests", "tests\
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VoltManager.WindowsHarness", "tests\VoltManager.WindowsHarness\VoltManager.WindowsHarness.csproj", "{1F7A6981-0A3A-4151-9921-429A11A23BFD}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VoltManager.Setup.Tests", "tests\VoltManager.Setup.Tests\VoltManager.Setup.Tests.csproj", "{B8135FD1-65E0-4115-8E69-50F1B24E0D6C}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -58,6 +60,10 @@ Global
 		{1F7A6981-0A3A-4151-9921-429A11A23BFD}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{1F7A6981-0A3A-4151-9921-429A11A23BFD}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{1F7A6981-0A3A-4151-9921-429A11A23BFD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B8135FD1-65E0-4115-8E69-50F1B24E0D6C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B8135FD1-65E0-4115-8E69-50F1B24E0D6C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B8135FD1-65E0-4115-8E69-50F1B24E0D6C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B8135FD1-65E0-4115-8E69-50F1B24E0D6C}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{6E4D5FED-CDAF-4302-9AB4-674FE0145851} = {EE329F03-7D3E-4327-9F76-52B6393DBB6E}
@@ -67,5 +73,6 @@ Global
 		{8C2BDA11-93EA-4D31-97E8-BF5210AE4C61} = {EE329F03-7D3E-4327-9F76-52B6393DBB6E}
 		{CB5FB9AE-876D-4201-BD7C-46D21FEB577F} = {395709FC-C166-4E49-A166-E3451CAED584}
 		{1F7A6981-0A3A-4151-9921-429A11A23BFD} = {395709FC-C166-4E49-A166-E3451CAED584}
+		{B8135FD1-65E0-4115-8E69-50F1B24E0D6C} = {395709FC-C166-4E49-A166-E3451CAED584}
 	EndGlobalSection
 EndGlobal
