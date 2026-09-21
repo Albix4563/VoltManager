@@ -1,6 +1,6 @@
 /**
  * Overview and top-bar status projection.
- * Reads the existing live DOM only; it does not add hardware or battery polling.
+ * Projects live DOM metrics plus stateful bridge snapshots without adding polling.
  */
 (function () {
     'use strict';
@@ -8,6 +8,11 @@
     const api = window.VoltUiReorg = window.VoltUiReorg || {};
     const $ = id => document.getElementById(id);
     let queued = false;
+    let keepAwakeState = null;
+    let appProfileStatus = null;
+    let keepAwakeEventRevision = 0;
+    let appProfileEventRevision = 0;
+    let bridgeStateWired = false;
 
     function hidden(node) {
         return !node || node.classList.contains('hidden') ||
@@ -68,18 +73,43 @@
     }
 
     function appProfileActive() {
-        const content = $('app-power-profile-mount')?.textContent.replace(/\s+/g, ' ').trim() || '';
-        return /active|attiv|activo|启用|running|in esecuzione/i.test(content);
+        return !!appProfileStatus?.active;
     }
 
     function keepAwakeActive() {
-        const mount = $('keep-awake-mount');
-        const input = mount?.querySelector('input[type="checkbox"]');
-        const control = mount?.querySelector('[data-on], [data-state], [aria-pressed]');
-        return !!(input?.checked ||
-            control?.dataset.on === 'true' ||
-            control?.dataset.state === 'on' ||
-            control?.getAttribute('aria-pressed') === 'true');
+        return !!keepAwakeState?.enabled;
+    }
+
+    function refreshBridgeState() {
+        if (!window.Host || !Host.available) return;
+        const keepRevision = keepAwakeEventRevision;
+        const profileRevision = appProfileEventRevision;
+        Host.call('getKeepAwakeState').then(state => {
+            if (keepRevision !== keepAwakeEventRevision) return;
+            keepAwakeState = state;
+            queue();
+        }).catch(error => console.error('getKeepAwakeState failed', error));
+        Host.call('getAppPowerProfileStatus').then(status => {
+            if (profileRevision !== appProfileEventRevision) return;
+            appProfileStatus = status;
+            queue();
+        }).catch(error => console.error('getAppPowerProfileStatus failed', error));
+    }
+
+    function wireBridgeState() {
+        if (bridgeStateWired || !window.Host || !Host.available) return;
+        bridgeStateWired = true;
+        Host.on('keepAwakeChanged', state => {
+            keepAwakeEventRevision += 1;
+            keepAwakeState = state;
+            queue();
+        });
+        Host.on('appPowerProfileActivityChanged', status => {
+            appProfileEventRevision += 1;
+            appProfileStatus = status;
+            queue();
+        });
+        refreshBridgeState();
     }
 
     function syncQuickButtons(plan) {
@@ -157,11 +187,12 @@
     }
 
     function observe() {
+        wireBridgeState();
         const ids = [
             'plan-control', 'manual-override-chip', 'monitoring-label',
             'cpu-pct', 'gpu-pct', 'ram-pct', 'disk-pct',
             'power-flow-percent', 'power-flow-status', 'schedule-active',
-            'master-toggle', 'app-power-profile-mount', 'keep-awake-mount'
+            'master-toggle'
         ];
         const observer = new MutationObserver(queue);
         ids.map($).filter(Boolean).forEach(node => observer.observe(node, {

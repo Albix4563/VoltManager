@@ -18,6 +18,7 @@
         widgetFilter: 'all',
         hasBattery: null
     };
+    let keepAwakeInFlight = false;
     const legacy = {
         overview: 'home',
         monitoring: 'home',
@@ -298,7 +299,7 @@
         dispatchView('changelog');
     }
 
-    function quickAction(action) {
+    async function quickAction(action) {
         if (['saver', 'balanced', 'performance'].includes(action)) {
             const planName = action === 'saver' ? 'powerSaver' : action;
             click(document.querySelector(`#plan-control [data-plan="${planName}"]`));
@@ -335,11 +336,16 @@
         }
 
         if (action === 'keep-awake') {
-            const mount = $('keep-awake-mount');
-            click(mount && (mount.querySelector('input[type="checkbox"]') ||
-                mount.querySelector('[role="switch"]') ||
-                mount.querySelector('button') ||
-                mount.querySelector('.mini-toggle')));
+            if (keepAwakeInFlight || !window.Host || !Host.available) return;
+            keepAwakeInFlight = true;
+            try {
+                const current = await Host.call('getKeepAwakeState');
+                await Host.call('setKeepAwake', { enabled: !current?.enabled });
+            } catch (error) {
+                console.error('setKeepAwake failed', error);
+            } finally {
+                keepAwakeInFlight = false;
+            }
         }
     }
 

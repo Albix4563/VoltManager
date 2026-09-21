@@ -5,6 +5,8 @@
         let settings = null;
         let keepAwakeWired = false;
         let keepAwakeState = null;
+        let keepAwakeRequestSequence = 0;
+        let keepAwakeEventRevision = 0;
         let initialized = false;
     const disposers = [];
     function listen(target, type, handler, options) {
@@ -46,6 +48,34 @@
         return settings.keepAwake;
     }
 
+    function applyKeepAwakeState(state) {
+        if (!state || typeof state !== 'object') return;
+        keepAwakeState = state;
+        if (settings) {
+            const cfg = normalizeKeepAwake();
+            cfg.enabled = !!state.enabled;
+            if (typeof state.autoDisableOnBattery === 'boolean')
+                cfg.autoDisableOnBattery = state.autoDisableOnBattery;
+            if (typeof state.maxMinutes === 'number')
+                cfg.maxMinutes = state.maxMinutes;
+        }
+        syncKeepAwakeUi();
+    }
+
+    async function refreshKeepAwakeState() {
+        if (!settings || !Host.available) return;
+        const requestSequence = ++keepAwakeRequestSequence;
+        const eventRevision = keepAwakeEventRevision;
+        try {
+            const state = await Host.call('getKeepAwakeState');
+            if (requestSequence !== keepAwakeRequestSequence ||
+                eventRevision !== keepAwakeEventRevision) return;
+            applyKeepAwakeState(state);
+        } catch (err) {
+            console.error('getKeepAwakeState failed', err);
+        }
+    }
+
     function formatKeepRemaining(seconds) {
         const s = Math.max(0, Math.floor(Number(seconds) || 0));
         const h = Math.floor(s / 3600);
@@ -62,12 +92,13 @@
             return;
         }
         try {
+            const eventRevision = keepAwakeEventRevision;
             const state = await Host.call('setKeepAwakeSafety', {
                 autoDisableOnBattery: !!cfg.autoDisableOnBattery,
                 maxMinutes: cfg.maxMinutes | 0,
             });
-            keepAwakeState = state;
-            renderKeepAwakeState(state);
+            if (eventRevision === keepAwakeEventRevision)
+                applyKeepAwakeState(state);
             await saveSettingsNow().catch(() => {});
         } catch (err) {
             console.error('setKeepAwakeSafety failed', err);
@@ -180,15 +211,13 @@
             keepAwakeState = { enabled: next, applied: next };
             syncKeepAwakeUi();
             if (Host.available) {
+                const eventRevision = keepAwakeEventRevision;
                 try {
-                    keepAwakeState = await Host.call('setKeepAwake', { enabled: next });
-                    if (settings) {
-                        normalizeKeepAwake().enabled = !!(keepAwakeState && keepAwakeState.enabled);
-                        if (keepAwakeState && typeof keepAwakeState.autoDisableOnBattery === 'boolean')
-                            normalizeKeepAwake().autoDisableOnBattery = keepAwakeState.autoDisableOnBattery;
-                    }
-                    renderKeepAwakeState(keepAwakeState);
+                    const state = await Host.call('setKeepAwake', { enabled: next });
+                    if (eventRevision === keepAwakeEventRevision)
+                        applyKeepAwakeState(state);
                 } catch (err) {
+                    if (eventRevision !== keepAwakeEventRevision) return;
                     cfg.enabled = !next;
                     keepAwakeState = { enabled: !next, applied: !next };
                     const status = document.getElementById('keep-awake-status');
@@ -213,17 +242,8 @@
         });
 
         onHost('keepAwakeChanged', (state) => {
-            keepAwakeState = state;
-            if (settings) {
-                const cfg = normalizeKeepAwake();
-                cfg.enabled = !!state.enabled;
-                if (typeof state.autoDisableOnBattery === 'boolean')
-                    cfg.autoDisableOnBattery = state.autoDisableOnBattery;
-                if (typeof state.maxMinutes === 'number')
-                    cfg.maxMinutes = state.maxMinutes;
-            }
-            renderKeepAwakeState(state);
-            syncKeepAwakeUi();
+            keepAwakeEventRevision += 1;
+            applyKeepAwakeState(state);
         });
         keepAwakeWired = true;
     }
@@ -246,7 +266,10 @@
                     (route.view === 'power-plans' && route.subviews['power-plans'] === 'keep-awake');
             },
             init() { initialized = true; setup(); },
-            activate: setup,
+            activate() {
+                setup();
+                refreshKeepAwakeState();
+            },
             deactivate() {},
             dispose() { disposeListeners(); keepAwakeWired = false; }
         };

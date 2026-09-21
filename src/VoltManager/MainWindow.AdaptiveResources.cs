@@ -188,11 +188,45 @@ public partial class MainWindow
     private void PublishFreshAdaptiveStateAfterResume()
     {
         if (!_adaptiveResourcesEnabled || !_webViewVisible) return;
+        HostBridge? bridge = _bridge;
+        if (bridge == null) return;
+
         _adaptiveUiMetricsPublisher.ResetCadence();
         OnAdaptiveMetricsUpdated(_app.Monitor.Latest);
         PushAdaptiveResourceProfile(_app.ResourcePressure.Current);
-        _bridge?.PushEvent(BridgeEventNames.ThermalGuardChanged, _app.ThermalGuard.Current);
-        _bridge?.PushEvent(BridgeEventNames.IdlePowerGuardChanged, _app.IdlePowerGuard.Current);
+        var plan = _app.ActivePlan;
+        var settings = _app.Settings.Current;
+        bridge.PushEvent(BridgeEventNames.ActivePlanChanged, new
+        {
+            plan = plan?.PlanId,
+            guid = plan?.Guid,
+            name = plan?.Name
+        });
+        bridge.PushEvent(BridgeEventNames.ActivePlanReasonChanged, _app.GetActivePlanReason());
+        bridge.PushEvent(BridgeEventNames.AutomationStateChanged, new
+        {
+            masterEnabled = settings.MasterAutomationEnabled,
+            @override = settings.Override
+        });
+        bridge.PushEvent(BridgeEventNames.ManualOverrideChanged, new { @override = settings.Override });
+        bridge.PushEvent(BridgeEventNames.CpuAutomationStateChanged, _app.CpuAutomationState);
+        bridge.PushEvent(BridgeEventNames.GamingModeChanged, GetGamingModeState());
+        bridge.PushEvent(BridgeEventNames.KeepAwakeChanged, _app.Awake.GetState());
+        bridge.PushEvent(BridgeEventNames.PowerSourcePlanChanged, _app.PowerSourcePlans.Current);
+        bridge.PushEvent(BridgeEventNames.ThermalGuardChanged, _app.ThermalGuard.Current);
+        bridge.PushEvent(BridgeEventNames.IdlePowerGuardChanged, _app.IdlePowerGuard.Current);
+        bridge.PushEvent(BridgeEventNames.ScheduledPowerActionChanged, _app.ScheduledPowerActions.GetState());
+        bridge.PushEvent(BridgeEventNames.WidgetsStateChanged, _app.Widgets.GetState());
+        bridge.PushEvent(BridgeEventNames.AppPowerProfileActivityChanged, _app.AppProfiles.Current);
+        bridge.PushEvent(BridgeEventNames.HeavyAppActivityChanged, _app.HeavyApps.Current);
+        bridge.PushEvent(BridgeEventNames.ThemeChanged, _app.Theme.GetWebTheme());
+        bridge.PushEvent(BridgeEventNames.LanguageChanged, new
+        {
+            language = _app.Loc.CurrentLanguage,
+            locale = _app.Loc.CurrentCulture.Name
+        });
+        bridge.PushEvent(BridgeEventNames.FontChanged, new { font = settings.Font });
+        bridge.PushEvent(BridgeEventNames.GlobalHotkeysChanged, new { registrations = _lastHotkeyRegistrations });
     }
 
     private void OnAdaptiveWindowClosed(object? sender, EventArgs e)

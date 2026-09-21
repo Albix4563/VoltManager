@@ -38,6 +38,8 @@ public partial class MainWindow : Window
         typeof(App).Assembly.GetName().Version?.ToString(3) ?? "1.0.0";
     private readonly Stopwatch _navStopwatch = new();
     private readonly GlobalHotkeyService _globalHotkeys = new();
+    private IReadOnlyDictionary<string, bool> _lastHotkeyRegistrations =
+        new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
     private HwndSource? _hotkeySource;
 
     // After this park time in tray, drop the page to about:blank so Chromium
@@ -124,8 +126,8 @@ public partial class MainWindow : Window
             _hotkeyHookInstalled = true;
         }
 
-        var registrations = _globalHotkeys.Rebind(hwnd, _app.Settings.Current.GlobalHotkeys);
-        _bridge?.PushEvent(BridgeEventNames.GlobalHotkeysChanged, new { registrations });
+        _lastHotkeyRegistrations = _globalHotkeys.Rebind(hwnd, _app.Settings.Current.GlobalHotkeys);
+        _bridge?.PushEvent(BridgeEventNames.GlobalHotkeysChanged, new { registrations = _lastHotkeyRegistrations });
     }
 
     private bool _hotkeyHookInstalled;
@@ -223,6 +225,7 @@ public partial class MainWindow : Window
             _app.Monitor.MetricsUpdated += OnMetricsUpdated;
             _app.ActivePlanChanged += p => _bridge?.PushEvent(BridgeEventNames.ActivePlanChanged, new { plan = p?.PlanId, guid = p?.Guid, name = p?.Name });
             _app.Settings.SettingsChanged += s => _bridge?.PushEvent(BridgeEventNames.AutomationStateChanged, new { masterEnabled = s.MasterAutomationEnabled, @override = s.Override });
+            _app.CpuAutomationStateChanged += s => _bridge?.PushEvent(BridgeEventNames.CpuAutomationStateChanged, s);
             _app.ManualOverrideChanged += o =>
             {
                 _bridge?.PushEvent(BridgeEventNames.ManualOverrideChanged, new { @override = o });
