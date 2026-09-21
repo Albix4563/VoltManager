@@ -6,6 +6,7 @@ const read = (path) => readFileSync(new URL(path, import.meta.url), 'utf8');
 
 const motion = read('../src/VoltManager/wwwroot/css/motion.css');
 const redesign = read('../src/VoltManager/wwwroot/css/redesign.css');
+const polish = read('../src/VoltManager/wwwroot/css/polish.css');
 const effects = read('../src/VoltManager/wwwroot/css/effects.css');
 const reorg = read('../src/VoltManager/wwwroot/css/ui-reorganization.css');
 const app = read('../src/VoltManager/wwwroot/js/app.js');
@@ -26,6 +27,7 @@ test('shared motion tokens are loaded by the app and widget surfaces', () => {
   const tokens = {
     '--vm-motion-fast': '280ms',
     '--vm-motion-base': '420ms',
+    '--vm-motion-sidebar': '520ms',
     '--vm-motion-slow': '600ms',
     '--vm-motion-enter': '560ms',
     '--vm-motion-exit': '360ms',
@@ -61,8 +63,8 @@ test('view swapping waits for vmLeave animationend with a safety fallback', () =
 });
 
 test('structural motion is relaxed while click feedback remains faster', () => {
-  assert.match(redesign, /transition:\s*width\s+var\(--vm-motion-base\)/);
-  assert.match(redesign, /transition:\s*margin-left\s+var\(--vm-motion-base\)/);
+  assert.match(redesign, /transition:\s*width\s+var\(--vm-motion-sidebar\)\s+var\(--vm-ease-emphasized\)/);
+  assert.match(redesign, /transition:\s*margin-left\s+var\(--vm-motion-sidebar\)\s+var\(--vm-ease-emphasized\)/);
   assert.match(powerFeatures, /grid-template-rows\s+var\(--vm-motion-base\)/);
   assert.match(powerFeatures, /padding\s+var\(--vm-motion-base\)/);
   assert.match(app, /transform\s+480ms/);
@@ -74,7 +76,8 @@ test('structural motion is relaxed while click feedback remains faster', () => {
 test('decorative motion is slower and reduced-motion/performance tiers remain intact', () => {
   assert.match(effects, /vmSheen\s+1\.25s/);
   assert.match(effects, /vmRipple\s+\.8s/);
-  assert.match(effects, /vmNavPulse\s+3\.8s/);
+  assert.doesNotMatch(effects, /vmNavPulse/);
+  assert.match(effects, /\.nav-indicator\s*\{[\s\S]*animation:\s*none/s);
   assert.match(effects, /vmPing\s+2\.6s/);
   assert.match(effects, /vmTitleSheen\s+10s/);
   assert.match(effects, /vmOrb1\s+36s/);
@@ -112,7 +115,27 @@ test('remaining micro interactions use shared relaxed timing instead of legacy 1
   assert.match(widgets, /\.widget-bar span[\s\S]*transition:\s*width var\(--vm-motion-fast\) var\(--vm-ease-standard\)/);
 });
 
-test('slower decorative loops also reduce persistent glow intensity', () => {
+test('sidebar transition uses explicit expanding and collapsing phases without timers', () => {
+  assert.match(app, /sidebar-expanding/);
+  assert.match(app, /sidebar-collapsing/);
+  assert.match(app, /transitionend/);
+  assert.match(app, /style\.willChange\s*=\s*['"]width['"]/);
+  assert.match(app, /style\.willChange\s*=\s*['"]['"]/);
+  const sidebarBlock = app.match(/\(function wireSidebarCollapse\(\)[\s\S]*?\}\)\(\);/s)?.[0] || '';
+  assert.doesNotMatch(sidebarBlock, /setTimeout|setInterval/);
+});
+
+test('navigation and card polish use compositor-friendly restrained feedback', () => {
+  assert.match(polish, /\.nav-item\s*\{[\s\S]*transition:\s*transform[^;]*background-color[^;]*color[^;]*border-color/s);
+  assert.match(polish, /\.nav-item:hover\s*\{[^}]*translateX\(2px\)/s);
+  assert.match(polish, /\.nav-item\.text-secondary-container\s*\{[^}]*border-color/s);
+  assert.match(polish, /\.glass-card[^\{]*\{[^}]*linear-gradient/s);
+  assert.match(polish, /\.glass-card:not\(\.fx-metric\):hover\s*\{[^}]*translateY\(-1px\)/s);
+  assert.match(polish, /\.btn-primary:active[\s\S]*scale\(\.98\)/s);
+  assert.match(reorg, /\.vm-divider\s*\{[^}]*linear-gradient/s);
+});
+
+test('slower decorative loops keep the ambient glow restrained', () => {
   assert.match(effects, /\.vm-aurora__orb\s*\{[\s\S]*opacity:\s*\.34/s);
-  assert.match(effects, /@keyframes vmNavPulse\s*\{[\s\S]*\/ \.35\)[\s\S]*\/ \.55\)/s);
+  assert.match(effects, /\.nav-indicator\s*\{[\s\S]*0 0 18px[^;]*\/ \.28\)/s);
 });

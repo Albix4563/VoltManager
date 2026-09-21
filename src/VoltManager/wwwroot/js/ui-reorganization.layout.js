@@ -266,7 +266,7 @@
     api.installSidebar = function () {
         const nav = api.el('nav-list');
         if (!nav) return;
-        const item = (id, icon, label) => `<li><a class="nav-item flex items-center gap-3 text-on-surface-variant font-medium px-4 py-3 opacity-80 hover:bg-white/5 hover:text-secondary-fixed transition-all duration-300 rounded-lg active:scale-[0.98]"
+        const item = (id, icon, label) => `<li><a class="nav-item flex items-center gap-3 text-on-surface-variant font-medium px-4 py-3 opacity-80 hover:bg-white/5 hover:text-secondary-fixed rounded-lg active:scale-[0.98]"
             data-view="${id}" href="#${id}"><span class="material-symbols-outlined">${icon}</span><span class="text-body-md" data-vm-i18n="${label}"></span></a></li>`;
         nav.innerHTML = `
             <li class="nav-section-label is-first" aria-hidden="true" data-vm-i18n="nav_main"></li>

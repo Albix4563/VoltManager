@@ -131,25 +131,12 @@
   50%{ background-position: -30% 0; }
 }
 
-/* ---------- 5. Comet nav indicator ---------- */
+/* ---------- 5. Navigation indicator ---------- */
 
 .nav-indicator{
   background: linear-gradient(180deg, var(--vm-accent), var(--vm-accent-dim)) !important;
-  box-shadow: 0 0 12px var(--vm-accent), 0 0 26px rgb(var(--vm-accent-rgb) / .55) !important;
-  animation: vmNavPulse 3.8s ease-in-out infinite;
-}
-.nav-indicator::after{
-  content: "";
-  position: absolute;
-  inset: -6px -10px -6px -2px;
-  border-radius: 8px;
-  background: radial-gradient(60% 60% at 0% 50%, rgb(var(--vm-accent-rgb) / .5), transparent 70%);
-  filter: blur(6px);
-  pointer-events: none;
-}
-@keyframes vmNavPulse{
-  0%,100%{ box-shadow: 0 0 10px var(--vm-accent), 0 0 20px rgb(var(--vm-accent-rgb) / .35); }
-  50%{ box-shadow: 0 0 14px var(--vm-accent), 0 0 30px rgb(var(--vm-accent-rgb) / .55); }
+  box-shadow: 0 0 18px rgb(var(--vm-accent-rgb) / .28) !important;
+  animation: none;
 }
 
 /* ---------- 6. Button ripple ---------- */

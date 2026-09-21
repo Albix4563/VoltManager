@@ -330,7 +330,7 @@
         // Place the System item under the CONTROL group (right after Power).
         const powerLi = document.querySelector('#nav-list a[data-view="power"]')?.parentElement;
         const item = document.createElement('li');
-        item.innerHTML = '<a class="nav-item flex items-center gap-3 text-on-surface-variant font-medium px-4 py-3 opacity-80 hover:bg-white/5 hover:text-secondary-fixed transition-all duration-300 rounded-lg active:scale-[0.98]" data-view="system" href="#"><span class="material-symbols-outlined">power_settings_new</span><span class="text-body-md system-nav-label"></span></a>';
+        item.innerHTML = '<a class="nav-item flex items-center gap-3 text-on-surface-variant font-medium px-4 py-3 opacity-80 hover:bg-white/5 hover:text-secondary-fixed rounded-lg active:scale-[0.98]" data-view="system" href="#"><span class="material-symbols-outlined">power_settings_new</span><span class="text-body-md system-nav-label"></span></a>';
         if (powerLi) powerLi.parentElement.insertBefore(item, powerLi.nextSibling);
         else navList.appendChild(item);
 
@@ -826,7 +826,6 @@
         Host.call('minimizeToTray').catch(() => {});
     });
 
-    document.getElementById('side-nav')?.addEventListener('transitionend', (e) => { if (e.target.id === 'side-nav' && e.propertyName === 'width') _sidebarReposition(); }); // Collapsible side rail: re-measure glow after the width transition
     const _sidebarReposition = () => {
         const activeLink = document.querySelector('#nav-list a.text-secondary-container[data-view]') || getNavLinks()[0];
         if (activeLink) positionIndicator(activeLink);
@@ -834,36 +833,93 @@
     (function wireSidebarCollapse() {
         const KEY = 'volt.sidebarCollapsed';
         const nav = document.getElementById('side-nav');
+        const appMain = document.getElementById('app-main');
         const collapseBtn = document.getElementById('btn-sidebar-toggle');
         const expandBtn = document.getElementById('btn-sidebar-expand');
         const icon = document.getElementById('sidebar-toggle-icon');
         if (!nav || !collapseBtn) return;
 
-        function apply(collapsed) {
-            document.body.classList.toggle('sidebar-collapsed', collapsed);
-            nav.dataset.collapsed = collapsed ? 'true' : 'false';
-            collapseBtn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
-            const label = collapsed ? 'Espandi barra laterale' : 'Comprimi barra laterale';
+        let collapsed = false;
+        let transitioning = false;
+        let targetCollapsed = false;
+
+        function syncControls(nextCollapsed) {
+            collapseBtn.setAttribute('aria-expanded', nextCollapsed ? 'false' : 'true');
+            const label = nextCollapsed ? 'Espandi barra laterale' : 'Comprimi barra laterale';
             collapseBtn.title = label;
             collapseBtn.setAttribute('aria-label', label);
             if (expandBtn) {
                 expandBtn.title = 'Espandi barra laterale';
                 expandBtn.setAttribute('aria-label', 'Espandi barra laterale');
             }
-            if (icon) icon.textContent = collapsed ? 'left_panel_open' : 'left_panel_close';
-            try { localStorage.setItem(KEY, collapsed ? '1' : '0'); } catch (_) {}
-            requestAnimationFrame(() => {
-                const activeLink = document.querySelector('#nav-list a.text-secondary-container[data-view]') || getNavLinks()[0];
-                if (activeLink) positionIndicator(activeLink);
-            });
+            if (icon) icon.textContent = nextCollapsed ? 'left_panel_open' : 'left_panel_close';
         }
 
-        let collapsed = false;
-        try { collapsed = localStorage.getItem(KEY) === '1'; } catch (_) {}
-        apply(collapsed);
+        function clearTransitionHints() {
+            nav.style.willChange = '';
+            if (appMain) appMain.style.willChange = '';
+        }
 
-        collapseBtn.addEventListener('click', () => apply(true));
-        expandBtn?.addEventListener('click', () => apply(false));
+        function persist(nextCollapsed) {
+            try { localStorage.setItem(KEY, nextCollapsed ? '1' : '0'); } catch (_) {}
+        }
+
+        function applyStable(nextCollapsed, shouldPersist) {
+            targetCollapsed = nextCollapsed;
+            collapsed = nextCollapsed;
+            transitioning = false;
+            document.body.classList.remove('sidebar-expanding', 'sidebar-collapsing');
+            document.body.classList.toggle('sidebar-collapsed', nextCollapsed);
+            nav.dataset.collapsed = nextCollapsed ? 'true' : 'false';
+            syncControls(nextCollapsed);
+            clearTransitionHints();
+            if (shouldPersist) persist(nextCollapsed);
+            _sidebarReposition();
+        }
+
+        function finishTransition() {
+            collapsed = targetCollapsed;
+            transitioning = false;
+            document.body.classList.remove('sidebar-expanding', 'sidebar-collapsing');
+            clearTransitionHints();
+            persist(collapsed);
+            _sidebarReposition();
+        }
+
+        function transitionTo(nextCollapsed) {
+            if (transitioning || collapsed === nextCollapsed) return;
+            if (prefersReducedMotion() || window.matchMedia?.('(max-width: 900px)').matches) {
+                applyStable(nextCollapsed, true);
+                return;
+            }
+
+            transitioning = true;
+            targetCollapsed = nextCollapsed;
+            document.body.classList.remove(nextCollapsed ? 'sidebar-expanding' : 'sidebar-collapsing');
+            document.body.classList.add(nextCollapsed ? 'sidebar-collapsing' : 'sidebar-expanding');
+            nav.style.willChange = 'width';
+            if (appMain) appMain.style.willChange = 'margin-left';
+
+            // Expansion starts from the visually-hidden collapsed label state.
+            // Flush that start frame once, then let CSS transition into the
+            // delayed opacity/translate state without a timer.
+            if (!nextCollapsed) void nav.offsetWidth;
+
+            document.body.classList.toggle('sidebar-collapsed', nextCollapsed);
+            nav.dataset.collapsed = nextCollapsed ? 'true' : 'false';
+            syncControls(nextCollapsed);
+        }
+
+        nav.addEventListener('transitionend', (event) => {
+            if (!transitioning || event.target !== nav || event.propertyName !== 'width') return;
+            finishTransition();
+        });
+
+        try { collapsed = localStorage.getItem(KEY) === '1'; } catch (_) {}
+        applyStable(collapsed, false);
+
+        collapseBtn.addEventListener('click', () => transitionTo(true));
+        expandBtn?.addEventListener('click', () => transitionTo(false));
     })();
 
     async function boot() {

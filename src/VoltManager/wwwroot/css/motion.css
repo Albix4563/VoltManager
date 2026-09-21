@@ -1,6 +1,7 @@
 :root {
   --vm-motion-fast: 280ms;
   --vm-motion-base: 420ms;
+  --vm-motion-sidebar: 520ms;
   --vm-motion-slow: 600ms;
   --vm-motion-enter: 560ms;
   --vm-motion-exit: 360ms;

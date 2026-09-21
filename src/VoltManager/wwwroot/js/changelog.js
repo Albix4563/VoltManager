@@ -173,7 +173,7 @@
         const link = document.createElement('link');
         link.id = 'vm-ui-reorganization-style';
         link.rel = 'stylesheet';
-        link.href = 'css/ui-reorganization.css?v=powerux2';
+        link.href = 'css/ui-reorganization.css?v=motion2';
         const themeStyles = document.querySelector('link[href*="theme-colors.css"]');
         document.head.insertBefore(link, themeStyles || null);
     }
@@ -200,7 +200,7 @@
         addStyle();
         try {
             await loadScript('js/ui-reorganization.i18n.js?v=reorg1');
-            await loadScript('js/ui-reorganization.layout.js?v=reorg1');
+            await loadScript('js/ui-reorganization.layout.js?v=reorg2');
             await loadScript('js/ui-reorganization.js?v=ram1');
             await loadScript('js/ui-reorganization.status.js?v=nav-reorg1');
             await loadScript('js/global-search.js?v=search1');
