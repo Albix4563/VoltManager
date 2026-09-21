@@ -39,6 +39,12 @@ test('dense views use the shared rail shell and keep compact navigation responsi
   assert.match(css, /@media\s*\(max-width:\s*1100px\)[\s\S]*\.vm-subnav\s*\{[^}]*overflow-x\s*:\s*auto/s);
 });
 
+test('overview status uses unboxed rows instead of nested square tiles', () => {
+  assert.match(css, /\.vm-status-card\s*\{[^}]*display\s*:\s*grid[^}]*border\s*:\s*0[^}]*background\s*:\s*transparent/s);
+  assert.match(css, /\.vm-status-card__header\s*\{[^}]*display\s*:\s*contents/s);
+  assert.match(css, /\.vm-status-card__header\s*>\s*\.material-symbols-outlined\s*\{[^}]*background\s*:\s*transparent/s);
+});
+
 test('Power Plans exposes Keep Awake as its own persisted subview', () => {
   assert.match(layout, /\{ id: 'keep-awake', icon: 'bedtime_off', label: 'tab_keep_awake' \}/);
   assert.match(layout, /panel\('power-plans', 'keep-awake',[\s\S]*id="vm-keep-awake"/);
