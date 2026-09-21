@@ -451,8 +451,6 @@
 
     document.addEventListener('welcomeclosed', flushQueuedWelcomeUpdate);
 
-    const toggleAutostart = document.getElementById('toggle-autostart');
-    const toggleTray = document.getElementById('toggle-tray');
     const toggleWidgetsMaster = document.getElementById('toggle-widgets-master');
     const widgetsCard = document.getElementById('widgets-card');
     const widgetsList = document.getElementById('widgets-list');
@@ -1201,8 +1199,6 @@
         const s = window.__voltSettings;
         if (!s) return;
         const settings = s.get ? s.get() : s;
-        setToggle(toggleAutostart, s.startWithWindows);
-        setToggle(toggleTray, settings.closeToTray);
         mountGlobalHotkeysUi(settings);
 
         mountAutoUpdateUi();
@@ -1299,91 +1295,7 @@
         }
     });
 
-    document.getElementById('pref-autostart')?.addEventListener('click', async () => {
-        const enable = toggleAutostart?.dataset.on !== 'true';
-        setToggle(toggleAutostart, enable);
-        try {
-            const res = await Host.call('setStartWithWindows', { enabled: enable });
-            if (res && res.success === false) {
-                setToggle(toggleAutostart, !enable);
-                setStatus(tr('msg_err', lt('err')) + (res.message || ''), true);
-            }
-        } catch (err) {
-            setToggle(toggleAutostart, !enable);
-            Host.fail(err, (msg) => setStatus(tr('msg_err', lt('err')) + msg, true));
-        }
-    });
-
-    document.getElementById('pref-tray')?.addEventListener('click', async () => {
-        const enable = toggleTray?.dataset.on !== 'true';
-        setToggle(toggleTray, enable);
-        try {
-            await Host.call('setCloseToTray', { enabled: enable });
-            if (window.__voltSettings) {
-                const settings = window.__voltSettings.get ? window.__voltSettings.get() : window.__voltSettings;
-                settings.closeToTray = enable;
-            }
-        } catch (err) {
-            setToggle(toggleTray, !enable);
-            Host.fail(err, (msg) => setStatus(tr('msg_err', lt('err')) + msg, true));
-        }
-    });
-
-    document.getElementById('btn-export-settings')?.addEventListener('click', async () => {
-        try {
-            await Host.call('exportSettings');
-        } catch (e) {
-            Host.fail(e, (msg) => setStatus(tr('msg_err', lt('err')) + msg, true));
-        }
-    });
-
-    document.getElementById('btn-import-settings')?.addEventListener('click', async () => {
-        try {
-            const res = await Host.call('importSettings');
-            // ponytail: full reload instead of re-hydrating every panel from the new settings
-            if (res && res.success) location.reload();
-        } catch (e) {
-            Host.fail(e, (msg) => setStatus(tr('msg_err', lt('err')) + msg, true));
-        }
-    });
-
-    function diagMsg(key, fallback) {
-        return (window.I18n && I18n.t) ? I18n.t(key) : fallback;
-    }
-
-    document.getElementById('btn-export-diagnostics')?.addEventListener('click', async () => {
-        const statusEl = document.getElementById('update-status');
-        try {
-            const res = await Host.call('exportDiagnostics');
-            if (!res || res.cancelled) {
-                if (statusEl) statusEl.textContent = diagMsg('set_diagnostics_cancelled', 'Export cancelled.');
-                return;
-            }
-            if (res.success) {
-                if (statusEl) statusEl.textContent = diagMsg('set_diagnostics_ok', 'Diagnostics exported.') + (res.path ? ' ' + res.path : '');
-            } else if (statusEl) {
-                statusEl.textContent = diagMsg('set_diagnostics_fail', 'Could not export diagnostics.');
-            }
-        } catch (e) {
-            console.error('exportDiagnostics failed', e);
-            if (statusEl) statusEl.textContent = diagMsg('set_diagnostics_fail', 'Could not export diagnostics.');
-        }
-    });
-
-    document.getElementById('btn-open-logs')?.addEventListener('click', async () => {
-        const statusEl = document.getElementById('update-status');
-        try {
-            const res = await Host.call('openLogFolder');
-            if (statusEl) {
-                statusEl.textContent = res && res.success
-                    ? diagMsg('set_logs_ok', 'Log folder opened.')
-                    : diagMsg('set_logs_fail', 'Could not open log folder.') + (res && res.error ? ' ' + res.error : '');
-            }
-        } catch (e) {
-            console.error('openLogFolder failed', e);
-            if (statusEl) statusEl.textContent = diagMsg('set_logs_fail', 'Could not open log folder.');
-        }
-    });
+    window.VoltSettingsCore = { lt, tr, setStatus, setToggle };
 
     Host.on('powerSourcePlanChanged', (state) => {
         if (!state || !window.__voltSettings) return;

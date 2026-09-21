@@ -10,6 +10,7 @@ const effects = read('../src/VoltManager/wwwroot/css/effects.css');
 const reorg = read('../src/VoltManager/wwwroot/css/ui-reorganization.css');
 const app = read('../src/VoltManager/wwwroot/js/app.js');
 const power = read('../src/VoltManager/wwwroot/js/power.js');
+const powerFeatures = read('../src/VoltManager/wwwroot/css/power-features.css');
 const advanced = read('../src/VoltManager/wwwroot/js/advanced.js');
 const tour = read('../src/VoltManager/wwwroot/js/tour.feature.js');
 const settings = read('../src/VoltManager/wwwroot/js/settings.js');
@@ -62,8 +63,8 @@ test('view swapping waits for vmLeave animationend with a safety fallback', () =
 test('structural motion is relaxed while click feedback remains faster', () => {
   assert.match(redesign, /transition:\s*width\s+var\(--vm-motion-base\)/);
   assert.match(redesign, /transition:\s*margin-left\s+var\(--vm-motion-base\)/);
-  assert.match(power, /grid-template-rows\s+var\(--vm-motion-base\)/);
-  assert.match(power, /padding\s+var\(--vm-motion-base\)/);
+  assert.match(powerFeatures, /grid-template-rows\s+var\(--vm-motion-base\)/);
+  assert.match(powerFeatures, /padding\s+var\(--vm-motion-base\)/);
   assert.match(app, /transform\s+480ms/);
   assert.match(reorg, /animation:\s*vmReorgViewIn\s+600ms/);
   assert.match(reorg, /animation:\s*vmReorgPanelIn\s+560ms/);
@@ -107,7 +108,7 @@ test('remaining micro interactions use shared relaxed timing instead of legacy 1
   assert.match(advanced, /\.adv-panel>\*\{animation:advSlideIn var\(--vm-motion-enter\) var\(--vm-ease-emphasized\) both;\}/);
   assert.match(app, /\.startup-card__accent[^\n]*var\(--vm-motion-fast\)/);
   assert.match(app, /\.startup-remove-btn[^\n]*var\(--vm-motion-fast\)/);
-  assert.match(power, /\.app-profile-icon-btn[^\n]*var\(--vm-motion-fast\)/);
+  assert.match(powerFeatures, /\.app-profile-icon-btn[^\n]*var\(--vm-motion-fast\)/);
   assert.match(widgets, /\.widget-bar span[\s\S]*transition:\s*width var\(--vm-motion-fast\) var\(--vm-ease-standard\)/);
 });
 

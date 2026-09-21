@@ -12,6 +12,14 @@ const router = readFileSync(
   new URL('../src/VoltManager/wwwroot/js/ui-reorganization.js', import.meta.url),
   'utf8'
 );
+const lifecycleSource = readFileSync(
+  new URL('../src/VoltManager/wwwroot/js/view-lifecycle.js', import.meta.url),
+  'utf8'
+);
+const keepAwakeSource = readFileSync(
+  new URL('../src/VoltManager/wwwroot/js/power-keep-awake.js', import.meta.url),
+  'utf8'
+);
 const css = readFileSync(
   new URL('../src/VoltManager/wwwroot/css/ui-reorganization.css', import.meta.url),
   'utf8'
@@ -34,7 +42,11 @@ test('dense views use the shared rail shell and keep compact navigation responsi
 test('Power Plans exposes Keep Awake as its own persisted subview', () => {
   assert.match(layout, /\{ id: 'keep-awake', icon: 'bedtime_off', label: 'tab_keep_awake' \}/);
   assert.match(layout, /panel\('power-plans', 'keep-awake',[\s\S]*id="vm-keep-awake"/);
-  assert.match(router, /move\(\$\('keep-awake-mount'\), \$\('vm-keep-awake'\)\)/);
+  assert.doesNotMatch(router, /move\(\$\('keep-awake-mount'\), \$\('vm-keep-awake'\)\)/);
+  assert.match(
+    keepAwakeSource,
+    /getElementById\('vm-keep-awake'\) \|\| document\.getElementById\('keep-awake-mount'\)/
+  );
 });
 
 test('Settings exposes Maintenance and relocates backup and diagnostics into it', () => {
@@ -112,8 +124,9 @@ function loadRouterHarness() {
   });
   window.window = window;
   window.document = document;
+  vm.runInContext(lifecycleSource, context);
   vm.runInContext(router, context);
-  return { api: window.VoltUiReorg, document, emitted, location };
+  return { api: window.VoltUiReorg, lifecycle: window.VoltViewLifecycle, document, emitted, location };
 }
 
 test('activating a main view updates visible state, navigation state, hash and emitted events', () => {
@@ -167,4 +180,36 @@ test('activating a subview updates tab/panel state and emits the resulting selec
   assert.equal(generalPanel.classList.contains('hidden'), true);
   assert.equal(h.emitted.some(evt => evt.type === 'voltuisubviewchanged'
     && evt.detail.group === 'settings' && evt.detail.view === 'appearance'), true);
+});
+
+test('reorganized routing drives one lifecycle activation per effective subview change', () => {
+  const h = loadRouterHarness();
+  const calls = [];
+  h.lifecycle.register('settings-appearance', {
+    matches: route => route.view === 'settings' && route.subviews.settings === 'appearance',
+    init: () => calls.push('init'),
+    activate: () => calls.push('activate'),
+    deactivate: () => calls.push('deactivate'),
+  });
+
+  const settings = new FakeNode({ dataset: { vmView: 'settings' }, classes: ['vm-reorg-view', 'hidden'] });
+  const main = h.document.registerId(new FakeNode({ id: 'main-content' }));
+  const generalTab = new FakeNode({ dataset: { vmSubnavTarget: 'general' }, classes: ['active'] });
+  const appearanceTab = new FakeNode({ dataset: { vmSubnavTarget: 'appearance' } });
+  const generalPanel = new FakeNode({ dataset: { vmPanel: 'general' }, classes: ['active'] });
+  const appearancePanel = new FakeNode({ dataset: { vmPanel: 'appearance' }, classes: ['hidden'] });
+  h.document.registerSelector('.vm-reorg-view[data-vm-view="settings"]', settings);
+  h.document.registerSelector('.vm-reorg-view', [settings]);
+  h.document.registerSelector('.vm-legacy-view', []);
+  h.document.registerSelector('#nav-list .nav-item[data-view]', []);
+  h.document.registerSelector('[data-vm-subnav-group="settings"]', [generalTab, appearanceTab]);
+  h.document.registerSelector('[data-vm-panel-group="settings"]', [generalPanel, appearancePanel]);
+
+  h.api.activateView('settings', false);
+  h.api.activateSubview('settings', 'appearance');
+  h.api.activateSubview('settings', 'appearance');
+  h.api.activateSubview('settings', 'general');
+
+  assert.equal(main.scrollTop, 0);
+  assert.deepEqual(calls, ['init', 'activate', 'deactivate']);
 });

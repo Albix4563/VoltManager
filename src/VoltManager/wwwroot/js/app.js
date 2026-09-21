@@ -250,6 +250,8 @@
             if (requestId !== viewTransitionEpoch) return;
             Object.entries(views).forEach(([key, el]) => el.classList.toggle('hidden', key !== name));
             if (!reduce) staggerIn(next);
+            const route = window.VoltViewLifecycle?.route?.() || { subviews: {} };
+            window.VoltViewLifecycle?.transition({ view: name, subviews: route.subviews || {} });
             document.dispatchEvent(new CustomEvent('viewchange', { detail: { view: name } }));
         };
 
@@ -315,6 +317,11 @@
             active.classList.add('vm-enter');
             playStagger(active.querySelector('.vm-acc-body-inner'));
         }
+        const route = window.VoltViewLifecycle?.route?.() || { view: 'power', subviews: {} };
+        window.VoltViewLifecycle?.transition({
+            view: route.view || 'power',
+            subviews: { ...(route.subviews || {}), power: key }
+        });
     }
 
     function mountSystemTab() {

@@ -39,11 +39,12 @@ test('settings bootstrap loads and wires the shipped rule inputs before notifyin
         'renderIdleState', 'renderKeepAwakeState',
     ]) context[name] = () => {};
     vm.runInContext(
-        'let settings, appProfileStatus, heavyAppStatus, thermalState, idleState, keepAwakeState;' +
+        'let settings;' +
+        'const powerFeatureModules = [];' +
         "const ruleIds = ['saver', 'balanced', 'performance'];" +
         power.slice(power.indexOf('    function ruleById'), power.indexOf('    function setToggle')) +
         power.slice(power.indexOf('    function loadIntoUi'), power.indexOf('    function saveSettingsNow')) +
-        power.slice(power.indexOf('    function clamp'), power.indexOf('    function historyLocale')) +
+        power.slice(power.indexOf('    function clamp'), power.indexOf('    const powerFeatureCore')) +
         power.slice(power.indexOf("    Host.call('getSettings')"), power.indexOf("    document.addEventListener('langchanged'")),
         context,
     );
@@ -106,8 +107,7 @@ test('settings save debounce persists the latest state once', async () => {
         clearTimeout(id) { timers.delete(id); },
     });
     vm.runInContext(
-        'let settings = globalThis.testSettings, saveTimer = null, appProfileStatus, heavyAppStatus;' +
-        'function renderAppPowerProfileStatus(){} function renderAppPowerProfiles(){} function renderHeavyAppStatus(){}' +
+        'let settings = globalThis.testSettings, saveTimer = null; const powerFeatureModules = [];' +
         power.slice(power.indexOf('    function saveSettingsNow()'), power.indexOf('    function clamp(')) +
         'globalThis.api = { scheduleSave };',
         Object.assign(context, { testSettings: settings }),

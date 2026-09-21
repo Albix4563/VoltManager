@@ -162,6 +162,7 @@
     let powerFlowTimer = null;
     let powerFlowPolling = false;
     let hasBattery = null;
+    let batteryRouteActive = false;
     let activeOverride = null;
     let overrideTimer = null;
 
@@ -244,6 +245,7 @@
     }
 
     function startPowerFlowPolling() {
+        if (!batteryRouteActive) return;
         if (powerFlowTimer || hasBattery !== true || document.hidden) return;
         pollPowerFlow();
         powerFlowTimer = setInterval(pollPowerFlow, 5000);
@@ -375,6 +377,7 @@
     }
 
     function startBatteryHistoryPolling() {
+        if (!batteryRouteActive) return;
         if (batteryHistoryTimer || hasBattery !== true || document.hidden) return;
         pollBatteryHistory();
         batteryHistoryTimer = setInterval(pollBatteryHistory, 60000);
@@ -486,6 +489,7 @@
     let processesTimer = null;
     let processesPolling = false;
     let procBuilt = false;
+    let processRouteActive = false;
 
     function clampPercent(value) {
         value = Number(value) || 0;
@@ -655,6 +659,7 @@
     }
 
     function startProcessPolling() {
+        if (!processRouteActive) return;
         if (processesTimer || document.hidden || processesList.closest('.hidden') ||
             window.VoltResourceProfile?.allowProcessPolling === false) return;
         pollProcesses();
@@ -672,7 +677,7 @@
         stopBatteryHistoryPolling();
     }
 
-    function syncDashboardPolling() {
+    function syncDashboardVisibility() {
         if (document.hidden) {
             stopDashboardPolling();
             if (overrideTimer) {
@@ -681,16 +686,15 @@
             }
             return;
         }
-        if (processesList.closest('.hidden')) stopProcessPolling();
-        else startProcessPolling();
-        startPowerFlowPolling();
-        startBatteryHistoryPolling();
+        if (processRouteActive) startProcessPolling();
+        if (batteryRouteActive) {
+            startPowerFlowPolling();
+            startBatteryHistoryPolling();
+        }
         renderOverrideStatus(activeOverride);
     }
 
-    document.addEventListener('visibilitychange', syncDashboardPolling);
-    ['viewchange', 'voltuiviewchanged', 'voltuisubviewchanged', 'voltuiready'].forEach(name =>
-        document.addEventListener(name, syncDashboardPolling));
+    document.addEventListener('visibilitychange', syncDashboardVisibility);
     document.addEventListener('resourceprofilechange', () => {
         stopProcessPolling();
         startProcessPolling();
@@ -703,9 +707,40 @@
     document.addEventListener('langchanged', () => {
         procBuilt = false;
         procRows = [];
-        pollProcesses();
+        if (processRouteActive) pollProcesses();
     });
 
+    if (window.VoltViewLifecycle) {
+        VoltViewLifecycle.register('dashboard-processes', {
+            matches: route => route.view === 'home' ||
+                (route.view === 'monitoring' && route.subviews.monitoring === 'processes'),
+            init() {},
+            activate() { processRouteActive = true; startProcessPolling(); },
+            deactivate() { processRouteActive = false; stopProcessPolling(); },
+            dispose() { processRouteActive = false; stopProcessPolling(); },
+        });
+
+        VoltViewLifecycle.register('dashboard-battery', {
+            matches: route => route.view === 'home' ||
+                (route.view === 'monitoring' && route.subviews.monitoring === 'battery'),
+            init() {},
+            activate() {
+                batteryRouteActive = true;
+                startPowerFlowPolling();
+                startBatteryHistoryPolling();
+            },
+            deactivate() {
+                batteryRouteActive = false;
+                stopPowerFlowPolling();
+                stopBatteryHistoryPolling();
+            },
+            dispose() {
+                batteryRouteActive = false;
+                stopPowerFlowPolling();
+                stopBatteryHistoryPolling();
+            },
+        });
+    }
     // ----- Power plan segmented control -----
     const planButtons = Array.from(document.querySelectorAll('#plan-control button'));
     const pill = document.getElementById('plan-pill');
@@ -1102,6 +1137,6 @@
         Host.call('getPowerSourcePlanState').then(renderPowerSourcePlanState).catch(() => {});
         Host.call('getGamingMode').then(renderGamingModeState).catch(() => {});
         Host.call('getBatteryHealth').then(renderBatteryHealth).catch(() => {});
-        syncDashboardPolling();
+        syncDashboardVisibility();
     }
 })();

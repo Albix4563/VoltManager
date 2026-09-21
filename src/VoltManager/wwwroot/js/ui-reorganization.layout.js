@@ -188,13 +188,15 @@
             denseShell('automations', [
                 { id: 'rules', icon: 'tune', label: 'tab_cpu_rules' },
                 { id: 'profiles', icon: 'app_shortcut', label: 'tab_app_profiles' },
-                { id: 'gaming', icon: 'sports_esports', label: 'tab_gaming' }
+                { id: 'gaming', icon: 'sports_esports', label: 'tab_gaming' },
+                { id: 'protections', icon: 'health_and_safety', label: 'tab_protections' }
             ], `
                 ${panel('automations', 'rules', `<div class="vm-rules-summary glass-panel rounded-xl p-md mb-md">
                     <span class="material-symbols-outlined">rule</span><span data-vm-i18n="rules_summary"></span><strong id="vm-rules-count">--</strong>
                 </div><div id="vm-automation-rules"></div>`, true)}
                 ${panel('automations', 'profiles', '<div id="vm-automation-profiles"></div>', false)}
                 ${panel('automations', 'gaming', '<div id="vm-automation-gaming" class="vm-stack"></div>', false)}
+                ${panel('automations', 'protections', '<div id="vm-automation-protections" class="vm-stack"></div>', false)}
             `));
     }
 

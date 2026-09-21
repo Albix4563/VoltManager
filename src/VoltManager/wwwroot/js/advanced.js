@@ -24,6 +24,7 @@
     let timeoutSaveTimer = null;
     let ramStatus        = null;   // current MemoryStatus from backend
     let ramAutoRefresh   = null;   // setInterval handle
+    let autoCleanSaveTimer = null;
     let ramLastClean     = null;   // timestamp of last purge
     let advShowDc        = false;  // whether to show battery (DC) column
     let hasBattery       = null;
@@ -31,6 +32,9 @@
     let activePlanGuid   = null;
     let timeoutFollowActive = true;
     let advFollowActive = true;
+    let timeoutActive = false;
+    let advActive = false;
+    let ramActive = false;
 
     // ── i18n ──────────────────────────────────────────────────────────────────
     function t(key) {
@@ -356,9 +360,14 @@
     // ══════════════════════════════════════════════════════════════════════════
 
     function mountAdvancedUi() {
-        if (advMounted) return;
         ensureAdvStyles();
-        const mount = document.getElementById('advanced-params-mount');
+        const mount = document.getElementById('vm-power-advanced') || document.getElementById('advanced-params-mount');
+        const existing = document.getElementById('adv-panel');
+        if (existing) {
+            if (mount && existing.parentElement !== mount) mount.appendChild(existing);
+            advMounted = true;
+            return;
+        }
         if (!mount) return;
 
         mount.innerHTML = buildAdvHtml();
@@ -735,9 +744,14 @@
     // ══════════════════════════════════════════════════════════════════════════
 
     function mountRamUi() {
-        if (ramMounted) return;
         ensureAdvStyles();
-        const mount = document.getElementById('ram-cleaner-mount');
+        const mount = document.getElementById('vm-system-memory') || document.getElementById('ram-cleaner-mount');
+        const existing = document.getElementById('ram-panel');
+        if (existing) {
+            if (mount && existing.parentElement !== mount) mount.appendChild(existing);
+            ramMounted = true;
+            return;
+        }
         if (!mount) return;
         mount.innerHTML = buildRamHtml();
         ramMounted = true;
@@ -1006,7 +1020,6 @@
         });
 
         // Auto Cleaner inputs (threshold and interval)
-        let autoCleanSaveTimer = null;
         const handleInputChange = () => {
             if (!ramAutoSettings) return;
             const thresholdEl = document.getElementById('ram-auto-threshold');
@@ -1046,11 +1059,6 @@
     // View lifecycle — mount + auto-refresh when accordion opens
     // ══════════════════════════════════════════════════════════════════════════
 
-    function isAccordionOpen(mountId) {
-        const mount = document.getElementById(mountId);
-        return mount && mount.closest('.vm-acc-item[data-open="true"]') !== null;
-    }
-
     async function activateAdvPanel() {
         mountAdvancedUi();
         wireAdvancedUi();
@@ -1065,8 +1073,7 @@
         loadRamStatus();
         loadRamAutoCleanSettings();
         // Auto-refresh every 5 s while panel is open
-        clearInterval(ramAutoRefresh);
-        ramAutoRefresh = setInterval(loadRamStatus, 5000);
+        if (!ramAutoRefresh) ramAutoRefresh = setInterval(loadRamStatus, 5000);
     }
 
     function stopRamRefresh() {
@@ -1074,81 +1081,48 @@
         ramAutoRefresh = null;
     }
 
-    // Sub-nav (pm-seg) switching — the active panel is driven by .pm-active,
-    // not by accordion clicks, so mount on segment selection.
-    document.addEventListener('click', e => {
-        const seg = e.target.closest('#view-power .pm-seg');
-        if (!seg) return;
-        const key = seg.dataset.pm;
-        // Wait one tick for app.js activatePowerPanel to flip .pm-active.
-        setTimeout(() => {
-            if (key === 'ram') {
-                activateRamPanel();
-                return;
-            }
-            stopRamRefresh();           // leaving ram → stop its polling
-            if (key === 'advanced') activateAdvPanel();
-        }, 20);
-    });
+    if (window.VoltViewLifecycle) {
+        VoltViewLifecycle.register('power-timeouts', {
+            matches: route => route.view === 'power-plans' && route.subviews['power-plans'] === 'source',
+            init() { mountTimeoutUi(); wireTimeoutUi(); },
+            activate() { timeoutActive = true; void activateTimeoutPanel(); },
+            deactivate() { timeoutActive = false; },
+            dispose() {
+                timeoutActive = false;
+                clearTimeout(timeoutSaveTimer);
+                timeoutSaveTimer = null;
+            },
+        });
 
-    // Listen to accordion toggle clicks
-    document.addEventListener('click', e => {
-        const header = e.target.closest('#view-power .vm-acc-header');
-        if (!header) return;
-        const item = header.closest('.vm-acc-item');
-        if (!item) return;
+        VoltViewLifecycle.register('advanced-parameters', {
+            matches: route =>
+                (route.view === 'power' && route.subviews.power === 'advanced') ||
+                (route.view === 'power-plans' && route.subviews['power-plans'] === 'advanced'),
+            init() { mountAdvancedUi(); wireAdvancedUi(); },
+            activate() { advActive = true; void activateAdvPanel(); },
+            deactivate() { advActive = false; },
+            dispose() {
+                advActive = false;
+                clearTimeout(advSaveTimer);
+                advSaveTimer = null;
+            },
+        });
 
-        // Wait one tick for data-open to be updated by power.js accordion handler
-        setTimeout(() => {
-            const isOpen = item.dataset.open === 'true';
-            const hasAdvMount   = !!item.querySelector('#advanced-params-mount');
-            const hasRamMount   = !!item.querySelector('#ram-cleaner-mount');
-
-            if (hasAdvMount && isOpen) {
-                activateAdvPanel();
-            }
-            if (hasRamMount) {
-                if (isOpen) {
-                    activateRamPanel();
-                } else {
-                    stopRamRefresh();
-                }
-            }
-        }, 20);
-    });
-
-    // Also refresh when the legacy power view becomes active.
-    document.addEventListener('viewchange', e => {
-        if (!e.detail || e.detail.view !== 'power') {
-            clearInterval(ramAutoRefresh);
-            ramAutoRefresh = null;
-            return;
-        }
-        if (isAccordionOpen('advanced-params-mount')) activateAdvPanel();
-        if (isAccordionOpen('ram-cleaner-mount')) {
-            mountRamUi();
-            wireRamUi();
-            loadRamStatus();
-            loadRamAutoCleanSettings();
-            clearInterval(ramAutoRefresh);
-            ramAutoRefresh = setInterval(loadRamStatus, 5000);
-        }
-    });
-
-    // Reorganized Power Plans view: Alimentazione owns the timeout editor, while
-    // Advanced parameters are loaded only when that subview is actually opened.
-    document.addEventListener('voltuiviewchanged', e => {
-        if (e?.detail?.view !== 'power-plans') return;
-        activateTimeoutPanel();
-        const advancedPanel = document.querySelector('[data-vm-panel-group="power-plans"][data-vm-panel="advanced"]');
-        if (advancedPanel?.classList.contains('active')) activateAdvPanel();
-    });
-
-    document.addEventListener('voltuisubviewchanged', e => {
-        if (e?.detail?.group !== 'power-plans') return;
-        if (e.detail.view === 'source') activateTimeoutPanel();
-        if (e.detail.view === 'advanced') activateAdvPanel();
-    });
+        VoltViewLifecycle.register('memory-cleaner', {
+            matches: route =>
+                (route.view === 'power' && route.subviews.power === 'ram') ||
+                (route.view === 'system-tools' && route.subviews['system-tools'] === 'memory'),
+            init() { mountRamUi(); wireRamUi(); },
+            activate() { ramActive = true; activateRamPanel(); },
+            deactivate() { ramActive = false; stopRamRefresh(); },
+            dispose() {
+                ramActive = false;
+                stopRamRefresh();
+                clearTimeout(autoCleanSaveTimer);
+                autoCleanSaveTimer = null;
+            },
+        });
+    }
 
     // Refresh labels on language change.
     document.addEventListener('langchanged', () => {
@@ -1168,8 +1142,7 @@
         }
         if (advFollowActive) {
             advParams = null;
-            const advancedPanel = document.querySelector('[data-vm-panel-group="power-plans"][data-vm-panel="advanced"]');
-            if (isAccordionOpen('advanced-params-mount') || advancedPanel?.classList.contains('active')) {
+            if (advActive) {
                 await loadAdvParams(activePlanGuid);
             }
         }

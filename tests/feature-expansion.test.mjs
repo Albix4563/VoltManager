@@ -9,6 +9,7 @@ function source(path) {
 const html = source('src/VoltManager/wwwroot/index.html');
 const dashboard = source('src/VoltManager/wwwroot/js/dashboard.js');
 const power = source('src/VoltManager/wwwroot/js/power.js');
+const appProfiles = source('src/VoltManager/wwwroot/js/power-app-profiles.js');
 const settings = source('src/VoltManager/wwwroot/js/settings.js');
 const app = source('src/VoltManager/wwwroot/js/app.js');
 const hostBridge = source('src/VoltManager/Bridge/HostBridge.cs');
@@ -35,9 +36,9 @@ test('power-plan reason and low-battery threshold are wired end to end in the UI
 });
 
 test('app profiles can request Keep Awake without adding another subsystem', () => {
-  assert.match(power, /rule\.keepAwake = rule\.keepAwake === true/);
-  assert.match(power, /app-profile-keep-awake/);
-  assert.match(power, /keepAwake: false/);
+  assert.match(appProfiles, /rule\.keepAwake = rule\.keepAwake === true/);
+  assert.match(appProfiles, /app-profile-keep-awake/);
+  assert.match(appProfiles, /keepAwake: false/);
 });
 
 test('global shortcut UI captures and persists native hotkey gestures', () => {

@@ -8,7 +8,7 @@ function source(path) {
 }
 
 const html = source('src/VoltManager/wwwroot/index.html');
-const power = source('src/VoltManager/wwwroot/js/power.js');
+const history = source('src/VoltManager/wwwroot/js/power-history.js');
 const dashboard = source('src/VoltManager/wwwroot/js/dashboard.js');
 const bridge = source('src/VoltManager/wwwroot/js/bridge.js');
 const i18n = source('src/VoltManager/wwwroot/js/i18n.js');
@@ -26,22 +26,22 @@ test('plan history is reachable from the plan reason and both power navigation s
 });
 
 test('history filters, 50-row paging and problem semantics are explicit', () => {
-  assert.match(power, /visibleCount: 50/);
-  assert.match(power, /\['all', 'automatic', 'manual', 'external', 'problems'\]/);
-  assert.match(power, /entry\.outcome === 'failed' \|\| entry\.outcome === 'unverifiable'/);
-  assert.match(power, /filtered\.slice\(0, planHistoryState\.visibleCount\)/);
-  assert.match(power, /planHistoryState\.visibleCount \+= 50/);
+  assert.match(history, /visibleCount: 50/);
+  assert.match(history, /\['all', 'automatic', 'manual', 'external', 'problems'\]/);
+  assert.match(history, /entry\.outcome === 'failed' \|\| entry\.outcome === 'unverifiable'/);
+  assert.match(history, /filtered\.slice\(0, planHistoryState\.visibleCount\)/);
+  assert.match(history, /planHistoryState\.visibleCount \+= 50/);
 });
 
 test('history revision handling rejects stale notifications and stale snapshots', () => {
-  assert.match(power, /revision >= Math\.max\(planHistoryState\.revision, planHistoryState\.notifiedRevision\)/);
-  assert.match(power, /revision <= planHistoryState\.revision\) return/);
-  assert.match(power, /planHistoryState\.dirty = true/);
-  assert.match(power, /if \(planHistoryVisible\(\)\) loadPlanHistory\(\)/);
+  assert.match(history, /revision >= Math\.max\(planHistoryState\.revision, planHistoryState\.notifiedRevision\)/);
+  assert.match(history, /revision <= planHistoryState\.revision\) return/);
+  assert.match(history, /planHistoryState\.dirty = true/);
+  assert.match(history, /if \(planHistoryVisible\(\)\) loadPlanHistory\(\)/);
 });
 
 test('history renders names as text and formats localized dates down to seconds', () => {
-  const historyUi = power.slice(power.indexOf('function historyDate'), power.indexOf("Host.call('getSettings')"));
+  const historyUi = history;
   assert.match(historyUi, /second: '2-digit'/);
   assert.match(historyUi, /I18n\.date/);
   assert.match(historyUi, /I18n\.number/);
@@ -50,11 +50,11 @@ test('history renders names as text and formats localized dates down to seconds'
 });
 
 test('history exposes empty, filtered-empty, load-error retry and clear states', () => {
-  assert.match(power, /state\.textContent = ht\('empty'\)/);
-  assert.match(power, /state\.textContent = ht\('noResults'\)/);
-  assert.match(power, /state\.textContent = ht\('loadError'\)/);
-  assert.match(power, /Host\.call\('clearPlanHistory'\)/);
-  assert.match(power, /id = 'plan-history-retry'/);
+  assert.match(history, /state\.textContent = ht\('empty'\)/);
+  assert.match(history, /state\.textContent = ht\('noResults'\)/);
+  assert.match(history, /state\.textContent = ht\('loadError'\)/);
+  assert.match(history, /Host\.call\('clearPlanHistory'\)/);
+  assert.match(history, /id = 'plan-history-retry'/);
 });
 
 test('history translations cover Italian, English, Spanish and Chinese', () => {
@@ -70,9 +70,9 @@ test('history translations cover Italian, English, Spanish and Chinese', () => {
 test('bridge event subscription supports lifecycle cleanup', () => {
   assert.match(bridge, /return \(\) => \{/);
   assert.match(bridge, /current\.splice\(index, 1\)/);
-  assert.match(power, /planHistoryUnsubscribe = Host\.on\('planHistoryChanged'/);
-  assert.match(power, /window\.addEventListener\('unload'/);
-  assert.match(power, /planHistoryUnsubscribe\(\)/);
+  assert.match(history, /planHistoryUnsubscribe = Host\.on\('planHistoryChanged'/);
+  assert.match(history, /dispose\(\)/);
+  assert.match(history, /planHistoryUnsubscribe\(\)/);
 });
 
 // Execute the real history functions with a small DOM and deferred bridge replies.
@@ -101,8 +101,9 @@ function historyHarness(language = 'en') {
     addEventListener: (name, handler) => events.set(name, handler),
     removeEventListener: name => events.delete(name),
   };
+  const window = { addEventListener() {} };
   const context = vm.createContext({
-    document, window: { addEventListener() {} }, console: { error() {} },
+    document, window, console: { error() {} },
     lang: () => language, I18n: { t: key => key },
     Host: {
       available: true,
@@ -117,16 +118,26 @@ function historyHarness(language = 'en') {
       return (catalog[requestedLanguage] && catalog[requestedLanguage][key]) ||
         (catalog.en && catalog.en[key]) || key;
     };
+    I18n.getLang = () => '${language}';
     window.I18n = I18n;
   `, context);
-  vm.runInContext(
-    power.slice(power.indexOf('    let planHistoryWired'), power.indexOf('    const ruleIds')) +
-    power.slice(power.indexOf('    function ht'), power.indexOf('    function esc')) +
-    power.slice(power.indexOf('    function historyLocale'), power.indexOf("    Host.call('getSettings')")) +
-    '\nwirePlanHistoryUi(); globalThis.api = { loadPlanHistory, historyExplanation, historyNumber, renderPlanHistory, state: planHistoryState };',
-    context,
-  );
-  return { ...context.api, nodes, events, requests, document };
+  window.Host = context.Host;
+  window.VoltViewLifecycle = {
+    register(_id, descriptor) {
+      descriptor.init();
+      descriptor.activate({ view: 'power-plans', subviews: { 'power-plans': 'history' } });
+    },
+  };
+  vm.runInContext(history, context);
+  const api = window.VoltPlanHistory;
+  return {
+    loadPlanHistory: api.load,
+    historyExplanation: api.explanation,
+    historyNumber: api.number,
+    renderPlanHistory: api.render,
+    state: api.state,
+    nodes, events, requests, document,
+  };
 }
 
 const flush = () => new Promise(resolve => setImmediate(resolve));
@@ -148,7 +159,7 @@ test('a notification arriving during a read triggers a fresh snapshot without re
 test('clearing history cannot lose a newer event while an older snapshot is in flight', async () => {
   const h = historyHarness();
   const loading = h.loadPlanHistory();
-  const clearing = h.nodes.get('plan-history-mount').click({ target: {
+  const clearing = h.nodes.get('plan-history-shell').click({ target: {
     closest: selector => selector === '#plan-history-clear' ? {} : null,
   } });
   h.events.get('planHistoryChanged')({ revision: 3 });
@@ -165,13 +176,15 @@ test('clearing history cannot lose a newer event while an older snapshot is in f
 
 test('history parks bridge reads while hidden and catches up when visible again', async () => {
   const h = historyHarness();
+  h.requests[0].resolve({ revision: 0, entries: [] });
+  await flush();
   h.document.hidden = true;
   h.events.get('planHistoryChanged')({ revision: 4 });
-  assert.equal(h.requests.length, 0);
+  assert.equal(h.requests.length, 1);
   assert.equal(h.state.dirty, true);
   h.document.hidden = false;
   h.events.get('visibilitychange')();
-  h.requests[0].resolve({ revision: 4, entries: [] });
+  h.requests[1].resolve({ revision: 4, entries: [] });
   await flush();
   assert.equal(h.state.revision, 4);
 });

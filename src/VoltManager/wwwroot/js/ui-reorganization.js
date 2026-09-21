@@ -130,11 +130,6 @@
         }
     }
 
-    function activateLegacyPowerPanel(name) {
-        const segment = document.querySelector(`#view-power .pm-seg[data-pm="${name}"]`);
-        if (segment) setTimeout(() => click(segment), 0);
-    }
-
     function relocate() {
         move($('dash-taskmanager'), $('vm-monitoring-hardware'));
         move($('processes-section'), $('vm-monitoring-processes'));
@@ -149,21 +144,15 @@
         move($('active-plan-reason'), $('vm-power-active'), true);
         move($('pref-power-source-plan-home'), $('vm-power-source'), true);
         move($('pref-low-battery-threshold-home'), $('vm-power-source'), true);
-        move($('keep-awake-mount'), $('vm-keep-awake'));
-        move($('plan-history-mount'), $('vm-power-history'));
-        move($('advanced-params-mount'), $('vm-power-advanced'));
 
         const ruleItem = document.querySelector('.vm-acc-item[data-pm="rules"]');
         const ruleBody = ruleItem && ruleItem.querySelector('.vm-acc-body-inner');
         move(ruleBody || ruleItem, $('vm-automation-rules'));
-        move($('app-power-profile-mount'), $('vm-automation-profiles'));
-        move($('heavy-app-mount'), $('vm-automation-gaming'));
         move($('pref-gaming-mode-home'), $('vm-automation-gaming'));
 
         move($('schedule-panel'), $('vm-system-scheduled'));
         const startupButton = $('btn-refresh-startup-apps');
         move(startupButton && startupButton.closest('.glass-panel'), $('vm-system-startup'));
-        move($('ram-cleaner-mount'), $('vm-system-memory'));
 
         move($('widgets-card'), $('vm-widgets-content'));
 
@@ -186,7 +175,7 @@
         if (oldPlanCard && !oldPlanCard.children.length) oldPlanCard.remove();
         // Drop empty decorative leftovers from legacy shells (headings/glows
         // left behind after relocate). Keep any node that still hosts an id
-        // used by power/advanced lazy mounts or activateLegacyPowerPanel.
+        // used by power/advanced lazy mounts.
         document.querySelectorAll('.vm-legacy-view').forEach(view => {
             view.querySelectorAll(':scope > :not([id]):not([data-pm])').forEach(child => {
                 if (!child.querySelector('[id], [data-pm], .pm-seg, .vm-acc-item')) child.remove();
@@ -221,6 +210,13 @@
         document.dispatchEvent(new CustomEvent('viewchange', {
             detail: { view: name, reorganized: true }
         }));
+    }
+
+    function syncLifecycle() {
+        window.VoltViewLifecycle?.transition({
+            view: state.view,
+            subviews: state.subviews
+        });
     }
 
     api.activateView = function (name, updateHash) {
@@ -261,12 +257,7 @@
             dispatchView(name);
             if (legacy[name]) setTimeout(() => dispatchView(legacy[name]), 0);
             if (name === 'settings' && state.subviews.settings === 'updates') loadChangelog();
-            if (name === 'power-plans' && state.subviews['power-plans'] === 'advanced') {
-                activateLegacyPowerPanel('advanced');
-            }
-            if (name === 'system-tools' && state.subviews['system-tools'] === 'memory') {
-                activateLegacyPowerPanel('ram');
-            }
+            syncLifecycle();
             document.dispatchEvent(new CustomEvent('voltuiviewchanged', { detail: { view: name } }));
         };
 
@@ -282,7 +273,6 @@
     };
 
     api.activateSubview = function (group, name) {
-        const previous = state.subviews[group];
         state.subviews[group] = name;
         document.querySelectorAll(`[data-vm-subnav-group="${group}"]`).forEach(button => {
             const active = button.dataset.vmSubnavTarget === name;
@@ -298,14 +288,7 @@
         if (group === 'settings' && name === 'updates') loadChangelog();
         if (group === 'system-tools' && name === 'startup') dispatchView('system');
 
-        if (group === 'power-plans' && name === 'advanced') {
-            activateLegacyPowerPanel('advanced');
-        }
-        if (group === 'system-tools') {
-            if (name === 'memory') activateLegacyPowerPanel('ram');
-            else if (previous === 'memory') activateLegacyPowerPanel('rules');
-        }
-
+        syncLifecycle();
         document.dispatchEvent(new CustomEvent('voltuisubviewchanged', {
             detail: { group, view: name }
         }));
