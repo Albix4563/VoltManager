@@ -12,81 +12,14 @@
     const SUPPORTED_DAYS = [1, 5, 7, 12];
     let expiryTimer = null;
 
-    const text = {
-        it: {
-            automaticSub: 'Controlla automaticamente nuove versioni ogni 15 minuti',
-            title: 'Sospendi aggiornamenti',
-            sub: 'Ferma temporaneamente i controlli automatici. Il controllo manuale resta disponibile.',
-            forLabel: 'Sospendi per',
-            day1: '1 giorno',
-            days5: '5 giorni',
-            days7: '7 giorni',
-            days12: '12 giorni',
-            suspend: 'Sospendi',
-            resume: 'Riprendi ora',
-            active: 'Aggiornamenti automatici attivi.',
-            disabled: 'La ricerca automatica degli aggiornamenti è disattivata.',
-            until: 'Aggiornamenti sospesi fino al {date}.',
-            failed: 'Impossibile modificare la sospensione degli aggiornamenti.'
-        },
-        es: {
-            automaticSub: 'Busca nuevas versiones automáticamente cada 15 minutos',
-            title: 'Pausar actualizaciones',
-            sub: 'Detiene temporalmente las comprobaciones automáticas. La comprobación manual sigue disponible.',
-            forLabel: 'Pausar durante',
-            day1: '1 día',
-            days5: '5 días',
-            days7: '7 días',
-            days12: '12 días',
-            suspend: 'Pausar',
-            resume: 'Reanudar ahora',
-            active: 'Las actualizaciones automáticas están activas.',
-            disabled: 'La búsqueda automática de actualizaciones está desactivada.',
-            until: 'Actualizaciones pausadas hasta {date}.',
-            failed: 'No se pudo cambiar la pausa de actualizaciones.'
-        },
-        en: {
-            automaticSub: 'Automatically checks for new versions every 15 minutes',
-            title: 'Pause updates',
-            sub: 'Temporarily stops automatic checks. Manual update checks remain available.',
-            forLabel: 'Pause for',
-            day1: '1 day',
-            days5: '5 days',
-            days7: '7 days',
-            days12: '12 days',
-            suspend: 'Pause',
-            resume: 'Resume now',
-            active: 'Automatic updates are active.',
-            disabled: 'Automatic update checks are disabled.',
-            until: 'Updates paused until {date}.',
-            failed: 'Unable to change the update pause.'
-        },
-        zh: {
-            automaticSub: '每 15 分钟自动检查新版本',
-            title: '暂停更新',
-            sub: '暂时停止自动检查。仍可手动检查更新。',
-            forLabel: '暂停时长',
-            day1: '1 天',
-            days5: '5 天',
-            days7: '7 天',
-            days12: '12 天',
-            suspend: '暂停',
-            resume: '立即恢复',
-            active: '自动更新已启用。',
-            disabled: '自动更新检查已关闭。',
-            until: '更新已暂停至 {date}。',
-            failed: '无法更改更新暂停状态。'
-        }
-    };
 
     function lang() {
         const value = window.I18n && I18n.getLang ? I18n.getLang() : 'it';
-        return text[value] ? value : 'en';
+        return window.I18n && I18n.isSupported && I18n.isSupported(value) ? value : 'en';
     }
 
     function t(key) {
-        const current = lang();
-        return text[current][key] || text.en[key] || key;
+        return window.I18n && I18n.feature ? I18n.feature('updateSuspension', key, lang()) : key;
     }
 
     function getSettings() {
@@ -116,12 +49,13 @@
     }
 
     function formatDeadline(milliseconds) {
-        const locale = { it: 'it-IT', es: 'es-ES', en: 'en-US', zh: 'zh-CN' }[lang()] || 'en-US';
         try {
-            return new Intl.DateTimeFormat(locale, {
+            const options = {
                 dateStyle: 'medium',
                 timeStyle: 'short'
-            }).format(new Date(milliseconds));
+            };
+            if (window.I18n && I18n.date) return I18n.date(new Date(milliseconds), lang(), options);
+            return new Intl.DateTimeFormat('en-US', options).format(new Date(milliseconds));
         } catch {
             return new Date(milliseconds).toLocaleString();
         }

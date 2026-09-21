@@ -89,7 +89,7 @@ test('palette ships its structural accessibility hooks and startup entry point',
 });
 
 test('palette strings exist in every reorganized UI language and CSS handles reduced motion', () => {
-  const strings = read('src/VoltManager/wwwroot/js/ui-reorganization.i18n.js');
+  const strings = read('src/VoltManager/wwwroot/js/i18n.catalogs.js');
   const css = read('src/VoltManager/wwwroot/css/ui-reorganization.css');
 
   for (const key of [
@@ -227,7 +227,7 @@ test('search modal opens and closes through user events without duplicating its 
 
 test('every search description and keyword used by the catalog is localized in all languages', () => {
   const searchSource = read('src/VoltManager/wwwroot/js/global-search.js');
-  const strings = read('src/VoltManager/wwwroot/js/ui-reorganization.i18n.js');
+  const strings = read('src/VoltManager/wwwroot/js/i18n.catalogs.js');
   const keys = [...new Set(
     [...searchSource.matchAll(/'(search_(?:desc|kw)_[a-z0-9_]+)'/g)].map(match => match[1])
   )];

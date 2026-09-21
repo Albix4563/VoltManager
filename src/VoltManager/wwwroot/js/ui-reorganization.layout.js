@@ -11,10 +11,10 @@
     };
 
     api.t = function (key, params) {
-        const strings = window.VoltUiReorgStrings || {};
         const lang = api.lang();
-        let value = (strings[lang] && strings[lang][key]) ||
-            (strings.en && strings.en[key]) || key;
+        let value = window.I18n && I18n.feature
+            ? I18n.feature('uiReorganization', key, lang)
+            : key;
         Object.entries(params || {}).forEach(([name, replacement]) => {
             value = value.replaceAll('{' + name + '}', String(replacement));
         });

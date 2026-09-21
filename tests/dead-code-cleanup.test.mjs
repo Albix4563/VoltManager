@@ -9,6 +9,7 @@ function source(path) {
 
 const settings = source('src/VoltManager/wwwroot/js/settings.js');
 const app = source('src/VoltManager/wwwroot/js/app.js');
+const i18nCatalogs = source('src/VoltManager/wwwroot/js/i18n.catalogs.js');
 const i18n = source('src/VoltManager/wwwroot/js/i18n.js');
 const bridge = source('src/VoltManager/Bridge/HostBridge.cs');
 const reorganization = source('src/VoltManager/wwwroot/js/ui-reorganization.js');
@@ -20,6 +21,7 @@ test('dynamically generated widget size keys remain translated in every language
     for (const [lang, labels] of Object.entries(expected)) {
         const context = { window: { addEventListener() {} }, document: { addEventListener() {} },
             localStorage: { getItem: () => lang } };
+        vm.runInNewContext(i18nCatalogs, context);
         vm.runInNewContext(i18n, context);
         ['mini', 'medium', 'large'].forEach((size, index) =>
             assert.equal(context.window.I18n.t('widget_size_' + size), labels[index]));
@@ -29,7 +31,7 @@ test('dynamically generated widget size keys remain translated in every language
 test('legacy Settings auto-shutdown UI stays removed while current scheduling remains wired', () => {
     assert.doesNotMatch(settings, /auto-shutdown-panel|normalizeAutoShutdownSettings|mountAutoShutdownUi|wireAutoShutdownUi/);
     assert.doesNotMatch(app, /removeLegacyAutoShutdownPanel/);
-    assert.doesNotMatch(i18n, /set_pref_autoshutdown/);
+    assert.doesNotMatch(i18nCatalogs, /set_pref_autoshutdown/);
     assert.match(app, /Host\.call\('schedulePowerAction'/);
     assert.match(app, /Host\.call\('getScheduledPowerAction'/);
 });

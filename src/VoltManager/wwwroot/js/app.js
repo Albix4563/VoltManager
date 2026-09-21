@@ -7,100 +7,6 @@
     const navIndicator = document.getElementById('nav-indicator');
     const mainContent = document.getElementById('main-content');
 
-    const labels = {
-        it: {
-            nav: 'Gestione Energetica', title: 'Gestione Energetica', sub: 'Programma spegnimento, riavvio e sospensione del PC, e mantienilo attivo quando serve.',
-            scheduleTitle: 'Azione automatica del PC', scheduleSub: 'Spegni, sospendi o riavvia il PC dopo un conto alla rovescia, oppure ogni giorno a un orario fisso.',
-            immediateTitle: 'Azioni immediate', immediateSub: 'Spegni o riavvia subito il PC.', shutdownNow: 'Spegni PC', restartNow: 'Riavvia PC',
-            confirmShutdown: 'Spegnere il PC adesso?', confirmRestart: 'Riavviare il PC adesso?',
-            enable: 'Attiva pianificazione', action: 'Azione', shutdown: 'Spegni', restart: 'Riavvia', sleep: 'Sospendi', time: 'Orario',
-            note: 'Spegnimento e riavvio non forzano il salvataggio del lavoro aperto. La sospensione usa lo stato sospensione di Windows.',
-            keepAwakeTitle: 'Mantieni il PC attivo', keepAwakeSub: 'Impedisce al PC di andare in sospensione automatica finché è attivo.',
-            startupTitle: 'Applicazioni di avvio', startupSub: 'Controlla le applicazioni che partono o risultano disattivate all\'avvio di Windows.',
-            addTitle: 'Aggiungi app personalizzata', addSub: 'Seleziona un file .exe, .lnk, .bat o .cmd. Verrà registrato come app gestita da Miliano\'s App.',
-            add: 'Aggiungi', refresh: 'Aggiorna', searchStartup: 'Cerca applicazione…', enabled: 'Avvio attivo', disabled: 'Avvio disattivato', loading: 'Caricamento…', empty: 'Nessuna applicazione trovata.',
-            managed: 'Miliano\'s App', remove: 'Rimuovi', enableStartup: 'Attiva', disableStartup: 'Disattiva', unknown: 'App sconosciuta',
-            on: 'ON', off: 'OFF', active: 'Attivo', inactive: 'Disattivato', switchHint: 'Switch animato', source: 'Origine', command: 'Percorso',
-            added: 'Applicazione aggiunta all\'avvio.', removed: 'Applicazione rimossa dall\'avvio.', toggled: 'Stato applicazione aggiornato.',
-            loadErr: 'Errore caricamento app di avvio: ', addErr: 'Errore aggiunta app: ', removeErr: 'Errore rimozione app: ', toggleErr: 'Errore modifica stato app: ',
-            confirm: 'Programma azione', cancel: 'Annulla', activeTitle: 'Azione programmata',
-            relative: 'Una volta', daily: 'Ogni giorno',
-            preset30: '30 minuti', preset45: '45 minuti', preset1h: '1 ora', preset2h: '2 ore', preset4h: '4 ore', custom: 'Personalizzato',
-            hours: 'Ore', minutes: 'Minuti',
-            remaining: 'Tra', at: 'Esecuzione prevista:',
-            scheduled: 'Azione programmata.', cancelled: 'Pianificazione annullata.',
-            invalidDuration: 'Durata minima: 1 minuto.', invalidTime: 'Orario non valido (usa HH:mm).'
-        },
-        en: {
-            nav: 'Power Schedule', title: 'Power Schedule', sub: 'Schedule PC shutdown, restart and sleep, and keep it awake when needed.',
-            scheduleTitle: 'Automatic PC action', scheduleSub: 'Shut down, sleep or restart the PC after a countdown, or every day at a fixed time.',
-            immediateTitle: 'Immediate actions', immediateSub: 'Shut down or restart the PC now.', shutdownNow: 'Shut down PC', restartNow: 'Restart PC',
-            confirmShutdown: 'Shut down the PC now?', confirmRestart: 'Restart the PC now?',
-            enable: 'Enable schedule', action: 'Action', shutdown: 'Shut down', restart: 'Restart', sleep: 'Sleep', time: 'Time',
-            note: 'Shutdown and restart do not force-save open work. Sleep uses the Windows suspend state.',
-            keepAwakeTitle: 'Keep PC awake', keepAwakeSub: 'Prevents the PC from automatically sleeping while it is active.',
-            startupTitle: 'Startup applications', startupSub: 'Review applications that start, or are disabled, when Windows starts.',
-            addTitle: 'Add custom app', addSub: 'Select an .exe, .lnk, .bat, or .cmd file. It will be registered as a Miliano\'s App managed entry.',
-            add: 'Add', refresh: 'Refresh', searchStartup: 'Search application…', enabled: 'Enabled startup', disabled: 'Disabled startup', loading: 'Loading…', empty: 'No applications found.',
-            managed: 'Miliano\'s App', remove: 'Remove', enableStartup: 'Enable', disableStartup: 'Disable', unknown: 'Unknown app',
-            on: 'ON', off: 'OFF', active: 'Active', inactive: 'Disabled', switchHint: 'Animated switch', source: 'Source', command: 'Path',
-            added: 'Application added to startup.', removed: 'Application removed from startup.', toggled: 'Application state updated.',
-            loadErr: 'Error loading startup apps: ', addErr: 'Error adding app: ', removeErr: 'Error removing app: ', toggleErr: 'Error changing app state: ',
-            confirm: 'Schedule action', cancel: 'Cancel', activeTitle: 'Scheduled action',
-            relative: 'Once', daily: 'Daily',
-            preset30: '30 minutes', preset45: '45 minutes', preset1h: '1 hour', preset2h: '2 hours', preset4h: '4 hours', custom: 'Custom',
-            hours: 'Hours', minutes: 'Minutes',
-            remaining: 'In', at: 'Expected execution:',
-            scheduled: 'Action scheduled.', cancelled: 'Schedule cancelled.',
-            invalidDuration: 'Minimum duration: 1 minute.', invalidTime: 'Invalid time (use HH:mm).'
-        },
-        zh: {
-            nav: '电源计划', title: '电源计划', sub: '计划电脑的关机、重启和睡眠，并在需要时保持唤醒。',
-            scheduleTitle: '电脑自动操作', scheduleSub: '倒计时后关机、睡眠或重启，或每天在固定时间执行。',
-            immediateTitle: '立即操作', immediateSub: '立即关闭或重启电脑。', shutdownNow: '关闭电脑', restartNow: '重启电脑',
-            confirmShutdown: '现在关闭电脑吗？', confirmRestart: '现在重启电脑吗？',
-            enable: '启用计划', action: '操作', shutdown: '关机', restart: '重启', sleep: '睡眠', time: '时间',
-            note: '关机和重启不会强制保存打开的工作。睡眠使用 Windows 的挂起状态。',
-            keepAwakeTitle: '保持电脑唤醒', keepAwakeSub: '在电脑处于活动状态时阻止其自动进入睡眠。',
-            startupTitle: '启动应用', startupSub: '查看 Windows 启动时启动或被禁用的应用。',
-            addTitle: '添加自定义应用', addSub: '选择 .exe、.lnk、.bat 或 .cmd 文件。它会注册为由 Miliano\'s App 管理的启动项。',
-            add: '添加', refresh: '刷新', searchStartup: '搜索应用…', enabled: '启动已启用', disabled: '启动已禁用', loading: '正在加载…', empty: '未找到应用。',
-            managed: 'Miliano\'s App', remove: '移除', enableStartup: '启用', disableStartup: '禁用', unknown: '未知应用',
-            on: '开', off: '关', active: '启用', inactive: '禁用', switchHint: '动画开关', source: '来源', command: '路径',
-            added: '应用已添加到启动项。', removed: '应用已从启动项移除。', toggled: '应用状态已更新。',
-            loadErr: '加载启动应用时出错：', addErr: '添加应用时出错：', removeErr: '移除应用时出错：', toggleErr: '修改应用状态时出错：',
-            confirm: '安排操作', cancel: '取消', activeTitle: '已安排的操作',
-            relative: '一次', daily: '每天',
-            preset30: '30 分钟', preset45: '45 分钟', preset1h: '1 小时', preset2h: '2 小时', preset4h: '4 小时', custom: '自定义',
-            hours: '小时', minutes: '分钟',
-            remaining: '剩余', at: '预计执行：',
-            scheduled: '操作已安排。', cancelled: '计划已取消。',
-            invalidDuration: '持续时间至少 1 分钟。', invalidTime: '时间格式无效（请使用 HH:mm）。'
-        },
-        es: {
-            nav: 'Programación de energía', title: 'Programación de energía', sub: 'Programa apagado, reinicio y suspensión del PC, y mantenlo activo cuando sea necesario.',
-            scheduleTitle: 'Acción automática del PC', scheduleSub: 'Apaga, suspende o reinicia el PC tras una cuenta atrás, o cada día a una hora fija.',
-            immediateTitle: 'Acciones inmediatas', immediateSub: 'Apaga o reinicia el PC ahora.', shutdownNow: 'Apagar PC', restartNow: 'Reiniciar PC',
-            confirmShutdown: '¿Apagar el PC ahora?', confirmRestart: '¿Reiniciar el PC ahora?',
-            enable: 'Activar programación', action: 'Acción', shutdown: 'Apagar', restart: 'Reiniciar', sleep: 'Suspender', time: 'Hora',
-            note: 'Apagar y reiniciar no fuerzan el guardado del trabajo abierto. La suspensión usa el estado de suspensión de Windows.',
-            keepAwakeTitle: 'Mantener el PC activo', keepAwakeSub: 'Impide que el PC entre en suspensión automática mientras está activo.',
-            startupTitle: 'Aplicaciones de inicio', startupSub: 'Revisa las aplicaciones que se inician o están desactivadas al arrancar Windows.',
-            addTitle: 'Añadir app personalizada', addSub: 'Selecciona un archivo .exe, .lnk, .bat o .cmd. Se registrará como entrada gestionada por VoltManager.',
-            add: 'Añadir', refresh: 'Actualizar', searchStartup: 'Buscar aplicación…', enabled: 'Inicio activo', disabled: 'Inicio desactivado', loading: 'Cargando…', empty: 'No se encontraron aplicaciones.',
-            managed: 'VoltManager', remove: 'Eliminar', enableStartup: 'Activar', disableStartup: 'Desactivar', unknown: 'App desconocida',
-            on: 'ON', off: 'OFF', active: 'Activo', inactive: 'Desactivado', switchHint: 'Interruptor animado', source: 'Origen', command: 'Ruta',
-            added: 'Aplicación añadida al inicio.', removed: 'Aplicación eliminada del inicio.', toggled: 'Estado de la aplicación actualizado.',
-            loadErr: 'Error al cargar apps de inicio: ', addErr: 'Error al añadir app: ', removeErr: 'Error al eliminar app: ', toggleErr: 'Error al cambiar estado de la app: ',
-            confirm: 'Programar acción', cancel: 'Cancelar', activeTitle: 'Acción programada',
-            relative: 'Una vez', daily: 'Cada día',
-            preset30: '30 minutos', preset45: '45 minutos', preset1h: '1 hora', preset2h: '2 horas', preset4h: '4 horas', custom: 'Personalizado',
-            hours: 'Horas', minutes: 'Minutos',
-            remaining: 'En', at: 'Ejecución prevista:',
-            scheduled: 'Acción programada.', cancelled: 'Planificación cancelada.',
-            invalidDuration: 'Duración mínima: 1 minuto.', invalidTime: 'Hora no válida (usa HH:mm).'
-        }
-    };
 
     let systemWired = false;
     let startupLoaded = false;
@@ -134,7 +40,7 @@
 
     function t(key) {
         const lang = window.I18n && I18n.getLang ? I18n.getLang() : 'it';
-        return (labels[lang] && labels[lang][key]) || (labels.en && labels.en[key]) || key;
+        return window.I18n && I18n.feature ? I18n.feature('system', key, lang) : key;
     }
 
     function esc(s) {

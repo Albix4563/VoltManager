@@ -12,8 +12,9 @@ const power = source('src/VoltManager/wwwroot/js/power.js');
 const dashboard = source('src/VoltManager/wwwroot/js/dashboard.js');
 const bridge = source('src/VoltManager/wwwroot/js/bridge.js');
 const i18n = source('src/VoltManager/wwwroot/js/i18n.js');
+const catalogsSource = source('src/VoltManager/wwwroot/js/i18n.catalogs.js');
 const reorgLayout = source('src/VoltManager/wwwroot/js/ui-reorganization.layout.js');
-const reorgI18n = source('src/VoltManager/wwwroot/js/ui-reorganization.i18n.js');
+const reorgI18n = catalogsSource;
 
 test('plan history is reachable from the plan reason and both power navigation shells', () => {
   assert.match(html, /id="open-plan-history"/);
@@ -42,7 +43,8 @@ test('history revision handling rejects stale notifications and stale snapshots'
 test('history renders names as text and formats localized dates down to seconds', () => {
   const historyUi = power.slice(power.indexOf('function historyDate'), power.indexOf("Host.call('getSettings')"));
   assert.match(historyUi, /second: '2-digit'/);
-  assert.match(historyUi, /new Intl\.NumberFormat\(historyLocale\(\)/);
+  assert.match(historyUi, /I18n\.date/);
+  assert.match(historyUi, /I18n\.number/);
   assert.match(historyUi, /node\.textContent = String\(textValue\)/);
   assert.doesNotMatch(historyUi, /innerHTML/);
 });
@@ -56,13 +58,13 @@ test('history exposes empty, filtered-empty, load-error retry and clear states',
 });
 
 test('history translations cover Italian, English, Spanish and Chinese', () => {
-  assert.equal((i18n.match(/"power_group_history"/g) || []).length, 4);
-  assert.equal((i18n.match(/"plan_history_link"/g) || []).length, 4);
+  assert.equal((catalogsSource.match(/"power_group_history"/g) || []).length, 4);
+  assert.equal((catalogsSource.match(/"plan_history_link"/g) || []).length, 4);
   assert.equal((reorgI18n.match(/tab_plan_history:/g) || []).length, 4);
-  assert.match(power, /it: \{[\s\S]*?note: 'Ultimi 500 eventi della sessione/);
-  assert.match(power, /en: \{[\s\S]*?note: 'Last 500 events from this session/);
-  assert.match(power, /es: \{[\s\S]*?note: 'Últimos 500 eventos de la sesión/);
-  assert.match(power, /zh: \{[\s\S]*?note: '本次会话最近 500 个事件/);
+  assert.match(catalogsSource, /it: \{[\s\S]*?note: 'Ultimi 500 eventi della sessione/);
+  assert.match(catalogsSource, /en: \{[\s\S]*?note: 'Last 500 events from this session/);
+  assert.match(catalogsSource, /es: \{[\s\S]*?note: 'Últimos 500 eventos de la sesión/);
+  assert.match(catalogsSource, /zh: \{[\s\S]*?note: '本次会话最近 500 个事件/);
 });
 
 test('bridge event subscription supports lifecycle cleanup', () => {
@@ -108,9 +110,18 @@ function historyHarness(language = 'en') {
       call(method) { return new Promise((resolve, reject) => requests.push({ method, resolve, reject })); },
     },
   });
+  vm.runInContext(catalogsSource, context);
+  vm.runInContext(`
+    I18n.feature = function(namespace, key, requestedLanguage) {
+      const catalog = (window.VoltI18nCatalogs.namespaces || {})[namespace] || {};
+      return (catalog[requestedLanguage] && catalog[requestedLanguage][key]) ||
+        (catalog.en && catalog.en[key]) || key;
+    };
+    window.I18n = I18n;
+  `, context);
   vm.runInContext(
     power.slice(power.indexOf('    let planHistoryWired'), power.indexOf('    const ruleIds')) +
-    power.slice(power.indexOf('    const historyText'), power.indexOf('    function esc')) +
+    power.slice(power.indexOf('    function ht'), power.indexOf('    function esc')) +
     power.slice(power.indexOf('    function historyLocale'), power.indexOf("    Host.call('getSettings')")) +
     '\nwirePlanHistoryUi(); globalThis.api = { loadPlanHistory, historyExplanation, historyNumber, renderPlanHistory, state: planHistoryState };',
     context,
