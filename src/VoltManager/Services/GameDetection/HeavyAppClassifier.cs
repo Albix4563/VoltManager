@@ -1,3 +1,4 @@
+using System.IO;
 using VoltManager.Models;
 
 namespace VoltManager.Services.GameDetection;
@@ -14,6 +15,9 @@ internal static class HeavyAppClassifier
     {
         var detected = new List<DetectedHeavyApp>();
         var observed = new List<ObservedHeavyProcess>(evidence.Processes.Count);
+        var gpuHighPerformancePaths = evidence.GpuHighPerformancePaths
+            as HashSet<string>
+            ?? evidence.GpuHighPerformancePaths.ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         foreach (HeavyAppProcessEvidence process in evidence.Processes)
         {
@@ -34,7 +38,7 @@ internal static class HeavyAppClassifier
                 process.Path,
                 process.Name,
                 process.WorkingSetBytes,
-                evidence.GpuHighPerformancePaths.ToHashSet(StringComparer.OrdinalIgnoreCase),
+                gpuHighPerformancePaths,
                 config,
                 process.StartedAtUtc,
                 evidence.CapturedAtUtc,

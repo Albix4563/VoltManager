@@ -50,27 +50,15 @@ public record HeavyAppDetectionState
 public sealed class HeavyAppDetectionService : IDisposable
 {
     private static readonly TimeSpan ScanInterval = TimeSpan.FromSeconds(5);
-    internal static readonly TimeSpan GpuPreferencesCacheDuration = TimeSpan.FromSeconds(30);
-    // Accepts a snapshot captured by any other scanner within this window, so the
-    // three loops normally share a single system-wide enumeration.
-    private static readonly TimeSpan SnapshotMaxAge = TimeSpan.FromSeconds(4);
 
     private readonly SettingsService _settings;
-    private readonly Func<IReadOnlyDictionary<int, double>>? _gpu3DByProcess;
+    private readonly HeavyAppEvidenceCollector _evidenceCollector;
+    private readonly HeavyAppTracker _tracker = new();
     private readonly object _lock = new();
     private Timer? _timer;
     private int _scanRunning;
     private bool _scanFaulted; // throttles scan-failure logging to once per streak
     private HeavyAppDetectionState _current = new();
-
-    // Processes already classified as heavy stay tracked by PID across scans, even if their
-    // working set later drops below the resource threshold (e.g. when a fullscreen game is
-    // alt-tabbed/minimized and Windows trims its memory). A sticky PID is dropped only when the
-    // process no longer appears in the enumeration, i.e. it has actually exited.
-    private readonly Dictionary<int, DetectedHeavyApp> _sticky = new();
-    private HashSet<string> _cachedGpuHighPerformancePaths = new(StringComparer.OrdinalIgnoreCase);
-    private DateTime _gpuPreferencesRefreshAfterUtc = DateTime.MinValue;
-    private static readonly HashSet<string> EmptyGpuPreferencePaths = new(StringComparer.OrdinalIgnoreCase);
 
     public event Action<HeavyAppDetectionState>? ActivityChanged;
 
@@ -85,7 +73,10 @@ public sealed class HeavyAppDetectionService : IDisposable
         Func<IReadOnlyDictionary<int, double>>? gpu3DByProcess = null)
     {
         _settings = settings;
-        _gpu3DByProcess = gpu3DByProcess;
+        _evidenceCollector = new HeavyAppEvidenceCollector(
+            gpu3DByProcess: gpu3DByProcess,
+            gpuPreferenceReader: ReadWindowsHighPerformanceGpuPreferences,
+            launcherAncestor: IsLauncherAncestor);
     }
 
     public HeavyAppDetectionState Current
@@ -147,7 +138,7 @@ public sealed class HeavyAppDetectionService : IDisposable
         bool hasExplicitPriority = config.PriorityApplicationPaths?.Count > 0;
         if (!config.Enabled && !hasExplicitPriority)
         {
-            lock (_lock) _sticky.Clear();
+            _tracker.Reset();
             Publish(new HeavyAppDetectionState
             {
                 Enabled = false,
@@ -158,102 +149,14 @@ public sealed class HeavyAppDetectionService : IDisposable
             return;
         }
 
-        DateTime scanNowUtc = DateTime.UtcNow;
-        var gpuHighPerformancePaths = config.UseWindowsGpuPreferences
-            ? GetCachedGpuPreferences(scanNowUtc, ReadWindowsHighPerformanceGpuPreferences)
-            : EmptyGpuPreferencePaths;
-
-        var snapshot = ProcessSnapshotProvider.Get(SnapshotMaxAge);
-        var processGraph = new ProcessGraph(snapshot.Processes);
-        // Foreground + exclusive/borderless fullscreen top-level windows (GetForegroundWindow
-        // alone misses some exclusive-fullscreen titles that leave FG on a shell helper).
-        var presentationPids = ForegroundProcessProbe.TryGetPresentationProcessIds();
-        int? foregroundPid = ForegroundProcessProbe.TryGetForegroundProcessId();
-        bool d3dFullscreenActive = ForegroundProcessProbe.IsD3dFullscreenActive();
-        var gpu3D = ReadGpu3DByProcessSafe();
-        var detected = new List<DetectedHeavyApp>();
-        var observed = new List<ObservedHeavyProcess>();
-        foreach (var process in snapshot.Processes)
-        {
-            try
-            {
-                if (process.Pid == Environment.ProcessId) continue;
-
-                string path = ProcessSnapshotProvider.GetPath(process);
-                if (string.IsNullOrWhiteSpace(path)) continue;
-                DateTime? startedAtUtc = process.StartTimeUtc;
-                long workingSetMb = Math.Max(0, process.WorkingSetBytes / 1024 / 1024);
-                observed.Add(new ObservedHeavyProcess(process.Pid, path, startedAtUtc, process.Name, workingSetMb));
-
-                bool explicitPriority = MatchesExactExecutablePath(path, config.PriorityApplicationPaths);
-                if (!config.Enabled)
-                {
-                    if (explicitPriority)
-                        detected.Add(CreatePriorityDetection(process, path, startedAtUtc, workingSetMb));
-                    continue;
-                }
-
-                bool hasLauncherAncestor = processGraph.TryFindAncestor(
-                    process.Pid,
-                    IsLauncherAncestor,
-                    maxDepth: 3,
-                    out _);
-                bool isForeground = presentationPids.Contains(process.Pid);
-                gpu3D.TryGetValue(process.Pid, out double gpu3DPercent);
-                bool d3dFullscreen = ForegroundProcessProbe.ShouldAttributeD3dFullscreen(
-                    d3dFullscreenActive, process.Pid, foregroundPid, presentationPids);
-
-                // Classify after ancestry/foreground so custom-folder titles can stick without
-                // depending only on path markers or peak working-set.
-                var assessment = AssessProcess(
-                    path,
-                    process.Name,
-                    process.WorkingSetBytes,
-                    gpuHighPerformancePaths,
-                    config,
-                    startedAtUtc,
-                    scanNowUtc,
-                    hasLauncherAncestor,
-                    isForeground,
-                    gpu3DPercent,
-                    d3dFullscreen);
-                string? kind = ClassifyKind(
-                    assessment, NormalizePath(path), process.Name, process.WorkingSetBytes, config);
-                if (kind == null) continue;
-                if (kind == "priorityApp")
-                {
-                    detected.Add(CreatePriorityDetection(process, path, startedAtUtc, workingSetMb));
-                    continue;
-                }
-
-                detected.Add(new DetectedHeavyApp
-                {
-                    ProcessId = process.Pid,
-                    Name = string.IsNullOrWhiteSpace(process.Name) ? System.IO.Path.GetFileNameWithoutExtension(path) : process.Name,
-                    Path = path,
-                    Reason = assessment.PrimaryReason!,
-                    Kind = kind,
-                    WorkingSetMb = workingSetMb,
-                    StartedAtUtc = startedAtUtc,
-                    ConfidenceScore = assessment.Score,
-                    ConfidenceLevel = assessment.Level,
-                    Evidence = assessment.Evidence,
-                });
-            }
-            catch
-            {
-                // Access can fail for protected/elevated processes; skip them.
-            }
-        }
-
-        // Merge with sticky tracking: refresh entries for freshly classified processes, drop
-        // sticky entries whose PID now belongs to a different executable, and keep alive-but-
-        // no-longer-qualifying real game processes (e.g. minimized after alt-tab) as detected.
-        lock (_lock)
-        {
-            if (!config.Enabled) _sticky.Clear();
-            detected = MergeStickyDetections(_sticky, detected, observed, config.MinWorkingSetMb);
-        }
+        HeavyAppEvidenceSnapshot evidence = _evidenceCollector.Capture(config);
+        HeavyAppClassificationResult classification = HeavyAppClassifier.Classify(evidence, config);
+        if (!config.Enabled)
+            _tracker.Reset();
+        List<DetectedHeavyApp> detected = _tracker.Merge(
+            classification.Detected,
+            classification.Observed,
+            config.MinWorkingSetMb);
 
         var unique = detected
             .GroupBy(p => p.Path, StringComparer.OrdinalIgnoreCase)
@@ -285,39 +188,13 @@ public sealed class HeavyAppDetectionService : IDisposable
                 .OrderBy(identity => identity.ProcessId)
                 .ThenBy(identity => identity.StartedAtUtc)
                 .ToList(),
-            LastScanUtc = DateTime.UtcNow,
+            LastScanUtc = evidence.CapturedAtUtc,
         });
     }
-
-    private IReadOnlyDictionary<int, double> ReadGpu3DByProcessSafe()
-    {
-        if (_gpu3DByProcess == null) return EmptyGpu3D;
-        try { return _gpu3DByProcess() ?? EmptyGpu3D; }
-        catch { return EmptyGpu3D; }
-    }
-
-    private static readonly IReadOnlyDictionary<int, double> EmptyGpu3D = new Dictionary<int, double>();
 
     public static bool IsGame(DetectedHeavyApp app)
         => string.Equals(app.Kind, "game", StringComparison.Ordinal);
 
-    private static DetectedHeavyApp CreatePriorityDetection(
-        ProcessSample process,
-        string path,
-        DateTime? startedAtUtc,
-        long workingSetMb)
-        => new()
-        {
-            ProcessId = process.Pid,
-            Name = string.IsNullOrWhiteSpace(process.Name) ? Path.GetFileNameWithoutExtension(path) : process.Name,
-            Path = path,
-            Reason = "priorityApplication",
-            Kind = "priorityApp",
-            WorkingSetMb = workingSetMb,
-            StartedAtUtc = startedAtUtc,
-            ConfidenceScore = 100,
-            ConfidenceLevel = "explicit",
-        };
 
     /// <summary>
     /// Splits detections into the two paths: "game" once the confidence gate is reached
@@ -1075,28 +952,6 @@ public sealed class HeavyAppDetectionService : IDisposable
             // Registry may be unavailable or blocked; fall back to path/resource heuristics.
         }
         return paths;
-    }
-
-    internal HashSet<string> GetCachedGpuPreferences(
-        DateTime nowUtc,
-        Func<HashSet<string>> reader)
-    {
-        lock (_lock)
-        {
-            if (nowUtc < _gpuPreferencesRefreshAfterUtc)
-                return _cachedGpuHighPerformancePaths;
-        }
-
-        HashSet<string> fresh = reader();
-        lock (_lock)
-        {
-            if (nowUtc >= _gpuPreferencesRefreshAfterUtc)
-            {
-                _cachedGpuHighPerformancePaths = fresh;
-                _gpuPreferencesRefreshAfterUtc = nowUtc + GpuPreferencesCacheDuration;
-            }
-            return _cachedGpuHighPerformancePaths;
-        }
     }
 
     public static string NormalizePath(string path) => ProcessPathResolver.Normalize(path);

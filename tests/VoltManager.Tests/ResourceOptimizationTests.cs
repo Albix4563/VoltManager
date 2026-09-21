@@ -3,6 +3,7 @@ using System.Text.Json;
 using VoltManager.Models;
 using VoltManager.Performance;
 using VoltManager.Services;
+using VoltManager.Services.GameDetection;
 
 namespace VoltManager.Tests;
 
@@ -294,8 +295,7 @@ public sealed class ResourceOptimizationTests
     [Fact]
     public void Game_detection_reuses_gpu_preferences_for_thirty_seconds()
     {
-        string settingsPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".json");
-        var service = new HeavyAppDetectionService(new SettingsService(settingsPath));
+        DateTime now = DateTime.UnixEpoch;
         int reads = 0;
         HashSet<string> Reader()
         {
@@ -303,10 +303,20 @@ public sealed class ResourceOptimizationTests
             return new HashSet<string>(StringComparer.OrdinalIgnoreCase) { @"C:\Games\Game.exe" };
         }
 
-        var t0 = DateTime.UnixEpoch;
-        var first = service.GetCachedGpuPreferences(t0, Reader);
-        var cached = service.GetCachedGpuPreferences(t0.AddSeconds(29), Reader);
-        var refreshed = service.GetCachedGpuPreferences(t0.AddSeconds(30), Reader);
+        var collector = new HeavyAppEvidenceCollector(
+            utcNow: () => now,
+            snapshotProvider: _ => ProcessSnapshot.Empty,
+            presentationProcessIds: () => new HashSet<int>(),
+            foregroundProcessId: () => null,
+            d3dFullscreenActive: () => false,
+            gpuPreferenceReader: Reader);
+        var config = new HeavyAppDetectionSettings { UseWindowsGpuPreferences = true };
+
+        var first = collector.Capture(config).GpuHighPerformancePaths;
+        now = now.AddSeconds(29);
+        var cached = collector.Capture(config).GpuHighPerformancePaths;
+        now = now.AddSeconds(1);
+        var refreshed = collector.Capture(config).GpuHighPerformancePaths;
 
         Assert.Same(first, cached);
         Assert.NotSame(first, refreshed);
