@@ -57,6 +57,36 @@ test('feature modules no longer own translation dictionaries', () => {
   assert.doesNotMatch(reorganization, /VoltUiReorgStrings\s*=\s*\{/);
 });
 
+test('static feature catalog keys are referenced by their owning frontend modules', () => {
+  const catalogs = loadCatalogs();
+  const owners = {
+    system: ['src/VoltManager/wwwroot/js/app.js'],
+    settings: ['src/VoltManager/wwwroot/js/settings.js'],
+    power: [
+      'src/VoltManager/wwwroot/js/power.js',
+      'src/VoltManager/wwwroot/js/power-app-profiles.js',
+      'src/VoltManager/wwwroot/js/power-detection.js',
+      'src/VoltManager/wwwroot/js/power-keep-awake.js',
+      'src/VoltManager/wwwroot/js/power-protections.js',
+    ],
+  };
+  const dynamicPrefixes = {
+    power: ['reason_', 'level_'],
+  };
+
+  const orphanedKeys = [];
+  for (const [namespace, files] of Object.entries(owners)) {
+    const source = files.map(read).join('\n');
+    const orphaned = Object.keys(catalogs.namespaces[namespace].en)
+      .filter(key => !(dynamicPrefixes[namespace] || []).some(prefix => key.startsWith(prefix)))
+      .filter(key => ![`'${key}'`, `"${key}"`, `\`${key}\``].some(token => source.includes(token)))
+      .sort();
+    orphanedKeys.push(...orphaned.map(key => `${namespace}.${key}`));
+  }
+
+  assert.deepEqual(orphanedKeys, [], 'orphaned feature translation keys');
+});
+
 test('I18n namespaced lookup has explicit fallback and shared formatting', () => {
   const localStore = new Map([['volt_lang', 'es']]);
   const context = {

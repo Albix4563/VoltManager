@@ -6,12 +6,7 @@
         <!-- ═══════════════════════════════════════════════════════════════
              PALETTE — superfici condivise e colore tema dinamico
              ═══════════════════════════════════════════════════════════════ -->
-        <Color x:Key="C.Bg.Deep">#040810</Color>
-        <Color x:Key="C.Bg.Base">#0A1128</Color>
-        <Color x:Key="C.Bg.Elevated">#0F1A36</Color>
         <Color x:Key="C.Surface">#16233F</Color>
-        <Color x:Key="C.Surface.High">#1C2B4A</Color>
-        <Color x:Key="C.Surface.Glass">#1A2744</Color>
         <Color x:Key="C.Accent">#3B82F6</Color>
         <Color x:Key="C.Accent.Dim">#60A5FA</Color>
         <Color x:Key="C.Accent.Glow">#93C5FD</Color>
@@ -31,15 +26,9 @@
         <Color x:Key="C.Success">#34E0A1</Color>
 
         <!-- Brushes -->
-        <SolidColorBrush x:Key="BgDeepBrush" Color="{StaticResource C.Bg.Deep}"/>
-        <SolidColorBrush x:Key="BgBaseBrush" Color="{StaticResource C.Bg.Base}"/>
-        <SolidColorBrush x:Key="BgElevatedBrush" Color="{StaticResource C.Bg.Elevated}"/>
         <SolidColorBrush x:Key="SurfaceBrush" Color="{StaticResource C.Surface}"/>
-        <SolidColorBrush x:Key="SurfaceHighBrush" Color="{StaticResource C.Surface.High}"/>
         <SolidColorBrush x:Key="AccentBrush" Color="{DynamicResource C.Accent}"/>
         <SolidColorBrush x:Key="AccentDimBrush" Color="{DynamicResource C.Accent.Dim}"/>
-        <SolidColorBrush x:Key="AccentGlowBrush" Color="{DynamicResource C.Accent.Glow}"/>
-        <SolidColorBrush x:Key="AccentDeepBrush" Color="{DynamicResource C.Accent.Deep}"/>
         <SolidColorBrush x:Key="AccentSelectionBrush" Color="{DynamicResource C.Accent.Alpha40}"/>
         <SolidColorBrush x:Key="TextPrimaryBrush" Color="{StaticResource C.Text.Primary}"/>
         <SolidColorBrush x:Key="TextSecondaryBrush" Color="{StaticResource C.Text.Secondary}"/>
@@ -66,34 +55,6 @@
             <GradientStop Color="#0C1630" Offset="0"/>
             <GradientStop Color="#081020" Offset="0.5"/>
             <GradientStop Color="#050A18" Offset="1"/>
-        </LinearGradientBrush>
-
-        <LinearGradientBrush x:Key="AccentGradient" StartPoint="0,0" EndPoint="1,1">
-            <GradientStop Color="{DynamicResource C.Accent.Glow}" Offset="0"/>
-            <GradientStop Color="{DynamicResource C.Accent}" Offset="0.45"/>
-            <GradientStop Color="{DynamicResource C.Accent.Deep}" Offset="1"/>
-        </LinearGradientBrush>
-
-        <LinearGradientBrush x:Key="AccentGradientVertical" StartPoint="0,0" EndPoint="0,1">
-            <GradientStop Color="{DynamicResource C.Accent.Glow}" Offset="0"/>
-            <GradientStop Color="{DynamicResource C.Accent}" Offset="0.5"/>
-            <GradientStop Color="{DynamicResource C.Accent.Deep}" Offset="1"/>
-        </LinearGradientBrush>
-
-        <LinearGradientBrush x:Key="DangerGradient" StartPoint="0,0" EndPoint="1,1">
-            <GradientStop Color="#FF7B6A" Offset="0"/>
-            <GradientStop Color="#FF5B4A" Offset="0.5"/>
-            <GradientStop Color="#E7432F" Offset="1"/>
-        </LinearGradientBrush>
-
-        <LinearGradientBrush x:Key="CardGradient" StartPoint="0,0" EndPoint="0,1">
-            <GradientStop Color="#1E2D4E" Offset="0"/>
-            <GradientStop Color="#16233F" Offset="1"/>
-        </LinearGradientBrush>
-
-        <LinearGradientBrush x:Key="CardStrokeGradient" StartPoint="0,0" EndPoint="0,1">
-            <GradientStop Color="#3E5278" Offset="0"/>
-            <GradientStop Color="#243355" Offset="1"/>
         </LinearGradientBrush>
 
         <LinearGradientBrush x:Key="ProgressTrackGradient" StartPoint="0,0" EndPoint="1,0">
@@ -537,7 +498,6 @@
         <Geometry x:Key="Icon.Trash">M3 6 H21 M8 6 V4 a1 1 0 0 1 1-1 H15 a1 1 0 0 1 1 1 V6 M19 6 V20 a1 1 0 0 1-1 1 H6 a1 1 0 0 1-1-1 V6 M10 11 V17 M14 11 V17</Geometry>
         <Geometry x:Key="Icon.Warning">M12 3 L22 20 L2 20 Z M12 10 v4 M12 17 h0.01</Geometry>
         <Geometry x:Key="Icon.Info">M2 12 A10 10 0 0 1 22 12 A10 10 0 0 1 2 12 Z M12 8 h0.01 M12 11 v5</Geometry>
-        <Geometry x:Key="Icon.Folder">M3 7 a2 2 0 0 1 2-2 H9 l2 2 H19 a2 2 0 0 1 2 2 V18 a2 2 0 0 1-2 2 H5 a2 2 0 0 1-2-2 Z</Geometry>
         <Geometry x:Key="Icon.Monitor">M3 4 H21 V16 H3 Z M8 20 H16 M12 16 V20</Geometry>
         <Geometry x:Key="Icon.Power">M12 3 V12 M18.36 6.64 A9 9 0 1 1 5.64 6.64</Geometry>
         <Geometry x:Key="Icon.Play">M6 4 L20 12 L6 20 Z</Geometry>

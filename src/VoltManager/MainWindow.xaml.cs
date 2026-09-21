@@ -548,9 +548,6 @@ public partial class MainWindow : Window
         }
     }
 
-    private async Task DownloadAndInstallUpdateAsync(string url)
-        => await PrepareUpdateInstallAsync(url);
-
     private async Task PrepareUpdateInstallAsync(string url)
     {
         try

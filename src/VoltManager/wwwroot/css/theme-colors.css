@@ -470,10 +470,6 @@ html[data-perf-tier="balanced"] .vm-scrim {
     border-color: color-mix(in srgb, var(--vm-border) 45%, transparent) !important;
 }
 
-.process-ram .process-value {
-    color: var(--vm-muted) !important;
-}
-
 .processes-card::before,
 .widgets-category-card::before,
 .app-profile-panel::before,
@@ -490,7 +486,6 @@ html[data-perf-tier="balanced"] .vm-scrim {
 }
 
 .process-meter-fill,
-.process-ram .process-meter-fill,
 .adv-slider {
     background: linear-gradient(90deg, var(--vm-accent-hover), var(--vm-accent)) !important;
 }
