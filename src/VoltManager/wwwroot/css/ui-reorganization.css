@@ -1076,6 +1076,43 @@
     background: transparent !important;
     border-radius: 0 !important;
     box-shadow: none !important;
+    flex-wrap: wrap;
+    gap: var(--vm-space-3) var(--vm-space-4);
+}
+
+.vm-reorg-view .vm-legacy-embedded :is(.flex, .grid) {
+    min-width: 0;
+    max-width: 100%;
+}
+
+.vm-reorg-view .vm-legacy-embedded :is(.flex, .grid) > * {
+    min-width: 0;
+    max-width: 100%;
+}
+
+.vm-reorg-view .vm-legacy-embedded .whitespace-nowrap {
+    white-space: normal !important;
+    overflow-wrap: anywhere;
+}
+
+.vm-reorg-view .vm-legacy-embedded :is(button, input, select, textarea) {
+    max-width: 100%;
+}
+
+.vm-settings-row > :first-child {
+    min-width: 0;
+    flex: 1 1 240px;
+}
+
+.vm-settings-row > :last-child {
+    min-width: 0;
+    max-width: 100%;
+    flex: 0 1 auto;
+}
+
+.vm-settings-row > :last-child.flex {
+    flex-wrap: wrap;
+    justify-content: flex-end;
 }
 
 .vm-dense-shell {
@@ -1227,7 +1264,7 @@ body[data-perf-tier="lite"] .vm-subview.active > * {
     gap: var(--vm-space-3);
 }
 
-@media (max-width: 780px) {
+@media (max-width: 1100px) {
     .vm-dense-shell {
         grid-template-columns: minmax(0, 1fr);
         gap: var(--vm-space-4);

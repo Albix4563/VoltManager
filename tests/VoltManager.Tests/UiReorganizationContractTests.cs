@@ -69,6 +69,18 @@ public class UiReorganizationContractTests
         Assert.Contains("@media (max-width: 700px)", css);
     }
 
+    [Fact]
+    public void Reorganized_views_prevent_embedded_legacy_overflow_during_intermediate_resize()
+    {
+        string css = LocateWebAsset("css", "ui-reorganization.css");
+
+        Assert.Contains("@media (max-width: 1100px)", css);
+        Assert.Contains(".vm-reorg-view .vm-legacy-embedded :is(.flex, .grid) > *", css);
+        Assert.Contains(".vm-reorg-view .vm-legacy-embedded .whitespace-nowrap", css);
+        Assert.Contains(".vm-settings-row > :first-child", css);
+        Assert.Contains(".vm-settings-row > :last-child", css);
+    }
+
     private static string LocateWebAsset(params string[] pathParts)
     {
         string? directory = AppContext.BaseDirectory;
