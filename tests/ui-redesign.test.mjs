@@ -45,14 +45,16 @@ test('overview status uses unboxed rows instead of nested square tiles', () => {
   assert.match(css, /\.vm-status-card__header\s*>\s*\.material-symbols-outlined\s*\{[^}]*background\s*:\s*transparent/s);
 });
 
-test('top status groups plan, battery and automation in one compact responsive rail', () => {
+test('top status stays readable without boxed rails, dividers or shortcut tiles', () => {
   assert.match(layout, /class="vm-status-rail"[\s\S]*id="vm-top-plan"[\s\S]*id="vm-top-battery"[\s\S]*id="vm-top-automation"/);
   assert.match(layout, /<\/div>\s*<button type="button" id="vm-global-search-button"/);
   assert.doesNotMatch(layout, /class="vm-top-chip"/);
+  assert.doesNotMatch(layout, /<kbd[^>]*>Ctrl K<\/kbd>/);
 
-  assert.match(css, /\.vm-status-rail\s*\{[^}]*display\s*:\s*inline-flex[^}]*border\s*:[^}]*background\s*:/s);
-  assert.match(css, /\.vm-status-item\s*\+\s*\.vm-status-item\s*\{[^}]*border-inline-start\s*:/s);
+  assert.match(css, /\.vm-status-rail\s*\{[^}]*display\s*:\s*inline-flex[^}]*border\s*:\s*0[^}]*background\s*:\s*transparent/s);
+  assert.doesNotMatch(css, /\.vm-status-item\s*\+\s*\.vm-status-item\s*\{[^}]*border-inline-start\s*:/s);
   assert.match(css, /\.vm-status-item--plan\s+strong\s*\{[^}]*color\s*:\s*var\(--vm-accent\)/s);
+  assert.match(css, /\.vm-search-trigger\s*\{[^}]*width\s*:\s*40px[^}]*height\s*:\s*40px[^}]*border\s*:\s*0[^}]*border-radius\s*:\s*50%[^}]*background\s*:\s*transparent/s);
   assert.doesNotMatch(css, /\.vm-status-item\s+strong\s*\{[^}]*max-width\s*:/s);
   assert.doesNotMatch(css, /\.vm-status-item\s+strong\s*\{[^}]*text-overflow\s*:\s*ellipsis/s);
   assert.match(css, /@media\s*\(max-width:\s*1280px\)[\s\S]*\.vm-status-item__label\s*\{[^}]*display\s*:\s*none/s);

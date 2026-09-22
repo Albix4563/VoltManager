@@ -711,10 +711,10 @@
     min-width: 0;
     display: inline-flex;
     align-items: center;
+    gap: 12px;
     min-height: 32px;
-    border: 1px solid color-mix(in srgb, var(--md-sys-color-on-surface, #fff) 9%, transparent);
-    border-radius: var(--vm-radius-control);
-    background: color-mix(in srgb, var(--md-sys-color-surface-container-low, #10192c) 66%, transparent);
+    border: 0;
+    background: transparent;
 }
 
 .vm-status-item {
@@ -723,14 +723,10 @@
     align-items: center;
     gap: 5px;
     min-height: 30px;
-    padding: 0 10px;
+    padding: 0 2px;
     color: var(--md-sys-color-on-surface-variant, #aeb8c9);
     font-size: .72rem;
     white-space: nowrap;
-}
-
-.vm-status-item + .vm-status-item {
-    border-inline-start: 1px solid color-mix(in srgb, var(--md-sys-color-on-surface, #fff) 8%, transparent);
 }
 
 .vm-status-item .material-symbols-outlined {
@@ -755,30 +751,40 @@
 
 .vm-search-trigger {
     flex: 0 0 auto;
-    height: 34px;
+    width: 40px;
+    height: 40px;
     display: inline-flex;
     align-items: center;
-    gap: var(--vm-space-2);
-    padding: 0 var(--vm-space-2);
-    border: 1px solid color-mix(in srgb, var(--md-sys-color-on-surface, #fff) 11%, transparent);
-    border-radius: var(--vm-radius-control);
+    justify-content: center;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
     color: var(--md-sys-color-on-surface-variant, #aeb8c9);
-    background: color-mix(in srgb, var(--md-sys-color-surface-container-low, #10192c) 78%, transparent);
+    background: transparent;
     cursor: pointer;
     font: inherit;
+    transition: color .2s ease, background-color .2s ease, transform .2s ease;
 }
 
 .vm-search-trigger:hover,
 .vm-search-trigger:focus-visible {
-    border-color: color-mix(in srgb, var(--vm-accent) 52%, transparent);
     color: var(--vm-accent);
+    background: color-mix(in srgb, var(--md-sys-color-on-surface, #fff) 5%, transparent);
+}
+
+.vm-search-trigger:hover {
+    transform: scale(1.08);
+}
+
+.vm-search-trigger:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--vm-accent) 62%, transparent);
+    outline-offset: 2px;
 }
 
 .vm-search-trigger .material-symbols-outlined {
     font-size: 19px;
 }
 
-.vm-search-trigger kbd,
 .vm-search-kbd {
     border: 1px solid color-mix(in srgb, var(--md-sys-color-on-surface, #fff) 13%, transparent);
     border-radius: var(--vm-radius-control);
@@ -1010,7 +1016,6 @@
 
     .vm-search-overlay { padding: 62px 12px 12px; }
     .vm-search-dialog { max-height: calc(100vh - 74px); }
-    .vm-search-trigger kbd,
     .vm-search-kbd { display: none; }
 }
 

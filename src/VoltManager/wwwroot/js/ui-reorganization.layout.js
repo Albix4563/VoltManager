@@ -298,7 +298,6 @@
             </div>
             <button type="button" id="vm-global-search-button" class="vm-search-trigger" aria-label="${api.t('search_button')}" title="${api.t('search_button')} (Ctrl+K)">
                 <span class="material-symbols-outlined" aria-hidden="true">search</span>
-                <kbd aria-hidden="true">Ctrl K</kbd>
             </button>`;
         if (actions) header.insertBefore(strip, actions);
         else header.appendChild(strip);
