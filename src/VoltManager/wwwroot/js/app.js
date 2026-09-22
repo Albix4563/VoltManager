@@ -111,6 +111,20 @@
 .startup-switch:disabled{opacity:.65;cursor:wait;filter:saturate(.65);}
 .system-power-switch{width:106px;height:44px;}
 .system-power-switch.startup-switch[data-on="true"]{--knob-x:62px;}
+.system-icon-action{position:relative;width:40px;height:40px;border-radius:12px;border:1px solid rgba(255,255,255,.1);display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;color:rgba(211,222,239,.78);background:rgba(255,255,255,.04);transition:color var(--vm-motion-fast) var(--vm-ease-standard),border-color var(--vm-motion-fast) var(--vm-ease-standard),background var(--vm-motion-fast) var(--vm-ease-standard),transform var(--vm-motion-fast) var(--vm-ease-standard),box-shadow var(--vm-motion-fast) var(--vm-ease-standard);}
+.system-icon-action .material-symbols-outlined{font-size:20px;line-height:1;}
+.system-icon-action:hover{transform:translateY(-1px);background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.16);}
+.system-icon-action:focus-visible{outline:none;box-shadow:0 0 0 3px rgb(var(--vm-accent-rgb) / .24);}
+.system-icon-action:disabled{opacity:.45;cursor:wait;transform:none;}
+.system-icon-action--danger{color:#ffb4ab;border-color:rgba(255,180,171,.24);background:rgba(255,180,171,.07);}
+.system-icon-action--danger:hover{color:#ffd8d3;border-color:rgba(255,180,171,.38);background:rgba(255,180,171,.12);}
+.system-icon-action--accent{color:var(--vm-accent);border-color:rgb(var(--vm-accent-rgb) / .26);background:rgb(var(--vm-accent-rgb) / .08);}
+.system-icon-action--accent:hover{color:var(--vm-accent-dim);border-color:rgb(var(--vm-accent-rgb) / .38);background:rgb(var(--vm-accent-rgb) / .14);}
+.system-icon-action--neutral:hover{color:var(--vm-accent);border-color:rgb(var(--vm-accent-rgb) / .26);background:rgb(var(--vm-accent-rgb) / .08);}
+.system-icon-action::after{content:attr(data-tooltip);position:absolute;left:50%;bottom:calc(100% + 8px);z-index:40;padding:6px 9px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:rgba(8,15,30,.96);color:#d3deef;font-size:12px;font-weight:600;line-height:1;white-space:nowrap;pointer-events:none;opacity:0;transform:translate(-50%,4px);transition:opacity var(--vm-motion-fast) var(--vm-ease-standard),transform var(--vm-motion-fast) var(--vm-ease-standard);box-shadow:0 8px 24px rgba(0,0,0,.28);}
+.system-icon-action:hover::after,.system-icon-action:focus-visible::after{opacity:1;transform:translate(-50%,0);}
+.system-icon-action--edge::after{left:auto;right:0;transform:translateY(4px);}
+.system-icon-action--edge:hover::after,.system-icon-action--edge:focus-visible::after{transform:translateY(0);}
 .startup-remove-btn{width:38px;height:38px;border-radius:12px;border:1px solid rgba(255,255,255,.1);display:inline-flex;align-items:center;justify-content:center;color:rgba(211,222,239,.72);background:rgba(255,255,255,.04);transition:color var(--vm-motion-fast) var(--vm-ease-standard),border-color var(--vm-motion-fast) var(--vm-ease-standard),background var(--vm-motion-fast) var(--vm-ease-standard),transform var(--vm-motion-fast) var(--vm-ease-standard);}
 .startup-remove-btn:hover{color:#ffb4ab;border-color:rgba(255,180,171,.25);background:rgba(255,180,171,.08);transform:translateY(-1px);}
 .startup-pin-btn--active{color:var(--vm-accent);border-color:rgb(var(--vm-accent-rgb) / .32);background:rgb(var(--vm-accent-rgb) / .12);}
@@ -352,9 +366,9 @@
             // Schedule panel — new: relative + daily dual-mode
             '<div class="col-span-12 lg:col-span-6 flex flex-col gap-gutter">' +
             '<div class="glass-panel rounded-xl p-lg space-y-md" id="schedule-panel"><h3 class="text-title-lg text-on-surface flex items-center gap-xs"><span class="material-symbols-outlined text-secondary-container">schedule</span><span class="system-schedule-title"></span></h3><p class="text-body-md text-on-surface-variant system-schedule-sub"></p>' +
-            '<div class="pt-sm border-t border-white/10"><p class="text-label-md font-medium text-on-surface system-immediate-title"></p><p class="text-label-sm text-on-surface-variant mt-1 system-immediate-sub"></p><div class="grid grid-cols-2 gap-sm mt-sm">' +
-            '<button type="button" data-power-action="shutdown" class="py-2.5 px-4 rounded-lg font-medium text-body-md bg-error/10 text-error border border-error/30 hover:bg-error/20 transition-colors system-shutdown-now"></button>' +
-            '<button type="button" data-power-action="restart" class="py-2.5 px-4 rounded-lg font-medium text-body-md bg-secondary-container/20 text-secondary-container border border-secondary-container/30 hover:bg-secondary-container/30 transition-colors system-restart-now"></button>' +
+            '<div class="pt-sm border-t border-white/10"><p class="text-label-md font-medium text-on-surface system-immediate-title"></p><p class="text-label-sm text-on-surface-variant mt-1 system-immediate-sub"></p><div class="flex items-center gap-sm mt-sm">' +
+            '<button type="button" data-power-action="shutdown" class="system-icon-action system-icon-action--danger system-shutdown-now"><span class="material-symbols-outlined" aria-hidden="true">power_settings_new</span></button>' +
+            '<button type="button" data-power-action="restart" class="system-icon-action system-icon-action--accent system-restart-now"><span class="material-symbols-outlined" aria-hidden="true">restart_alt</span></button>' +
             '</div></div>' +
             // Mode tabs — compact labels, same segmented language as subnav
             '<div class="schedule-mode-tabs" id="schedule-mode-tabs" role="tablist">' +
@@ -391,7 +405,7 @@
             '<div class="glass-panel rounded-xl p-lg">' +
             '<div class="flex items-start justify-between gap-md mb-md">' +
             '<div><h3 class="text-title-lg text-on-surface flex items-center gap-xs"><span class="material-symbols-outlined text-secondary-container">apps</span><span class="system-startup-title"></span></h3><p class="text-body-md text-on-surface-variant mt-1 system-startup-sub"></p></div>' +
-            '<button class="btn-ghost rounded-lg py-2 px-4 text-label-md flex items-center gap-xs" id="btn-refresh-startup-apps" type="button"><span class="material-symbols-outlined text-[18px]">refresh</span><span class="system-startup-refresh"></span></button>' +
+            '<button class="system-icon-action system-icon-action--neutral system-icon-action--edge system-startup-refresh" id="btn-refresh-startup-apps" type="button"><span class="material-symbols-outlined" aria-hidden="true">refresh</span></button>' +
             '</div>' +
             '<div class="grid grid-cols-2 gap-sm mb-md">' +
             '<div class="startup-summary-card" data-tone="on"><div class="startup-summary-icon"><span class="material-symbols-outlined text-[20px]">rocket_launch</span></div><div><p class="text-title-lg text-on-surface" id="startup-enabled-count">--</p><p class="text-label-sm text-on-surface-variant system-startup-enabled"></p></div></div>' +
@@ -411,7 +425,6 @@
             ['.system-title','title'], ['.system-sub','sub'],
             ['.system-schedule-title','scheduleTitle'], ['.system-schedule-sub','scheduleSub'],
             ['.system-immediate-title','immediateTitle'], ['.system-immediate-sub','immediateSub'],
-            ['.system-shutdown-now','shutdownNow'], ['.system-restart-now','restartNow'],
             ['.system-action','action'], ['.system-time','time'],
             ['.system-keepawake-title','keepAwakeTitle'], ['.system-keepawake-sub','keepAwakeSub'],
             ['.system-confirm','confirm'], ['.system-cancel','cancel'],
@@ -420,10 +433,20 @@
             ['.system-switch-on','on'], ['.system-switch-off','off'],
             ['.schedule-hours','hours'], ['.schedule-minutes','minutes'],
             ['.system-startup-title','startupTitle'], ['.system-startup-sub','startupSub'],
-            ['.system-startup-refresh','refresh'], ['.system-startup-add','add'],
+            ['.system-startup-add','add'],
             ['.system-startup-enabled','enabled'], ['.system-startup-disabled','disabled']
         ];
         pairs.forEach(([sel, key]) => document.querySelectorAll(sel).forEach(el => el.textContent = t(key)));
+        const iconActions = [
+            ['.system-shutdown-now', 'shutdownNow'],
+            ['.system-restart-now', 'restartNow'],
+            ['.system-startup-refresh', 'refresh']
+        ];
+        iconActions.forEach(([sel, key]) => document.querySelectorAll(sel).forEach(el => {
+            const label = t(key);
+            el.setAttribute('aria-label', label);
+            el.setAttribute('data-tooltip', label);
+        }));
         const startupSearch = document.getElementById('startup-search');
         if (startupSearch) {
             startupSearch.placeholder = t('searchStartup');

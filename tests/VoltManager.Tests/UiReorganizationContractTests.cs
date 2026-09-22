@@ -81,6 +81,23 @@ public class UiReorganizationContractTests
         Assert.Contains(".vm-settings-row > :last-child", css);
     }
 
+    [Fact]
+    public void Compact_system_actions_use_icons_with_localized_hover_labels()
+    {
+        string app = LocateWebAsset("js", "app.js");
+
+        Assert.Contains("system-icon-action system-icon-action--danger system-shutdown-now", app);
+        Assert.Contains(">power_settings_new</span>", app);
+        Assert.Contains("system-icon-action system-icon-action--accent system-restart-now", app);
+        Assert.Contains(">restart_alt</span>", app);
+        Assert.Contains("system-icon-action system-icon-action--neutral system-icon-action--edge", app);
+        Assert.Contains("setAttribute('data-tooltip', label)", app);
+        Assert.Contains("setAttribute('aria-label', label)", app);
+        Assert.Contains(".system-icon-action::after", app);
+        Assert.Contains(".system-icon-action:hover::after", app);
+        Assert.Contains(".system-icon-action:focus-visible::after", app);
+    }
+
     private static string LocateWebAsset(params string[] pathParts)
     {
         string? directory = AppContext.BaseDirectory;
