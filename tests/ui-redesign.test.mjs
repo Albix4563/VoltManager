@@ -29,14 +29,15 @@ const indexHtml = readFileSync(
   'utf8'
 );
 
-test('dense views use the shared rail shell and keep compact navigation responsive', () => {
+test('dense views keep compact navigation horizontal at every viewport width', () => {
   for (const view of ['power-plans', 'automations', 'system-tools', 'settings']) {
     assert.match(layout, new RegExp(`denseShell\\('${view}'`));
   }
 
-  assert.match(css, /\.vm-dense-shell\s*\{[^}]*grid-template-columns\s*:\s*220px\s+minmax\(0,\s*1fr\)/s);
-  assert.match(css, /@media\s*\(max-width:\s*1100px\)[\s\S]*\.vm-dense-shell\s*\{[^}]*grid-template-columns\s*:\s*minmax\(0,\s*1fr\)/s);
-  assert.match(css, /@media\s*\(max-width:\s*1100px\)[\s\S]*\.vm-subnav\s*\{[^}]*overflow-x\s*:\s*auto/s);
+  assert.match(css, /\.vm-dense-shell\s*\{[^}]*grid-template-columns\s*:\s*minmax\(0,\s*1fr\)/s);
+  assert.doesNotMatch(css, /\.vm-dense-shell\s*\{[^}]*grid-template-columns\s*:\s*220px\s+minmax\(0,\s*1fr\)/s);
+  assert.match(css, /\.vm-dense-shell\s+\.vm-subnav\s*\{[^}]*flex-direction\s*:\s*row[^}]*overflow-x\s*:\s*auto/s);
+  assert.doesNotMatch(css, /\.vm-dense-shell\s+\.vm-subnav\s*\{[^}]*flex-direction\s*:\s*column/s);
 });
 
 test('overview status uses unboxed rows instead of nested square tiles', () => {

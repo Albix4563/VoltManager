@@ -64,7 +64,10 @@ public class UiReorganizationContractTests
         Assert.Contains("line-height: 20px;", css);
         Assert.Contains("font-size: 12px;", css);
         Assert.Contains("line-height: 16px;", css);
-        Assert.Contains("grid-template-columns: 220px minmax(0, 1fr);", css);
+        Assert.Contains("grid-template-columns: minmax(0, 1fr);", css);
+        Assert.Contains("flex-direction: row;", css);
+        Assert.Contains("overflow-x: auto;", css);
+        Assert.DoesNotContain("grid-template-columns: 220px minmax(0, 1fr);", css);
         Assert.Contains("@media (max-width: 780px)", css);
         Assert.Contains("@media (max-width: 700px)", css);
     }
