@@ -24,6 +24,8 @@ body {
 .desktop-widget {
   width: 100%;
   height: 100%;
+  min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -37,6 +39,7 @@ body {
 
 .widget-header {
   height: 42px;
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -60,12 +63,22 @@ body {
 }
 
 .widget-title .material-symbols-outlined {
+  flex: 0 0 auto;
   font-size: 18px;
+}
+
+.widget-title > span:not(.material-symbols-outlined) {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .widget-action {
   width: 28px;
   height: 28px;
+  flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -100,7 +113,9 @@ body {
 
 .widget-body {
   flex: 1;
+  min-width: 0;
   min-height: 0;
+  overflow: hidden;
   padding: 0 16px 16px;
   display: flex;
   flex-direction: column;
@@ -161,6 +176,8 @@ html[data-size=large] .widget-value {
 }
 
 .widget-muted {
+  min-width: 0;
+  max-width: 100%;
   color: rgba(198,198,206,.72);
   font-size: 12px;
   font-weight: 600;
@@ -176,6 +193,8 @@ html[data-size=large] .widget-muted {
 }
 
 .widget-grid {
+  min-width: 0;
+  max-width: 100%;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
@@ -252,6 +271,8 @@ html[data-size=large] .widget-stat strong {
 
 .calendar-head,
 .calendar-grid {
+  min-width: 0;
+  max-width: 100%;
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 4px;
@@ -279,6 +300,7 @@ html[data-size=large] .widget-stat strong {
 .calendar-mini {
   display: flex;
   min-width: 0;
+  max-width: 100%;
   flex-direction: column;
   align-items: flex-start;
   justify-content: center;
@@ -316,6 +338,8 @@ html[data-size=large] .calendar-day {
 
 .temp-row,
 .power-row {
+  min-width: 0;
+  max-width: 100%;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -341,8 +365,30 @@ html[data-size=large] .power-row {
 
 .temp-row strong,
 .power-row strong {
+  min-width: 0;
   font-size: 22px;
   line-height: 1;
+  white-space: nowrap;
+  text-align: right;
+}
+
+.temp-row > .widget-muted,
+.power-row > .widget-muted {
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.temp-row strong {
+  flex: 0 0 auto;
+}
+
+.power-row strong {
+  flex: 0 1 62%;
+  max-width: 62%;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 html[data-size=mini] .temp-row strong,
@@ -357,6 +403,8 @@ html[data-size=large] .power-row strong {
 
 .plan-selector {
   position: relative;
+  min-width: 0;
+  max-width: 100%;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0;
@@ -452,6 +500,221 @@ html[data-size=mini] .plan-option-label {
 
 html[data-size=large] .plan-option-label {
   font-size: 12px;
+}
+
+/* Per-type density tuning keeps the native WidgetManager sizes unchanged. */
+.desktop-widget[data-widget-type=clock] .widget-body {
+  gap: 4px;
+}
+
+.desktop-widget[data-widget-type=clock] .widget-muted,
+.desktop-widget[data-widget-type=calendar] #calendar-title,
+.desktop-widget[data-widget-type=calendar] .calendar-mini .widget-muted {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.desktop-widget[data-widget-type=calendar] .widget-body {
+  justify-content: flex-start;
+}
+
+.desktop-widget[data-widget-type=calendar] .calendar-grid {
+  align-content: start;
+}
+
+.desktop-widget[data-widget-type=usage] .widget-grid {
+  align-content: center;
+}
+
+.desktop-widget[data-widget-type=temps] .widget-body,
+.desktop-widget[data-widget-type=power] .widget-body,
+.desktop-widget[data-widget-type=plans] .widget-body {
+  justify-content: center;
+}
+
+html[data-size=mini] .desktop-widget[data-widget-type=clock] .widget-value {
+  font-size: 34px;
+}
+
+html[data-size=mini] .desktop-widget[data-widget-type=calendar] .widget-body {
+  justify-content: center;
+  padding: 0 12px 10px;
+}
+
+html[data-size=mini] .desktop-widget[data-widget-type=usage] .widget-body {
+  padding: 0 10px 10px;
+}
+
+html[data-size=mini] .desktop-widget[data-widget-type=usage] .widget-stat {
+  padding: 6px 8px;
+}
+
+html[data-size=mini] .desktop-widget[data-widget-type=usage] .widget-stat label {
+  margin-bottom: 4px;
+}
+
+html[data-size=mini] .desktop-widget[data-widget-type=usage] .widget-stat strong {
+  font-size: 20px;
+}
+
+html[data-size=mini] .desktop-widget[data-widget-type=usage] .widget-bar {
+  height: 4px;
+  margin-top: 6px;
+}
+
+html[data-size=mini] .desktop-widget[data-widget-type=temps] .widget-body {
+  padding: 0 12px 10px;
+}
+
+html[data-size=mini] .desktop-widget[data-widget-type=temps] .temp-row {
+  padding: 5px 0;
+}
+
+html[data-size=mini] .desktop-widget[data-widget-type=power] .widget-body {
+  padding: 0 12px 10px;
+}
+
+html[data-size=mini] .desktop-widget[data-widget-type=plans] .widget-body {
+  padding: 0 8px 8px;
+}
+
+html[data-size=mini] .desktop-widget[data-widget-type=plans] .plan-selector {
+  padding: 3px;
+}
+
+html[data-size=mini] .desktop-widget[data-widget-type=plans] .plan-pill {
+  top: 3px;
+  bottom: 3px;
+  left: 3px;
+  width: calc((100% - 6px) / 3);
+}
+
+html[data-size=mini] .desktop-widget[data-widget-type=plans] .plan-option {
+  padding: 5px 3px;
+  gap: 3px;
+}
+
+html[data-size=medium] .desktop-widget[data-widget-type=calendar] .widget-body {
+  padding: 0 14px 10px;
+}
+
+html[data-size=medium] .desktop-widget[data-widget-type=calendar] #calendar-title {
+  margin-bottom: 6px !important;
+}
+
+html[data-size=medium] .desktop-widget[data-widget-type=calendar] .calendar-head,
+html[data-size=medium] .desktop-widget[data-widget-type=calendar] .calendar-grid {
+  gap: 3px;
+}
+
+html[data-size=medium] .desktop-widget[data-widget-type=calendar] .calendar-head {
+  margin-bottom: 4px;
+}
+
+html[data-size=medium] .desktop-widget[data-widget-type=calendar] .calendar-day {
+  height: 29px;
+}
+
+html[data-size=medium] .desktop-widget[data-widget-type=usage] .widget-body {
+  padding: 0 14px 12px;
+}
+
+html[data-size=medium] .desktop-widget[data-widget-type=usage] .widget-grid {
+  gap: 8px;
+}
+
+html[data-size=medium] .desktop-widget[data-widget-type=usage] .widget-stat {
+  padding: 8px;
+}
+
+html[data-size=medium] .desktop-widget[data-widget-type=usage] .widget-stat label {
+  margin-bottom: 4px;
+}
+
+html[data-size=medium] .desktop-widget[data-widget-type=usage] .widget-stat strong {
+  font-size: 22px;
+}
+
+html[data-size=medium] .desktop-widget[data-widget-type=usage] .widget-bar {
+  height: 5px;
+  margin-top: 7px;
+}
+
+html[data-size=medium] .desktop-widget[data-widget-type=temps] .temp-row {
+  padding: 8px 0;
+}
+
+html[data-size=medium] .desktop-widget[data-widget-type=power] .widget-body {
+  padding: 0 14px 10px;
+}
+
+html[data-size=medium] .desktop-widget[data-widget-type=power] .power-row {
+  padding: 5px 0;
+}
+
+html[data-size=medium] .desktop-widget[data-widget-type=power] .power-row strong {
+  font-size: 20px;
+}
+
+html[data-size=medium] .desktop-widget[data-widget-type=plans] .plan-selector {
+  max-width: 100%;
+}
+
+html[data-size=large] .desktop-widget[data-widget-type=clock] .widget-value {
+  font-size: 54px;
+}
+
+html[data-size=large] .desktop-widget[data-widget-type=calendar] .widget-body {
+  padding: 0 18px 14px;
+}
+
+html[data-size=large] .desktop-widget[data-widget-type=calendar] #calendar-title {
+  margin-bottom: 7px !important;
+}
+
+html[data-size=large] .desktop-widget[data-widget-type=calendar] .calendar-day {
+  height: 38px;
+}
+
+html[data-size=large] .desktop-widget[data-widget-type=usage] .widget-body {
+  padding: 0 18px 16px;
+}
+
+html[data-size=large] .desktop-widget[data-widget-type=usage] .widget-grid {
+  gap: 12px;
+}
+
+html[data-size=large] .desktop-widget[data-widget-type=usage] .widget-stat {
+  padding: 12px;
+}
+
+html[data-size=large] .desktop-widget[data-widget-type=usage] .widget-stat strong {
+  font-size: 30px;
+}
+
+html[data-size=large] .desktop-widget[data-widget-type=usage] .widget-bar {
+  margin-top: 8px;
+}
+
+html[data-size=large] .desktop-widget[data-widget-type=temps] .temp-row {
+  padding: 10px 0;
+}
+
+html[data-size=large] .desktop-widget[data-widget-type=power] .widget-body {
+  padding: 0 18px 14px;
+}
+
+html[data-size=large] .desktop-widget[data-widget-type=power] .power-row {
+  padding: 8px 0;
+}
+
+html[data-size=large] .desktop-widget[data-widget-type=power] .power-row strong {
+  font-size: 26px;
+}
+
+html[data-size=large] .desktop-widget[data-widget-type=plans] .plan-selector {
+  max-width: 100%;
 }
 
 @media (prefers-reduced-motion: reduce) {

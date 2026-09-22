@@ -38,6 +38,34 @@
 .widget-anchor-option:disabled{opacity:.45;cursor:not-allowed;}
 @media (max-width:720px){.widget-placement-row{flex-direction:column;align-items:stretch;}.widget-anchor-wrap{align-items:flex-start;}}
 
+/* Widget settings cards: dynamic content wraps inside the actual card width. */
+.widgets-category-card .startup-card,
+.widgets-category-card .startup-card__details,
+.widgets-category-card .startup-detail-line,
+.widgets-category-card .widget-size-row,
+.widgets-category-card .widget-placement-row,
+.widgets-category-card .widget-monitor-label,
+.widgets-category-card .widget-anchor-wrap{min-width:0;max-width:100%;}
+.widgets-category-card .startup-detail-line{align-items:flex-start;flex-wrap:wrap;}
+.widgets-category-card .startup-detail-label{min-width:0;max-width:100%;overflow-wrap:anywhere;}
+.widgets-category-card .startup-detail-value{flex:1 1 160px;min-width:0;max-width:100%;overflow:visible;text-overflow:clip;white-space:normal;overflow-wrap:anywhere;word-break:normal;}
+.widgets-category-card .widget-size-row>div:first-child{min-width:0;max-width:100%;overflow-wrap:anywhere;}
+.widgets-category-card .widget-size-control{width:min(190px,100%);min-width:0;max-width:100%;}
+.widgets-category-card .widget-size-option,.widgets-category-card .widget-size-option span{min-width:0;max-width:100%;overflow-wrap:anywhere;}
+.widgets-category-card .widget-monitor-label{width:100%;overflow-wrap:anywhere;}
+.widgets-category-card .widget-monitor-select{width:100%;min-width:0;max-width:100%;white-space:normal;overflow-wrap:anywhere;}
+.widgets-category-card .widget-anchor-wrap{min-width:0;max-width:100%;}
+.widgets-category-card .widget-anchor-grid{max-width:100%;}
+@container (max-width:420px){
+  .widgets-category-card .startup-card__details{padding-left:0;}
+  .widgets-category-card .widget-size-row{flex-direction:column;align-items:stretch;}
+  .widgets-category-card .widget-size-row>div:first-child{width:100%;}
+  .widgets-category-card .widget-size-control{width:100%;max-width:100%;}
+  .widgets-category-card .widget-placement-row{flex-direction:column;align-items:stretch;}
+  .widgets-category-card .widget-monitor-label{width:100%;max-width:100%;}
+  .widgets-category-card .widget-anchor-wrap{width:100%;max-width:100%;align-items:flex-start;}
+}
+
 /* ---------- Dashboard: top processes ---------- */
 .processes-card{position:relative;overflow:hidden;padding:20px!important;background:linear-gradient(145deg,rgba(30,42,74,.92),rgba(24,36,62,.78))!important;}
 .processes-card:hover{transform:none;box-shadow:inset 1px 1px 0 hsla(0,0%,100%,.08),0 10px 28px -14px rgba(0,241,254,.24);}

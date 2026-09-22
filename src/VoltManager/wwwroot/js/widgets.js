@@ -40,7 +40,7 @@
             ? '    <button class="widget-action" id="widget-keep-awake" type="button" title="' + t('power_group_keepawake', 'Keep PC awake') + '" aria-label="' + t('power_group_keepawake', 'Keep PC awake') + '" aria-pressed="false"><span class="material-symbols-outlined">bedtime_off</span></button>'
             : '';
         root.innerHTML =
-            '<article class="desktop-widget" data-size="' + size + '">' +
+            '<article class="desktop-widget" data-size="' + size + '" data-widget-type="' + type + '">' +
             '  <header class="widget-header" id="widget-drag">' +
             '    <div class="widget-title"><span class="material-symbols-outlined">' + meta[0] + '</span><span data-i18n="' + meta[1] + '">' + t(meta[1], type) + '</span></div>' +
             '    <button class="widget-action" id="widget-pin" type="button" title="' + t('widget_pin', 'Pin') + '" aria-label="' + t('widget_pin', 'Pin') + '"><span class="material-symbols-outlined">push_pin</span></button>' +
