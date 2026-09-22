@@ -45,6 +45,20 @@ test('overview status uses unboxed rows instead of nested square tiles', () => {
   assert.match(css, /\.vm-status-card__header\s*>\s*\.material-symbols-outlined\s*\{[^}]*background\s*:\s*transparent/s);
 });
 
+test('top status groups plan, battery and automation in one compact responsive rail', () => {
+  assert.match(layout, /class="vm-status-rail"[\s\S]*id="vm-top-plan"[\s\S]*id="vm-top-battery"[\s\S]*id="vm-top-automation"/);
+  assert.match(layout, /<\/div>\s*<button type="button" id="vm-global-search-button"/);
+  assert.doesNotMatch(layout, /class="vm-top-chip"/);
+
+  assert.match(css, /\.vm-status-rail\s*\{[^}]*display\s*:\s*inline-flex[^}]*border\s*:[^}]*background\s*:/s);
+  assert.match(css, /\.vm-status-item\s*\+\s*\.vm-status-item\s*\{[^}]*border-inline-start\s*:/s);
+  assert.match(css, /\.vm-status-item--plan\s+strong\s*\{[^}]*color\s*:\s*var\(--vm-accent\)/s);
+  assert.doesNotMatch(css, /\.vm-status-item\s+strong\s*\{[^}]*max-width\s*:/s);
+  assert.doesNotMatch(css, /\.vm-status-item\s+strong\s*\{[^}]*text-overflow\s*:\s*ellipsis/s);
+  assert.match(css, /@media\s*\(max-width:\s*1280px\)[\s\S]*\.vm-status-item__label\s*\{[^}]*display\s*:\s*none/s);
+  assert.match(css, /@media\s*\(max-width:\s*700px\)[\s\S]*\.vm-status-item--automation\s*\{[^}]*display\s*:\s*none/s);
+});
+
 test('Power Plans exposes Keep Awake as its own persisted subview', () => {
   assert.match(layout, /\{ id: 'keep-awake', icon: 'bedtime_off', label: 'tab_keep_awake' \}/);
   assert.match(layout, /panel\('power-plans', 'keep-awake',[\s\S]*id="vm-keep-awake"/);
