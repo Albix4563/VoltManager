@@ -182,6 +182,26 @@
     gap: 24px;
 }
 
+.vm-reorg-view[data-vm-view="overview"]:not(.hidden) {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1fr);
+    align-content: stretch;
+}
+
+.vm-reorg-view[data-vm-view="overview"] > .vm-ui-panel,
+.vm-overview-grid > .vm-ui-panel {
+    display: flex;
+    flex-direction: column;
+}
+
+.vm-reorg-view[data-vm-view="overview"] :is(.vm-status-grid, .vm-quick-grid, .vm-compact-metrics, .vm-automation-summary) {
+    flex: 1;
+}
+
+.vm-reorg-view[data-vm-view="overview"] :is(.vm-compact-metrics, .vm-automation-summary) > * {
+    align-content: center;
+}
+
 .vm-status-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -239,7 +259,7 @@
 
 .vm-quick-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
     gap: var(--vm-space-2);
 }
 
@@ -1165,7 +1185,7 @@
 
 .vm-dense-shell .vm-subnav__item {
     position: relative;
-    flex: 0 0 auto;
+    flex: 1 0 auto;
     justify-content: center;
     min-width: max-content;
     min-height: 42px;
