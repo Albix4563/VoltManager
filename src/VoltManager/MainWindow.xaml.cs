@@ -28,9 +28,9 @@ public partial class MainWindow : Window
     private volatile bool _webViewVisible;
     private readonly bool _startMinimized;
     private bool _webViewReady;
-    private int _webViewInitRunning;
-    private bool _dashboardNavigationPending;
+    private readonly AsyncSingleFlight _webViewInitialization = new();
     private bool _dashboardLoadFailed;
+    private readonly DashboardNavigationGuard _dashboardNavigationGuard = new();
     private readonly WebViewTrayCoordinator _webViewTray;
     private readonly WebViewLifecycleBinding<CoreWebView2> _webViewLifecycleBinding;
     private bool _startupToastDone;
@@ -66,7 +66,7 @@ public partial class MainWindow : Window
         Loaded += async (_, _) =>
         {
             if (!_startMinimized || IsVisible && WindowState != WindowState.Minimized)
-                await ShowFromTrayWithFeedbackAsync();
+                await ShowFromTrayWithFeedbackAsync(activateWindow: false);
         };
         IsVisibleChanged += (_, _) => UpdateWebViewVisibility();
         StateChanged += (_, _) => UpdateWebViewVisibility();
@@ -136,18 +136,10 @@ public partial class MainWindow : Window
         return IntPtr.Zero;
     }
 
-    private async Task EnsureWebViewAsync()
+    private Task EnsureWebViewAsync()
     {
-        if (_webViewReady && WebView.CoreWebView2 != null) return;
-        if (Interlocked.Exchange(ref _webViewInitRunning, 1) == 1) return;
-        try
-        {
-            await InitWebViewAsync();
-        }
-        finally
-        {
-            Interlocked.Exchange(ref _webViewInitRunning, 0);
-        }
+        if (_webViewReady && WebView.CoreWebView2 != null) return Task.CompletedTask;
+        return _webViewInitialization.Run(InitWebViewAsync);
     }
 
     private async Task InitWebViewAsync()
@@ -249,9 +241,13 @@ public partial class MainWindow : Window
     private void OnWebViewNavigationCompleted(object? sender, CoreWebView2NavigationCompletedEventArgs args)
     {
         if (sender is not CoreWebView2 core) return;
+        bool failure = _dashboardNavigationGuard.IsFailure(args.NavigationId, args.IsSuccess,
+            args.WebErrorStatus == CoreWebView2WebErrorStatus.OperationCanceled);
         if (!args.IsSuccess)
         {
-            _dashboardNavigationPending = false;
+            if (!failure) return;
+            Logger.Warn($"Dashboard navigation failed: {args.WebErrorStatus}, HTTP {args.HttpStatusCode}, id {args.NavigationId}");
+            _dashboardNavigationGuard.EndAppNavigation();
             ShowDashboardErrorState();
             return;
         }
@@ -260,7 +256,7 @@ public partial class MainWindow : Window
         string src = core.Source ?? "";
         if (!src.StartsWith("about:", StringComparison.OrdinalIgnoreCase))
         {
-            _dashboardNavigationPending = false;
+            _dashboardNavigationGuard.EndAppNavigation();
             HideDashboardStatusState();
             if (_navStopwatch.IsRunning)
             {
@@ -278,7 +274,7 @@ public partial class MainWindow : Window
 
     private void NavigateToAppDocument(CoreWebView2 core)
     {
-        _dashboardNavigationPending = true;
+        _dashboardNavigationGuard.BeginAppNavigation();
         _navStopwatch.Restart();
         core.Navigate("https://app.local/index.html?v=" + AppDocumentVersion);
     }
@@ -622,10 +618,10 @@ public partial class MainWindow : Window
 
         try
         {
-            if (!_webViewReady || _dashboardNavigationPending)
+            if (!_webViewReady || _dashboardNavigationGuard.IsAppNavigationPending)
             {
                 ShowDashboardLoadingState();
-                ShowWindowShell();
+                if (activateWindow) ShowWindowShell();
                 feedbackVisible = true;
             }
             else if (!restore.IsCompleted)
@@ -634,13 +630,13 @@ public partial class MainWindow : Window
                 if (first != restore && !restore.IsCompleted)
                 {
                     ShowDashboardLoadingState();
-                    ShowWindowShell();
+                    if (activateWindow) ShowWindowShell();
                     feedbackVisible = true;
                 }
             }
 
             await restore;
-            if (feedbackVisible && !_dashboardNavigationPending && !_dashboardLoadFailed)
+            if (feedbackVisible && !_dashboardNavigationGuard.IsAppNavigationPending && !_dashboardLoadFailed)
                 HideDashboardStatusState();
         }
         catch (OperationCanceledException) when (_exiting)
@@ -650,7 +646,7 @@ public partial class MainWindow : Window
         {
             Logger.Error("Dashboard restore failed", ex);
             ShowDashboardErrorState();
-            ShowWindowShell();
+            if (activateWindow) ShowWindowShell();
         }
     }
 
@@ -696,9 +692,8 @@ public partial class MainWindow : Window
         {
             if (_webViewReady && WebView.CoreWebView2 is { } core)
             {
-                _dashboardNavigationPending = true;
                 WebView.Visibility = Visibility.Visible;
-                core.Reload();
+                NavigateToAppDocument(core);
                 return;
             }
 
@@ -1000,8 +995,7 @@ public partial class MainWindow : Window
         {
             if (!_owner._webViewVisible || _owner._exiting) return;
             CoreWebView2? core = _owner.WebView.CoreWebView2;
-            if (_owner._webViewReady && core != null &&
-                (string.IsNullOrEmpty(core.Source) || core.Source.StartsWith("about:", StringComparison.OrdinalIgnoreCase)))
+            if (core != null && _owner._dashboardNavigationGuard.CanStartAppNavigation(_owner._webViewReady, core.Source))
                 _owner.NavigateToAppDocument(core);
         });
 
@@ -1024,6 +1018,10 @@ public partial class MainWindow : Window
         {
             _owner.PublishFreshAdaptiveStateAfterResume();
             _owner._app.RefreshHardwareSamplingDemand(requestFresh: true);
+            if (ValidationEnvironment.IsActive && _owner.WebView.Visibility == Visibility.Visible &&
+                _owner.WebView.CoreWebView2?.Source?.StartsWith(
+                    "https://app.local/index.html", StringComparison.OrdinalIgnoreCase) == true)
+                Logger.Info("Validation marker: dashboard restored and visible.");
         });
 
         private void Run(Action action)

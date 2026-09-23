@@ -121,6 +121,55 @@ public sealed class WebViewTrayCoordinatorTests
     }
 
     [Fact]
+    public async Task Reopen_after_hide_during_pending_open_still_restores_window()
+    {
+        var surface = new FakeDashboardSurface { HoldEnsure = true };
+        using var coordinator = new WebViewTrayCoordinator(surface);
+        coordinator.Start(initiallyVisible: false);
+
+        Task firstOpen = coordinator.ShowFromTrayAsync();
+        coordinator.HideToTray();
+        Task secondOpen = coordinator.ShowFromTrayAsync();
+        surface.CompleteEnsure();
+        surface.CompleteSuspend(success: false);
+        await Task.WhenAll(firstOpen, secondOpen);
+
+        Assert.True(surface.Visible);
+        Assert.True(surface.ShowCalls > 0);
+    }
+
+    [Fact]
+    public void Repeated_hide_requests_start_only_one_suspend()
+    {
+        var surface = new FakeDashboardSurface();
+        using var coordinator = new WebViewTrayCoordinator(surface);
+        coordinator.Start(initiallyVisible: true);
+
+        coordinator.SetVisible(false);
+        coordinator.HideToTray();
+
+        Assert.Equal(1, surface.SuspendCalls);
+    }
+
+    [Fact]
+    public async Task Hiding_during_open_discards_its_pending_activation()
+    {
+        var surface = new FakeDashboardSurface { HoldEnsure = true };
+        using var coordinator = new WebViewTrayCoordinator(surface);
+        coordinator.Start(initiallyVisible: false);
+
+        Task firstOpen = coordinator.ShowFromTrayAsync();
+        coordinator.HideToTray();
+        coordinator.SetVisible(true);
+        surface.CompleteEnsure();
+        surface.CompleteSuspend(success: false);
+        await firstOpen;
+
+        Assert.Equal(0, surface.ShowCalls);
+        Assert.True(surface.Visible);
+    }
+
+    [Fact]
     public async Task Reopen_resumes_webview_before_making_it_visible()
     {
         var surface = new FakeDashboardSurface();
@@ -211,6 +260,7 @@ public sealed class WebViewTrayCoordinatorTests
 
     private sealed class FakeDashboardSurface : IDashboardSurface
     {
+        private readonly TaskCompletionSource<bool> _ensure = new(TaskCreationOptions.RunContinuationsAsynchronously);
         private readonly TaskCompletionSource<bool> _suspend = new(TaskCreationOptions.RunContinuationsAsynchronously);
         private readonly TaskCompletionSource<bool> _recovery = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public bool IsVisible => Visible;
@@ -223,8 +273,10 @@ public sealed class WebViewTrayCoordinatorTests
         public int ErrorCalls { get; private set; }
         public int RecoverCalls { get; private set; }
         public int EnsureCalls { get; private set; }
+        public int SuspendCalls { get; private set; }
         public int ShowCalls { get; private set; }
         public bool FailEnsure { get; set; }
+        public bool HoldEnsure { get; set; }
         public List<string> Events { get; } = new();
         public Action? OnSuspendStarted { get; set; }
         public Task PendingSuspend => _suspend.Task;
@@ -234,7 +286,7 @@ public sealed class WebViewTrayCoordinatorTests
         {
             EnsureCalls++;
             if (FailEnsure) throw new InvalidOperationException("webview initialization failed");
-            return Task.CompletedTask;
+            return HoldEnsure ? _ensure.Task : Task.CompletedTask;
         }
         public void SetWebViewVisible(bool visible)
         {
@@ -243,6 +295,7 @@ public sealed class WebViewTrayCoordinatorTests
         }
         public Task<bool> SuspendAsync(CancellationToken _)
         {
+            SuspendCalls++;
             OnSuspendStarted?.Invoke();
             return _suspend.Task;
         }
@@ -259,6 +312,7 @@ public sealed class WebViewTrayCoordinatorTests
         public Task RecoverBrowserAsync(CancellationToken _) { RecoverCalls++; return _recovery.Task; }
         public void PublishFreshState() { }
         public void CompleteSuspend(bool success) => _suspend.TrySetResult(success);
+        public void CompleteEnsure() => _ensure.TrySetResult(true);
         public void CompleteRecovery() => _recovery.TrySetResult(true);
     }
 }

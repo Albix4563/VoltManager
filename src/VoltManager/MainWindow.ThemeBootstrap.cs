@@ -111,6 +111,7 @@ public partial class MainWindow
         // before relying on it for a future navigation. Cancel only the app
         // document, then replay it once the bootstrap registration is ready.
         e.Cancel = true;
+        _dashboardNavigationGuard.ExpectCancellation(e.NavigationId);
         if (_themeBootstrapResumeScheduled)
             return;
 
@@ -148,8 +149,8 @@ public partial class MainWindow
 
     private void OnThemeBootstrapThemeChanged(AppThemeColor themeColor)
     {
-        // Keep the document-created script current too. This matters when the
-        // window is parked to about:blank in the tray and later reloads index.html.
+        // Keep the document-created script current for a future reload or
+        // browser process recovery.
         _ = Dispatcher.InvokeAsync(() =>
         {
             CoreWebView2? core = _themeBootstrapCore;

@@ -61,7 +61,11 @@ internal sealed class WebViewTrayCoordinator : IDisposable
     public void HideToTray()
     {
         if (!TryCurrentEpoch(out CancellationToken epoch)) return;
-        lock (_gate) _visible = false;
+        lock (_gate)
+        {
+            _visible = false;
+            _activateWindowAfterRestore = false;
+        }
         _surface.HideWindow();
         _surface.SetWebViewVisible(false);
         StartSuspend(epoch);
@@ -74,14 +78,11 @@ internal sealed class WebViewTrayCoordinator : IDisposable
 
         lock (_gate)
         {
-            if (_showTask is { IsCompleted: false })
-            {
-                _activateWindowAfterRestore |= activateWindow;
-                return _showTask;
-            }
-
             _visible = true;
-            _activateWindowAfterRestore = activateWindow;
+            _activateWindowAfterRestore |= activateWindow;
+            if (_showTask is { IsCompleted: false })
+                return _showTask;
+
             Task pendingSuspend = _suspendTask ?? Task.CompletedTask;
             _showTask = RestoreVisibleAsync(epoch, pendingSuspend);
             return _showTask;
@@ -96,6 +97,7 @@ internal sealed class WebViewTrayCoordinator : IDisposable
         {
             changed = _visible != visible;
             _visible = visible;
+            if (!visible) _activateWindowAfterRestore = false;
         }
         if (!changed) return;
 
@@ -214,6 +216,9 @@ internal sealed class WebViewTrayCoordinator : IDisposable
                 completion.TrySetResult(true);
                 return;
             }
+
+            if (_suspendTask is { IsCompleted: false })
+                return;
 
             _suspendTask = completion.Task;
         }

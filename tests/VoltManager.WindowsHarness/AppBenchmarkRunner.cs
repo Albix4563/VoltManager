@@ -39,6 +39,8 @@ internal static class AppBenchmarkRunner
         string supervisorPath = ResolveSupervisorPath(appDir, options, harnessExe);
         bool usingSupervisor = !string.Equals(supervisorPath, harnessExe, StringComparison.OrdinalIgnoreCase);
         WriteBenchmarkSettings(validationRoot, options, harnessExe);
+        string appLogPath = Path.Combine(validationRoot, "VoltManager", "logs", "voltmanager.log");
+        int initialLogOffset = ReadTextLength(appLogPath);
 
         string proxyState = Path.Combine(options.OutputDirectory, "app-proxy.json");
         try { File.Delete(proxyState); } catch { }
@@ -77,6 +79,9 @@ internal static class AppBenchmarkRunner
             }
             else if (options.Scenario.Equals("restore", StringComparison.OrdinalIgnoreCase))
             {
+                if (!WaitForTextAfterOffset(appLogPath, initialLogOffset,
+                        "NavigationCompleted in ", TimeSpan.FromSeconds(20)))
+                    throw new TimeoutException("Dashboard did not finish its initial navigation before the restore benchmark.");
                 PostMessage(hwnd, WmClose, IntPtr.Zero, IntPtr.Zero);
                 Thread.Sleep(1000);
             }
@@ -87,18 +92,19 @@ internal static class AppBenchmarkRunner
             double? freshDataMs = null;
             if (options.Scenario.Equals("restore", StringComparison.OrdinalIgnoreCase))
             {
-                string logPath = Path.Combine(validationRoot, "VoltManager", "logs", "voltmanager.log");
-                int logOffset = ReadTextLength(logPath);
+                int logOffset = ReadTextLength(appLogPath);
                 var sw = Stopwatch.StartNew();
                 using var show = EventWaitHandle.OpenExisting(ValidationEnvironment.NamedObject("VoltManager_ShowWindow_Event"));
                 show.Set();
                 IntPtr restored = WaitForMainWindow(app, TimeSpan.FromSeconds(10));
                 WaitForResponsive(restored, TimeSpan.FromSeconds(10));
                 restoreMs = sw.Elapsed.TotalMilliseconds;
-                if (WaitForTextAfterOffset(logPath, logOffset,
-                        "Validation marker: fresh adaptive state published after navigation.",
+                if (WaitForTextAfterOffset(appLogPath, logOffset,
+                        "Validation marker: dashboard restored and visible.",
                         TimeSpan.FromSeconds(3)))
                     freshDataMs = sw.Elapsed.TotalMilliseconds;
+                else
+                    throw new TimeoutException("Dashboard did not become visible after tray restore.");
                 sw.Stop();
             }
 
@@ -486,7 +492,7 @@ internal static class AppBenchmarkRunner
                 if (File.Exists(path))
                 {
                     string text = File.ReadAllText(path);
-                    int start = Math.Clamp(offset, 0, text.Length);
+                    int start = offset <= text.Length ? Math.Max(0, offset) : 0;
                     if (text.AsSpan(start).Contains(marker, StringComparison.Ordinal)) return true;
                 }
             }
