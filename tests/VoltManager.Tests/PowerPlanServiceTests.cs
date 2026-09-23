@@ -52,4 +52,39 @@ public sealed class PowerPlanServiceTests
 
         Assert.Null(service.GetActivePlan());
     }
+
+    [Fact]
+    public void RestoreDefaultPlans_DoesNotDuplicateSuccessfulPlanAgainAfterPartialFailure()
+    {
+        var settings = TestSettings.Create();
+        const string restoredSaverGuid = "58c6c0be-451e-4745-b886-a2b954462a6a";
+        var installedGuids = new List<string> { PowerPlanService.BalancedGuid };
+        int saverRestoreCount = 0;
+
+        string RunPowercfg(string args)
+        {
+            if (args == "/list")
+                return string.Join('\n', installedGuids.Select(guid => $"Power Scheme GUID: {guid}"));
+
+            if (args == $"-duplicatescheme {PowerPlanService.SaverGuid}")
+            {
+                saverRestoreCount++;
+                installedGuids.Add(restoredSaverGuid);
+                return $"Power Scheme GUID: {restoredSaverGuid}";
+            }
+
+            if (args == $"-duplicatescheme {PowerPlanService.PerformanceGuid}")
+                return "";
+
+            throw new InvalidOperationException($"Unexpected powercfg call: {args}");
+        }
+
+        var service = new PowerPlanService(settings, () => null, RunPowercfg);
+
+        Assert.False(service.RestoreDefaultPlans());
+        Assert.False(service.RestoreDefaultPlans());
+
+        Assert.Equal(1, saverRestoreCount);
+        Assert.Equal(restoredSaverGuid, settings.Current.PlanGuidMap["PowerSaver"]);
+    }
 }

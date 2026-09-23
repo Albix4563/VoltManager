@@ -277,7 +277,7 @@ public class PowerPlanService
                 else
                     ok = false;
             }
-            if (ok)
+            if (discoveredMappings.Count > 0)
             {
                 _settings.Update(state =>
                 {
