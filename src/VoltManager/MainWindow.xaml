@@ -10,6 +10,47 @@
         Background="{DynamicResource ThemeBackgroundBrush}">
     <Grid Background="{DynamicResource ThemeBackgroundBrush}">
         <wv2:WebView2 x:Name="WebView" DefaultBackgroundColor="#0B1120" />
+        <Grid x:Name="DashboardStatusPanel"
+              Panel.ZIndex="10"
+              Background="{DynamicResource ThemeBackgroundBrush}"
+              Visibility="Collapsed">
+            <Border Width="420"
+                    Padding="28"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Background="{DynamicResource ThemeSurfaceBrush}"
+                    BorderBrush="{DynamicResource ThemeBorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="14">
+                <StackPanel>
+                    <TextBlock x:Name="DashboardStatusTitle"
+                               Text="VoltManager"
+                               FontSize="22"
+                               FontWeight="SemiBold"
+                               Foreground="{DynamicResource ThemeTextBrush}" />
+                    <TextBlock x:Name="DashboardStatusMessage"
+                               Margin="0,10,0,0"
+                               Text="Caricamento dell'interfaccia…"
+                               TextWrapping="Wrap"
+                               Foreground="{DynamicResource ThemeMutedTextBrush}" />
+                    <ProgressBar x:Name="DashboardLoadingIndicator"
+                                 Margin="0,20,0,0"
+                                 Height="4"
+                                 IsIndeterminate="True"
+                                 Foreground="{DynamicResource ThemePrimaryBrush}" />
+                    <Button x:Name="DashboardRetryButton"
+                            Margin="0,20,0,0"
+                            Padding="16,8"
+                            HorizontalAlignment="Left"
+                            Content="Riprova"
+                            Background="{DynamicResource ThemePrimaryBrush}"
+                            Foreground="{DynamicResource ThemeOnPrimaryBrush}"
+                            BorderBrush="{DynamicResource ThemeBorderBrush}"
+                            Visibility="Collapsed"
+                            Click="DashboardRetry_Click" />
+                </StackPanel>
+            </Border>
+        </Grid>
         <tb:TaskbarIcon x:Name="TrayIcon"
                         ToolTipText="VoltManager"
                         IconSource="pack://application:,,,/Assets/voltmanager.ico"

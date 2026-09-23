@@ -29,6 +29,8 @@ public partial class MainWindow : Window
     private readonly bool _startMinimized;
     private bool _webViewReady;
     private int _webViewInitRunning;
+    private bool _dashboardNavigationPending;
+    private bool _dashboardLoadFailed;
     private readonly WebViewTrayCoordinator _webViewTray;
     private readonly WebViewLifecycleBinding<CoreWebView2> _webViewLifecycleBinding;
     private bool _startupToastDone;
@@ -42,9 +44,7 @@ public partial class MainWindow : Window
         new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
     private HwndSource? _hotkeySource;
 
-    // After this park time in tray, drop the page to about:blank so Chromium
-    // releases DOM/JS/GPU tiles. Reopened UI reloads fresh (same as cold open).
-    private static readonly TimeSpan TrayTeardownDelay = TimeSpan.FromSeconds(20);
+    private static readonly TimeSpan SlowRestoreFeedbackDelay = TimeSpan.FromMilliseconds(150);
 
     public MainWindow(App app, bool startMinimized, bool justUpdated = false,
         Task<CoreWebView2Environment>? webViewEnvironment = null)
@@ -58,10 +58,7 @@ public partial class MainWindow : Window
         _webViewLifecycleBinding = new WebViewLifecycleBinding<CoreWebView2>(
             AttachWebViewLifecycle,
             DetachWebViewLifecycle);
-        _webViewTray = new WebViewTrayCoordinator(
-            new DashboardSurface(this),
-            CreateTrayTimer,
-            TrayTeardownDelay);
+        _webViewTray = new WebViewTrayCoordinator(new DashboardSurface(this));
         _webViewTray.Start(initiallyVisible: false);
         SourceInitialized += (_, _) => BindGlobalHotkeys();
         ApplyHostTheme(_app.Theme.CurrentTheme);
@@ -69,10 +66,7 @@ public partial class MainWindow : Window
         Loaded += async (_, _) =>
         {
             if (!_startMinimized || IsVisible && WindowState != WindowState.Minimized)
-            {
-                await EnsureWebViewAsync();
-                _webViewTray.SetVisible(true);
-            }
+                await ShowFromTrayWithFeedbackAsync();
         };
         IsVisibleChanged += (_, _) => UpdateWebViewVisibility();
         StateChanged += (_, _) => UpdateWebViewVisibility();
@@ -166,12 +160,7 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             Logger.Error("WebView2 initialization failed", ex);
-            MessageBox.Show(
-                _app.Loc.T("Dialog_WebView2Missing", ex.Message),
-                _app.Loc.T("Dialog_VoltManagerTitle"), MessageBoxButton.OK, MessageBoxImage.Error);
-            _exiting = true;
-            _app.ExitApp();
-            return;
+            throw;
         }
 
         try
@@ -181,14 +170,8 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            // WebView came up but wiring the UI failed: the dashboard is unusable,
-            // so report it and exit cleanly rather than leaving a blank window.
             Logger.Error("WebView UI setup failed", ex);
-            MessageBox.Show(
-                _app.Loc.T("Dialog_WebView2SetupFailed", ex.Message),
-                _app.Loc.T("Dialog_VoltManagerTitle"), MessageBoxButton.OK, MessageBoxImage.Error);
-            _exiting = true;
-            _app.ExitApp();
+            throw;
         }
     }
 
@@ -265,11 +248,20 @@ public partial class MainWindow : Window
 
     private void OnWebViewNavigationCompleted(object? sender, CoreWebView2NavigationCompletedEventArgs args)
     {
-        if (!args.IsSuccess || sender is not CoreWebView2 core) return;
+        if (sender is not CoreWebView2 core) return;
+        if (!args.IsSuccess)
+        {
+            _dashboardNavigationPending = false;
+            ShowDashboardErrorState();
+            return;
+        }
+
         _webViewTray.NotifyNavigationSucceeded();
         string src = core.Source ?? "";
         if (!src.StartsWith("about:", StringComparison.OrdinalIgnoreCase))
         {
+            _dashboardNavigationPending = false;
+            HideDashboardStatusState();
             if (_navStopwatch.IsRunning)
             {
                 Logger.Info($"NavigationCompleted in {_navStopwatch.ElapsedMilliseconds}ms (source={src})");
@@ -286,6 +278,7 @@ public partial class MainWindow : Window
 
     private void NavigateToAppDocument(CoreWebView2 core)
     {
+        _dashboardNavigationPending = true;
         _navStopwatch.Restart();
         core.Navigate("https://app.local/index.html?v=" + AppDocumentVersion);
     }
@@ -310,18 +303,26 @@ public partial class MainWindow : Window
     private async Task RecoverWebViewBrowserAsync(CancellationToken cancellationToken)
     {
         Logger.Info("Re-initializing WebView2 after browser process exit…");
+        _webViewReady = false;
         _webViewEnvironment ??= _app.WebViewEnvironment;
         cancellationToken.ThrowIfCancellationRequested();
         await WebView.EnsureCoreWebView2Async(await _webViewEnvironment);
         cancellationToken.ThrowIfCancellationRequested();
         WireWebViewCore(firstBoot: false);
+        _webViewReady = true;
     }
 
     private void UpdateWebViewVisibility()
     {
         bool visible = IsVisible && WindowState != WindowState.Minimized && !_adaptiveFullscreenCovered;
         if (_webViewVisible == visible) return;
-        _webViewTray.SetVisible(visible);
+        if (!visible)
+        {
+            _webViewTray.SetVisible(false);
+            return;
+        }
+
+        _ = ShowFromTrayWithFeedbackAsync(activateWindow: false);
     }
 
     private void OnMetricsUpdated(MetricsSnapshot metrics)
@@ -612,10 +613,103 @@ public partial class MainWindow : Window
         => _webViewTray.HideToTray();
 
     public void ShowFromTray()
-        => _ = _webViewTray.ShowFromTrayAsync();
+        => _ = ShowFromTrayWithFeedbackAsync();
 
-    private static IDisposable CreateTrayTimer(TimeSpan delay, Action callback)
-        => new System.Threading.Timer(_ => callback(), null, delay, Timeout.InfiniteTimeSpan);
+    private async Task ShowFromTrayWithFeedbackAsync(bool activateWindow = true)
+    {
+        Task restore = _webViewTray.ShowFromTrayAsync(activateWindow);
+        bool feedbackVisible = false;
+
+        try
+        {
+            if (!_webViewReady || _dashboardNavigationPending)
+            {
+                ShowDashboardLoadingState();
+                ShowWindowShell();
+                feedbackVisible = true;
+            }
+            else if (!restore.IsCompleted)
+            {
+                Task first = await Task.WhenAny(restore, Task.Delay(SlowRestoreFeedbackDelay));
+                if (first != restore && !restore.IsCompleted)
+                {
+                    ShowDashboardLoadingState();
+                    ShowWindowShell();
+                    feedbackVisible = true;
+                }
+            }
+
+            await restore;
+            if (feedbackVisible && !_dashboardNavigationPending && !_dashboardLoadFailed)
+                HideDashboardStatusState();
+        }
+        catch (OperationCanceledException) when (_exiting)
+        {
+        }
+        catch (Exception ex)
+        {
+            Logger.Error("Dashboard restore failed", ex);
+            ShowDashboardErrorState();
+            ShowWindowShell();
+        }
+    }
+
+    private void ShowWindowShell()
+    {
+        if (_exiting) return;
+        ShowInTaskbar = true;
+        Show();
+        WindowState = WindowState.Normal;
+        Activate();
+    }
+
+    private void ShowDashboardLoadingState()
+    {
+        _dashboardLoadFailed = false;
+        DashboardStatusMessage.Text = "Caricamento dell'interfaccia…";
+        DashboardLoadingIndicator.Visibility = Visibility.Visible;
+        DashboardRetryButton.Visibility = Visibility.Collapsed;
+        DashboardStatusPanel.Visibility = Visibility.Visible;
+    }
+
+    private void ShowDashboardErrorState()
+    {
+        _dashboardLoadFailed = true;
+        WebView.Visibility = Visibility.Hidden;
+        DashboardStatusMessage.Text = "Impossibile caricare la dashboard. Premi Riprova per tentare nuovamente.";
+        DashboardLoadingIndicator.Visibility = Visibility.Collapsed;
+        DashboardRetryButton.Visibility = Visibility.Visible;
+        DashboardStatusPanel.Visibility = Visibility.Visible;
+    }
+
+    private void HideDashboardStatusState()
+    {
+        _dashboardLoadFailed = false;
+        DashboardStatusPanel.Visibility = Visibility.Collapsed;
+        DashboardRetryButton.Visibility = Visibility.Collapsed;
+    }
+
+    private async void DashboardRetry_Click(object sender, RoutedEventArgs e)
+    {
+        ShowDashboardLoadingState();
+        try
+        {
+            if (_webViewReady && WebView.CoreWebView2 is { } core)
+            {
+                _dashboardNavigationPending = true;
+                WebView.Visibility = Visibility.Visible;
+                core.Reload();
+                return;
+            }
+
+            await ShowFromTrayWithFeedbackAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.Error("Dashboard retry failed", ex);
+            ShowDashboardErrorState();
+        }
+    }
 
     /// <summary>Applies localized strings to tray menu items with x:Name in XAML.</summary>
     private void LocalizeTrayMenu()
@@ -868,13 +962,7 @@ public partial class MainWindow : Window
             _owner.ShowInTaskbar = false;
         });
 
-        public void ShowAndActivateWindow() => Run(() =>
-        {
-            _owner.ShowInTaskbar = true;
-            _owner.Show();
-            _owner.WindowState = WindowState.Normal;
-            _owner.Activate();
-        });
+        public void ShowAndActivateWindow() => Run(_owner.ShowWindowShell);
 
         public Task EnsureWebViewAsync(CancellationToken cancellationToken)
             => RunAsync(async () =>
@@ -904,15 +992,8 @@ public partial class MainWindow : Window
 
         public void Resume() => Run(() =>
         {
-            if (!_owner._webViewVisible || _owner._exiting) return;
-            _owner.WebView.Visibility = Visibility.Visible;
-            _owner.WebView.CoreWebView2?.Resume();
-        });
-
-        public void NavigateBlank() => Run(() =>
-        {
             if (_owner._exiting) return;
-            _owner.WebView.CoreWebView2?.Navigate("about:blank");
+            _owner.WebView.CoreWebView2?.Resume();
         });
 
         public void NavigateApp() => Run(() =>
@@ -929,6 +1010,12 @@ public partial class MainWindow : Window
             try { _owner.WebView.CoreWebView2?.Reload(); }
             catch (Exception ex) { Logger.Error("WebView reload after crash failed", ex); }
         });
+
+        public void ShowLoading()
+            => Run(_owner.ShowDashboardLoadingState);
+
+        public void ShowLoadError()
+            => Run(_owner.ShowDashboardErrorState);
 
         public Task RecoverBrowserAsync(CancellationToken cancellationToken)
             => RunAsync(() => _owner.RecoverWebViewBrowserAsync(cancellationToken));

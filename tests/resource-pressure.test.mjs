@@ -79,7 +79,7 @@ test('top-process RPC is elastic while safety RPCs remain ungated', () => {
 });
 
 test('WebView lifecycle uses suspend-resume without mixing manual memory target levels', () => {
-  assert.match(mainWindowHost, /_webViewTray\.SetVisible\(visible\)/);
+  assert.match(mainWindowHost, /private void UpdateWebViewVisibility\(\)[\s\S]*?_webViewTray\.SetVisible\(false\);[\s\S]*?ShowFromTrayWithFeedbackAsync\(activateWindow: false\);/);
   assert.match(webViewTrayCoordinator, /await _surface\.SuspendAsync\(epoch\)/);
   assert.match(webViewTrayCoordinator, /_surface\.Resume\(\)/);
   assert.doesNotMatch(mainWindowHost + webViewTrayCoordinator, /MemoryUsageTargetLevel/);
@@ -90,13 +90,14 @@ test('tray lifecycle does not trim the host or WebView working sets', () => {
   assert.doesNotMatch(mainWindowHost, /ScheduleWorkingSetTrim|TrimParkedWorkingSets/);
 });
 
-test('minimize hides the renderer before suspending and reserves teardown for the tray', () => {
-  assert.match(mainWindowHost, /private void UpdateWebViewVisibility\(\)[\s\S]*?_webViewTray\.SetVisible\(visible\);/);
+test('tray lifecycle keeps the dashboard loaded and restores WebView before showing it', () => {
+  assert.match(mainWindowHost, /private void UpdateWebViewVisibility\(\)[\s\S]*?_webViewTray\.SetVisible\(false\);[\s\S]*?ShowFromTrayWithFeedbackAsync\(activateWindow: false\);/);
   assert.match(mainWindowHost, /private void HideToTray\(\)\s*=> _webViewTray\.HideToTray\(\);/);
   assert.match(mainWindowHost, /WebView\.Visibility = visible \? Visibility\.Visible : Visibility\.Hidden;/);
   assert.match(mainWindowHost, /bool suspended = await core\.TrySuspendAsync\(\);/);
-  assert.match(webViewTrayCoordinator, /HideToTray\(\)[\s\S]*?_surface\.SetWebViewVisible\(false\);[\s\S]*?SuspendHiddenAsync\(epoch\);[\s\S]*?ScheduleTrayTeardown\(epoch\);/);
-  assert.match(webViewTrayCoordinator, /if \(!_lifecycle\.IsCurrent\(epoch\) \|\| IsVisible\(\)\) return;/);
+  assert.match(webViewTrayCoordinator, /HideToTray\(\)[\s\S]*?_surface\.SetWebViewVisible\(false\);[\s\S]*?StartSuspend\(epoch\);/);
+  assert.match(webViewTrayCoordinator, /RestoreVisibleAsync[\s\S]*?_surface\.Resume\(\);[\s\S]*?_surface\.SetWebViewVisible\(true\);[\s\S]*?_surface\.ShowAndActivateWindow\(\);/);
+  assert.doesNotMatch(webViewTrayCoordinator, /NavigateBlank|ScheduleTrayTeardown|about:blank/);
 });
 
 test('idle decorative animations require rich effects, while progress animations stay independent', () => {

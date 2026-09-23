@@ -9,9 +9,10 @@ internal interface IDashboardSurface
     void SetWebViewVisible(bool visible);
     Task<bool> SuspendAsync(CancellationToken cancellationToken);
     void Resume();
-    void NavigateBlank();
     void NavigateApp();
     void Reload();
+    void ShowLoading();
+    void ShowLoadError();
     Task RecoverBrowserAsync(CancellationToken cancellationToken);
     void PublishFreshState();
 }
@@ -27,25 +28,17 @@ internal sealed class WebViewTrayCoordinator : IDisposable
     private const int RendererRetryLimit = 5;
     private readonly object _gate = new();
     private readonly IDashboardSurface _surface;
-    private readonly Func<TimeSpan, Action, IDisposable> _createTimer;
-    private readonly TimeSpan _trayTeardownDelay;
     private readonly RestartableLifecycle _lifecycle = new();
-    private IDisposable? _trayTimer;
     private Task? _recoveryTask;
+    private Task? _showTask;
+    private Task? _suspendTask;
     private int _rendererReloadCount;
-    private int _suspendGeneration;
+    private bool _activateWindowAfterRestore;
     private bool _visible;
     private bool _disposed;
 
-    public WebViewTrayCoordinator(
-        IDashboardSurface surface,
-        Func<TimeSpan, Action, IDisposable> createTimer,
-        TimeSpan trayTeardownDelay)
-    {
-        _surface = surface;
-        _createTimer = createTimer;
-        _trayTeardownDelay = trayTeardownDelay;
-    }
+    public WebViewTrayCoordinator(IDashboardSurface surface)
+        => _surface = surface;
 
     public void Start(bool initiallyVisible)
     {
@@ -60,7 +53,7 @@ internal sealed class WebViewTrayCoordinator : IDisposable
             _visible = initiallyVisible;
         }
 
-        _surface.SetWebViewVisible(initiallyVisible);
+        _surface.SetWebViewVisible(false);
         if (initiallyVisible)
             _ = EnsureAndResumeAsync(epoch);
     }
@@ -71,23 +64,28 @@ internal sealed class WebViewTrayCoordinator : IDisposable
         lock (_gate) _visible = false;
         _surface.HideWindow();
         _surface.SetWebViewVisible(false);
-        _ = SuspendHiddenAsync(epoch);
-        ScheduleTrayTeardown(epoch);
+        StartSuspend(epoch);
     }
 
-    public async Task ShowFromTrayAsync()
+    public Task ShowFromTrayAsync(bool activateWindow = true)
     {
-        if (!TryCurrentEpoch(out CancellationToken epoch)) return;
-        lock (_gate) _visible = true;
-        CancelTrayTeardown();
-        _surface.ShowAndActivateWindow();
-        _surface.SetWebViewVisible(true);
-        await _surface.EnsureWebViewAsync(epoch).ConfigureAwait(false);
-        if (!_lifecycle.IsCurrent(epoch) || !IsVisible()) return;
-        Interlocked.Increment(ref _suspendGeneration);
-        _surface.Resume();
-        _surface.NavigateApp();
-        _surface.PublishFreshState();
+        if (!TryCurrentEpoch(out CancellationToken epoch))
+            return Task.CompletedTask;
+
+        lock (_gate)
+        {
+            if (_showTask is { IsCompleted: false })
+            {
+                _activateWindowAfterRestore |= activateWindow;
+                return _showTask;
+            }
+
+            _visible = true;
+            _activateWindowAfterRestore = activateWindow;
+            Task pendingSuspend = _suspendTask ?? Task.CompletedTask;
+            _showTask = RestoreVisibleAsync(epoch, pendingSuspend);
+            return _showTask;
+        }
     }
 
     public void SetVisible(bool visible)
@@ -101,18 +99,15 @@ internal sealed class WebViewTrayCoordinator : IDisposable
         }
         if (!changed) return;
 
-        _surface.SetWebViewVisible(visible);
         if (!visible)
         {
-            _ = SuspendHiddenAsync(epoch);
+            _surface.SetWebViewVisible(false);
+            StartSuspend(epoch);
             return;
         }
 
-        CancelTrayTeardown();
-        Interlocked.Increment(ref _suspendGeneration);
-        _surface.Resume();
-        _surface.NavigateApp();
-        _surface.PublishFreshState();
+        _surface.SetWebViewVisible(false);
+        _ = ShowFromTrayAsync(activateWindow: false);
     }
 
     public Task HandleProcessFailureAsync(WebViewFailureKind kind)
@@ -123,7 +118,14 @@ internal sealed class WebViewTrayCoordinator : IDisposable
         if (kind == WebViewFailureKind.Renderer)
         {
             if (Interlocked.Increment(ref _rendererReloadCount) <= RendererRetryLimit && _lifecycle.IsCurrent(epoch))
+            {
+                _surface.ShowLoading();
                 _surface.Reload();
+            }
+            else if (_lifecycle.IsCurrent(epoch))
+            {
+                _surface.ShowLoadError();
+            }
             return Task.CompletedTask;
         }
 
@@ -131,6 +133,7 @@ internal sealed class WebViewTrayCoordinator : IDisposable
         {
             if (_recoveryTask is { IsCompleted: false })
                 return _recoveryTask;
+            _surface.ShowLoading();
             _recoveryTask = RecoverBrowserAsync(epoch);
             return _recoveryTask;
         }
@@ -141,16 +144,14 @@ internal sealed class WebViewTrayCoordinator : IDisposable
 
     public void Stop()
     {
-        IDisposable? timer;
         lock (_gate)
         {
             if (!_lifecycle.Stop()) return;
-            timer = _trayTimer;
-            _trayTimer = null;
             _recoveryTask = null;
+            _showTask = null;
+            _suspendTask = null;
             _visible = false;
         }
-        timer?.Dispose();
     }
 
     public void Dispose()
@@ -171,6 +172,7 @@ internal sealed class WebViewTrayCoordinator : IDisposable
             await _surface.EnsureWebViewAsync(epoch).ConfigureAwait(false);
             if (!_lifecycle.IsCurrent(epoch) || !IsVisible()) return;
             _surface.Resume();
+            _surface.SetWebViewVisible(true);
             _surface.NavigateApp();
             _surface.PublishFreshState();
         }
@@ -180,21 +182,18 @@ internal sealed class WebViewTrayCoordinator : IDisposable
         catch (Exception ex)
         {
             Logger.Error("WebView visible-start failed", ex);
+            if (_lifecycle.IsCurrent(epoch) && IsVisible())
+                _surface.ShowLoadError();
         }
     }
 
     private async Task SuspendHiddenAsync(CancellationToken epoch)
     {
-        int generation = Interlocked.Increment(ref _suspendGeneration);
         try
         {
             bool suspended = await _surface.SuspendAsync(epoch).ConfigureAwait(false);
             if (!suspended && _lifecycle.IsCurrent(epoch) && !IsVisible())
                 Logger.Info("WebView2 declined suspension for the dashboard.");
-
-            if (_lifecycle.IsCurrent(epoch) &&
-                (IsVisible() || generation != Volatile.Read(ref _suspendGeneration) && IsVisible()))
-                _surface.Resume();
         }
         catch (OperationCanceledException) when (epoch.IsCancellationRequested)
         {
@@ -205,44 +204,69 @@ internal sealed class WebViewTrayCoordinator : IDisposable
         }
     }
 
-    private void ScheduleTrayTeardown(CancellationToken epoch)
+    private void StartSuspend(CancellationToken epoch)
     {
-        CancelTrayTeardown();
-        IDisposable timer = _createTimer(_trayTeardownDelay, () =>
-        {
-            if (!_lifecycle.IsCurrent(epoch) || IsVisible()) return;
-            try
-            {
-                _surface.NavigateBlank();
-                _ = SuspendHiddenAsync(epoch);
-                Logger.Info("WebView blanked after tray park.");
-            }
-            catch (Exception ex)
-            {
-                Logger.Warn("Tray WebView teardown failed: " + ex.Message);
-            }
-        });
-
+        var completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         lock (_gate)
         {
             if (!_lifecycle.IsCurrent(epoch) || _visible)
             {
-                timer.Dispose();
+                completion.TrySetResult(true);
                 return;
             }
-            _trayTimer = timer;
+
+            _suspendTask = completion.Task;
+        }
+
+        _ = CompleteSuspendAsync(epoch, completion);
+    }
+
+    private async Task CompleteSuspendAsync(
+        CancellationToken epoch,
+        TaskCompletionSource<bool> completion)
+    {
+        try
+        {
+            await SuspendHiddenAsync(epoch).ConfigureAwait(false);
+        }
+        finally
+        {
+            completion.TrySetResult(true);
         }
     }
 
-    private void CancelTrayTeardown()
+    private async Task RestoreVisibleAsync(CancellationToken epoch, Task pendingSuspend)
     {
-        IDisposable? timer;
-        lock (_gate)
+        try
         {
-            timer = _trayTimer;
-            _trayTimer = null;
+            await pendingSuspend.ConfigureAwait(false);
+            if (!_lifecycle.IsCurrent(epoch) || !IsVisible()) return;
+
+            await _surface.EnsureWebViewAsync(epoch).ConfigureAwait(false);
+            if (!_lifecycle.IsCurrent(epoch) || !IsVisible()) return;
+
+            _surface.Resume();
+            _surface.SetWebViewVisible(true);
+            bool activateWindow;
+            lock (_gate)
+            {
+                activateWindow = _activateWindowAfterRestore;
+                _activateWindowAfterRestore = false;
+            }
+            if (activateWindow)
+                _surface.ShowAndActivateWindow();
+            _surface.NavigateApp();
+            _surface.PublishFreshState();
         }
-        timer?.Dispose();
+        catch (OperationCanceledException) when (epoch.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex)
+        {
+            Logger.Error("WebView restore failed", ex);
+            if (_lifecycle.IsCurrent(epoch) && IsVisible())
+                _surface.ShowLoadError();
+        }
     }
 
     private async Task RecoverBrowserAsync(CancellationToken epoch)
@@ -257,6 +281,8 @@ internal sealed class WebViewTrayCoordinator : IDisposable
         catch (Exception ex)
         {
             Logger.Error("WebView re-init after browser exit failed", ex);
+            if (_lifecycle.IsCurrent(epoch) && IsVisible())
+                _surface.ShowLoadError();
         }
         finally
         {
