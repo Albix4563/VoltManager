@@ -12,57 +12,6 @@ import {
 
 const failureArtifactRoot = resolve('TestResults', 'resource-validation-process-failures');
 
-function probePowerShellRuntime(shell) {
-  const command = [
-    '$info = [ordered]@{',
-    'version=$PSVersionTable.PSVersion.ToString();',
-    'runtime=[Environment]::Version.ToString();',
-    'os=[Environment]::OSVersion.VersionString',
-    '}; $info | ConvertTo-Json -Compress',
-  ].join('');
-  const result = spawnSync(shell, ['-NoProfile', '-NonInteractive', '-Command', command], {
-    encoding: 'utf8',
-    timeout: 10000,
-  });
-  const classification = classifyResourceValidationProcess(result, 0);
-  if (classification.kind !== 'benchmark' || !classification.matchesExpectedExit) {
-    const diagnosticDir = persistResourceValidationFailure({
-      artifactRoot: failureArtifactRoot,
-      scenario: 'runtime-probe',
-      short: false,
-      expectedExitCode: 0,
-      classification,
-      result,
-      shellInfo: { executable: shell },
-      output: null,
-    });
-    assert.fail('PowerShell runtime probe failed: ' + classification.kind + '. Diagnostics: ' + diagnosticDir);
-  }
-
-  try {
-    return { executable: shell, ...JSON.parse(result.stdout.trim()) };
-  } catch (error) {
-    const diagnosticDir = persistResourceValidationFailure({
-      artifactRoot: failureArtifactRoot,
-      scenario: 'runtime-probe',
-      short: false,
-      expectedExitCode: 0,
-      classification: {
-        kind: 'runtime-probe-error',
-        status: result.status,
-        signal: result.signal ?? null,
-      },
-      result: {
-        ...result,
-        stderr: (result.stderr ?? '') + '\n' + String(error),
-      },
-      shellInfo: { executable: shell },
-      output: null,
-    });
-    assert.fail('PowerShell runtime probe returned invalid JSON. Diagnostics: ' + diagnosticDir);
-  }
-}
-
 // Exercise the complete report/exit-code path with deterministic measurements,
 // without launching VoltManager or requiring GPU hardware.
 test('resource benchmark rejects regressions and short protocols', { skip: process.platform !== 'win32' }, () => {
@@ -70,7 +19,7 @@ test('resource benchmark rejects regressions and short protocols', { skip: proce
     process.platform,
     process.env.VOLT_RESOURCE_VALIDATION_SHELL,
   );
-  const shellInfo = probePowerShellRuntime(shell);
+  const shellInfo = { executable: shell };
   const root = mkdtempSync(join(tmpdir(), 'volt-validation-'));
   const harness = join(root, 'measure.ps1');
   writeFileSync(harness, `
