@@ -50,7 +50,8 @@ public class UpdateServiceTests
 
         try
         {
-            Task completed = await Task.WhenAny(download, Task.Delay(TimeSpan.FromSeconds(2)));
+            await server.InitialBytesSent.WaitAsync(TimeSpan.FromSeconds(10));
+            Task completed = await Task.WhenAny(download, Task.Delay(TimeSpan.FromSeconds(10)));
             Assert.Same(download, completed);
             await Assert.ThrowsAsync<TimeoutException>(async () => await download);
         }
@@ -88,6 +89,7 @@ public class UpdateServiceTests
         private readonly TcpListener _listener;
         private readonly CancellationTokenSource _stop = new();
         private readonly TaskCompletionSource<bool> _release = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource<bool> _initialBytesSent = new(TaskCreationOptions.RunContinuationsAsynchronously);
         private readonly int _totalBytes;
         private readonly int _initialBytes;
         private readonly Task _serveTask;
@@ -103,6 +105,7 @@ public class UpdateServiceTests
         }
 
         public string Url { get; }
+        public Task InitialBytesSent => _initialBytesSent.Task;
 
         public static StallingHttpServer Start(int totalBytes, int initialBytes)
         {
@@ -126,6 +129,7 @@ public class UpdateServiceTests
                 await stream.WriteAsync(headers, _stop.Token);
                 await stream.WriteAsync(new byte[_initialBytes], _stop.Token);
                 await stream.FlushAsync(_stop.Token);
+                _initialBytesSent.TrySetResult(true);
 
                 await _release.Task.WaitAsync(_stop.Token);
 
