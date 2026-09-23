@@ -275,17 +275,14 @@
     let lastBatteryHistory = null;
     let batteryHistoryTimer = null;
     let batteryHistoryPolling = false;
-    let batteryHistoryHours = 24;
+    const batteryHistoryRequests = window.VoltManagerBatteryHistory.createBatteryHistoryRequestCoordinator({
+        initialHours: 24,
+        request: hours => Host.call('getBatteryHistory', { hours }),
+        render: (payload, hours) => renderBatteryHistory(payload, hours),
+    });
 
-    function formatHistorySpan(seconds) {
-        const h = Math.floor(seconds / 3600);
-        const m = Math.floor((seconds % 3600) / 60);
-        if (h > 0) return h + 'h' + (m > 0 ? ' ' + m + 'm' : '');
-        return Math.max(1, m) + 'm';
-    }
-
-    function renderBatteryHistory(payload) {
-        lastBatteryHistory = payload;
+    function renderBatteryHistory(payload, requestedHours = batteryHistoryRequests.getHours()) {
+        lastBatteryHistory = { payload, hours: requestedHours };
         const samples = (payload && payload.samples) || [];
         const raw = samples.filter(s => s.pct != null);
         // Need at least two points to draw a trend; otherwise hide the whole card.
@@ -346,7 +343,10 @@
         const cur = pts[pts.length - 1].pct;
         batteryHistoryCurrent.textContent = cur + '%';
         batteryHistoryRange.textContent =
-            I18n.t('battery_history_window').replace('{span}', formatHistorySpan(t1 - t0));
+            I18n.t('battery_history_window').replace(
+                '{span}',
+                window.VoltManagerBatteryHistory.formatSelectedWindow(requestedHours)
+            );
 
         let min = raw[0].pct, max = raw[0].pct;
         for (const s of raw) { if (s.pct < min) min = s.pct; if (s.pct > max) max = s.pct; }
@@ -367,8 +367,7 @@
         if (!Host.available || batteryHistoryPolling) return;
         batteryHistoryPolling = true;
         try {
-            const payload = await Host.call('getBatteryHistory', { hours: batteryHistoryHours });
-            renderBatteryHistory(payload);
+            await batteryHistoryRequests.refresh();
         } catch (err) {
             console.error('getBatteryHistory failed', err);
         } finally {
@@ -390,14 +389,18 @@
 
     batteryHistoryRangeButtons.forEach(button => {
         button.addEventListener('click', () => {
-            batteryHistoryHours = Number(button.dataset.hours) || 24;
+            const selectedHours = Number(button.dataset.hours) || 24;
             batteryHistoryRangeButtons.forEach(b => {
                 const active = b === button;
                 b.classList.toggle('bg-white/10', active);
                 b.classList.toggle('text-secondary-container', active);
                 b.setAttribute('aria-pressed', active ? 'true' : 'false');
             });
-            pollBatteryHistory();
+            batteryHistoryRequests.setHours(selectedHours);
+            if (!Host.available) return;
+            batteryHistoryRequests.refresh().catch(err => {
+                console.error('getBatteryHistory failed', err);
+            });
         });
     });
 
@@ -410,7 +413,9 @@
     });
 
     document.addEventListener('langchanged', () => {
-        if (lastBatteryHistory) renderBatteryHistory(lastBatteryHistory);
+        if (lastBatteryHistory) {
+            renderBatteryHistory(lastBatteryHistory.payload, lastBatteryHistory.hours);
+        }
     });
 
     const viewHome = document.getElementById('view-home');
