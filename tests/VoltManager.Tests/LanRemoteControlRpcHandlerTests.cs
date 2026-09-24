@@ -34,7 +34,7 @@ public sealed class LanRemoteControlRpcHandlerTests
                 received = (plan, shutdown, restart);
                 return expected;
             },
-            () => "123456789012",
+            () => "1234",
             _ => expected));
 
         using JsonDocument document = JsonDocument.Parse("""{"allowPlanChange":true,"allowShutdown":false,"allowRestart":true}""");

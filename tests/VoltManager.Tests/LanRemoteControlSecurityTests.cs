@@ -9,33 +9,33 @@ namespace VoltManager.Tests;
 public sealed class LanRemoteControlSecurityTests
 {
     [Theory]
-    [InlineData("000000000000", true)]
-    [InlineData("123456789012", true)]
-    [InlineData("12345678901", false)]
-    [InlineData("1234567890123", false)]
-    [InlineData("12345678901a", false)]
-    [InlineData(" 123456789012", false)]
-    public void PinValidation_RequiresExactlyTwelveAsciiDigits(string pin, bool expected)
+    [InlineData("0000", true)]
+    [InlineData("1234", true)]
+    [InlineData("123", false)]
+    [InlineData("12345", false)]
+    [InlineData("123a", false)]
+    [InlineData(" 1234", false)]
+    public void PinValidation_RequiresExactlyFourAsciiDigits(string pin, bool expected)
         => Assert.Equal(expected, LanRemotePinAuth.IsValidPin(pin));
 
     [Fact]
     public void PinVerifier_UsesConfiguredPbkdf2ParametersAndRejectsWrongPin()
     {
-        const string pin = "123456789012";
+        const string pin = "1234";
         LanRemotePinVerifier verifier = LanRemotePinAuth.CreateVerifier(pin);
 
         Assert.Equal(600_000, verifier.Iterations);
         Assert.Equal(16, Convert.FromBase64String(verifier.SaltBase64).Length);
         Assert.Equal(32, Convert.FromBase64String(verifier.HashBase64).Length);
         Assert.True(LanRemotePinAuth.Verify(pin, verifier));
-        Assert.False(LanRemotePinAuth.Verify("123456789013", verifier));
+        Assert.False(LanRemotePinAuth.Verify("1235", verifier));
     }
 
     [Fact]
-    public void GeneratedPin_IsAlwaysTwelveDigits()
+    public void GeneratedPin_IsAlwaysFourDigits()
     {
         for (int i = 0; i < 32; i++)
-            Assert.Matches("^[0-9]{12}$", LanRemotePinAuth.GeneratePin());
+            Assert.Matches("^[0-9]{4}$", LanRemotePinAuth.GeneratePin());
     }
 
     [Fact]
@@ -141,11 +141,32 @@ public sealed class LanRemoteControlSecurityTests
     }
 
     [Fact]
+    public void AuthStore_IgnoresLegacyVerifierWithoutPinLength()
+    {
+        string root = Path.Combine(Path.GetTempPath(), "VoltManager.Tests", Guid.NewGuid().ToString("N"));
+        string path = Path.Combine(root, "remote-control-auth.json");
+        try
+        {
+            Directory.CreateDirectory(root);
+            LanRemotePinVerifier legacy = LanRemotePinAuth.CreateVerifier("1234") with { Digits = 0 };
+            File.WriteAllText(path, System.Text.Json.JsonSerializer.Serialize(legacy));
+
+            var store = new LanRemoteAuthStore(path);
+            Assert.False(store.HasPin);
+            Assert.False(store.Verify("1234"));
+        }
+        finally
+        {
+            try { Directory.Delete(root, true); } catch { }
+        }
+    }
+
+    [Fact]
     public void AuthStore_PersistsOnlyVerifierAndCanReloadIt()
     {
         string root = Path.Combine(Path.GetTempPath(), "VoltManager.Tests", Guid.NewGuid().ToString("N"));
         string path = Path.Combine(root, "remote-control-auth.json");
-        const string pin = "987654321012";
+        const string pin = "9876";
         try
         {
             var store = new LanRemoteAuthStore(path);
@@ -153,7 +174,7 @@ public sealed class LanRemoteControlSecurityTests
 
             Assert.True(store.HasPin);
             Assert.True(store.Verify(pin));
-            Assert.False(store.Verify("987654321013"));
+            Assert.False(store.Verify("9875"));
             string json = File.ReadAllText(path);
             Assert.DoesNotContain(pin, json, StringComparison.Ordinal);
             Assert.DoesNotContain("pin", json, StringComparison.OrdinalIgnoreCase);

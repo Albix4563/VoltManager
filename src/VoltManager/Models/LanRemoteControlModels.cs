@@ -16,6 +16,7 @@ public sealed record LanRemotePinVerifier
     [JsonPropertyName("salt")] public required string SaltBase64 { get; init; }
     [JsonPropertyName("hash")] public required string HashBase64 { get; init; }
     [JsonPropertyName("iterations")] public int Iterations { get; init; } = 600_000;
+    [JsonPropertyName("digits")] public int Digits { get; init; }
 }
 
 public sealed record LanRemoteControlState

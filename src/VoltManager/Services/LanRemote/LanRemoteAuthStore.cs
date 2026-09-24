@@ -53,7 +53,8 @@ internal sealed class LanRemoteAuthStore
                 return null;
             if (Convert.FromBase64String(verifier.SaltBase64).Length != 16
                 || Convert.FromBase64String(verifier.HashBase64).Length != 32
-                || verifier.Iterations != LanRemotePinAuth.Iterations)
+                || verifier.Iterations != LanRemotePinAuth.Iterations
+                || verifier.Digits != LanRemotePinAuth.PinLength)
             {
                 return null;
             }

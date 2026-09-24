@@ -10,10 +10,11 @@ namespace VoltManager.Services.LanRemote;
 internal static partial class LanRemotePinAuth
 {
     public const int Iterations = 600_000;
+    public const int PinLength = 4;
     private const int SaltSize = 16;
     private const int HashSize = 32;
 
-    [GeneratedRegex("^[0-9]{12}$", RegexOptions.CultureInvariant)]
+    [GeneratedRegex("^[0-9]{4}$", RegexOptions.CultureInvariant)]
     private static partial Regex PinRegex();
 
     public static bool IsValidPin(string? pin)
@@ -21,16 +22,14 @@ internal static partial class LanRemotePinAuth
 
     public static string GeneratePin()
     {
-        Span<byte> random = stackalloc byte[8];
-        RandomNumberGenerator.Fill(random);
-        ulong value = BitConverter.ToUInt64(random) % 1_000_000_000_000UL;
-        return value.ToString("D12", System.Globalization.CultureInfo.InvariantCulture);
+        int value = RandomNumberGenerator.GetInt32(0, 10_000);
+        return value.ToString("D4", System.Globalization.CultureInfo.InvariantCulture);
     }
 
     public static LanRemotePinVerifier CreateVerifier(string pin)
     {
         if (!IsValidPin(pin))
-            throw new ArgumentException("PIN must contain exactly 12 ASCII digits.", nameof(pin));
+            throw new ArgumentException("PIN must contain exactly 4 ASCII digits.", nameof(pin));
 
         byte[] salt = RandomNumberGenerator.GetBytes(SaltSize);
         byte[] hash = Rfc2898DeriveBytes.Pbkdf2(
@@ -45,6 +44,7 @@ internal static partial class LanRemotePinAuth
             SaltBase64 = Convert.ToBase64String(salt),
             HashBase64 = Convert.ToBase64String(hash),
             Iterations = Iterations,
+            Digits = PinLength,
         };
     }
 

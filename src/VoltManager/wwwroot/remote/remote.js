@@ -191,8 +191,8 @@
   loginForm.addEventListener('submit', async event => {
     event.preventDefault();
     const pin = pinInput.value.trim();
-    if (!/^[0-9]{12}$/.test(pin)) {
-      loginError.textContent = 'Enter exactly 12 digits.';
+    if (!/^[0-9]{4}$/.test(pin)) {
+      loginError.textContent = 'Enter exactly 4 digits.';
       return;
     }
     loginButton.disabled = true;
@@ -231,7 +231,7 @@
   });
 
   pinInput.addEventListener('input', event => {
-    event.target.value = event.target.value.replace(/[^0-9]/g, '').slice(0, 12);
+    event.target.value = event.target.value.replace(/[^0-9]/g, '').slice(0, 4);
   });
 
   $('logout-button').addEventListener('click', async () => {

@@ -250,10 +250,10 @@
                 <section class="vm-ui-panel vm-section-card">
                     <h3 class="vm-section-title"><span class="material-symbols-outlined">pin</span><span data-vm-i18n="remote_pin_title"></span></h3>
                     <p class="text-on-surface-variant" data-vm-i18n="remote_pin_help"></p>
-                    <div class="lan-remote-pin-status"><span data-vm-i18n="remote_pin_status"></span><strong id="lan-remote-pin-status">••••••••••••</strong></div>
+                    <div class="lan-remote-pin-status"><span data-vm-i18n="remote_pin_status"></span><strong id="lan-remote-pin-status">••••</strong></div>
                     <div class="lan-remote-actions">
                         <button type="button" class="btn-primary rounded-lg py-3 px-4 text-label-md" id="lan-remote-generate-pin" data-vm-i18n="remote_generate_pin"></button>
-                        <div class="lan-remote-pin-set"><input id="lan-remote-pin-input" inputmode="numeric" autocomplete="off" maxlength="12" pattern="[0-9]{12}" data-vm-i18n-placeholder="remote_pin_placeholder"/><button type="button" class="btn-ghost rounded-lg py-3 px-4 text-label-md" id="lan-remote-set-pin" data-vm-i18n="remote_set_pin"></button></div>
+                        <div class="lan-remote-pin-set"><input id="lan-remote-pin-input" inputmode="numeric" autocomplete="off" maxlength="4" pattern="[0-9]{4}" data-vm-i18n-placeholder="remote_pin_placeholder"/><button type="button" class="btn-ghost rounded-lg py-3 px-4 text-label-md" id="lan-remote-set-pin" data-vm-i18n="remote_set_pin"></button></div>
                     </div>
                     <div class="lan-remote-secret hidden" id="lan-remote-generated-panel">
                         <span data-vm-i18n="remote_generated_once"></span><code id="lan-remote-generated-pin"></code><button type="button" class="lan-remote-copy" id="lan-remote-copy-pin" data-vm-i18n="remote_copy_pin"></button>

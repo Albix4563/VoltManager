@@ -43,7 +43,7 @@ public sealed class LanRemoteControlIntegrationTests
     [Fact]
     public async Task HttpsApi_LoginProtectsStateRequiresCsrfAndLogoutRevokesSession()
     {
-        const string pin = "123456789012";
+        const string pin = "1234";
         int port = GetFreeTcpPort();
         SettingsService settings = TestSettings.Create(out string settingsPath);
         string root = Path.GetDirectoryName(settingsPath)!;

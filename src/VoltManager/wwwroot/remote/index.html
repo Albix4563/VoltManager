@@ -16,10 +16,10 @@
     <section class="login-panel" id="login-view" aria-labelledby="login-title">
       <div class="login-symbol" aria-hidden="true"><span class="material-symbols-outlined">lock</span></div>
       <h1 id="login-title">Connect to this PC</h1>
-      <p>Enter the 12-digit PIN shown in VoltManager on the computer.</p>
+      <p>Enter the 4-digit PIN shown in VoltManager on the computer.</p>
       <form id="login-form" novalidate>
         <label for="pin-input">LAN remote PIN</label>
-        <input id="pin-input" name="pin" inputmode="numeric" autocomplete="one-time-code" maxlength="12" pattern="[0-9]{12}" placeholder="000000000000" required>
+        <input id="pin-input" name="pin" inputmode="numeric" autocomplete="one-time-code" maxlength="4" pattern="[0-9]{4}" placeholder="0000" required>
         <p class="form-error" id="login-error" role="alert" aria-live="polite"></p>
         <button class="primary-button" type="submit" id="login-button"><span class="material-symbols-outlined" aria-hidden="true">login</span>Connect</button>
       </form>
