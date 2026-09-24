@@ -369,9 +369,7 @@ html[data-perf-tier="balanced"] .vm-scrim {
     color: var(--vm-on-accent) !important;
 }
 
-.app-profile-panel,
-.heavy-app-panel,
-.keep-awake-panel {
+.app-profile-panel {
     background: linear-gradient(135deg,
         color-mix(in srgb, var(--vm-surface-high) 82%, transparent),
         color-mix(in srgb, var(--vm-bg) 68%, transparent)) !important;
@@ -472,9 +470,7 @@ html[data-perf-tier="balanced"] .vm-scrim {
 
 .processes-card::before,
 .widgets-category-card::before,
-.app-profile-panel::before,
-.heavy-app-panel::before,
-.keep-awake-panel::before {
+.app-profile-panel::before {
     background: radial-gradient(circle, rgb(var(--vm-accent-rgb) / .14), transparent 68%) !important;
 }
 

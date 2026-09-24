@@ -135,16 +135,6 @@ public sealed class IdlePowerGuardService
         }
     }
 
-    public void ClearSession()
-    {
-        lock (_lock)
-        {
-            _sessionActive = false;
-            _planBeforeSession = null;
-            Publish(BuildState(0, null, true, "cleared"));
-        }
-    }
-
     private IdlePowerGuardDecision EndSession(
         PlanId? activePlan,
         double idleSec,

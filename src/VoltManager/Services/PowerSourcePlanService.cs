@@ -112,12 +112,6 @@ public sealed class PowerSourcePlanService
         return RefreshState(manualOverrideActive);
     }
 
-    public void ClearSession()
-    {
-        ClearAcSession();
-        ClearLowBatterySession();
-    }
-
     private PowerSourcePlanSettings EnsureSettings()
     {
         return _settings.Current.PowerSourcePlan;

@@ -51,7 +51,6 @@ public sealed class UpdateCoordinator : IDisposable
         => new(check, protectedWorkload, createTimer);
 
     public event Action<UpdateInfo>? UpdateAvailable;
-    public event Action<UpdateInfo>? PromptRequested;
     public event Action<string>? InstallRequested;
 
     public void Start()
@@ -123,25 +122,6 @@ public sealed class UpdateCoordinator : IDisposable
         lock (_gate)
             _deferredInstallUrl = url.Trim();
         Logger.Info("Update install deferred until protected workload ends.");
-    }
-
-    public bool HasDeferredInstall
-    {
-        get
-        {
-            lock (_gate)
-                return !string.IsNullOrWhiteSpace(_deferredInstallUrl);
-        }
-    }
-
-    public string? TakeDeferredInstall()
-    {
-        lock (_gate)
-        {
-            string? url = _deferredInstallUrl;
-            _deferredInstallUrl = null;
-            return url;
-        }
     }
 
     public async Task NotifyProtectedWorkloadChangedAsync(bool active)
@@ -248,8 +228,6 @@ public sealed class UpdateCoordinator : IDisposable
             }
 
             UpdateAvailable?.Invoke(info);
-            if (automatic && !ShouldInstallSilently() && _lifecycle.IsCurrent(epoch))
-                PromptRequested?.Invoke(info);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {

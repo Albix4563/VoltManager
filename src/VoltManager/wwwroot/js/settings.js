@@ -166,8 +166,8 @@
     function refreshUpdateModalLabels() {
         const map = {
             'upd-modal-snooze-label': lt('snoozeFor'),
-            'upd-modal-btn-snooze': tr('upd_modal_snooze', lt('snooze')),
-            'upd-modal-btn-skip': tr('upd_modal_skip', lt('skip')),
+            'upd-modal-btn-snooze': lt('snooze'),
+            'upd-modal-btn-skip': lt('skip'),
             'upd-modal-snooze-15': lt('min15'),
             'upd-modal-snooze-30': lt('min30'),
             'upd-modal-snooze-60': lt('hour1'),
@@ -293,7 +293,7 @@
         try {
             await Host.call('snoozeUpdate', { minutes });
             closeUpdateModal();
-            setStatus(tr('msg_update_snoozed', lt('snoozed')), false);
+            setStatus(lt('snoozed'), false);
         } catch (err) {
             setStatus(tr('msg_err', lt('err')) + err.message, true);
             setModalActionsDisabled(false);
@@ -309,7 +309,7 @@
             downloadUrl = null;
             setDownloadButtonVisible(false);
             closeUpdateModal();
-            setStatus(tr('msg_update_skipped', lt('skipped')), false);
+            setStatus(lt('skipped'), false);
         } catch (err) {
             setStatus(tr('msg_err', lt('err')) + err.message, true);
             setModalActionsDisabled(false);

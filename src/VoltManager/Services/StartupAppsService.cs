@@ -57,19 +57,6 @@ public class StartupAppsService
         };
     }
 
-    public string? PickExecutablePath()
-    {
-        var dialog = new OpenFileDialog
-        {
-            Title = "Seleziona applicazione da avviare con Windows",
-            Filter = "Applicazioni (*.exe)|*.exe|Collegamenti (*.lnk)|*.lnk|Script avviabili (*.bat;*.cmd)|*.bat;*.cmd|Tutti i file (*.*)|*.*",
-            CheckFileExists = true,
-            Multiselect = false,
-        };
-
-        return dialog.ShowDialog() == true ? dialog.FileName : null;
-    }
-
     public StartupAppEntry AddManagedStartupApp(string path)
     {
         if (string.IsNullOrWhiteSpace(path))

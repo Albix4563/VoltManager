@@ -46,8 +46,6 @@ window.VoltFont = (function() {
     return {
         normalize: normalize,
         apply: apply,
-        stackFor: stackFor,
-        fonts: fonts,
-        keys: Object.keys(fonts)
+        stackFor: stackFor
     };
 })();

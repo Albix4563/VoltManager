@@ -1,7 +1,7 @@
 /* Route-owned power feature styles. Uses shared VoltManager theme/motion tokens. */
 @keyframes heavyAppGlow{0%{box-shadow:0 0 0 0 rgb(var(--vm-accent-rgb) / .26)}70%{box-shadow:0 0 0 13px rgb(var(--vm-accent-rgb) / 0)}100%{box-shadow:0 0 0 0 rgb(var(--vm-accent-rgb) / 0)}}
-.app-profile-panel,.heavy-app-panel,.keep-awake-panel{position:relative;overflow:hidden;border:1px solid rgb(var(--vm-accent-rgb) / .13);background:linear-gradient(135deg,rgba(18,33,49,.82),rgba(10,17,40,.68));}
-.app-profile-panel:before,.heavy-app-panel:before,.keep-awake-panel:before{content:"";position:absolute;inset:-40% auto auto -12%;width:320px;height:320px;border-radius:999px;background:radial-gradient(circle,rgb(var(--vm-accent-rgb) / .14),transparent 66%);pointer-events:none;}
+.app-profile-panel{position:relative;overflow:hidden;border:1px solid rgb(var(--vm-accent-rgb) / .13);background:linear-gradient(135deg,rgba(18,33,49,.82),rgba(10,17,40,.68));}
+.app-profile-panel:before{content:"";position:absolute;inset:-40% auto auto -12%;width:320px;height:320px;border-radius:999px;background:radial-gradient(circle,rgb(var(--vm-accent-rgb) / .14),transparent 66%);pointer-events:none;}
 .heavy-app-grid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(260px,.85fr);gap:18px;position:relative;z-index:1;}
 .heavy-app-option{border:1px solid rgba(255,255,255,.09);background:rgba(255,255,255,.035);border-radius:16px;padding:14px;display:flex;align-items:center;justify-content:space-between;gap:14px;transition:border-color var(--vm-motion-fast) var(--vm-ease-standard),background var(--vm-motion-fast) var(--vm-ease-standard),transform var(--vm-motion-fast) var(--vm-ease-standard);}
 /* display:flex above would beat Tailwind .hidden (same specificity, later rule). */

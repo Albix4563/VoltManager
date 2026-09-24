@@ -553,13 +553,6 @@ public partial class App : Application
     public void DeferUpdateUntilGameEnds(string downloadUrl)
         => UpdateCoordinator.DeferInstall(downloadUrl);
 
-    /// <summary>Returns and clears a previously deferred update URL, if any.</summary>
-    public string? TakeDeferredUpdateUrl()
-        => UpdateCoordinator.TakeDeferredInstall();
-
-    public bool HasDeferredUpdate()
-        => UpdateCoordinator.HasDeferredInstall;
-
     public AppPowerProfileState GetAppPowerProfileStatus()
         => PowerRequests.GetAppPowerProfileStatus();
 

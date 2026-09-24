@@ -21,8 +21,6 @@
   <data name="Tray_ClearOverride" xml:space="preserve"><value>Sblocca piano (riprendi automazione)</value></data>
   <data name="Tray_Automation" xml:space="preserve"><value>Automazione piano</value></data>
   <data name="Tray_Exit" xml:space="preserve"><value>Esci</value></data>
-  <data name="Dialog_WebView2Missing" xml:space="preserve"><value>Runtime WebView2 non trovato. Installa "Microsoft Edge WebView2 Runtime" e riavvia VoltManager.\n\nDettagli: {0}</value></data>
-  <data name="Dialog_WebView2SetupFailed" xml:space="preserve"><value>Impossibile inizializzare l'interfaccia di VoltManager.\n\nDettagli: {0}</value></data>
   <data name="Dialog_StartupFailed" xml:space="preserve"><value>VoltManager non è riuscito ad avviarsi.\n\nDettagli salvati nel log:\n{0}\n\nErrore: {1}</value></data>
   <data name="Dialog_UpdateDownloadFailed" xml:space="preserve"><value>Download aggiornamento fallito: {0}</value></data>
   <data name="Dialog_UpdateDeferredGame" xml:space="preserve"><value>C'è un gioco in esecuzione. VoltManager installerà l'aggiornamento dopo la chiusura del gioco.</value></data>
@@ -62,8 +60,6 @@
   <data name="FilePicker_AppProfileTitle" xml:space="preserve"><value>Seleziona applicazione per profilo energetico</value></data>
   <data name="FilePicker_AppProfileFilter" xml:space="preserve"><value>Applicazioni (*.exe)|*.exe</value></data>
   <data name="FilePicker_JsonFilter" xml:space="preserve"><value>JSON (*.json)|*.json</value></data>
-  <data name="FilePicker_DiagnosticsTitle" xml:space="preserve"><value>Esporta diagnostica VoltManager</value></data>
-  <data name="FilePicker_TextFilter" xml:space="preserve"><value>Testo (*.txt)|*.txt|Tutti i file (*.*)|*.*</value></data>
   <data name="Plan_Saver" xml:space="preserve"><value>Risparmio energia</value></data>
   <data name="Plan_Balanced" xml:space="preserve"><value>Bilanciato</value></data>
   <data name="Plan_Performance" xml:space="preserve"><value>Prestazioni</value></data>

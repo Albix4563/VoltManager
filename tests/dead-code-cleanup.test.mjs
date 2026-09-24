@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import vm from 'node:vm';
 
 function source(path) {
@@ -112,8 +112,51 @@ test('unused Tailwind utility rules stay removed from compiled app.css', () => {
         '.shadow-\\[0_0_8px_\\#00f1fe\\]',
         '.shadow-\\[0_0_8px_rgba',
         '.hover\\:shadow-\\[0_0_15px_rgba',
+        '.mx-2{',
+        '.blur-3xl',
     ];
     for (const rule of deadRules) {
         assert.equal(appCss.includes(rule), false, `unused CSS rule must stay removed: ${rule}`);
     }
+});
+
+test('removed frontend helpers, globals and aliases stay removed', () => {
+    assert.equal(existsSync(new URL('../src/VoltManager/wwwroot/js/ui-reorganization.i18n.js', import.meta.url)), false);
+    assert.doesNotMatch(source('src/VoltManager/wwwroot/js/changelog.js'), /ui-reorganization\.i18n\.js/);
+    assert.doesNotMatch(i18n, /function\s+(getLanguages|getSupportedCodes|tf)\s*\(|const\s+translations\b|data-i18n-(title|placeholder|value)/);
+    assert.doesNotMatch(i18n, /^\s+(metadata|getSupportedCodes|normalizeLang|getLanguages|tf):/m);
+    assert.doesNotMatch(i18nCatalogs, /\bempty_hardware:/);
+    for (const file of ['power-app-profiles.js', 'power-detection.js']) {
+        assert.doesNotMatch(source('src/VoltManager/wwwroot/js/' + file), /function\s+saveSettingsNow\b/);
+    }
+    assert.doesNotMatch(source('src/VoltManager/wwwroot/js/tips.js'), /__loadEnergyTipsFeature/);
+    assert.doesNotMatch(source('src/VoltManager/wwwroot/js/tour.js'), /__loadTourFeature/);
+    assert.doesNotMatch(source('src/VoltManager/wwwroot/js/lan-remote-control.js'), /window\.VoltLanRemoteControl\b/);
+    assert.doesNotMatch(source('src/VoltManager/wwwroot/js/theme.js'), /\bcolors:/);
+    assert.doesNotMatch(source('src/VoltManager/wwwroot/js/font.js'), /\b(fonts|keys):/);
+    assert.doesNotMatch(source('src/VoltManager/wwwroot/js/welcome.js'), /welcomeopened/);
+    assert.doesNotMatch(settings, /upd_modal_snooze|upd_modal_skip|msg_update_snoozed|msg_update_skipped/);
+});
+
+test('unused power panel selectors stay removed from stylesheets', () => {
+    for (const file of ['polish.css', 'power-features.css', 'theme-colors.css']) {
+        const css = source('src/VoltManager/wwwroot/css/' + file);
+        assert.doesNotMatch(css, /\.heavy-app-panel(?!-inner)/, file);
+        assert.doesNotMatch(css, /\.keep-awake-panel(?!-inner)/, file);
+    }
+});
+
+test('removed host members stay removed', () => {
+    assert.doesNotMatch(source('src/VoltManager/Services/MemoryOptimizerService.cs'), /TrimParkedWorkingSets|EmptyWorkingSet/);
+    assert.doesNotMatch(source('src/VoltManager/Services/UpdateCoordinator.cs'), /PromptRequested|TakeDeferredInstall|HasDeferredInstall/);
+    assert.doesNotMatch(source('src/VoltManager/App.xaml.cs'), /TakeDeferredUpdateUrl|HasDeferredUpdate/);
+    for (const file of ['IdlePowerGuardService.cs', 'PowerSourcePlanService.cs', 'ThermalGuardService.cs']) {
+        assert.doesNotMatch(source('src/VoltManager/Services/' + file), /\bClearSession\s*\(/, file);
+    }
+    assert.doesNotMatch(source('src/VoltManager/Services/StartupAppsService.cs'), /PickExecutablePath/);
+    assert.doesNotMatch(source('src/VoltManager/Services/WidgetManager.cs'), /HasOpenWindows/);
+    assert.doesNotMatch(source('src/VoltManager/Services/LanRemote/LanRemoteControlService.cs'), /event\s+Action[^;]*StateChanged|inter-latin-ext/);
+    assert.doesNotMatch(bridge, /_attachedCore/);
+    assert.doesNotMatch(source('src/VoltManager.Supervisor/SupervisorContracts.cs'), /class\s+ProcessChild\b/);
+    assert.doesNotMatch(source('src/VoltManager.Setup/Engine/I18n.cs'), /uninst_progress/);
 });

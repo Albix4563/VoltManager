@@ -60,7 +60,6 @@ namespace VoltManager.Setup.Engine
             ["uninst_item2"]        = "Voce in App e funzionalità",
             ["uninst_item3"]        = "Piano energetico ripristinato al predefinito",
             ["uninst_warn"]         = "Operazione non reversibile. Il piano energetico di Windows verrà ripristinato a quello predefinito.",
-            ["uninst_progress"]     = "Rimozione in corso…",
             ["uninst_done"]         = "VoltManager è stato disinstallato.",
             ["btn_back"]            = "← Indietro",
             ["btn_next"]            = "Avanti →",
@@ -133,7 +132,6 @@ namespace VoltManager.Setup.Engine
             ["uninst_item2"]        = "Entry in Apps & features",
             ["uninst_item3"]        = "Power plan restored to default",
             ["uninst_warn"]         = "This action cannot be undone. Windows will revert to its default power plan.",
-            ["uninst_progress"]     = "Removing…",
             ["uninst_done"]         = "VoltManager has been uninstalled.",
             ["btn_back"]            = "← Back",
             ["btn_next"]            = "Next →",
@@ -206,7 +204,6 @@ namespace VoltManager.Setup.Engine
             ["uninst_item2"]        = "“应用和功能”中的条目",
             ["uninst_item3"]        = "电源计划恢复为默认",
             ["uninst_warn"]         = "此操作无法撤销。Windows 将恢复为默认电源计划。",
-            ["uninst_progress"]     = "正在移除…",
             ["uninst_done"]         = "VoltManager 已卸载。",
             ["btn_back"]            = "← 返回",
             ["btn_next"]            = "下一步 →",
@@ -279,7 +276,6 @@ namespace VoltManager.Setup.Engine
             ["uninst_item2"]        = "Entrada en Aplicaciones y características",
             ["uninst_item3"]        = "Plan de energía restaurado al predeterminado",
             ["uninst_warn"]         = "Esta acción no se puede deshacer. Windows volverá a su plan de energía predeterminado.",
-            ["uninst_progress"]     = "Eliminando…",
             ["uninst_done"]         = "VoltManager se ha desinstalado.",
             ["btn_back"]            = "← Atrás",
             ["btn_next"]            = "Siguiente →",
@@ -301,8 +297,6 @@ namespace VoltManager.Setup.Engine
         };
 
         private static string _language = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
-
-        public static string Language => _language;
 
         public static string T(string key)
         {

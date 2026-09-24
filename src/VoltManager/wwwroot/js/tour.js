@@ -69,6 +69,4 @@
         }
     }
     replayButton?.addEventListener('click', onReplayClick);
-
-    window.__loadTourFeature = ensureTour;
 })();

@@ -121,7 +121,7 @@ public class ThemeContrastTests
             ".desktop-widget {",
             ".startup-summary-card {",
             ".startup-card {",
-            ".app-profile-panel,",
+            ".app-profile-panel {",
             "#power-plan-conflict-toast {",
             ".adv-col-dc {",
             ".processes-card {",

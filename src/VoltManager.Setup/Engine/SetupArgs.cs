@@ -36,8 +36,7 @@ namespace VoltManager.Setup.Engine
             if (update)
             {
                 int pid = GetIntParam(args, "--pid");
-                string target = GetParam(args, "--target");
-                return new SetupArgs(SetupMode.Update, pid, target, false, lang);
+                return new SetupArgs(SetupMode.Update, pid, language: lang);
             }
 
             if (uninstall)

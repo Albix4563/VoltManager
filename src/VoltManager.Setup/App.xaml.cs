@@ -54,8 +54,7 @@ namespace VoltManager.Setup
             var engine = new InstallEngine();
             var opts   = new InstallOptions
             {
-                InstallDir = InstallOptions.NormalizeInstallDir(
-                    string.IsNullOrWhiteSpace(args.TargetDir) ? null : args.TargetDir),
+                InstallDir = InstallOptions.NormalizeInstallDir(null),
             };
             try
             {
@@ -115,19 +114,10 @@ namespace VoltManager.Setup
             Resources["C.Accent.Alpha20"] = WithAlpha(primary, 0x20);
             Resources["C.Accent.Transparent"] = WithAlpha(primary, 0x00);
 
-            Resources["BgBrush"] = Brush("#0A1128");
-            Resources["SidebarBrush"] = Brush("#0A1128");
             Resources["SurfaceBrush"] = Brush("#16233F");
-            Resources["PillBrush"] = Brush("#16233F");
-            Resources["TextBrush"] = Brush("#F8FAFC");
-            Resources["TextStrongBrush"] = Brush("#F8FAFC");
             Resources["MutedBrush"] = Brush("#CBD5E1");
             Resources["FaintBrush"] = Brush("#94A3B8");
-            Resources["BorderBrush2"] = Brush("#334155");
             Resources["AccentBrush"] = Brush(palette.Primary);
-            Resources["AccentTextBrush"] = Brush("#0F172A");
-            Resources["AccentHoverBrush"] = Brush(palette.Secondary);
-            Resources["AccentPressedBrush"] = Brush(palette.Hover);
             Resources["DangerBrush"] = Brush("#FF5B4A");
             Resources["WarningBrush"] = Brush("#F5B042");
         }

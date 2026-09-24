@@ -33,7 +33,6 @@
     const scheduleSave = core.scheduleSave;
     const clamp = core.clamp;
     const appNameFromPath = core.appNameFromPath;
-    function saveSettingsNow() { return core.saveNow(); }
 
     function normalizeAppPowerProfiles() {
         if (!settings.appPowerProfiles) {

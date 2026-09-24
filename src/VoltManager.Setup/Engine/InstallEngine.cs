@@ -121,7 +121,7 @@ namespace VoltManager.Setup.Engine
                     if (opts.StartWithWindows)
                     {
                         Report(I18n.T("status_startup"), 82);
-                        SetStartup(opts.InstallDir, true);
+                        CreateStartupTask(opts.InstallDir);
                     }
                     token.ThrowIfCancellationRequested();
                     return Task.CompletedTask;
@@ -625,13 +625,10 @@ namespace VoltManager.Setup.Engine
             ((IPersistFile)link).Save(lnkPath, false);
         }
 
-        private static void SetStartup(string installDir, bool enable)
+        private static void CreateStartupTask(string installDir)
         {
             string exe = Path.Combine(installDir, AppExe);
-            if (enable)
-                RunSchtasks($"/create /f /tn \"{STARTUP_TASK}\" /tr \"\\\"{exe}\\\" --minimized\" /sc onlogon /rl highest /delay 0000:30");
-            else
-                RunSchtasks($"/delete /f /tn \"{STARTUP_TASK}\"");
+            RunSchtasks($"/create /f /tn \"{STARTUP_TASK}\" /tr \"\\\"{exe}\\\" --minimized\" /sc onlogon /rl highest /delay 0000:30");
         }
 
         private static void WriteArpEntry(string installDir, string version)

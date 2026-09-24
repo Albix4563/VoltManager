@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -147,21 +146,4 @@ public interface IChildProcessFactory
 public sealed class SystemClock : IClock
 {
     public DateTimeOffset UtcNow => DateTimeOffset.UtcNow;
-}
-
-public sealed class ProcessChild : IChildProcess
-{
-    private readonly Process _process;
-
-    public ProcessChild(Process process) => _process = process;
-
-    public int Id => _process.Id;
-
-    public int WaitForExit()
-    {
-        _process.WaitForExit();
-        return _process.ExitCode;
-    }
-
-    public void Dispose() => _process.Dispose();
 }

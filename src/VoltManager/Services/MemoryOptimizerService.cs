@@ -91,23 +91,6 @@ public class MemoryOptimizerService
     private const uint TOKEN_ADJUST_PRIVILEGES = 0x0020;
     private const uint TOKEN_QUERY             = 0x0008;
 
-    // ── Working-set trim ──────────────────────────────────────────────────────
-    [DllImport("psapi.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool EmptyWorkingSet(IntPtr hProcess);
-
-    [DllImport("kernel32.dll", SetLastError = true)]
-    private static extern IntPtr OpenProcess(uint desiredAccess, bool inheritHandle, int processId);
-
-    private const uint PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
-    private const uint PROCESS_SET_QUOTA                 = 0x0100;
-
-    // Only WebView2 hosts are trimmed alongside our own process: matching on the
-    // image name as well as the parent chain makes it impossible to touch an
-    // unrelated process that merely reused a pid.
-    private const string WebViewProcessName = "msedgewebview2";
-    private const int MaxTreeDepth = 4;
-
     // ── Public API ────────────────────────────────────────────────────────────
 
     /// <summary>
@@ -165,77 +148,6 @@ public class MemoryOptimizerService
 
         // STATUS_SUCCESS = 0
         return status == 0;
-    }
-
-    /// <summary>
-    /// Hands the resident pages of VoltManager and its WebView2 host processes back to
-    /// Windows, which moves them to the standby list instead of keeping them charged to
-    /// the app. Called when the UI is parked in the tray: nothing is being rendered, so
-    /// the pages are re-faulted only if the window is reopened. Nothing is freed twice —
-    /// this is the OS-level counterpart of the Chromium-side memory target already set
-    /// on park. Best-effort: an inaccessible process is simply skipped.
-    /// </summary>
-    /// <returns>How many processes were trimmed.</returns>
-    public int TrimParkedWorkingSets()
-    {
-        int trimmed = 0;
-        try
-        {
-            int selfPid = Environment.ProcessId;
-            if (TrimProcess(selfPid)) trimmed++;
-
-            var snapshot = ProcessSnapshotProvider.Get(TimeSpan.FromSeconds(5));
-            foreach (int pid in CollectWebViewDescendants(snapshot, selfPid))
-                if (TrimProcess(pid)) trimmed++;
-        }
-        catch (Exception ex)
-        {
-            // Trimming is an optimization, never a correctness requirement.
-            Logger.Warn("Working-set trim failed: " + ex.Message);
-        }
-        return trimmed;
-    }
-
-    /// <summary>WebView2 hosts descending from <paramref name="rootPid"/>, breadth-first.</summary>
-    private static List<int> CollectWebViewDescendants(ProcessSnapshot snapshot, int rootPid)
-    {
-        var found = new List<int>();
-        var frontier = new List<int> { rootPid };
-
-        for (int depth = 0; depth < MaxTreeDepth && frontier.Count > 0; depth++)
-        {
-            var next = new List<int>();
-            foreach (var candidate in snapshot.Processes)
-            {
-                if (candidate.Pid == rootPid || !frontier.Contains(candidate.ParentPid)) continue;
-                if (!candidate.Name.Equals(WebViewProcessName, StringComparison.OrdinalIgnoreCase)) continue;
-                if (found.Contains(candidate.Pid)) continue;
-                found.Add(candidate.Pid);
-                next.Add(candidate.Pid);
-            }
-            frontier = next;
-        }
-
-        return found;
-    }
-
-    private static bool TrimProcess(int pid)
-    {
-        IntPtr handle = IntPtr.Zero;
-        try
-        {
-            handle = OpenProcess(PROCESS_SET_QUOTA | PROCESS_QUERY_LIMITED_INFORMATION, false, pid);
-            if (handle == IntPtr.Zero) return false;
-            return EmptyWorkingSet(handle);
-        }
-        catch
-        {
-            return false;
-        }
-        finally
-        {
-            if (handle != IntPtr.Zero) CloseHandle(handle);
-        }
     }
 
     // ── Privilege helper ─────────────────────────────────────────────────────

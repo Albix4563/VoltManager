@@ -137,5 +137,4 @@
         refresh();
     });
     document.addEventListener('langchanged', () => { if (state) render(state); });
-    window.VoltLanRemoteControl = { refresh, render };
 })();

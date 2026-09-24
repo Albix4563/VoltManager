@@ -74,14 +74,12 @@
     function prev() { goto(step - 1); }
 
     function open() {
-        const wasOpen = isOpen();
         step = 0;
         syncControlsFromSettings();
         syncRemoteControls();
         render();
         overlay.classList.remove('hidden');
         overlay.classList.add('flex');
-        if (!wasOpen) document.dispatchEvent(new CustomEvent('welcomeopened'));
     }
 
     function close() {

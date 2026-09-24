@@ -47,14 +47,12 @@ test('feature modules no longer own translation dictionaries', () => {
   const power = read('src/VoltManager/wwwroot/js/power.js');
   const app = read('src/VoltManager/wwwroot/js/app.js');
   const suspension = read('src/VoltManager/wwwroot/js/update-suspension.js');
-  const reorganization = read('src/VoltManager/wwwroot/js/ui-reorganization.i18n.js');
 
   assert.doesNotMatch(settings, /const\s+localText\s*=\s*\{/);
   assert.doesNotMatch(power, /const\s+text\s*=\s*\{/);
   assert.doesNotMatch(power, /const\s+historyText\s*=\s*\{/);
   assert.doesNotMatch(app, /const\s+labels\s*=\s*\{[\s\S]*?\bit\s*:\s*\{/);
   assert.doesNotMatch(suspension, /const\s+text\s*=\s*\{/);
-  assert.doesNotMatch(reorganization, /VoltUiReorgStrings\s*=\s*\{/);
 });
 
 test('static feature catalog keys are referenced by their owning frontend modules', () => {

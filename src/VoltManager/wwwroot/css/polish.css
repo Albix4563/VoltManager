@@ -231,8 +231,7 @@ button .material-symbols-outlined,
   text-overflow: clip;
 }
 
-.app-profile-panel .app-profile-path,
-.heavy-app-panel .heavy-app-path{
+.app-profile-panel .app-profile-path{
   overflow-wrap: anywhere;
 }
 

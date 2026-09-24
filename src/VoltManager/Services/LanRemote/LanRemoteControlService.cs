@@ -52,8 +52,6 @@ public sealed class LanRemoteControlService : IDisposable
     private bool _networkSubscribed;
     private bool _disposed;
 
-    public event Action<LanRemoteControlState>? StateChanged;
-
     public LanRemoteControlService(
         SettingsService settings,
         PowerRequestCoordinator powerRequests,
@@ -350,7 +348,6 @@ public sealed class LanRemoteControlService : IDisposable
 
         string webRoot = Path.Combine(AppContext.BaseDirectory, "wwwroot", "vendor", "fonts");
         app.MapGet("/fonts/inter-latin.woff2", context => SendAssetAsync(context, Path.Combine(webRoot, "inter-latin.woff2"), "font/woff2"));
-        app.MapGet("/fonts/inter-latin-ext.woff2", context => SendAssetAsync(context, Path.Combine(webRoot, "inter-latin-ext.woff2"), "font/woff2"));
         app.MapGet("/fonts/material-symbols-outlined.woff2", context => SendAssetAsync(context, Path.Combine(webRoot, "material-symbols-outlined.woff2"), "font/woff2"));
     }
 
@@ -662,8 +659,6 @@ public sealed class LanRemoteControlService : IDisposable
     private void PublishStateChanged()
     {
         PublishEvent();
-        try { StateChanged?.Invoke(GetState()); }
-        catch (Exception ex) { Logger.Warn("LAN remote-control state subscriber failed: " + ex.Message); }
     }
 
     private void PublishEvent()

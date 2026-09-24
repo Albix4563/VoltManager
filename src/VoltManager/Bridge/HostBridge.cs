@@ -22,7 +22,6 @@ public class HostBridge : IDisposable
     private readonly BridgeLifetime _lifetime = new();
     private readonly BridgeRpcDispatcher _dispatcher;
     private readonly UiMetricsPublisher _metricsPublisher = new();
-    private CoreWebView2? _attachedCore;
     private volatile bool _disposed;
     private bool _pushEventFaulted;
 
@@ -83,7 +82,6 @@ public class HostBridge : IDisposable
         if (core == null || !_lifetime.TryBeginAttach())
             return;
 
-        _attachedCore = core;
         core.WebMessageReceived += OnWebMessageReceived;
         _lifetime.RegisterDetach(() =>
         {
@@ -147,7 +145,6 @@ public class HostBridge : IDisposable
 
         _disposed = true;
         _lifetime.Dispose();
-        _attachedCore = null;
     }
 
     public void PushEvent(string name, object data)

@@ -48,8 +48,6 @@ public sealed class WidgetManager : IDisposable
     private bool _disposing;
     private bool _relayoutQueued;
     private bool _displayInit;
-    private volatile bool _hasOpenWindows;
-    internal bool HasOpenWindows => _hasOpenWindows;
     internal bool HasVisibleResourceConsumers
         => _windows.Values.Any(window => window.HasVisibleResourceSurface);
 
@@ -225,7 +223,6 @@ public sealed class WidgetManager : IDisposable
     internal void ForgetWindow(string type)
     {
         _windows.Remove(type);
-        _hasOpenWindows = _windows.Count != 0;
         _refreshSamplingDemand(false);
     }
 
@@ -447,7 +444,6 @@ public sealed class WidgetManager : IDisposable
 
         var window = _windowFactory(this, item, EnvTask(), GetWidgetSize(item.Type, item.Size), placement);
         _windows[item.Type] = window;
-        _hasOpenWindows = true;
         window.Closed += (_, _) => ForgetWindow(item.Type);
         window.Show();
     }
@@ -463,7 +459,6 @@ public sealed class WidgetManager : IDisposable
         foreach (var window in _windows.Values.ToList())
             window.Close();
         _windows.Clear();
-        _hasOpenWindows = false;
         _lastPlacements.Clear();
     }
 

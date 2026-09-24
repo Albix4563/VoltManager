@@ -140,17 +140,6 @@ public sealed class ThermalGuardService
         }
     }
 
-    public void ClearSession()
-    {
-        lock (_lock)
-        {
-            _sessionActive = false;
-            _planBeforeSession = null;
-            _hotSinceUtc = null;
-            Publish(BuildState(_lastCpu, _lastGpu, false, "cleared"));
-        }
-    }
-
     private ThermalGuardDecision EndSession(PlanId? activePlan, string message)
     {
         var previous = _planBeforeSession;

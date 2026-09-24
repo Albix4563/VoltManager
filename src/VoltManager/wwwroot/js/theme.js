@@ -67,7 +67,6 @@
     }
 
     window.VoltTheme = {
-        colors: Object.freeze(allowedThemeColors.slice()),
         normalize,
         apply,
     };

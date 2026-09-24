@@ -37,6 +37,4 @@
         }
     }
     button?.addEventListener('click', openOnFirstClick);
-
-    window.__loadEnergyTipsFeature = ensureTips;
 })();

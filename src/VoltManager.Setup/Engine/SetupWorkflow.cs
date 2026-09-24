@@ -10,7 +10,6 @@ namespace VoltManager.Setup.Engine
     {
         public string Name { get; internal set; } = "";
         public bool Success { get; internal set; }
-        public bool Cancelled { get; internal set; }
         public string Message { get; internal set; } = "";
     }
 
@@ -25,7 +24,6 @@ namespace VoltManager.Setup.Engine
             Cancelled = cancelled;
         }
 
-        public IReadOnlyList<SetupStepDiagnostic> Steps => _steps;
         public bool Cancelled { get; }
         public bool Success => !Cancelled && FailureException == null && _steps.All(step => step.Success);
         public string? FailedStep => _steps.LastOrDefault(step => !step.Success)?.Name;
@@ -66,7 +64,6 @@ namespace VoltManager.Setup.Engine
                     {
                         Name = step.Name,
                         Success = false,
-                        Cancelled = true,
                         Message = "Operation cancelled",
                     });
                     return new SetupWorkflowResult(diagnostics, ex, cancelled: true);
