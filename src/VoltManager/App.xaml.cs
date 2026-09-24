@@ -296,8 +296,10 @@ public partial class App : Application
         // The remaining switches turn off browser subsystems this app never uses
         // (component updater, phishing model, telemetry pings): all of them are pure
         // resident cost here because the WebView only ever loads local content.
-        var opts = new CoreWebView2EnvironmentOptions(
-            WebViewRuntimeOptions.BrowserArguments(ValidationEnvironment.RendererVariant));
+        // The GPU tile budget is sized from the largest monitor (see WebViewRuntimeOptions).
+        string arguments = WebViewRuntimeOptions.BrowserArguments(ValidationEnvironment.RendererVariant);
+        Logger.Info("WebView2 browser arguments: " + arguments);
+        var opts = new CoreWebView2EnvironmentOptions(arguments);
         return CoreWebView2Environment.CreateAsync(null, userDataFolder, opts);
     }
 

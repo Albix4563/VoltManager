@@ -58,7 +58,9 @@ internal sealed class DisplayService : IDisposable
         SystemEvents.DisplaySettingsChanged += _displaySettingsHandler;
     }
 
-    public DisplaySnapshot GetSnapshot()
+    public DisplaySnapshot GetSnapshot() => CaptureSnapshot();
+
+    public static DisplaySnapshot CaptureSnapshot()
     {
         try
         {
