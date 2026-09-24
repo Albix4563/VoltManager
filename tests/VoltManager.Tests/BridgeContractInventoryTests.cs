@@ -32,6 +32,8 @@ public sealed class BridgeContractInventoryTests
             "purgeStandbyList", "getStandbyAutoCleanSettings", "setStandbyAutoCleanSettings",
             "exportSettings", "exportBatteryHistory", "openLogFolder", "exportDiagnostics",
             "importSettings",
+            "getLanRemoteControlState", "setLanRemoteControlEnabled", "setLanRemoteControlPermissions",
+            "generateLanRemoteControlPin", "setLanRemoteControlPin",
         ];
 
         string[] actual =
@@ -42,9 +44,10 @@ public sealed class BridgeContractInventoryTests
             .. MonitoringRpcHandler.MethodNames,
             .. UpdateRpcHandler.MethodNames,
             .. ApplicationRpcHandler.MethodNames,
+            .. LanRemoteControlRpcHandler.MethodNames,
         ];
 
-        Assert.Equal(81, actual.Length);
+        Assert.Equal(86, actual.Length);
         Assert.Equal(actual.Length, actual.Distinct(StringComparer.Ordinal).Count());
         Assert.Equal(expected.Order(StringComparer.Ordinal), actual.Order(StringComparer.Ordinal));
     }

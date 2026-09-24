@@ -224,6 +224,52 @@
             </div><section class="vm-ui-panel vm-section-card"><div id="vm-widgets-content" class="vm-ui-group"></div></section>`);
     }
 
+    function remoteControl() {
+        return view('remote-control', 'remote_title', 'remote_subtitle', `
+            <section class="vm-ui-panel vm-section-card lan-remote-hero">
+                <div class="lan-remote-heading">
+                    <div>
+                        <div class="lan-remote-status-row">
+                            <span class="lan-remote-status-dot" id="lan-remote-status-dot"></span>
+                            <strong id="lan-remote-status" data-vm-i18n="remote_status_disabled"></strong>
+                        </div>
+                        <p class="text-on-surface-variant" data-vm-i18n="remote_local_only"></p>
+                    </div>
+                    <label class="lan-remote-switch-row" for="lan-remote-enabled">
+                        <span data-vm-i18n="remote_enable"></span>
+                        <input id="lan-remote-enabled" type="checkbox" />
+                    </label>
+                </div>
+                <div class="lan-remote-grid">
+                    <div class="lan-remote-detail"><span data-vm-i18n="remote_address"></span><strong id="lan-remote-url">--</strong><button type="button" class="lan-remote-copy" id="lan-remote-copy-url" data-vm-i18n="remote_copy"></button></div>
+                    <div class="lan-remote-detail"><span data-vm-i18n="remote_port"></span><strong id="lan-remote-port">51737</strong></div>
+                    <div class="lan-remote-detail lan-remote-detail-wide"><span data-vm-i18n="remote_fingerprint"></span><code id="lan-remote-fingerprint">--</code><button type="button" class="lan-remote-copy" id="lan-remote-copy-fingerprint" data-vm-i18n="remote_copy"></button></div>
+                </div>
+            </section>
+            <div class="lan-remote-columns">
+                <section class="vm-ui-panel vm-section-card">
+                    <h3 class="vm-section-title"><span class="material-symbols-outlined">pin</span><span data-vm-i18n="remote_pin_title"></span></h3>
+                    <p class="text-on-surface-variant" data-vm-i18n="remote_pin_help"></p>
+                    <div class="lan-remote-pin-status"><span data-vm-i18n="remote_pin_status"></span><strong id="lan-remote-pin-status">••••••••••••</strong></div>
+                    <div class="lan-remote-actions">
+                        <button type="button" class="btn-primary rounded-lg py-3 px-4 text-label-md" id="lan-remote-generate-pin" data-vm-i18n="remote_generate_pin"></button>
+                        <div class="lan-remote-pin-set"><input id="lan-remote-pin-input" inputmode="numeric" autocomplete="off" maxlength="12" pattern="[0-9]{12}" data-vm-i18n-placeholder="remote_pin_placeholder"/><button type="button" class="btn-ghost rounded-lg py-3 px-4 text-label-md" id="lan-remote-set-pin" data-vm-i18n="remote_set_pin"></button></div>
+                    </div>
+                    <div class="lan-remote-secret hidden" id="lan-remote-generated-panel">
+                        <span data-vm-i18n="remote_generated_once"></span><code id="lan-remote-generated-pin"></code><button type="button" class="lan-remote-copy" id="lan-remote-copy-pin" data-vm-i18n="remote_copy_pin"></button>
+                    </div>
+                    <p class="lan-remote-feedback" id="lan-remote-feedback" aria-live="polite"></p>
+                </section>
+                <section class="vm-ui-panel vm-section-card">
+                    <h3 class="vm-section-title"><span class="material-symbols-outlined">shield_lock</span><span data-vm-i18n="remote_permissions_title"></span></h3>
+                    <p class="text-on-surface-variant" data-vm-i18n="remote_permissions_help"></p>
+                    <label class="lan-remote-permission"><span><strong data-vm-i18n="remote_allow_plan"></strong><small data-vm-i18n="remote_allow_plan_sub"></small></span><input id="lan-remote-perm-plan" type="checkbox" /></label>
+                    <label class="lan-remote-permission"><span><strong data-vm-i18n="remote_allow_shutdown"></strong><small data-vm-i18n="remote_allow_shutdown_sub"></small></span><input id="lan-remote-perm-shutdown" type="checkbox" /></label>
+                    <label class="lan-remote-permission"><span><strong data-vm-i18n="remote_allow_restart"></strong><small data-vm-i18n="remote_allow_restart_sub"></small></span><input id="lan-remote-perm-restart" type="checkbox" /></label>
+                </section>
+            </div>`);
+    }
+
     function settings() {
         return view('settings', 'settings_title', 'settings_subtitle',
             denseShell('settings', [
@@ -255,7 +301,7 @@
         if (!main || main.querySelector('.vm-reorg-view')) return;
         const first = main.querySelector('.view');
         const fragment = document.createDocumentFragment();
-        [overview(), monitoring(), powerPlans(), automations(), systemTools(), widgets(), settings()]
+        [overview(), monitoring(), powerPlans(), automations(), systemTools(), remoteControl(), widgets(), settings()]
             .forEach(section => fragment.appendChild(section));
         if (first) main.insertBefore(fragment, first);
         else main.appendChild(fragment);
@@ -276,7 +322,7 @@
             <li class="nav-section-label" aria-hidden="true" data-vm-i18n="nav_energy"></li>
             ${item('power-plans', 'bolt', 'nav_power_plans')}${item('automations', 'automation', 'nav_automations')}
             <li class="nav-section-label" aria-hidden="true" data-vm-i18n="nav_system"></li>
-            ${item('system-tools', 'construction', 'nav_system_tools')}${item('widgets', 'widgets', 'nav_widgets')}
+            ${item('system-tools', 'construction', 'nav_system_tools')}${item('remote-control', 'devices', 'nav_remote_control')}${item('widgets', 'widgets', 'nav_widgets')}
             <li class="nav-section-label" aria-hidden="true" data-vm-i18n="nav_app"></li>
             ${item('settings', 'settings', 'nav_settings')}
             <li class="hidden" aria-hidden="true"><a data-view="system" href="#"></a></li>`;

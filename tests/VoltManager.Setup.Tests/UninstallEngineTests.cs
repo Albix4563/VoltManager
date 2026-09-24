@@ -77,6 +77,25 @@ namespace VoltManager.Setup.Tests
         }
 
         [Fact]
+        public async Task Uninstall_removes_LAN_remote_security_artifacts()
+        {
+            string root = CreateTempDirectory();
+            var operations = new FakeUninstallOperations { DirectoryExistsResult = false };
+            var engine = new HardenedInstallEngine(operations, () => Path.Combine(root, "uninstaller.exe"));
+            try
+            {
+                UninstallResult result = await engine.UninstallAsync(root);
+
+                Assert.True(result.Success);
+                Assert.Equal(1, operations.RemoveLanRemoteControlArtifactsCalls);
+            }
+            finally
+            {
+                Cleanup(root);
+            }
+        }
+
+        [Fact]
         public void Locked_file_prevents_directory_delete_then_retry_and_repeat_succeed()
         {
             string root = CreateTempDirectory();
@@ -117,6 +136,7 @@ namespace VoltManager.Setup.Tests
             public bool StopProcessesResult { get; set; } = true;
             public bool DirectoryExistsResult { get; set; } = true;
             public int DeleteDirectoryCalls { get; private set; }
+            public int RemoveLanRemoteControlArtifactsCalls { get; private set; }
             public IReadOnlyList<string> Residuals { get; set; } = Array.Empty<string>();
             public string AppDataDirectory => Path.Combine(Path.GetTempPath(), "VoltManagerSetupTests-AppData-NotReal");
 
@@ -138,6 +158,7 @@ namespace VoltManager.Setup.Tests
             public void DeleteStartupTask(UninstallResult result) { }
             public void RemoveShortcuts(UninstallResult result) { }
             public void RemoveRegistryEntries(UninstallResult result) { }
+            public void RemoveLanRemoteControlArtifacts(UninstallResult result) => RemoveLanRemoteControlArtifactsCalls++;
             public IEnumerable<string> CleanupOwnedTempArtifacts(string currentExecutable) => Array.Empty<string>();
 
             public IReadOnlyList<string> FindResidualArtifacts(string installDir, string appData, string currentExecutable)

@@ -45,6 +45,9 @@ namespace VoltManager.Setup.Engine
                 result.Add("VoltManager process still running after graceful and forced shutdown");
 
             ct.ThrowIfCancellationRequested();
+            _systemOperations.RemoveLanRemoteControlArtifacts(result);
+
+            ct.ThrowIfCancellationRequested();
             Report(I18n.T("status_uninst_files"), 20);
             if (!string.IsNullOrEmpty(installDir) && _systemOperations.DirectoryExists(installDir))
             {

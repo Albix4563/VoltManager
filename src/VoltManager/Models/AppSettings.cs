@@ -27,6 +27,7 @@ public class AppSettings
     [JsonPropertyName("cpuAutomation")] public CpuAutomationSettings CpuAutomation { get; set; } = new();
     [JsonPropertyName("globalHotkeys")] public GlobalHotkeySettings GlobalHotkeys { get; set; } = new();
     [JsonPropertyName("widgets")] public WidgetSettings Widgets { get; set; } = new();
+    [JsonPropertyName("lanRemoteControl")] public LanRemoteControlSettings LanRemoteControl { get; set; } = new();
     // duplicatescheme assigns new GUIDs; map canonical plan -> actual GUID on this machine.
     [JsonPropertyName("planGuidMap")] public Dictionary<string, string> PlanGuidMap { get; set; } = new();
     [JsonPropertyName("override")] public ManualOverride? Override { get; set; }

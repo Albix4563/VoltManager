@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>VoltManager Remote</title>
+  <link rel="stylesheet" href="/remote.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="brand-bar">
+      <div class="brand-mark" aria-hidden="true"><span class="material-symbols-outlined">bolt</span></div>
+      <div><p class="brand-name">VoltManager</p><p class="brand-subtitle">LAN Remote</p></div>
+      <div class="connection-pill" id="connection-pill" data-state="offline"><span class="connection-dot" aria-hidden="true"></span><span id="connection-label">Offline</span></div>
+    </header>
+    <section class="login-panel" id="login-view" aria-labelledby="login-title">
+      <div class="login-symbol" aria-hidden="true"><span class="material-symbols-outlined">lock</span></div>
+      <h1 id="login-title">Connect to this PC</h1>
+      <p>Enter the 12-digit PIN shown in VoltManager on the computer.</p>
+      <form id="login-form" novalidate>
+        <label for="pin-input">LAN remote PIN</label>
+        <input id="pin-input" name="pin" inputmode="numeric" autocomplete="one-time-code" maxlength="12" pattern="[0-9]{12}" placeholder="000000000000" required>
+        <p class="form-error" id="login-error" role="alert" aria-live="polite"></p>
+        <button class="primary-button" type="submit" id="login-button"><span class="material-symbols-outlined" aria-hidden="true">login</span>Connect</button>
+      </form>
+      <p class="local-note"><span class="material-symbols-outlined" aria-hidden="true">wifi</span>Works only on the same local network. No cloud connection is used.</p>
+    </section>
+    <section class="app-view hidden" id="app-view" aria-live="polite">
+      <section class="machine-card">
+        <div><p class="machine-label">Connected computer</p><h1 id="device-name">PC</h1><p class="machine-meta">VoltManager <span id="device-version">—</span></p></div>
+        <div class="plan-badge"><span class="material-symbols-outlined" aria-hidden="true">electric_bolt</span><span id="active-plan">—</span></div>
+      </section>
+      <section class="actions-section" aria-labelledby="actions-title">
+        <div class="section-heading"><h2 id="actions-title">Available controls</h2><p>Only actions allowed on the computer appear here.</p></div>
+        <div class="actions-grid" id="actions-grid"></div>
+        <div class="empty-state hidden" id="actions-empty"><span class="material-symbols-outlined" aria-hidden="true">shield_lock</span><p>No remote actions are currently allowed.</p></div>
+      </section>
+      <p class="action-feedback" id="action-feedback" role="status" aria-live="polite"></p>
+      <button class="secondary-button" id="logout-button" type="button"><span class="material-symbols-outlined" aria-hidden="true">logout</span>Disconnect</button>
+    </section>
+  </main>
+  <script src="/remote.js" defer></script>
+</body>
+</html>

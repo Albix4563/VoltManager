@@ -11,6 +11,7 @@ using VoltManager.Localization;
 using VoltManager.Models;
 using VoltManager.Reliability;
 using VoltManager.Services;
+using VoltManager.Services.LanRemote;
 
 namespace VoltManager;
 
@@ -51,6 +52,7 @@ public partial class App : Application
     public LocalizationService Loc { get; private set; } = null!;
     public WidgetManager Widgets { get; private set; } = null!;
     public ScheduledPowerActionService ScheduledPowerActions { get; private set; } = null!;
+    public LanRemoteControlService LanRemoteControl { get; private set; } = null!;
     private Task<CoreWebView2Environment>? _webViewEnvironment;
     // Lazy: tray-only sessions never spin up Chromium until the UI or a widget needs it.
     public Task<CoreWebView2Environment> WebViewEnvironment
@@ -213,12 +215,13 @@ public partial class App : Application
             (manager, item, environment, size, placement) =>
                 new WidgetWindow(widgetRuntime, manager, item, environment, size, placement));
         ScheduledPowerActions = new ScheduledPowerActionService(Settings, new PowerActionExecutor(), new SystemClock());
+        LanRemoteControl = new LanRemoteControlService(Settings, PowerRequests, ScheduledPowerActions);
         _remoteCommands = new RemoteCommandService();
         Services = new AppServiceGraph(
             Settings, Loc, Theme, Power, Awake, HardwareAccess, Monitor, Updates, AutoStart,
             Automation, HeavyApps, FullscreenCoverage, AppProfiles, PowerSourcePlans,
             ThermalGuard, IdlePowerGuard, StandbyAutoCleaner, _powerFlow, BatteryHistory,
-            ScheduledPowerActions, _remoteCommands, PowerRequests, Widgets);
+            ScheduledPowerActions, LanRemoteControl, _remoteCommands, PowerRequests, Widgets);
         _applicationLifecycle = CreateApplicationLifecycleCoordinator();
         _applicationLifecycle.Start();
         Mark("ApplicationLifecycle.Start");
@@ -467,6 +470,8 @@ public partial class App : Application
         AppProfiles.StartDelayed(TimeSpan.FromSeconds(3));
         StandbyAutoCleaner.StartDelayed(TimeSpan.FromSeconds(5));
         ScheduledPowerActions.Start();
+        try { LanRemoteControl.Start(); }
+        catch (Exception ex) { Logger.Error("LAN remote-control listener failed to start", ex); }
         try { _remoteCommands?.Start(); }
         catch (Exception ex) { Logger.Error("Remote command listener failed to start", ex); }
     }
@@ -474,6 +479,7 @@ public partial class App : Application
     private void StopRuntimeServices()
     {
         SafeCleanup("remote commands", () => _remoteCommands?.Stop());
+        SafeCleanup("LAN remote control", LanRemoteControl.Stop);
         SafeCleanup("scheduled power action service", ScheduledPowerActions.Stop);
         SafeCleanup("standby cleaner", StandbyAutoCleaner.Stop);
         SafeCleanup("app profiles", AppProfiles.Stop);
@@ -600,6 +606,7 @@ public partial class App : Application
         SafeCleanup("update coordinator", UpdateCoordinator.Dispose);
         SafeCleanup("update service", Updates.Dispose);
         SafeCleanup("scheduled power action service", ScheduledPowerActions.Dispose);
+        SafeCleanup("LAN remote control", LanRemoteControl.Dispose);
         SafeCleanup("remote commands", () => _remoteCommands?.Dispose());
         SafeCleanup("standby cleaner", StandbyAutoCleaner.Dispose);
         SafeCleanup("app profiles", AppProfiles.Dispose);

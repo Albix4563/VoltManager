@@ -87,6 +87,7 @@ public class SettingsService
         settings.CpuAutomation ??= new CpuAutomationSettings();
         settings.StandbyAutoCleaner ??= new StandbyAutoCleanerSettings();
         settings.Widgets ??= new WidgetSettings();
+        settings.LanRemoteControl ??= new LanRemoteControlSettings();
         settings.PlanGuidMap ??= new Dictionary<string, string>();
 
         NormalizeScheduledPowerAction(settings.AutoShutdown);
@@ -101,6 +102,7 @@ public class SettingsService
         NormalizeCpuAutomationSettings(settings.CpuAutomation);
         NormalizeStandbyAutoCleanerSettings(settings.StandbyAutoCleaner);
         NormalizeWidgetSettings(settings.Widgets);
+        NormalizeLanRemoteControlSettings(settings.LanRemoteControl);
         NormalizeThemeColor(settings);
         NormalizeLanguage(settings);
         NormalizeFont(settings);
@@ -385,6 +387,12 @@ public class SettingsService
     }
 
     private static void NormalizeWidgetSettings(WidgetSettings settings) => settings.Normalize();
+
+    private static void NormalizeLanRemoteControlSettings(LanRemoteControlSettings settings)
+    {
+        if (settings.Port is < 1 or > 65535)
+            settings.Port = 51737;
+    }
 
     public void Save()
     {

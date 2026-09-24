@@ -1,4 +1,5 @@
 using VoltManager.Localization;
+using VoltManager.Services.LanRemote;
 
 namespace VoltManager.Services;
 
@@ -25,6 +26,7 @@ public sealed class AppServiceGraph
         PowerFlowService powerFlow,
         BatteryHistoryService batteryHistory,
         ScheduledPowerActionService scheduledPowerActions,
+        LanRemoteControlService lanRemoteControl,
         RemoteCommandService remoteCommands,
         PowerRequestCoordinator powerRequests,
         WidgetManager widgets)
@@ -49,6 +51,7 @@ public sealed class AppServiceGraph
         PowerFlow = powerFlow;
         BatteryHistory = batteryHistory;
         ScheduledPowerActions = scheduledPowerActions;
+        LanRemoteControl = lanRemoteControl;
         RemoteCommands = remoteCommands;
         PowerRequests = powerRequests;
         Widgets = widgets;
@@ -74,6 +77,7 @@ public sealed class AppServiceGraph
     public PowerFlowService PowerFlow { get; }
     public BatteryHistoryService BatteryHistory { get; }
     public ScheduledPowerActionService ScheduledPowerActions { get; }
+    public LanRemoteControlService LanRemoteControl { get; }
     public RemoteCommandService RemoteCommands { get; }
     public PowerRequestCoordinator PowerRequests { get; }
     public WidgetManager Widgets { get; }

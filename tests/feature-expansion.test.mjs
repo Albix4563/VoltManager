@@ -23,7 +23,7 @@ test('advanced battery history exposes range, metrics and CSV export', () => {
   assert.match(html, /battery-history-watt-line/);
   assert.match(html, /battery-history-temp-line/);
   assert.match(html, /battery-history-source-strip/);
-  assert.match(dashboard, /Host\.call\('getBatteryHistory', \{ hours: batteryHistoryHours \}\)/);
+  assert.match(dashboard, /request: hours => Host\.call\('getBatteryHistory', \{ hours \}\)/);
   assert.match(dashboard, /Host\.call\('exportBatteryHistory'\)/);
 });
 

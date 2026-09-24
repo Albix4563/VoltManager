@@ -156,6 +156,13 @@ internal static class BridgeHandlerFactory
                 requestExit,
                 requestMinimize));
 
+        var lanRemoteHandler = new LanRemoteControlRpcHandler(new LanRemoteControlRpcActions(
+            app.LanRemoteControl.GetState,
+            app.LanRemoteControl.SetEnabledAsync,
+            app.LanRemoteControl.SetPermissions,
+            app.LanRemoteControl.GeneratePin,
+            app.LanRemoteControl.SetPin));
+
         return
         [
             settingsHandler,
@@ -164,6 +171,7 @@ internal static class BridgeHandlerFactory
             monitoringHandler,
             updateHandler,
             applicationHandler,
+            lanRemoteHandler,
         ];
     }
 

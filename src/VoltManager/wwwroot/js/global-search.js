@@ -16,6 +16,7 @@
         { id: 'power-plans', labelKey: 'power_title', descriptionKey: 'search_desc_power', keywords: ['search_kw_power', 'search_kw_energy'], icon: 'bolt', category: 'power', view: 'power-plans', subview: 'active', targetId: 'vm-power-active' },
         { id: 'automations', labelKey: 'automations_title', descriptionKey: 'search_desc_automations', keywords: ['search_kw_automation', 'search_kw_rules'], icon: 'automation', category: 'automations', view: 'automations', subview: 'rules', targetId: 'vm-automation-rules' },
         { id: 'system-tools', labelKey: 'system_title', descriptionKey: 'search_desc_system', keywords: ['search_kw_system', 'search_kw_tools'], icon: 'construction', category: 'system', view: 'system-tools', subview: 'scheduled', targetId: 'vm-system-scheduled' },
+        { id: 'remote-control', labelKey: 'remote_title', descriptionKey: 'search_desc_remote', keywords: ['search_kw_remote', 'search_kw_lan', 'search_kw_system'], icon: 'devices', category: 'system', view: 'remote-control', subview: null, targetId: null },
         { id: 'widgets', labelKey: 'widgets_title', descriptionKey: 'search_desc_widgets', keywords: ['search_kw_widgets', 'search_kw_desktop'], icon: 'widgets', category: 'widgets', view: 'widgets', subview: null, targetId: 'vm-widgets-content' },
         { id: 'settings', labelKey: 'settings_title', descriptionKey: 'search_desc_settings', keywords: ['search_kw_settings', 'search_kw_preferences'], icon: 'settings', category: 'settings', view: 'settings', subview: 'general', targetId: 'vm-settings-general' },
 

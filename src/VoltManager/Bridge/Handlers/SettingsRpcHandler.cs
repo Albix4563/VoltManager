@@ -235,6 +235,7 @@ public sealed class SettingsRpcHandler : IBridgeRpcHandler
         settings.Override = current.Override;
         settings.AutostartTaskSchemaVersion = current.AutostartTaskSchemaVersion;
         settings.StandbyAutoCleaner = current.StandbyAutoCleaner;
+        settings.LanRemoteControl = current.LanRemoteControl;
         settings.AutoShutdown ??= new AutoShutdownSettings();
         settings.AutoUpdates ??= new AutoUpdateSettings();
         settings.HeavyAppDetection ??= new HeavyAppDetectionSettings();

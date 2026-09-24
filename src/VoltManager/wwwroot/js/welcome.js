@@ -1,13 +1,13 @@
 /**
  * Welcome / onboarding overlay.
  * Multi-step carousel shown only on first launch (settings.welcomeCompleted !== true).
- * Lets the user pick theme, language and master automation up-front.
+ * Lets the user pick theme, language, automation and optional LAN remote control up-front.
  * Re-openable from Settings via window.__welcome.open().
  */
 (function () {
     if (!window.Host || !Host.available) return;
 
-    const STEP_COUNT = 4; // 0 intro, 1 theme, 2 features, 3 preferences
+    const STEP_COUNT = 5; // 0 intro, 1 theme, 2 features, 3 preferences, 4 LAN remote control
     let step = 0;
     let wired = false;
 
@@ -77,6 +77,7 @@
         const wasOpen = isOpen();
         step = 0;
         syncControlsFromSettings();
+        syncRemoteControls();
         render();
         overlay.classList.remove('hidden');
         overlay.classList.add('flex');
@@ -151,6 +152,45 @@
             settings.autoUpdates.silentInstallEnabled = true;
         }
         return settings.autoUpdates;
+    }
+
+    function applyRemoteState(state) {
+        if (!state) return;
+        const enabled = document.getElementById('welcome-remote-enabled');
+        const plan = document.getElementById('welcome-remote-plan');
+        const shutdown = document.getElementById('welcome-remote-shutdown');
+        const restart = document.getElementById('welcome-remote-restart');
+        if (enabled) enabled.checked = !!state.enabled;
+        if (plan) plan.checked = !!state.allowPlanChange;
+        if (shutdown) shutdown.checked = !!state.allowShutdown;
+        if (restart) restart.checked = !!state.allowRestart;
+    }
+
+    function showGeneratedRemotePin(pin) {
+        if (!pin) return;
+        const wrap = document.getElementById('welcome-remote-pin-wrap');
+        const value = document.getElementById('welcome-remote-pin');
+        if (value) value.textContent = pin;
+        wrap?.classList.remove('hidden');
+    }
+
+    async function syncRemoteControls() {
+        try {
+            const state = await Host.call('getLanRemoteControlState', {});
+            applyRemoteState(state);
+        } catch (error) {
+            console.error('getLanRemoteControlState failed', error);
+        }
+    }
+
+    async function saveRemotePermissions() {
+        const state = await Host.call('setLanRemoteControlPermissions', {
+            allowPlanChange: !!document.getElementById('welcome-remote-plan')?.checked,
+            allowShutdown: !!document.getElementById('welcome-remote-shutdown')?.checked,
+            allowRestart: !!document.getElementById('welcome-remote-restart')?.checked
+        });
+        applyRemoteState(state);
+        return state;
     }
 
     function syncControlsFromSettings() {
@@ -240,6 +280,37 @@
             // Keep the Settings page mini-toggle in sync if mounted.
             const settingsToggle = document.getElementById('toggle-widgets-master');
             if (settingsToggle) settingsToggle.dataset.on = enabled ? 'true' : 'false';
+        });
+
+        ['welcome-remote-plan', 'welcome-remote-shutdown', 'welcome-remote-restart'].forEach(id => {
+            document.getElementById(id)?.addEventListener('change', async () => {
+                try { await saveRemotePermissions(); }
+                catch (error) { console.error('setLanRemoteControlPermissions failed', error); }
+            });
+        });
+
+        const remoteEnabled = document.getElementById('welcome-remote-enabled');
+        remoteEnabled?.addEventListener('change', async (e) => {
+            const enabled = !!e.target.checked;
+            e.target.disabled = true;
+            try {
+                await saveRemotePermissions();
+                const result = await Host.call('setLanRemoteControlEnabled', { enabled });
+                applyRemoteState(result?.state || result);
+                showGeneratedRemotePin(result?.generatedPin);
+            } catch (error) {
+                e.target.checked = !enabled;
+                console.error('setLanRemoteControlEnabled failed', error);
+            } finally {
+                e.target.disabled = false;
+            }
+        });
+
+        document.getElementById('welcome-remote-copy-pin')?.addEventListener('click', async () => {
+            const pin = document.getElementById('welcome-remote-pin')?.textContent?.trim();
+            if (!pin || !navigator.clipboard?.writeText) return;
+            try { await navigator.clipboard.writeText(pin); }
+            catch (error) { console.error('copy LAN remote PIN failed', error); }
         });
     }
 

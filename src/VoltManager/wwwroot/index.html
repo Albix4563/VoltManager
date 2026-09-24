@@ -11,6 +11,7 @@
 <link href="css/effects.css?v=motion2" rel="stylesheet"/>
 <link href="css/theme-colors.css?v=color2" rel="stylesheet"/>
 <link href="css/power-features.css?v=mod1" rel="stylesheet"/>
+<link href="css/lan-remote-control.css?v=1" rel="stylesheet"/>
 <script src="js/theme.js?v=color1"></script>
 <style>
 @keyframes slideInRight{from{transform:translateX(110%);opacity:0}to{transform:translateX(0);opacity:1}}
@@ -1197,12 +1198,35 @@
         </div>
       </section>
 
+      <!-- Step 4: LAN remote control -->
+      <section class="welcome-step hidden flex-col gap-lg" data-step="4">
+        <div class="text-center">
+          <span class="material-symbols-outlined text-secondary-container text-[34px]">devices</span>
+          <h2 class="text-headline-sm text-on-surface mt-sm" data-i18n="welcome_remote_title">Controllo remoto LAN</h2>
+          <p class="text-body-md text-on-surface-variant mt-sm" data-i18n="welcome_remote_sub">Solo rete locale, nessun cloud. Decidi tu quali azioni consentire.</p>
+        </div>
+        <label class="flex items-center justify-between gap-md">
+          <span><strong class="text-body-md text-on-surface" data-i18n="welcome_remote_enable">Attiva controllo remoto</strong></span>
+          <input class="toggle-large" id="welcome-remote-enabled" type="checkbox"/>
+        </label>
+        <div class="flex flex-col gap-md">
+          <label class="flex items-center justify-between gap-md"><span data-i18n="welcome_remote_plan">Cambio piano energetico</span><input id="welcome-remote-plan" type="checkbox"/></label>
+          <label class="flex items-center justify-between gap-md"><span data-i18n="welcome_remote_shutdown">Spegnimento PC</span><input id="welcome-remote-shutdown" type="checkbox"/></label>
+          <label class="flex items-center justify-between gap-md"><span data-i18n="welcome_remote_restart">Riavvio PC</span><input id="welcome-remote-restart" type="checkbox"/></label>
+        </div>
+        <div class="glass-card rounded-xl p-md hidden" id="welcome-remote-pin-wrap">
+          <p class="text-label-sm text-on-surface-variant" data-i18n="welcome_remote_pin_once">Salva questo PIN: verrà mostrato solo questa volta.</p>
+          <div class="flex items-center justify-between gap-sm mt-sm"><code class="text-title-lg" id="welcome-remote-pin"></code><button type="button" class="btn-ghost rounded-lg py-2 px-3" id="welcome-remote-copy-pin" data-i18n="welcome_remote_copy">Copia</button></div>
+        </div>
+      </section>
+
       <!-- Dot indicator -->
       <div class="flex items-center justify-center gap-xs mt-lg">
         <span class="welcome-dot" data-go="0"></span>
         <span class="welcome-dot" data-go="1"></span>
         <span class="welcome-dot" data-go="2"></span>
         <span class="welcome-dot" data-go="3"></span>
+        <span class="welcome-dot" data-go="4"></span>
       </div>
 
       <!-- Navigation -->
@@ -1304,6 +1328,7 @@
 <script src="js/dashboard.js?v=batteryhistory1"></script>
 <script src="js/settings.js?v=font18"></script>
 <script src="js/settings-preferences-tools.js?v=mod1"></script>
+<script src="js/lan-remote-control.js?v=1"></script>
 <script src="js/welcome.js?v=silentupdate1"></script>
 <script src="js/tour.js?v=nav-reorg1"></script>
 <script src="js/tips.js?v=tips1"></script>
