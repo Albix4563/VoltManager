@@ -47,6 +47,11 @@ public sealed class LanRemoteControlIntegrationTests
         int port = GetFreeTcpPort();
         SettingsService settings = TestSettings.Create(out string settingsPath);
         string root = Path.GetDirectoryName(settingsPath)!;
+        string remoteAssetsPath = Path.Combine(root, "remote-assets");
+        Directory.CreateDirectory(remoteAssetsPath);
+        await File.WriteAllTextAsync(
+            Path.Combine(remoteAssetsPath, "index.html"),
+            "<!doctype html><html><body>VoltManager Remote</body></html>");
         var auth = new LanRemoteAuthStore(Path.Combine(root, "remote-control-auth.json"));
         auth.SetPin(pin);
         settings.Update(current =>
@@ -67,7 +72,7 @@ public sealed class LanRemoteControlIntegrationTests
             portAvailable: (_, _) => true,
             certificateProvider: _ => testCertificate,
             clientAddressAllowed: _ => true,
-            remoteAssetsPath: Path.Combine(root, "remote-assets"));
+            remoteAssetsPath: remoteAssetsPath);
 
         await service.StartAsync();
         Assert.True(service.GetState().Running);
@@ -81,6 +86,12 @@ public sealed class LanRemoteControlIntegrationTests
             ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator,
         };
         using var client = new HttpClient(handler) { BaseAddress = new Uri($"https://127.0.0.1:{port}/") };
+
+        HttpResponseMessage remoteUi = await client.GetAsync("");
+        Assert.Equal(HttpStatusCode.OK, remoteUi.StatusCode);
+        Assert.Equal("text/html", remoteUi.Content.Headers.ContentType?.MediaType);
+        Assert.Equal("utf-8", remoteUi.Content.Headers.ContentType?.CharSet);
+        Assert.Contains("<!doctype html>", await remoteUi.Content.ReadAsStringAsync(), StringComparison.OrdinalIgnoreCase);
 
         HttpResponseMessage anonymous = await client.GetAsync("api/state");
         Assert.Equal(HttpStatusCode.Unauthorized, anonymous.StatusCode);

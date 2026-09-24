@@ -342,8 +342,10 @@ public sealed class LanRemoteControlService : IDisposable
         {
             var provider = new PhysicalFileProvider(_remoteAssetsPath);
             app.UseStaticFiles(new StaticFileOptions { FileProvider = provider });
-            app.MapGet("/", async context =>
-                await context.Response.SendFileAsync(Path.Combine(_remoteAssetsPath, "index.html")));
+            app.MapGet("/", context => SendAssetAsync(
+                context,
+                Path.Combine(_remoteAssetsPath, "index.html"),
+                "text/html; charset=utf-8"));
         }
 
         string webRoot = Path.Combine(AppContext.BaseDirectory, "wwwroot", "vendor", "fonts");
