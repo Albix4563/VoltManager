@@ -26,6 +26,7 @@
         { el: '#nav-list',                title: 'tour_nav_title',      body: 'tour_nav_body',      placement: 'right' },
         { view: 'home', el: '#plan-control',       title: 'tour_plan_title',     body: 'tour_plan_body' },
         { view: 'home', el: '#dash-taskmanager',   title: 'tour_metrics_title',  body: 'tour_metrics_body' },
+        { view: 'home', el: '#vm-brightness-card',  title: 'tour_brightness_title', body: 'tour_brightness_body', laptopOnly: true },
         { el: '#btn-monitoring-toggle',   title: 'tour_monitor_title',  body: 'tour_monitor_body',  placement: 'right' },
         { view: 'power', el: '#pm-subnav',         title: 'tour_power_title',    body: 'tour_power_body' },
         { view: 'widgets', el: '#widgets-card',   title: 'tour_widgets_title',  body: 'tour_widgets_body' },
@@ -148,10 +149,9 @@
         btnNext = pop.querySelector('[data-act="next"]');
         btnSkip = pop.querySelector('.vm-tour-skip');
 
-        btnBack.addEventListener('click', () => { if (step > 0) showStep(step - 1); });
+        btnBack.addEventListener('click', () => navigate(-1));
         btnNext.addEventListener('click', () => {
-            if (step >= steps.length - 1) finish();
-            else showStep(step + 1);
+            navigate(1);
         });
         btnSkip.addEventListener('click', finish);
         // Block stray clicks reaching the app, but ignore drag noise.
@@ -159,8 +159,44 @@
     }
 
     function switchView(view) {
+        if (window.VoltUiReorg?.ready) {
+            window.VoltUiReorg.activateView({ home: 'overview', power: 'power-plans' }[view] || view, true);
+            return;
+        }
         const link = document.querySelector('#nav-list a[data-view="' + view + '"]');
         if (link) link.click();
+    }
+
+    function visibleStep(index) {
+        const item = steps[index];
+        if (item.laptopOnly && document.documentElement.dataset.vmHasBattery !== 'true') return false;
+        if (!item.el) return true;
+        let node = document.querySelector(item.el);
+        if (!node) return false;
+        while (node && !node.classList?.contains('vm-reorg-view')) {
+            if (node.hidden || node.classList?.contains('hidden') ||
+                node.getAttribute?.('aria-hidden') === 'true' || node.style?.display === 'none' ||
+                window.getComputedStyle?.(node)?.display === 'none') return false;
+            node = node.parentElement;
+        }
+        return true;
+    }
+
+    function availableSteps() {
+        return steps.map((_, index) => index).filter(visibleStep);
+    }
+
+    function navigate(direction) {
+        const available = availableSteps();
+        const index = available.indexOf(step);
+        const next = index < 0
+            ? (direction > 0 ? available.find(item => item > step) : available.slice().reverse().find(item => item < step))
+            : available[index + direction];
+        if (next == null) {
+            if (direction > 0) finish();
+            return;
+        }
+        showStep(next);
     }
 
     function place(el, placement) {
@@ -226,14 +262,16 @@
     }
 
     function renderControls() {
+        const available = availableSteps();
+        const position = available.indexOf(step);
         popTitle.textContent = t(steps[step].title);
         popBody.textContent = t(steps[step].body);
-        popCounter.textContent = (step + 1) + ' / ' + steps.length;
+        popCounter.textContent = (position + 1) + ' / ' + available.length;
         btnBack.textContent = t('tour_back');
-        btnBack.style.visibility = step === 0 ? 'hidden' : 'visible';
-        btnNext.textContent = step >= steps.length - 1 ? t('tour_finish') : t('tour_next');
+        btnBack.style.visibility = position <= 0 ? 'hidden' : 'visible';
+        btnNext.textContent = position >= available.length - 1 ? t('tour_finish') : t('tour_next');
         btnSkip.textContent = t('tour_skip');
-        btnSkip.style.visibility = step >= steps.length - 1 ? 'hidden' : 'visible';
+        btnSkip.style.visibility = position >= available.length - 1 ? 'hidden' : 'visible';
     }
 
     function measureAndPlace(s) {
@@ -248,7 +286,9 @@
     }
 
     function showStep(i) {
-        step = Math.max(0, Math.min(steps.length - 1, i));
+        const available = availableSteps();
+        step = available.find(index => index >= i) ?? available[available.length - 1];
+        if (step == null) return;
         const s = steps[step];
         renderControls();
         pop.setAttribute('data-show', 'false');
@@ -295,10 +335,10 @@
         if (e.key === 'Escape') { e.preventDefault(); finish(); }
         else if (e.key === 'ArrowRight') {
             e.preventDefault();
-            if (step >= steps.length - 1) finish(); else showStep(step + 1);
+            navigate(1);
         } else if (e.key === 'ArrowLeft') {
             e.preventDefault();
-            if (step > 0) showStep(step - 1);
+            navigate(-1);
         }
     }
 
@@ -346,6 +386,10 @@
 
     // Keep labels in sync if the language changes mid-tour.
     document.addEventListener('langchanged', () => { if (active) renderControls(); });
+    document.addEventListener('voltbatteryavailabilitychanged', () => {
+        if (active && !visibleStep(step)) navigate(1);
+        else if (active) renderControls();
+    });
 
     window.__tour = { open, close: finish, isOpen: () => active };
 })();

@@ -173,7 +173,7 @@
         const link = document.createElement('link');
         link.id = 'vm-ui-reorganization-style';
         link.rel = 'stylesheet';
-        link.href = 'css/ui-reorganization.css?v=motion2';
+        link.href = 'css/ui-reorganization.css?v=brightness1';
         const themeStyles = document.querySelector('link[href*="theme-colors.css"]');
         document.head.insertBefore(link, themeStyles || null);
     }
@@ -199,10 +199,10 @@
         window.__voltUiReorganizationLoading = true;
         addStyle();
         try {
-            await loadScript('js/ui-reorganization.layout.js?v=reorg2');
-            await loadScript('js/ui-reorganization.js?v=ram1');
+            await loadScript('js/ui-reorganization.layout.js?v=brightness1');
+            await loadScript('js/ui-reorganization.js?v=brightness1');
             await loadScript('js/ui-reorganization.status.js?v=nav-reorg1');
-            await loadScript('js/global-search.js?v=search1');
+            await loadScript('js/global-search.js?v=brightness1');
         } catch (error) {
             window.__voltUiReorganizationLoading = false;
             console.error('VoltManager UI reorganization failed to load', error);

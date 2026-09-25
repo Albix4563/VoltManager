@@ -202,7 +202,7 @@
     }
 
     // Settings bootstrap is eager; only the advanced editor waits for navigation.
-    const deferredPowerScripts = ['js/advanced.js?v=powerux2'];
+    const deferredPowerScripts = ['js/advanced.js?v=brightness1'];
     const loadedScripts = new Map();
     function loadScriptOnce(src) {
         if (loadedScripts.has(src)) return loadedScripts.get(src);

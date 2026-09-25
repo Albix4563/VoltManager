@@ -256,7 +256,7 @@
     function startPower() {
         shell(
             '<div class="power-row"><span class="widget-muted" data-i18n="widget_power_now">Power</span><strong id="power-watts">--</strong></div>' +
-            '<div class="power-row"><span class="widget-muted" data-i18n="widget_battery">Battery</span><strong id="power-battery">--</strong></div>' +
+            '<div class="power-row" id="power-battery-row"><span class="widget-muted" data-i18n="widget_battery">Battery</span><strong id="power-battery">--</strong></div>' +
             (size === 'mini' ? '' :
                 '<div class="power-row"><span class="widget-muted" data-i18n="widget_plan">Plan</span><strong id="power-plan">--</strong></div>' +
                 '<div class="power-row"><span class="widget-muted" data-i18n="widget_cpu_auto">CPU avg</span><strong id="power-auto-cpu">--</strong></div>' +
@@ -308,6 +308,13 @@
     function renderPower(state) {
         const watts = document.getElementById('power-watts');
         const battery = document.getElementById('power-battery');
+        const batteryRow = document.getElementById('power-battery-row');
+        if (batteryRow) {
+            const noBattery = state?.message === 'no_battery';
+            batteryRow.classList.toggle('hidden', noBattery);
+            batteryRow.style.display = noBattery ? 'none' : '';
+            batteryRow.setAttribute('aria-hidden', noBattery ? 'true' : 'false');
+        }
         if (!state || !state.available) {
             watts.textContent = '--';
             battery.textContent = 'AC';

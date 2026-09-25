@@ -6,6 +6,8 @@ public sealed record EnergyRpcActions(
     Func<object> GetBatteryHealth,
     Func<object> GetBatteryPower,
     Func<IReadOnlyList<BatteryHistorySample>> GetBatteryHistory,
+    Func<object> GetDisplayBrightness,
+    Func<int, object> SetDisplayBrightness,
     Func<(bool allPresent, List<PlanId> missing)> CheckDefaultPlans,
     Func<bool> RestoreDefaultPlans,
     Func<object?> GetActivePlan,

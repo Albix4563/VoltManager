@@ -10,7 +10,7 @@
 <link href="css/polish.css?v=batteryhistory1" rel="stylesheet"/>
 <link href="css/effects.css?v=motion2" rel="stylesheet"/>
 <link href="css/theme-colors.css?v=color2" rel="stylesheet"/>
-<link href="css/power-features.css?v=mod1" rel="stylesheet"/>
+<link href="css/power-features.css?v=brightness1" rel="stylesheet"/>
 <link href="css/lan-remote-control.css?v=1" rel="stylesheet"/>
 <script src="js/theme.js?v=color1"></script>
 <style>
@@ -162,7 +162,7 @@
           </div>
           <button class="btn-ghost rounded-lg py-1 px-3 text-label-md shrink-0" id="open-plan-history" type="button" data-i18n="plan_history_link">History</button>
         </div>
-        <div class="mt-4 w-full max-w-md flex items-center justify-between gap-md px-4 py-3 rounded-lg bg-surface-container-low/50 border border-white/10 cursor-pointer group" id="pref-power-source-plan-home">
+        <div class="mt-4 w-full max-w-md flex items-center justify-between gap-md px-4 py-3 rounded-lg bg-surface-container-low/50 border border-white/10 cursor-pointer group" id="pref-power-source-plan-home" data-vm-laptop-only>
           <div class="min-w-0">
             <p class="text-body-md text-on-surface group-hover:text-secondary-fixed transition-colors" data-i18n="dash_power_source_title">Auto boost corrente</p>
             <p class="text-label-sm text-on-surface-variant" data-i18n="dash_power_source_sub">Prestazioni quando collegato, ripristino quando staccato</p>
@@ -171,7 +171,7 @@
             <div class="mini-toggle-knob"></div>
           </div>
         </div>
-        <div class="mt-3 w-full max-w-md flex items-center justify-between gap-md px-4 py-3 rounded-lg bg-surface-container-low/50 border border-white/10" id="pref-low-battery-threshold-home">
+        <div class="mt-3 w-full max-w-md flex items-center justify-between gap-md px-4 py-3 rounded-lg bg-surface-container-low/50 border border-white/10" id="pref-low-battery-threshold-home" data-vm-laptop-only>
           <div class="min-w-0">
             <label class="text-body-md text-on-surface" for="low-battery-threshold-input" data-i18n="low_battery_threshold_title">Low battery protection</label>
             <p class="text-label-sm text-on-surface-variant" data-i18n="low_battery_threshold_sub">Switch to Power Saver below this charge level</p>
@@ -1318,29 +1318,30 @@
 
 <script src="js/bridge.js?v=errlog1"></script>
 <script src="js/font.js?v=font18"></script>
-<script src="js/i18n.catalogs.js?v=catalog1"></script>
+<script src="js/i18n.catalogs.js?v=brightness1"></script>
 <script src="js/i18n.js?v=catalog1"></script>
 <script src="js/view-lifecycle.js?v=mod1"></script>
-<script src="js/app.js?v=motion2"></script>
+<script src="js/app.js?v=brightness1"></script>
 <script src="js/effects.js?v=ram3"></script>
 <script src="js/perf-guard.js?v=hwtier1"></script>
 <script src="js/battery-history-request.js?v=1"></script>
-<script src="js/dashboard.js?v=batteryhistory1"></script>
+<script src="js/dashboard.js?v=brightness1"></script>
+<script src="js/brightness.js?v=brightness1"></script>
 <script src="js/settings.js?v=font18"></script>
 <script src="js/settings-preferences-tools.js?v=mod1"></script>
 <script src="js/lan-remote-control.js?v=1"></script>
 <script src="js/welcome.js?v=silentupdate1"></script>
-<script src="js/tour.js?v=nav-reorg1"></script>
-<script src="js/tips.js?v=tips1"></script>
-<script src="js/changelog.js?v=changelog2"></script>
+<script src="js/tour.js?v=brightness1"></script>
+<script src="js/tips.js?v=brightness1"></script>
+<script src="js/changelog.js?v=brightness1"></script>
 <script src="js/setup.js?v=temps1"></script>
 <!-- Settings bootstrap also wires Home, welcome, appearance and widgets. -->
 <script src="js/power-app-profiles.js?v=mod1"></script>
 <script src="js/power-detection.js?v=mod1"></script>
-<script src="js/power-keep-awake.js?v=mod1"></script>
-<script src="js/power-protections.js?v=mod1"></script>
+<script src="js/power-keep-awake.js?v=brightness1"></script>
+<script src="js/power-protections.js?v=brightness1"></script>
 <script src="js/power-history.js?v=mod1"></script>
-<script src="js/power.js?v=ram1"></script>
+<script src="js/power.js?v=brightness1"></script>
 <!-- advanced.js: lazy-loaded on first open of power/settings (app.js) -->
 </body>
 </html>

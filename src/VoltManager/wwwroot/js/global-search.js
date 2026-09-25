@@ -23,7 +23,7 @@
         { id: 'monitor-hardware', labelKey: 'tab_hardware', descriptionKey: 'search_desc_hardware', keywords: ['search_kw_cpu', 'search_kw_gpu', 'search_kw_ram', 'search_kw_disk'], icon: 'memory', category: 'monitoring', view: 'monitoring', subview: 'hardware', targetId: 'vm-monitoring-hardware' },
         { id: 'monitor-processes', labelKey: 'tab_processes', descriptionKey: 'search_desc_processes', keywords: ['search_kw_processes', 'search_kw_tasks'], icon: 'process_chart', category: 'monitoring', view: 'monitoring', subview: 'processes', targetId: 'vm-monitoring-processes' },
         { id: 'monitor-temperatures', labelKey: 'tab_temperatures', descriptionKey: 'search_desc_temperatures', keywords: ['search_kw_temperature', 'search_kw_thermal'], icon: 'device_thermostat', category: 'monitoring', view: 'monitoring', subview: 'temperatures', targetId: 'vm-monitoring-temperatures' },
-        { id: 'monitor-battery', labelKey: 'tab_battery', descriptionKey: 'search_desc_battery', keywords: ['search_kw_battery', 'search_kw_health'], icon: 'battery_horiz_075', category: 'monitoring', view: 'monitoring', subview: 'battery', targetId: 'vm-monitoring-battery' },
+        { id: 'monitor-battery', labelKey: 'tab_battery', descriptionKey: 'search_desc_battery', keywords: ['search_kw_battery', 'search_kw_health'], icon: 'battery_horiz_075', category: 'monitoring', view: 'monitoring', subview: 'battery', targetId: 'vm-monitoring-battery', laptopOnly: true },
 
         { id: 'power-active', labelKey: 'tab_active_plan', descriptionKey: 'search_desc_active_plan', keywords: ['search_kw_plan', 'search_kw_power'], icon: 'bolt', category: 'power', view: 'power-plans', subview: 'active', targetId: 'vm-power-active' },
         { id: 'power-source', labelKey: 'tab_power_source', descriptionKey: 'search_desc_power_source', keywords: ['search_kw_ac', 'search_kw_battery', 'search_kw_source'], icon: 'power', category: 'power', view: 'power-plans', subview: 'source', targetId: 'vm-power-source' },
@@ -112,11 +112,12 @@
     }
 
     function localizedCatalog() {
-        return catalog.map(entry => ({
+        return catalog.filter(entry => !entry.laptopOnly || document.documentElement?.dataset.vmHasBattery === 'true').map(entry => ({
             ...entry,
             label: translate(entry.labelKey),
             description: translate(entry.descriptionKey),
-            keywords: entry.keywords.map(translate),
+            keywords: entry.keywords.filter(key => entry.id !== 'power-source' || key !== 'search_kw_battery' ||
+                document.documentElement?.dataset.vmHasBattery === 'true').map(translate),
         }));
     }
 
@@ -407,6 +408,7 @@
         wireSearchButton();
         document.addEventListener('voltuiready', wireSearchButton);
         document.addEventListener('langchanged', updateLocalizedUi);
+        document.addEventListener('voltbatteryavailabilitychanged', () => { if (dialog) renderResults(); });
         document.addEventListener('keydown', onDocumentKeydown);
     }
 

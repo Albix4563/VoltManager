@@ -23,8 +23,8 @@
 
     api.el = id => document.getElementById(id);
 
-    function statusCard(icon, label, id) {
-        return `<div class="vm-status-card">
+    function statusCard(icon, label, id, laptopOnly) {
+        return `<div class="vm-status-card"${laptopOnly ? ' data-vm-laptop-only' : ''}>
             <div class="vm-status-card__header">
                 <span class="material-symbols-outlined">${icon}</span>
                 <span class="vm-status-card__label" data-vm-i18n="${label}"></span>
@@ -54,7 +54,7 @@
         return `<div class="vm-subnav" role="tablist" data-vm-subnav="${group}">
             ${items.map((item, index) => `<button type="button" class="vm-subnav__item${index ? '' : ' active'}"
                 id="vm-tab-${group}-${item.id}" aria-controls="vm-panel-${group}-${item.id}"
-                data-vm-subnav-group="${group}" data-vm-subnav-target="${item.id}"
+                data-vm-subnav-group="${group}" data-vm-subnav-target="${item.id}"${group === 'monitoring' && item.id === 'battery' ? ' data-vm-laptop-only' : ''}
                 role="tab" aria-selected="${index ? 'false' : 'true'}" tabindex="${index ? '-1' : '0'}">
                 <span class="material-symbols-outlined">${item.icon}</span><span data-vm-i18n="${item.label}"></span>
             </button>`).join('')}
@@ -93,7 +93,7 @@
                     <h3 class="vm-section-title"><span class="material-symbols-outlined">info</span><span data-vm-i18n="overview_current_state"></span></h3>
                     <div class="vm-status-grid">
                         ${statusCard('electric_bolt', 'status_plan', 'ov-status-plan')}
-                        ${statusCard('power', 'status_power', 'ov-status-power')}
+                        ${statusCard('power', 'status_power', 'ov-status-power', true)}
                         ${statusCard('monitor_heart', 'status_monitoring', 'ov-status-monitoring')}
                         ${statusCard('lock_clock', 'status_override', 'ov-status-override')}
                         ${statusCard('automation', 'status_automation', 'ov-status-automation')}
@@ -111,6 +111,16 @@
                     </div>
                 </section>
             </div>
+            <section id="vm-brightness-card" class="vm-ui-panel vm-section-card" data-vm-brightness-only data-vm-laptop-only>
+                <h3 class="vm-section-title"><span class="material-symbols-outlined" aria-hidden="true">brightness_6</span><span data-vm-i18n="brightness_title"></span></h3>
+                <p class="vm-brightness-sub" data-vm-i18n="brightness_sub"></p>
+                <div class="vm-brightness-controls">
+                    <button type="button" id="vm-brightness-decrease" class="vm-brightness-button" aria-label="Decrease brightness"><span class="material-symbols-outlined" aria-hidden="true">brightness_low</span></button>
+                    <input id="vm-brightness-range" type="range" min="0" max="100" step="1" value="50" aria-label="Screen brightness">
+                    <button type="button" id="vm-brightness-increase" class="vm-brightness-button" aria-label="Increase brightness"><span class="material-symbols-outlined" aria-hidden="true">brightness_high</span></button>
+                    <output id="vm-brightness-value" for="vm-brightness-range">--%</output>
+                </div>
+            </section>
             <section class="vm-ui-panel vm-section-card">
                 <div class="vm-section-title-row">
                     <h3 class="vm-section-title"><span class="material-symbols-outlined">memory</span><span data-vm-i18n="overview_metrics"></span></h3>

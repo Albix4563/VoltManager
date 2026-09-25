@@ -27,7 +27,6 @@
     let autoCleanSaveTimer = null;
     let ramLastClean     = null;   // timestamp of last purge
     let advShowDc        = false;  // whether to show battery (DC) column
-    let hasBattery       = null;
     let powerPlans       = [];
     let activePlanGuid   = null;
     let timeoutFollowActive = true;
@@ -233,12 +232,14 @@
   <div class="power-timeout-grid">
     ${buildTimeoutCard('display','desktop_windows')}
     ${buildTimeoutCard('sleep','bedtime')}
+    ${buildBrightnessCard()}
   </div>
   <div class="power-timeout-status" id="power-timeout-status" role="status" aria-live="polite"></div>
 </div>`;
         timeoutMounted = true;
         refreshTimeoutLabels();
         checkBatteryPresence();
+        window.VoltUiReorg?.syncLaptopOnly?.();
     }
 
     function buildTimeoutCard(key, icon) {
@@ -249,9 +250,31 @@
   </div></div>
   <label class="power-timeout-side"><span class="power-timeout-side-label"><span class="material-symbols-outlined text-[17px]">power</span><span id="power-timeout-${key}-ac-label"></span></span>
     <select class="power-timeout-select" id="power-timeout-${key}-ac" data-timeout-key="${key}"></select></label>
-  <label class="power-timeout-side timeout-dc-section"><span class="power-timeout-side-label"><span class="material-symbols-outlined text-[17px]">battery_5_bar</span><span id="power-timeout-${key}-dc-label"></span></span>
+  <label class="power-timeout-side timeout-dc-section" data-vm-laptop-only><span class="power-timeout-side-label"><span class="material-symbols-outlined text-[17px]">battery_5_bar</span><span id="power-timeout-${key}-dc-label"></span></span>
     <select class="power-timeout-select" id="power-timeout-${key}-dc" data-timeout-key="${key}"></select></label>
 </div>`;
+    }
+
+    function buildBrightnessCard() {
+        return `<div class="power-timeout-card power-brightness-card" id="power-plan-brightness-card" data-vm-brightness-only data-vm-laptop-only>
+  <div class="power-timeout-card-head"><span class="material-symbols-outlined">brightness_6</span><div>
+    <p class="text-body-md text-on-surface font-semibold" id="power-brightness-title"></p>
+    <p class="text-label-sm text-on-surface-variant mt-1" id="power-brightness-sub"></p>
+  </div></div>
+  <label class="power-timeout-side"><span class="power-timeout-side-label"><span class="material-symbols-outlined text-[17px]">power</span><span id="power-brightness-ac-label"></span></span>
+    <select class="power-timeout-select" id="power-brightness-ac" data-timeout-key="brightness"></select></label>
+  <label class="power-timeout-side timeout-dc-section" data-vm-laptop-only><span class="power-timeout-side-label"><span class="material-symbols-outlined text-[17px]">battery_5_bar</span><span id="power-brightness-dc-label"></span></span>
+    <select class="power-timeout-select" id="power-brightness-dc" data-timeout-key="brightness"></select></label>
+</div>`;
+    }
+
+    function fillBrightnessSelect(id, value) {
+        const select = document.getElementById(id);
+        if (!select) return;
+        select.innerHTML = Array.from({ length: 101 }, (_, percent) =>
+            `<option value="${percent}">${percent}%</option>`).join('');
+        if (value != null) select.value = String(value);
+        select.disabled = value == null;
     }
 
     function refreshTimeoutLabels() {
@@ -264,6 +287,8 @@
             'power-timeout-display-sub': 'power_timeout_display_sub',
             'power-timeout-sleep-title': 'power_timeout_sleep',
             'power-timeout-sleep-sub': 'power_timeout_sleep_sub',
+            'power-brightness-title': 'power_brightness_title',
+            'power-brightness-sub': 'power_brightness_sub',
         };
         Object.entries(map).forEach(([id, key]) => {
             const el = document.getElementById(id);
@@ -274,6 +299,10 @@
             const dc = document.getElementById(`power-timeout-${key}-dc-label`);
             if (ac) ac.textContent = t('adv_ac');
             if (dc) dc.textContent = t('adv_dc');
+        });
+        ['ac', 'dc'].forEach(side => {
+            const label = document.getElementById(`power-brightness-${side}-label`);
+            if (label) label.textContent = t(side === 'ac' ? 'adv_ac' : 'adv_dc');
         });
         if (timeoutParams) applyTimeoutParams(timeoutParams);
         fillPlanSelect('power-timeout-plan-select', timeoutParams?.planGuid || activePlanGuid);
@@ -286,6 +315,11 @@
         fillTimeoutSelect('power-timeout-display-dc', params.displayTimeoutDc);
         fillTimeoutSelect('power-timeout-sleep-ac', params.sleepTimeoutAc);
         fillTimeoutSelect('power-timeout-sleep-dc', params.sleepTimeoutDc);
+        const brightness = document.getElementById('power-plan-brightness-card');
+        if (brightness) brightness.hidden = params.displayBrightnessAc == null && params.displayBrightnessDc == null;
+        fillBrightnessSelect('power-brightness-ac', params.displayBrightnessAc);
+        fillBrightnessSelect('power-brightness-dc', params.displayBrightnessDc);
+        window.VoltUiReorg?.syncLaptopOnly?.();
     }
 
     function showTimeoutStatus(message, isError) {
@@ -314,15 +348,16 @@
 
     async function saveTimeoutParam(key) {
         if (!timeoutParams) return;
-        const ac = document.getElementById(`power-timeout-${key}-ac`);
-        const dc = document.getElementById(`power-timeout-${key}-dc`);
+        const prefix = key === 'brightness' ? 'power-brightness' : `power-timeout-${key}`;
+        const ac = document.getElementById(`${prefix}-ac`);
+        const dc = document.getElementById(`${prefix}-dc`);
         if (!ac || !dc) return;
         try {
             const result = await Host.call('setPlanParameter', {
                 planGuid: timeoutParams.planGuid,
-                settingKey: key === 'display' ? 'displayTimeout' : 'sleepTimeout',
-                acValue: Number(ac.value),
-                dcValue: Number(dc.value),
+                settingKey: key === 'brightness' ? 'displayBrightness' : key === 'display' ? 'displayTimeout' : 'sleepTimeout',
+                acValue: Number(key === 'brightness' && ac.disabled ? dc.value : ac.value),
+                dcValue: Number(key === 'brightness' && dc.disabled ? ac.value : dc.value),
             });
             if (!result?.success) throw new Error('powercfg rejected setting');
             showTimeoutStatus(t('power_timeout_saved'), false);
@@ -343,7 +378,7 @@
                 return;
             }
             const key = el?.dataset?.timeoutKey;
-            if (key === 'display' || key === 'sleep') saveTimeoutParam(key);
+            if (key === 'display' || key === 'sleep' || key === 'brightness') saveTimeoutParam(key);
         });
         timeoutWired = true;
     }
@@ -391,7 +426,7 @@
     <label class="adv-plan-field"><span class="text-label-sm text-on-surface-variant" id="adv-plan-label"></span>
       <select class="adv-plan-select" id="adv-plan-select"></select>
     </label>
-    <div class="flex items-center gap-sm" id="adv-toggle-dc-row">
+    <div class="flex items-center gap-sm" id="adv-toggle-dc-row" data-vm-laptop-only>
       <div class="mini-toggle cursor-pointer" id="adv-toggle-dc" data-on="false"><div class="mini-toggle-knob"></div></div>
       <span class="text-body-sm text-on-surface" id="adv-show-dc-label"></span>
     </div>
@@ -534,46 +569,19 @@
     }
 
     function checkBatteryPresence() {
-        const info = window.VoltSystemInfo;
-        if (info && typeof info.hasBattery === 'boolean') {
-            applyBatteryPresence(info.hasBattery);
-        } else if (hasBattery == null && Host.available && !checkBatteryPresence._loading) {
-            checkBatteryPresence._loading = true;
-            Host.call('getSystemInfo').then(systemInfo => {
-                if (systemInfo && typeof systemInfo.hasBattery === 'boolean') applyBatteryPresence(systemInfo.hasBattery);
-            }).catch(() => {}).finally(() => { checkBatteryPresence._loading = false; });
+        window.VoltUiReorg?.syncLaptopOnly?.();
+        if (document.documentElement.dataset.vmHasBattery === 'false') {
+            advShowDc = false;
+            updateDcVisibility();
         }
         if (!checkBatteryPresence._wired) {
             checkBatteryPresence._wired = true;
-            document.addEventListener('systeminfoloaded', (e) => {
-                if (e?.detail && typeof e.detail.hasBattery === 'boolean') {
-                    applyBatteryPresence(e.detail.hasBattery);
-                }
-            });
             document.addEventListener('voltbatteryavailabilitychanged', (e) => {
-                if (e?.detail && typeof e.detail.hasBattery === 'boolean') {
-                    applyBatteryPresence(e.detail.hasBattery);
+                if (e?.detail?.hasBattery === false) {
+                    advShowDc = false;
+                    updateDcVisibility();
                 }
             });
-        }
-    }
-
-    function applyBatteryPresence(value) {
-        if (typeof value === 'boolean') hasBattery = value;
-        const hide = hasBattery === false;
-        const toggleRow = document.getElementById('adv-toggle-dc-row');
-        if (toggleRow) {
-            toggleRow.classList.toggle('hidden', hide);
-            toggleRow.style.display = hide ? 'none' : '';
-            toggleRow.setAttribute('aria-hidden', hide ? 'true' : 'false');
-        }
-        document.querySelectorAll('.timeout-dc-section').forEach(el => {
-            el.classList.toggle('hidden', hide);
-            el.style.display = hide ? 'none' : '';
-        });
-        if (hide) {
-            advShowDc = false;
-            updateDcVisibility();
         }
     }
 

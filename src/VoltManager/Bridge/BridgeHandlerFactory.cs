@@ -34,6 +34,7 @@ internal static class BridgeHandlerFactory
         var batteryHealth = new BatteryHealthService();
         var powerFlow = new PowerFlowService();
         var batteryPowerSmoother = new BatteryPowerSmoother();
+        var brightness = new BrightnessService();
 
         var settingsHandler = new SettingsRpcHandler(
             settings,
@@ -68,6 +69,8 @@ internal static class BridgeHandlerFactory
                 () => batteryHealth.GetHealth(),
                 () => GetBatteryPower(app, powerFlow, batteryPowerSmoother),
                 () => app.BatteryHistory.GetHistory(),
+                () => brightness.GetBrightness(),
+                percent => brightness.SetBrightness(percent),
                 power.CheckDefaultPlans,
                 power.RestoreDefaultPlans,
                 power.GetActivePlan,

@@ -54,7 +54,7 @@
     }
 
     function optionHtml(id, titleKey, subKey, icon, on) {
-        return '<div class="heavy-app-option" id="pref-' + id + '">' +
+        return '<div class="heavy-app-option" id="pref-' + id + '"' + (id.endsWith('-battery') ? ' data-vm-laptop-only' : '') + '>' +
             '<div class="flex items-center gap-md">' +
             '<div class="w-11 h-11 rounded-xl bg-surface-container-lowest border border-white/5 flex items-center justify-center">' +
             '<span class="material-symbols-outlined text-secondary-container">' + icon + '</span>' +
@@ -64,40 +64,8 @@
             '<div class="mini-toggle-knob"></div></div></div>';
     }
 
-    // Hide battery-only power prefs on desktops (same pattern as dashboard/advanced).
     function checkBatteryPresence() {
-        const info = window.VoltSystemInfo;
-        if (info && typeof info.hasBattery === 'boolean') {
-            applyBatteryPresence(info.hasBattery);
-        }
-        // Also follow reorg / late Host resolution (desktop must stay gated after remount).
-        if (!checkBatteryPresence._wired) {
-            checkBatteryPresence._wired = true;
-            document.addEventListener('systeminfoloaded', (e) => {
-                if (e?.detail && typeof e.detail.hasBattery === 'boolean') {
-                    applyBatteryPresence(e.detail.hasBattery);
-                }
-            });
-            document.addEventListener('voltbatteryavailabilitychanged', (e) => {
-                if (e?.detail && typeof e.detail.hasBattery === 'boolean') {
-                    applyBatteryPresence(e.detail.hasBattery);
-                }
-            });
-        }
-    }
-
-    function setBatteryOnlyNode(node, hasBattery) {
-        if (!node) return;
-        const hide = hasBattery === false;
-        node.classList.toggle('hidden', hide);
-        // Inline display beats utility/component flex rules (Tailwind .flex, .heavy-app-option).
-        node.style.display = hide ? 'none' : '';
-        node.setAttribute('aria-hidden', hide ? 'true' : 'false');
-    }
-
-    function applyBatteryPresence(hasBattery) {
-        setBatteryOnlyNode(document.getElementById('pref-keep-awake-battery'), hasBattery);
-        setBatteryOnlyNode(document.getElementById('pref-idle-battery'), hasBattery);
+        window.VoltUiReorg?.syncLaptopOnly?.();
     }
 
     function refreshPowerLabels() {

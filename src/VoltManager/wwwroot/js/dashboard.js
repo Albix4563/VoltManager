@@ -754,7 +754,6 @@
     const clearOverrideBtn = document.getElementById('btn-clear-manual-override');
     const powerSourcePlanHome = document.getElementById('pref-power-source-plan-home');
     const powerSourcePlanHomeToggle = document.getElementById('toggle-power-source-plan-home');
-    const lowBatteryThresholdHome = document.getElementById('pref-low-battery-threshold-home');
     const lowBatteryThresholdInput = document.getElementById('low-battery-threshold-input');
     const activePlanReasonText = document.getElementById('active-plan-reason-text');
     const activePlanReasonIcon = document.getElementById('active-plan-reason-icon');
@@ -1099,19 +1098,6 @@
 
     function applyBatteryPresence(present) {
         hasBattery = present;
-        if (powerSourcePlanHome) {
-            const hide = present === false;
-            // Node also has Tailwind `flex`; class-only .hidden can lose the cascade.
-            powerSourcePlanHome.classList.toggle('hidden', hide);
-            powerSourcePlanHome.style.display = hide ? 'none' : '';
-            powerSourcePlanHome.setAttribute('aria-hidden', hide ? 'true' : 'false');
-        }
-        if (lowBatteryThresholdHome) {
-            const hide = present === false;
-            lowBatteryThresholdHome.classList.toggle('hidden', hide);
-            lowBatteryThresholdHome.style.display = hide ? 'none' : '';
-            lowBatteryThresholdHome.setAttribute('aria-hidden', hide ? 'true' : 'false');
-        }
         // No battery -> never poll the firmware power flow (section stays hidden).
         if (present !== false) {
             startPowerFlowPolling();

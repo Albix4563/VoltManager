@@ -19,6 +19,7 @@ public class PowerPlanParameterService
 
     // Standard display/sleep settings.
     private const string SettingDisplayIdle = "3c0bc021-c8a8-4e07-a973-6b14cbcb2b7e";
+    private const string SettingDisplayBrightness = "aded5e82-b909-4619-9949-f5d71dac0bcb";
     private const string SettingSleepIdle   = "29f6c1db-86da-48c5-9fdb-f2b67b1f44da";
 
     // Processor / device settings.
@@ -58,6 +59,7 @@ public class PowerPlanParameterService
         {
             string guid = ResolvePlanGuid(planGuid);
             var display = QueryIndexes(guid, SubDisplay, SettingDisplayIdle);
+            var displayBrightness = QueryIndexes(guid, SubDisplay, SettingDisplayBrightness);
             var sleep = QueryIndexes(guid, SubSleep, SettingSleepIdle);
 
             if (!display.Supported || !sleep.Supported)
@@ -69,6 +71,12 @@ public class PowerPlanParameterService
                 PlanName = GetPlanName(guid),
                 DisplayTimeoutAc = Math.Max(0, display.Ac),
                 DisplayTimeoutDc = Math.Max(0, display.Dc),
+                DisplayBrightnessAc = displayBrightness.Supported
+                    ? Clamp(displayBrightness.Ac, 0, 100)
+                    : null,
+                DisplayBrightnessDc = displayBrightness.Supported
+                    ? Clamp(displayBrightness.Dc, 0, 100)
+                    : null,
                 SleepTimeoutAc = Math.Max(0, sleep.Ac),
                 SleepTimeoutDc = Math.Max(0, sleep.Dc),
             };
@@ -225,6 +233,7 @@ public class PowerPlanParameterService
     private static SettingSpec ResolveKey(string key) => key switch
     {
         "displayTimeout" => new(SubDisplay, SettingDisplayIdle, 0, int.MaxValue),
+        "displayBrightness" => new(SubDisplay, SettingDisplayBrightness, 0, 100),
         "sleepTimeout" => new(SubSleep, SettingSleepIdle, 0, int.MaxValue),
         "processorMin" => new(SubProcessor, SettingProcMin, 0, 100),
         "processorMax" => new(SubProcessor, SettingProcMax, 0, 100),

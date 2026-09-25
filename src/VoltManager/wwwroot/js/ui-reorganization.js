@@ -71,12 +71,28 @@
         }
     }
 
+    function syncLaptopOnly() {
+        document.documentElement.dataset.vmHasBattery = state.hasBattery === null ? 'unknown' : String(state.hasBattery);
+        document.querySelectorAll('[data-vm-laptop-only]').forEach(node =>
+            setBatteryOnlyVisible(node, state.hasBattery === true));
+        document.querySelectorAll('[data-vm-brightness-only]').forEach(node =>
+            setBatteryOnlyVisible(node, document.documentElement.dataset.vmBrightness === 'supported' &&
+                (node.getAttribute('data-vm-laptop-only') == null || state.hasBattery === true)));
+    }
+    api.syncLaptopOnly = syncLaptopOnly;
+    api.setBrightnessSupport = supported => {
+        document.documentElement.dataset.vmBrightness = supported === true ? 'supported' :
+            supported === false ? 'unsupported' : 'unknown';
+        syncLaptopOnly();
+    };
+
     function hasReadableBatteryPercent() {
         const value = $('power-flow-percent')?.textContent.trim() || '';
         return value !== '' && value !== '--' && value !== '--%';
     }
 
     function syncBatteryCapabilityUi() {
+        syncLaptopOnly();
         const hasBattery = state.hasBattery === true;
         const batteryTab = document.querySelector(
             '[data-vm-subnav-group="monitoring"][data-vm-subnav-target="battery"]');
@@ -110,6 +126,12 @@
 
         document.addEventListener('systeminfoloaded', event => {
             applySystemInfo(event.detail);
+        });
+        document.addEventListener('voltbatteryavailabilitychanged', event => {
+            if (typeof event.detail?.hasBattery === 'boolean' && state.hasBattery !== event.detail.hasBattery) {
+                state.hasBattery = event.detail.hasBattery;
+                syncBatteryCapabilityUi();
+            }
         });
 
         const percent = $('power-flow-percent');

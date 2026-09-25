@@ -15,11 +15,11 @@
 (function () {
     // Each tip = a Material Symbols icon + the i18n keys for its title/body.
     const tips = [
-        { icon: 'battery_saver',       title: 'tip1_title', body: 'tip1_body' },
-        { icon: 'power',               title: 'tip2_title', body: 'tip2_body' },
-        { icon: 'brightness_6',        title: 'tip3_title', body: 'tip3_body' },
+        { icon: 'battery_saver',       title: 'tip1_title', body: 'tip1_body', laptopOnly: true },
+        { icon: 'power',               title: 'tip2_title', body: 'tip2_body', laptopOnly: true },
+        { icon: 'brightness_6',        title: 'tip3_title', body: 'tip3_body', laptopOnly: true },
         { icon: 'rocket_launch',       title: 'tip4_title', body: 'tip4_body' },
-        { icon: 'speed',               title: 'tip5_title', body: 'tip5_body' },
+        { icon: 'speed',               title: 'tip5_title', body: 'tip5_body', laptopOnly: true },
         { icon: 'memory',              title: 'tip6_title', body: 'tip6_body' },
         { icon: 'developer_board',     title: 'tip7_title', body: 'tip7_body' },
         { icon: 'tune',                title: 'tip8_title', body: 'tip8_body' },
@@ -42,6 +42,11 @@
             [a[i], a[j]] = [a[j], a[i]];
         }
         return a;
+    }
+
+    function availableTips() {
+        const hasBattery = document.documentElement.dataset.vmHasBattery === 'true';
+        return tips.map((_, i) => i).filter(i => hasBattery || !tips[i].laptopOnly);
     }
 
     function buildDots() {
@@ -81,7 +86,7 @@
 
     function open() {
         if (!overlay) return;
-        order = shuffle(tips.map((_, i) => i));
+        order = shuffle(availableTips());
         pos = 0;
         buildDots();
         render();
@@ -139,6 +144,15 @@
         overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
         document.addEventListener('keydown', onKeydown, true);
         document.addEventListener('langchanged', () => { refreshButtonTitle(); if (active) render(); });
+        document.addEventListener('voltbatteryavailabilitychanged', () => {
+            if (!active) return;
+            const available = availableTips();
+            order = order.filter(i => available.includes(i));
+            available.forEach(i => { if (!order.includes(i)) order.push(i); });
+            pos = Math.min(pos, order.length - 1);
+            buildDots();
+            render();
+        });
 
         refreshButtonTitle();
         wired = true;

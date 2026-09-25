@@ -28,6 +28,7 @@ public class EnergyRpcHandlerTests
         string[] expected =
         [
             "getBatteryHealth", "getBatteryPower", "getBatteryHistory", "exportBatteryHistory",
+            "getDisplayBrightness", "setDisplayBrightness",
             "checkDefaultPlans", "restoreDefaultPlans", "getActivePlan", "getActivePlanReason",
             "getPlanHistory", "clearPlanHistory", "listPowerPlans", "getKeepAwakeState",
             "setKeepAwake", "setKeepAwakeSafety", "getCpuAutomationState", "setManualOverride",
@@ -116,16 +117,74 @@ public class EnergyRpcHandlerTests
         Assert.Equal(0, calls);
     }
 
+    [Fact]
+    public async Task GetDisplayBrightness_delegates_to_action()
+    {
+        int calls = 0;
+        var expected = new { supported = true, percent = 42 };
+        var handler = Create(getDisplayBrightness: () =>
+        {
+            calls++;
+            return expected;
+        });
+
+        object? result = await handler.HandleAsync("getDisplayBrightness", default, CancellationToken.None);
+
+        Assert.Same(expected, result);
+        Assert.Equal(1, calls);
+    }
+
+    [Theory]
+    [InlineData(150, 100)]
+    [InlineData(-5, 0)]
+    public async Task SetDisplayBrightness_clamps_percent_before_action(int input, int expected)
+    {
+        int? received = null;
+        var handler = Create(setDisplayBrightness: percent =>
+        {
+            received = percent;
+            return new { supported = true, percent };
+        });
+
+        await handler.HandleAsync(
+            "setDisplayBrightness",
+            Payload(new { percent = input }),
+            CancellationToken.None);
+
+        Assert.Equal(expected, received);
+    }
+
+    [Fact]
+    public async Task SetDisplayBrightness_rejects_missing_or_invalid_percent()
+    {
+        int calls = 0;
+        var handler = Create(setDisplayBrightness: percent =>
+        {
+            calls++;
+            return new { supported = true, percent };
+        });
+
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            handler.HandleAsync("setDisplayBrightness", default, CancellationToken.None));
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            handler.HandleAsync("setDisplayBrightness", Payload(new { percent = "50" }), CancellationToken.None));
+        Assert.Equal(0, calls);
+    }
+
     private static EnergyRpcHandler Create(
         SettingsService? settings = null,
         Func<DateTime>? now = null,
         Func<IReadOnlyList<BatteryHistorySample>>? getHistory = null,
         Func<bool, int, object>? setKeepAwakeSafety = null,
         Func<TimeSpan, ScheduledPowerActionType, object>? scheduleAfter = null,
-        Func<PlanId, TimeSpan?, bool>? setManualOverride = null)
+        Func<PlanId, TimeSpan?, bool>? setManualOverride = null,
+        Func<object>? getDisplayBrightness = null,
+        Func<int, object>? setDisplayBrightness = null)
     {
         settings ??= TestSettings.Create();
-        var actions = CreateActions(settings, now, getHistory, setKeepAwakeSafety, scheduleAfter, setManualOverride);
+        var actions = CreateActions(
+            settings, now, getHistory, setKeepAwakeSafety, scheduleAfter, setManualOverride,
+            getDisplayBrightness, setDisplayBrightness);
         return new EnergyRpcHandler(settings, new LocalizationService(), actions, new FakeDialogs());
     }
 
@@ -135,11 +194,15 @@ public class EnergyRpcHandlerTests
         Func<IReadOnlyList<BatteryHistorySample>>? getHistory,
         Func<bool, int, object>? setKeepAwakeSafety,
         Func<TimeSpan, ScheduledPowerActionType, object>? scheduleAfter,
-        Func<PlanId, TimeSpan?, bool>? setManualOverride)
+        Func<PlanId, TimeSpan?, bool>? setManualOverride,
+        Func<object>? getDisplayBrightness,
+        Func<int, object>? setDisplayBrightness)
         => new(
             GetBatteryHealth: () => new BatteryHealthState { Available = true },
             GetBatteryPower: () => new BatteryPowerState { Available = true },
             GetBatteryHistory: getHistory ?? (() => Array.Empty<BatteryHistorySample>()),
+            GetDisplayBrightness: getDisplayBrightness ?? (() => new { supported = false, percent = (int?)null }),
+            SetDisplayBrightness: setDisplayBrightness ?? (percent => new { supported = true, percent }),
             CheckDefaultPlans: () => (true, new List<PlanId>()),
             RestoreDefaultPlans: () => true,
             GetActivePlan: () => new { name = "Balanced" },

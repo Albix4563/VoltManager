@@ -61,3 +61,10 @@
 .plan-history-action:hover{border-color:rgb(var(--vm-accent-rgb) / .3);color:var(--vm-accent);}
 @media (max-width:960px){.heavy-app-grid,.keep-awake-grid,.heavy-rules-grid{grid-template-columns:1fr}.app-profile-row{grid-template-columns:1fr 1fr 38px 38px 38px}}
 @media (max-width:640px){.vm-acc-header{padding-left:16px;padding-right:16px}.vm-acc-item[data-open="true"] .vm-acc-body-inner{padding-left:16px;padding-right:16px}.plan-history-toolbar{align-items:stretch}.plan-history-filters{width:100%}.plan-history-entry-head{flex-direction:column;gap:4px}.plan-history-outcome{text-align:left}.plan-history-plans{grid-template-columns:1fr}}
+.power-brightness-card { min-width: 0; }
+.power-brightness-card[hidden] { display: none !important; }
+html:not([data-vm-has-battery="true"]) [data-vm-laptop-only],
+html:not([data-vm-brightness="supported"]) [data-vm-brightness-only] { display: none !important; }
+.power-brightness-card .power-timeout-side { min-width: 0; }
+.power-brightness-card .power-timeout-select:focus-visible {
+    outline: 2px solid var(--vm-accent); outline-offset: 2px; }

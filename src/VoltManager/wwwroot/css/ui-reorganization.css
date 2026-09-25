@@ -182,9 +182,26 @@
     gap: 24px;
 }
 
+#vm-brightness-card { gap: 10px; }
+.vm-brightness-sub { margin: 0; color: var(--vm-muted); }
+.vm-brightness-controls { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.vm-brightness-button { display: grid; place-items: center; flex: 0 0 40px; width: 40px; height: 40px;
+    border: 1px solid rgb(var(--vm-accent-rgb) / .25); border-radius: 10px;
+    background: rgb(var(--vm-accent-rgb) / .08); color: var(--vm-accent); cursor: pointer; }
+.vm-brightness-button:hover { background: rgb(var(--vm-accent-rgb) / .16); }
+#vm-brightness-range { flex: 1 1 auto; min-width: 70px; accent-color: var(--vm-accent); cursor: pointer; }
+#vm-brightness-value { min-width: 4ch; text-align: right; color: var(--vm-accent);
+    font-weight: 700; font-variant-numeric: tabular-nums; }
+.vm-brightness-button:focus-visible, #vm-brightness-range:focus-visible {
+    outline: 2px solid var(--vm-accent); outline-offset: 3px; }
+@media (max-width: 520px) {
+    .vm-brightness-controls { gap: 8px; }
+    .vm-brightness-button { flex-basis: 36px; width: 36px; height: 36px; }
+}
+
 .vm-reorg-view[data-vm-view="overview"]:not(.hidden) {
     display: grid;
-    grid-template-rows: auto minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1.5fr) auto minmax(0, 1fr) minmax(0, 1fr);
     align-content: stretch;
 }
 

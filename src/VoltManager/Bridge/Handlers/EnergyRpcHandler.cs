@@ -14,6 +14,7 @@ public sealed class EnergyRpcHandler : IBridgeRpcHandler
     private static readonly string[] RegisteredMethods =
     [
         "getBatteryHealth", "getBatteryPower", "getBatteryHistory", "exportBatteryHistory",
+        "getDisplayBrightness", "setDisplayBrightness",
         "checkDefaultPlans", "restoreDefaultPlans", "getActivePlan", "getActivePlanReason",
         "getPlanHistory", "clearPlanHistory", "listPowerPlans", "getKeepAwakeState",
         "setKeepAwake", "setKeepAwakeSafety", "getCpuAutomationState", "setManualOverride",
@@ -56,6 +57,14 @@ public sealed class EnergyRpcHandler : IBridgeRpcHandler
                 return await GetBatteryHistoryAsync(payload, cancellationToken);
             case "exportBatteryHistory":
                 return await ExportBatteryHistoryAsync(cancellationToken);
+            case "getDisplayBrightness":
+                return await Task.Run(_actions.GetDisplayBrightness, cancellationToken);
+            case "setDisplayBrightness":
+            {
+                int percent = BridgePayload.RequiredInt32(payload, "percent", "Missing or invalid percent");
+                percent = Math.Clamp(percent, 0, 100);
+                return await Task.Run(() => _actions.SetDisplayBrightness(percent), cancellationToken);
+            }
             case "checkDefaultPlans":
             {
                 var state = await Task.Run(_actions.CheckDefaultPlans, cancellationToken);

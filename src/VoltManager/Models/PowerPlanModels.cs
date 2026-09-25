@@ -34,6 +34,8 @@ public record PowerPlanTimeoutSet
     [JsonPropertyName("planName")] public string PlanName { get; init; } = "";
     [JsonPropertyName("displayTimeoutAc")] public int DisplayTimeoutAc { get; init; }
     [JsonPropertyName("displayTimeoutDc")] public int DisplayTimeoutDc { get; init; }
+    [JsonPropertyName("displayBrightnessAc")] public int? DisplayBrightnessAc { get; init; }
+    [JsonPropertyName("displayBrightnessDc")] public int? DisplayBrightnessDc { get; init; }
     [JsonPropertyName("sleepTimeoutAc")] public int SleepTimeoutAc { get; init; }
     [JsonPropertyName("sleepTimeoutDc")] public int SleepTimeoutDc { get; init; }
     [JsonPropertyName("error")] public string? Error { get; init; }
