@@ -45,7 +45,9 @@
         });
     }
 
-    function rawCall(method, payload) {
+    const DEFAULT_RPC_TIMEOUT_MS = 120000;
+
+    function rawCall(method, payload, timeoutMs) {
         if (!hasWebView) {
             return Promise.reject(new Error('Bridge non disponibile (anteprima browser)'));
         }
@@ -56,7 +58,7 @@
                     pending.delete(id);
                     reject(new Error('Timeout: ' + method));
                 }
-            }, 120000);
+            }, timeoutMs > 0 ? timeoutMs : DEFAULT_RPC_TIMEOUT_MS);
             pending.set(id, { resolve, reject, timeout });
             window.chrome.webview.postMessage({ id, method, payload: payload || {} });
         });
@@ -96,9 +98,9 @@
 
     window.Host = {
         available: hasWebView,
-        call(method, payload) {
+        call(method, payload, options) {
             if (method === 'getTopProcesses') return callTopProcesses(payload);
-            return rawCall(method, payload);
+            return rawCall(method, payload, options && options.timeoutMs);
         },
         on(eventName, handler) {
             if (!listeners.has(eventName)) listeners.set(eventName, []);

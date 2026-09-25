@@ -1,3 +1,4 @@
+using System;
 using System.Windows;
 using System.Windows.Media;
 using System.IO;
@@ -68,13 +69,23 @@ namespace VoltManager.Setup
         {
             var engine = new InstallEngine();
             int exit = 0;
+            string version = GetVersion();
+            SetupUpdateLog.Info($"Update to {version} started (waiting for pid {pid}).");
             try
             {
-                await new UpdateInstallCoordinator(engine).UpdateAsync(pid, GetVersion());
+                await new UpdateInstallCoordinator(engine).UpdateAsync(pid, version);
+                SetupUpdateLog.Info($"Update to {version} completed.");
             }
-            catch
+            catch (Exception ex)
             {
                 exit = 1;
+                SetupUpdateLog.Error($"Update to {version} failed: {ex}");
+                // /update has no window: without this the user only sees the app vanish.
+                MessageBox.Show(
+                    string.Format(I18n.T("update_failed"), ex.Message, SetupUpdateLog.FilePath),
+                    "VoltManager",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
             }
             Shutdown(exit);
         }

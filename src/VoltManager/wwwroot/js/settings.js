@@ -14,6 +14,10 @@
     let modalActionsMounted = false;
     let autoUpdatesWired = false;
     let pendingWelcomeUpdateInfo = null;
+    let installHandoffTimer = 0;
+
+    const UPDATE_DOWNLOAD_RPC_TIMEOUT_MS = 30 * 60 * 1000;
+    const UPDATE_INSTALL_HANDOFF_TIMEOUT_MS = 60 * 1000;
 
 
     function lang() {
@@ -326,6 +330,7 @@
 
     async function doDownloadAndInstall() {
         if (!downloadUrl) return;
+        clearTimeout(installHandoffTimer);
         const progWrap  = document.getElementById('upd-modal-progress-wrap');
         const progBar   = document.getElementById('upd-modal-bar');
         const progLabel = document.getElementById('upd-modal-prog-label');
@@ -334,9 +339,12 @@
         if (progWrap) progWrap.classList.remove('hidden');
         setModalActionsDisabled(true);
         if (progLabel) progLabel.textContent = tr('msg_dl_prog', lt('dlProg')) + '0%';
+        if (stateMsg) stateMsg.classList.add('hidden');
 
         try {
-            const result = await Host.call('downloadUpdate', { url: downloadUrl });
+            // The RPC spans the whole download: the host enforces its own inactivity
+            // timeout, so the generic 120s bridge timeout must not cut slow links.
+            const result = await Host.call('downloadUpdate', { url: downloadUrl }, { timeoutMs: UPDATE_DOWNLOAD_RPC_TIMEOUT_MS });
             if (result && result.deferred) {
                 setModalActionsDisabled(false);
                 if (progWrap) progWrap.classList.add('hidden');
@@ -353,10 +361,26 @@
                 stateMsg.classList.remove('hidden');
             }
             if (progBar) progBar.style.width = '100%';
+            // A successful install closes this app; if we are still alive the
+            // installer never took over, so surface it instead of sitting at 100%.
+            installHandoffTimer = setTimeout(() => {
+                setModalActionsDisabled(false);
+                showUpdateModalError(stateMsg, lt('installStuck'));
+            }, UPDATE_INSTALL_HANDOFF_TIMEOUT_MS);
         } catch (err) {
             setModalActionsDisabled(false);
-            setStatus(tr('msg_dl_fail', lt('dlFail')) + err.message, true);
+            if (progWrap) progWrap.classList.add('hidden');
+            const msg = tr('msg_dl_fail', lt('dlFail')) + err.message;
+            showUpdateModalError(stateMsg, msg);
         }
+    }
+
+    function showUpdateModalError(stateMsg, msg) {
+        if (stateMsg) {
+            stateMsg.textContent = msg;
+            stateMsg.classList.remove('hidden');
+        }
+        setStatus(msg, true);
     }
 
     btnCheck?.addEventListener('click', async () => {

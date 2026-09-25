@@ -12,23 +12,28 @@ namespace VoltManager.Setup.Engine
     /// </summary>
     public sealed class UpdateInstallCoordinator
     {
+        private static readonly TimeSpan MainProcessExitTimeout = TimeSpan.FromSeconds(30);
+
         private readonly IInstallUpdateEngine _engine;
         private readonly IInstallProcessOperations _processOperations;
         private readonly Func<string?> _clearWebView2Cache;
+        private readonly Action<string> _warn;
 
         public UpdateInstallCoordinator(InstallEngine engine)
-            : this(engine, new SystemInstallProcessOperations(), ClearWebView2Cache)
+            : this(engine, new SystemInstallProcessOperations(), ClearWebView2Cache, SetupUpdateLog.Warn)
         {
         }
 
         internal UpdateInstallCoordinator(
             IInstallUpdateEngine engine,
             IInstallProcessOperations processOperations,
-            Func<string?> clearWebView2Cache)
+            Func<string?> clearWebView2Cache,
+            Action<string>? warn = null)
         {
             _engine = engine ?? throw new ArgumentNullException(nameof(engine));
             _processOperations = processOperations ?? throw new ArgumentNullException(nameof(processOperations));
             _clearWebView2Cache = clearWebView2Cache ?? throw new ArgumentNullException(nameof(clearWebView2Cache));
+            _warn = warn ?? (_ => { });
         }
 
         public async Task UpdateAsync(int waitPid, string version, CancellationToken ct = default)
@@ -36,17 +41,18 @@ namespace VoltManager.Setup.Engine
             if (waitPid > 0)
             {
                 bool exited = await _processOperations.WaitForExitAsync(
-                    waitPid, TimeSpan.FromSeconds(30), ct).ConfigureAwait(false);
+                    waitPid, MainProcessExitTimeout, ct).ConfigureAwait(false);
+                // Not fatal: InstallEngine's stop-processes step terminates the supervisor
+                // before the app, so a hung instance is closed without being restarted.
                 if (!exited)
-                    throw new InvalidOperationException("VoltManager did not exit before the update timeout.");
+                    _warn($"VoltManager (pid {waitPid}) did not exit within {MainProcessExitTimeout.TotalSeconds:0}s; it will be stopped by the installer.");
             }
 
+            // The profile is only a cache: a locked file (for instance a WebView2 helper
+            // still shutting down) must not block the update itself.
             string? cacheError = _clearWebView2Cache();
             if (!string.IsNullOrWhiteSpace(cacheError))
-            {
-                throw new InvalidOperationException(
-                    "Unable to reset VoltManager WebView2 data before update: " + cacheError);
-            }
+                _warn("Unable to reset VoltManager WebView2 data before update: " + cacheError);
 
             // The main process has already been awaited above. InstallEngine still performs
             // its own process-safety checks for the supervisor/hardware service before files

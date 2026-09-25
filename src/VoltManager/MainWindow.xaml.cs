@@ -190,7 +190,9 @@ public partial class MainWindow : Window
         _bridge?.Dispose();
         _bridge = new HostBridge(WebView, _app.Hardware, _app.Power, _app.Settings, _app.Updates, _app.AutoStart, _app.Monitor, _app);
         _bridge.Attach();
-        _bridge.ExitRequested += () => Dispatcher.Invoke(() => { _exiting = true; _app.ExitApp(); });
+        // Queued, not inline: the requesting RPC must finish and reply before
+        // ExitApp disposes the bridge it is still running on.
+        _bridge.ExitRequested += () => Dispatcher.BeginInvoke(() => { _exiting = true; _app.ExitApp(); });
         _bridge.MinimizeToTrayRequested += () => Dispatcher.Invoke(HideToTray);
         _bridge.GamingModeRequested += SetGamingModeFromBridgeAsync;
         _bridge.GamingModeStateRequested += GetGamingModeState;
@@ -568,6 +570,7 @@ public partial class MainWindow : Window
         {
             Process.Start(new ProcessStartInfo(path,
                 $"/update --pid {Environment.ProcessId} --lang {_app.Loc.CurrentLanguage}") { UseShellExecute = true });
+            Logger.Info("Update installer launched; exiting for update.");
             _exiting = true;
             _app.ExitApp();
         }

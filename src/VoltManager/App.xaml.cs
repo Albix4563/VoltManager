@@ -26,6 +26,7 @@ public partial class App : Application
     private RemoteCommandService? _remoteCommands;
     private ApplicationLifecycleCoordinator? _applicationLifecycle;
     public AppServiceGraph Services { get; private set; } = null!;
+    private static readonly TimeSpan ExitWatchdogTimeout = TimeSpan.FromSeconds(10);
     private int _exitStarted;
     private int _serviceDisposalStarted;
 
@@ -584,6 +585,7 @@ public partial class App : Application
     public void ExitApp()
     {
         if (Interlocked.Exchange(ref _exitStarted, 1) != 0) return;
+        StartExitWatchdog();
         SafeCleanup("main window runtime", () => _mainWindow?.StopRuntime());
         SafeCleanup("widgets", Widgets.Dispose);
         SafeCleanup("application lifecycle", () => _applicationLifecycle?.Dispose());
@@ -592,6 +594,24 @@ public partial class App : Application
         SafeCleanup("show event", () => _showEvent?.Dispose());
         SafeCleanup("mutex", ReleaseApplicationMutex);
         Shutdown();
+    }
+
+    // A cleanup step or a foreground thread that hangs must not keep the process
+    // alive: the updater waits for this PID before replacing files. Exit code 0 so
+    // the supervisor treats it as a normal exit and does not restart the app.
+    private static void StartExitWatchdog()
+    {
+        var watchdog = new Thread(() =>
+        {
+            Thread.Sleep(ExitWatchdogTimeout);
+            Logger.Error($"Shutdown did not complete within {ExitWatchdogTimeout.TotalSeconds:0}s; forcing process exit.");
+            Environment.Exit(0);
+        })
+        {
+            IsBackground = true,
+            Name = "VoltManager exit watchdog",
+        };
+        watchdog.Start();
     }
 
     private void DisposeApplicationServices()
