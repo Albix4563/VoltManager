@@ -34,7 +34,9 @@ public sealed class BridgeContractInventoryTests
             "exportSettings", "exportBatteryHistory", "openLogFolder", "exportDiagnostics",
             "importSettings",
             "getLanRemoteControlState", "setLanRemoteControlEnabled", "setLanRemoteControlPermissions",
-            "generateLanRemoteControlPin", "setLanRemoteControlPin",
+            "generateLanRemoteControlPin", "setLanRemoteControlPin", "showMainWindow",
+            "getLaunchers", "refreshLaunchers", "launchApp",
+            "addCustomLauncher", "removeCustomLauncher", "setLauncherHidden",
         ];
 
         string[] actual =
@@ -46,9 +48,10 @@ public sealed class BridgeContractInventoryTests
             .. UpdateRpcHandler.MethodNames,
             .. ApplicationRpcHandler.MethodNames,
             .. LanRemoteControlRpcHandler.MethodNames,
+            .. LauncherRpcHandler.MethodNames,
         ];
 
-        Assert.Equal(88, actual.Length);
+        Assert.Equal(95, actual.Length);
         Assert.Equal(actual.Length, actual.Distinct(StringComparer.Ordinal).Count());
         Assert.Equal(expected.Order(StringComparer.Ordinal), actual.Order(StringComparer.Ordinal));
     }
@@ -61,14 +64,14 @@ public sealed class BridgeContractInventoryTests
             "activePlanChanged", "activePlanReasonChanged", "appPowerProfileActivityChanged",
             "appUpdated", "automationStateChanged", "cpuAutomationStateChanged", "fontChanged",
             "gamingModeChanged", "globalHotkeysChanged", "heavyAppActivityChanged",
-            "idlePowerGuardChanged", "keepAwakeChanged", "languageChanged", "manualOverrideChanged",
+            "idlePowerGuardChanged", "keepAwakeChanged", "languageChanged", "launchersChanged", "manualOverrideChanged",
             "metrics", "planHistoryChanged", "powerPlanConflictDetected", "powerSourcePlanChanged",
             "resourceProfileChanged", "scheduledPowerActionChanged", "standbyAutoCleaned",
             "themeChanged", "thermalGuardChanged", "updateAvailable", "updateDownloadProgress",
             "widgetsStateChanged", "widgetTopmostChanged",
         ];
 
-        Assert.Equal(27, BridgeEventNames.All.Count);
+        Assert.Equal(28, BridgeEventNames.All.Count);
         Assert.Equal(expected.Order(StringComparer.Ordinal), BridgeEventNames.All.Order(StringComparer.Ordinal));
     }
 }

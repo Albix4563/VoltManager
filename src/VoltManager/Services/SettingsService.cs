@@ -88,6 +88,7 @@ public class SettingsService
         settings.StandbyAutoCleaner ??= new StandbyAutoCleanerSettings();
         settings.Widgets ??= new WidgetSettings();
         settings.LanRemoteControl ??= new LanRemoteControlSettings();
+        settings.Launcher ??= new LauncherSettings();
         settings.PlanGuidMap ??= new Dictionary<string, string>();
 
         NormalizeScheduledPowerAction(settings.AutoShutdown);
@@ -103,6 +104,7 @@ public class SettingsService
         NormalizeStandbyAutoCleanerSettings(settings.StandbyAutoCleaner);
         NormalizeWidgetSettings(settings.Widgets);
         NormalizeLanRemoteControlSettings(settings.LanRemoteControl);
+        settings.Launcher.Normalize();
         NormalizeThemeColor(settings);
         NormalizeLanguage(settings);
         NormalizeFont(settings);

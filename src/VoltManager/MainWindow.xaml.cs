@@ -379,16 +379,20 @@ public partial class MainWindow : Window
     private bool IsGamingModeActive()
         => _gamingReminder.Active && IsPerformanceOverride(_app.Settings.Current.Override, DateTime.UtcNow);
 
-    private object GetGamingModeState()
+    internal object GetGamingModeState()
     {
         bool active = IsGamingModeActive();
         return new { active, plan = active ? "performance" : null, @override = _app.Settings.Current.Override };
     }
 
     private void PushGamingModeState()
-        => _bridge?.PushEvent(BridgeEventNames.GamingModeChanged, GetGamingModeState());
+    {
+        object state = GetGamingModeState();
+        _bridge?.PushEvent(BridgeEventNames.GamingModeChanged, state);
+        _app.NotifyGamingModeStateChanged(state);
+    }
 
-    private async Task<object?> SetGamingModeFromBridgeAsync(bool enabled)
+    internal async Task<object?> SetGamingModeFromBridgeAsync(bool enabled)
     {
         bool success = enabled
             ? await EnableGamingModeAsync()

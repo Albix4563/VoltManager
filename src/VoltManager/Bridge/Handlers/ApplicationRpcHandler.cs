@@ -10,7 +10,7 @@ public sealed class ApplicationRpcHandler : IBridgeRpcHandler
     [
         "getGamingMode", "setGamingMode", "getStartupApps", "pickStartupExecutable",
         "addStartupApp", "setStartupAppEnabled", "removeStartupApp", "logError",
-        "openExternal", "exitApp", "minimizeToTray",
+        "openExternal", "exitApp", "minimizeToTray", "showMainWindow",
     ];
 
     private readonly LocalizationService _loc;
@@ -83,6 +83,9 @@ public sealed class ApplicationRpcHandler : IBridgeRpcHandler
                 return new { success = true };
             case "minimizeToTray":
                 _actions.RequestMinimize();
+                return new { success = true };
+            case "showMainWindow":
+                _actions.ShowMainWindow();
                 return new { success = true };
             default:
                 throw new ArgumentException($"Handler cannot process RPC method '{method}'.");

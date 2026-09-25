@@ -70,6 +70,8 @@ public class SettingsRpcHandlerTests
             s.Language = "it";
             s.Widgets.Enabled = false;
             s.AutoUpdates.SnoozedUntilUtc = new DateTime(2026, 9, 21, 0, 0, 0, DateTimeKind.Utc);
+            s.Launcher.CustomApps.Add(new CustomLauncherApp { Path = @"D:\Games\tool.exe" });
+            s.Launcher.HiddenIds.Add("steam");
         });
         int profiles = 0, heavy = 0;
         var handler = CreateHandler(settings, refreshProfiles: () => profiles++, refreshHeavy: () => heavy++);
@@ -79,6 +81,10 @@ public class SettingsRpcHandlerTests
             Language = "",
             PlanGuidMap = new Dictionary<string, string> { ["Balanced"] = "foreign-guid" },
             AutostartTaskSchemaVersion = 0,
+            Launcher = new LauncherSettings
+            {
+                CustomApps = [new CustomLauncherApp { Path = @"C:\Users\x\Downloads\evil.exe" }],
+            },
         };
 
         object? result = await handler.HandleAsync("saveSettings", Payload(incoming), CancellationToken.None);
@@ -88,6 +94,8 @@ public class SettingsRpcHandlerTests
         Assert.Equal(7, settings.Current.AutostartTaskSchemaVersion);
         Assert.Equal("it", settings.Current.Language);
         Assert.False(settings.Current.Widgets.Enabled);
+        Assert.Equal(@"D:\Games\tool.exe", Assert.Single(settings.Current.Launcher.CustomApps).Path);
+        Assert.Equal(new[] { "steam" }, settings.Current.Launcher.HiddenIds);
         Assert.Equal(new DateTime(2026, 9, 21, 0, 0, 0, DateTimeKind.Utc),
             settings.Current.AutoUpdates.SnoozedUntilUtc);
         Assert.Equal(1, profiles);

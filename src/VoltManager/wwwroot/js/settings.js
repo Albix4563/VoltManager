@@ -480,7 +480,7 @@
     const widgetsList = document.getElementById('widgets-list');
     const widgetsEnabledList = document.getElementById('widgets-enabled-list');
     const widgetsDisabledList = document.getElementById('widgets-disabled-list');
-    const WIDGET_TYPES = ['clock', 'calendar', 'usage', 'temps', 'power', 'plans'];
+    const WIDGET_TYPES = ['clock', 'calendar', 'usage', 'temps', 'power', 'plans', 'launcher', 'actions', 'brightness', 'processes', 'memory'];
     const WIDGET_PRESETS = ['mini', 'medium', 'large'];
 
     function setToggle(el, on) {
@@ -548,6 +548,11 @@
             temps: 'device_thermostat',
             power: 'bolt',
             plans: 'tune',
+            launcher: 'apps',
+            actions: 'bolt',
+            brightness: 'brightness_6',
+            processes: 'list_alt',
+            memory: 'memory',
         }[type] || 'widgets';
     }
 
@@ -681,7 +686,9 @@
             var width = Math.round(item.width || 0);
             var height = Math.round(item.height || 0);
 
-            return '<article class="startup-card" data-state="' + stateAttr + '" data-widget-row data-widget-type="' + esc(item.type) + '">' +
+            var gate = item.type === 'brightness' && !item.enabled ? ' data-vm-brightness-only data-vm-laptop-only' : '';
+
+            return '<article class="startup-card" data-state="' + stateAttr + '" data-widget-row data-widget-type="' + esc(item.type) + '"' + gate + '>' +
                 '<div class="startup-card__accent"></div>' +
                 '<div class="startup-card__header"><div class="startup-card__title-wrap"><div class="startup-card__app-icon"><span class="material-symbols-outlined">' + widgetIcon(item.type) + '</span></div><div class="startup-card__meta"><p class="startup-card__name" data-i18n="widget_' + item.type + '">' + esc(item.type) + '</p><div class="startup-card__badges">' + chip + badgePin + '</div></div></div>' +
                 '<div class="startup-actions">' + toggleBtn + pinBtn + resetBtn + '</div></div>' +
@@ -718,6 +725,7 @@
             list.classList.toggle('opacity-60', !state.enabled);
         });
         if (window.I18n && I18n.apply) I18n.apply();
+        window.VoltUiReorg?.syncLaptopOnly?.();
         syncLocalWidgets(state);
     }
 
@@ -818,6 +826,136 @@
         });
 
         Host.on('widgetsStateChanged', renderWidgetsState);
+    }
+
+    const launcherDetectedList = document.getElementById('launcher-detected-list');
+    const launcherCustomList = document.getElementById('launcher-custom-list');
+    const launcherStatus = document.getElementById('launcher-manage-status');
+    let launcherEntries = null;
+    let launcherBusy = false;
+
+    function setLauncherStatus(text, isError) {
+        if (!launcherStatus) return;
+        launcherStatus.textContent = text || '';
+        launcherStatus.classList.toggle('hidden', !text);
+        launcherStatus.classList.toggle('err', !!text && isError === true);
+    }
+
+    function launcherRowIcon(item) {
+        const url = String(item.iconDataUrl || '');
+        if (url.startsWith('data:image/png;base64,')) {
+            return '<img src="' + esc(url) + '" alt="" width="24" height="24">';
+        }
+        return '<span class="material-symbols-outlined" aria-hidden="true">' + (item.source === 'custom' ? 'apps' : 'sports_esports') + '</span>';
+    }
+
+    function renderLauncherRow(item) {
+        const hidden = item.hidden === true;
+        const missing = item.available === false;
+        const visibilityLabel = hidden ? tr('launcher_manage_show', 'Show in widget') : tr('launcher_manage_hide', 'Hide from widget');
+        let actions = '<button class="startup-remove-btn" type="button" data-launcher-visibility data-launcher-id="' + esc(item.id) + '" data-hidden="' + (hidden ? 'true' : 'false') + '" aria-pressed="' + (hidden ? 'false' : 'true') + '" title="' + esc(visibilityLabel) + '" aria-label="' + esc(visibilityLabel) + '"><span class="material-symbols-outlined text-[18px]" aria-hidden="true">' + (hidden ? 'visibility_off' : 'visibility') + '</span></button>';
+        if (item.source === 'custom') {
+            const removeLabel = tr('launcher_manage_remove', 'Remove');
+            actions += '<button class="startup-remove-btn" type="button" data-launcher-remove data-launcher-id="' + esc(item.id) + '" title="' + esc(removeLabel) + '" aria-label="' + esc(removeLabel) + '"><span class="material-symbols-outlined text-[18px]" aria-hidden="true">delete</span></button>';
+        }
+        const note = missing
+            ? '<span class="launcher-manage-row__note" data-i18n="launcher_manage_missing">' + esc(tr('launcher_manage_missing', 'File not found')) + '</span>'
+            : hidden ? '<span class="launcher-manage-row__note" data-i18n="launcher_manage_hidden">' + esc(tr('launcher_manage_hidden', 'Hidden from widget')) + '</span>' : '';
+        return '<div class="launcher-manage-row" data-hidden="' + (hidden ? 'true' : 'false') + '" data-missing="' + (missing ? 'true' : 'false') + '">' +
+            '<div class="launcher-manage-row__icon">' + launcherRowIcon(item) + '</div>' +
+            '<div class="launcher-manage-row__meta"><p class="launcher-manage-row__name">' + esc(item.name) + '</p>' +
+            '<p class="launcher-manage-row__path" title="' + esc(item.path) + '">' + esc(item.path) + '</p>' + note + '</div>' +
+            '<div class="launcher-manage-row__actions">' + actions + '</div></div>';
+    }
+
+    function renderLauncherManage() {
+        if (!launcherDetectedList || !launcherCustomList) return;
+        const refreshBtn = document.getElementById('btn-launcher-refresh');
+        if (refreshBtn) refreshBtn.title = tr('launcher_manage_refresh', 'Detect again');
+        if (!launcherEntries) {
+            launcherDetectedList.innerHTML = widgetEmptyState('hourglass_empty', 'launcher_manage_loading', 'Searching for launchers...');
+            launcherCustomList.innerHTML = '';
+            return;
+        }
+        const detected = launcherEntries.filter(item => item.source !== 'custom');
+        const custom = launcherEntries.filter(item => item.source === 'custom');
+        launcherDetectedList.innerHTML = detected.length
+            ? detected.map(renderLauncherRow).join('')
+            : widgetEmptyState('search_off', 'launcher_manage_none_detected', 'No game launchers found on this PC.');
+        launcherCustomList.innerHTML = custom.length
+            ? custom.map(renderLauncherRow).join('')
+            : widgetEmptyState('add_circle', 'launcher_manage_none_custom', 'No apps added yet. Use Add app to choose an .exe file.');
+    }
+
+    async function loadLauncherManage(method) {
+        if (!launcherDetectedList) return;
+        try {
+            const list = await Host.call(method || 'getLaunchers');
+            launcherEntries = Array.isArray(list) ? list : [];
+            renderLauncherManage();
+        } catch (err) {
+            Host.fail(err, msg => setLauncherStatus(tr('launcher_manage_error', 'Could not update the launchers: ') + msg, true));
+        }
+    }
+
+    async function runLauncherAction(action) {
+        if (launcherBusy) return;
+        launcherBusy = true;
+        try {
+            await action();
+        } catch (err) {
+            Host.fail(err, msg => setLauncherStatus(tr('launcher_manage_error', 'Could not update the launchers: ') + msg, true));
+        } finally {
+            launcherBusy = false;
+        }
+    }
+
+    function mountLauncherManageUi() {
+        const card = document.getElementById('launcher-apps-card');
+        if (!card || card.dataset.wired === 'true') return;
+        card.dataset.wired = 'true';
+
+        document.getElementById('btn-launcher-refresh')?.addEventListener('click', () => runLauncherAction(async () => {
+            setLauncherStatus('');
+            launcherEntries = null;
+            renderLauncherManage();
+            await loadLauncherManage('refreshLaunchers');
+            setLauncherStatus(tr('launcher_manage_refreshed', 'Launcher list updated.'));
+        }));
+
+        document.getElementById('btn-launcher-add')?.addEventListener('click', () => runLauncherAction(async () => {
+            setLauncherStatus('');
+            const res = await Host.call('addCustomLauncher');
+            if (!res || !res.added) return;
+            const entry = res.entry;
+            await loadLauncherManage();
+            setLauncherStatus(tr('launcher_manage_added', 'Added {name}.').replace('{name}', entry && entry.name ? entry.name : ''));
+        }));
+
+        card.addEventListener('click', e => {
+            const visibility = e.target.closest('[data-launcher-visibility]');
+            if (visibility) {
+                const hidden = visibility.dataset.hidden !== 'true';
+                runLauncherAction(async () => {
+                    setLauncherStatus('');
+                    await Host.call('setLauncherHidden', { id: visibility.dataset.launcherId, hidden });
+                    await loadLauncherManage();
+                });
+                return;
+            }
+            const remove = e.target.closest('[data-launcher-remove]');
+            if (remove) {
+                runLauncherAction(async () => {
+                    setLauncherStatus('');
+                    await Host.call('removeCustomLauncher', { id: remove.dataset.launcherId });
+                    await loadLauncherManage();
+                });
+            }
+        });
+
+        Host.on('launchersChanged', () => { if (!launcherBusy) loadLauncherManage(); });
+        renderLauncherManage();
+        loadLauncherManage();
     }
 
     function normalizeAutoUpdates(settings) {
@@ -1232,6 +1370,7 @@
         wireAutoUpdateUi();
 
         mountWidgetsUi();
+        mountLauncherManageUi();
         renderWidgetsState(normalizeWidgetsState(settings.widgets));
         Host.call('getWidgetsState').then(renderWidgetsState).catch(() => {});
 
@@ -1314,6 +1453,7 @@
         if (window.__voltSettings) {
             const settings = window.__voltSettings.get ? window.__voltSettings.get() : window.__voltSettings;
             renderWidgetsState(normalizeWidgetsState(settings.widgets));
+            renderLauncherManage();
             const channel = normalizeAutoUpdates(settings).updateChannel;
             if (channel) setChannelUi(channel);
         }

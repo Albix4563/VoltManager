@@ -59,6 +59,11 @@
   <data name="FilePicker_ImportTitle" xml:space="preserve"><value>导入 VoltManager 设置</value></data>
   <data name="FilePicker_AppProfileTitle" xml:space="preserve"><value>为电源配置文件选择应用程序</value></data>
   <data name="FilePicker_AppProfileFilter" xml:space="preserve"><value>应用程序 (*.exe)|*.exe</value></data>
+  <data name="FilePicker_LauncherTitle" xml:space="preserve"><value>选择要添加到启动器的应用</value></data>
+  <data name="FilePicker_LauncherFilter" xml:space="preserve"><value>应用程序 (*.exe;*.lnk;*.url)|*.exe;*.lnk;*.url</value></data>
+  <data name="Launcher_Error_NotFound" xml:space="preserve"><value>该文件已不存在。</value></data>
+  <data name="Launcher_Error_Unsupported" xml:space="preserve"><value>只能添加本地程序和快捷方式（.exe、.lnk、.url）。</value></data>
+  <data name="Launcher_Error_Limit" xml:space="preserve"><value>最多可添加 {0} 个应用。</value></data>
   <data name="FilePicker_JsonFilter" xml:space="preserve"><value>JSON (*.json)|*.json</value></data>
   <data name="Plan_Saver" xml:space="preserve"><value>节能</value></data>
   <data name="Plan_Balanced" xml:space="preserve"><value>平衡</value></data>

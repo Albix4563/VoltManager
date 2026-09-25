@@ -4,7 +4,7 @@
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <title>VOLT MANAGER</title>
-<link href="css/app.css?v=ram3" rel="stylesheet"/>
+<link href="css/app.css?v=launcher1" rel="stylesheet"/>
 <link href="css/motion.css?v=motion2" rel="stylesheet"/>
 <link href="css/redesign.css?v=motion2" rel="stylesheet"/>
 <link href="css/polish.css?v=batteryhistory1" rel="stylesheet"/>
@@ -886,7 +886,7 @@
       </div>
       <div class="glass-panel rounded-xl p-lg widgets-category-card" id="widgets-card">
         <div class="flex flex-col lg:flex-row lg:items-start justify-between gap-lg mb-lg">
-          <div class="max-w-3xl">
+          <div class="max-w-4xl">
             <h3 class="text-title-lg text-on-surface flex items-center gap-xs">
               <span class="material-symbols-outlined text-secondary-container">widgets</span>
               <span data-i18n="widget_master_title">Categoria widget</span>
@@ -930,6 +930,32 @@
           </section>
         </div>
         <div class="space-y-sm hidden" id="widgets-list" aria-hidden="true"></div>
+      </div>
+      <div class="glass-panel rounded-xl p-lg mt-lg" id="launcher-apps-card">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-md mb-md">
+          <div class="max-w-4xl">
+            <h3 class="text-title-lg text-on-surface flex items-center gap-xs">
+              <span class="material-symbols-outlined text-secondary-container">apps</span>
+              <span data-i18n="launcher_manage_title">App del widget Launcher</span>
+            </h3>
+            <p class="text-body-md text-on-surface-variant mt-1" data-i18n="launcher_manage_sub">VoltManager trova da solo i launcher di gioco installati. Aggiungi qui le altre app che vuoi avviare dal widget.</p>
+          </div>
+          <div class="flex items-center gap-sm flex-shrink-0">
+            <button class="system-icon-action system-icon-action--neutral" id="btn-launcher-refresh" type="button" data-i18n-aria-label="launcher_manage_refresh" aria-label="Rileva di nuovo" title="Rileva di nuovo"><span class="material-symbols-outlined" aria-hidden="true">refresh</span></button>
+            <button class="btn-glow bg-secondary-container text-on-secondary-container text-label-md font-bold px-4 py-2.5 rounded-lg flex items-center gap-xs" id="btn-launcher-add" type="button"><span class="material-symbols-outlined text-[18px]" aria-hidden="true">add</span><span data-i18n="launcher_manage_add">Aggiungi app</span></button>
+          </div>
+        </div>
+        <p class="launcher-manage-status hidden" id="launcher-manage-status" role="status"></p>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-gutter">
+          <section>
+            <h4 class="text-label-md uppercase tracking-wider text-secondary-container mb-sm" data-i18n="launcher_manage_detected">Launcher trovati</h4>
+            <div class="space-y-sm" id="launcher-detected-list"></div>
+          </section>
+          <section>
+            <h4 class="text-label-md uppercase tracking-wider text-on-surface-variant mb-sm" data-i18n="launcher_manage_custom">App aggiunte da te</h4>
+            <div class="space-y-sm" id="launcher-custom-list"></div>
+          </section>
+        </div>
       </div>
     </section>
 
@@ -1318,7 +1344,7 @@
 
 <script src="js/bridge.js?v=errlog1"></script>
 <script src="js/font.js?v=font18"></script>
-<script src="js/i18n.catalogs.js?v=brightness1"></script>
+<script src="js/i18n.catalogs.js?v=launcher1"></script>
 <script src="js/i18n.js?v=catalog1"></script>
 <script src="js/view-lifecycle.js?v=mod1"></script>
 <script src="js/app.js?v=brightness1"></script>
@@ -1327,7 +1353,7 @@
 <script src="js/battery-history-request.js?v=1"></script>
 <script src="js/dashboard.js?v=brightness1"></script>
 <script src="js/brightness.js?v=brightness1"></script>
-<script src="js/settings.js?v=font18"></script>
+<script src="js/settings.js?v=launcher1"></script>
 <script src="js/settings-preferences-tools.js?v=mod1"></script>
 <script src="js/lan-remote-control.js?v=1"></script>
 <script src="js/welcome.js?v=silentupdate1"></script>

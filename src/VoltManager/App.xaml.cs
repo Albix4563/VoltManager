@@ -54,6 +54,9 @@ public partial class App : Application
     public WidgetManager Widgets { get; private set; } = null!;
     public ScheduledPowerActionService ScheduledPowerActions { get; private set; } = null!;
     public LanRemoteControlService LanRemoteControl { get; private set; } = null!;
+    internal LauncherDiscoveryService Launchers { get; private set; } = null!;
+    /// <summary>Raised with the gaming-mode state after every change, so widget bridges can mirror it.</summary>
+    public event Action<object>? GamingModeStateChanged;
     private Task<CoreWebView2Environment>? _webViewEnvironment;
     // Lazy: tray-only sessions never spin up Chromium until the UI or a widget needs it.
     public Task<CoreWebView2Environment> WebViewEnvironment
@@ -190,6 +193,7 @@ public partial class App : Application
         StandbyAutoCleaner = new StandbyAutoCleanerService(Settings,
             protectedWorkloadActive: () => IsHeavyAppSessionActive());
         _powerFlow = new PowerFlowService();
+        Launchers = new LauncherDiscoveryService(Settings);
         BatteryHistory = new BatteryHistoryService();
         var widgetRuntime = new WidgetRuntimeContext(
             Hardware,
@@ -524,6 +528,25 @@ public partial class App : Application
         => PowerRequests.UpdateSamplingPeriod(Monitor);
 
     public KeepAwakeState SetKeepAwake(bool enabled) => Awake.SetEnabled(enabled);
+
+    public void ShowMainWindow() => Dispatcher.Invoke(() => _mainWindow?.ShowFromTray());
+
+    // Gaming mode lives in MainWindow; widgets reach it through these so they work
+    // even though their bridges are not wired to the main window.
+    internal object GetGamingModeState()
+        => Dispatcher.Invoke(() => _mainWindow?.GetGamingModeState() ?? new { active = false });
+
+    internal Task<object?> SetGamingModeAsync(bool enabled)
+        => Dispatcher.InvokeAsync(() => _mainWindow != null
+                ? _mainWindow.SetGamingModeFromBridgeAsync(enabled)
+                : throw new InvalidOperationException(Loc.T("Error_GamingControlUnavailable")))
+            .Task.Unwrap();
+
+    internal void NotifyGamingModeStateChanged(object state)
+    {
+        try { GamingModeStateChanged?.Invoke(state); }
+        catch (Exception ex) { Logger.Error("Gaming mode state broadcast failed", ex); }
+    }
 
     public bool SetManualOverride(
         PlanId plan,

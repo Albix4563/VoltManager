@@ -236,6 +236,8 @@ public sealed class SettingsRpcHandler : IBridgeRpcHandler
         settings.AutostartTaskSchemaVersion = current.AutostartTaskSchemaVersion;
         settings.StandbyAutoCleaner = current.StandbyAutoCleaner;
         settings.LanRemoteControl = current.LanRemoteControl;
+        // Custom launcher paths are only added through the host file dialog.
+        settings.Launcher = current.Launcher;
         settings.AutoShutdown ??= new AutoShutdownSettings();
         settings.AutoUpdates ??= new AutoUpdateSettings();
         settings.HeavyAppDetection ??= new HeavyAppDetectionSettings();

@@ -59,6 +59,11 @@
   <data name="FilePicker_ImportTitle" xml:space="preserve"><value>Importa impostazioni VoltManager</value></data>
   <data name="FilePicker_AppProfileTitle" xml:space="preserve"><value>Seleziona applicazione per profilo energetico</value></data>
   <data name="FilePicker_AppProfileFilter" xml:space="preserve"><value>Applicazioni (*.exe)|*.exe</value></data>
+  <data name="FilePicker_LauncherTitle" xml:space="preserve"><value>Seleziona app da aggiungere al launcher</value></data>
+  <data name="FilePicker_LauncherFilter" xml:space="preserve"><value>Applicazioni (*.exe;*.lnk;*.url)|*.exe;*.lnk;*.url</value></data>
+  <data name="Launcher_Error_NotFound" xml:space="preserve"><value>Il file non esiste più.</value></data>
+  <data name="Launcher_Error_Unsupported" xml:space="preserve"><value>Puoi aggiungere solo programmi e collegamenti locali (.exe, .lnk, .url).</value></data>
+  <data name="Launcher_Error_Limit" xml:space="preserve"><value>Puoi aggiungere al massimo {0} app.</value></data>
   <data name="FilePicker_JsonFilter" xml:space="preserve"><value>JSON (*.json)|*.json</value></data>
   <data name="Plan_Saver" xml:space="preserve"><value>Risparmio energia</value></data>
   <data name="Plan_Balanced" xml:space="preserve"><value>Bilanciato</value></data>

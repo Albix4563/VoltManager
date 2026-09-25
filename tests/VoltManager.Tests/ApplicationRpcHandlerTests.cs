@@ -18,7 +18,7 @@ public class ApplicationRpcHandlerTests
         [
             "getGamingMode", "setGamingMode", "getStartupApps", "pickStartupExecutable",
             "addStartupApp", "setStartupAppEnabled", "removeStartupApp", "logError",
-            "openExternal", "exitApp", "minimizeToTray",
+            "openExternal", "exitApp", "minimizeToTray", "showMainWindow",
         ];
         Assert.Equal(expected.OrderBy(x => x), handler.Methods.OrderBy(x => x));
     }
@@ -36,14 +36,16 @@ public class ApplicationRpcHandlerTests
     }
 
     [Fact]
-    public async Task Exit_and_minimize_use_callbacks()
+    public async Task Exit_minimize_and_show_use_callbacks()
     {
-        int exits = 0, minimizes = 0;
-        var handler = Create(exit: () => exits++, minimize: () => minimizes++);
+        int exits = 0, minimizes = 0, shows = 0;
+        var handler = Create(exit: () => exits++, minimize: () => minimizes++, show: () => shows++);
         await handler.HandleAsync("exitApp", default, CancellationToken.None);
         await handler.HandleAsync("minimizeToTray", default, CancellationToken.None);
+        await handler.HandleAsync("showMainWindow", default, CancellationToken.None);
         Assert.Equal(1, exits);
         Assert.Equal(1, minimizes);
+        Assert.Equal(1, shows);
     }
 
     [Fact]
@@ -60,7 +62,8 @@ public class ApplicationRpcHandlerTests
         Action<string>? openExternal = null,
         Action? exit = null,
         Action? minimize = null,
-        Func<string, object>? addStartup = null)
+        Func<string, object>? addStartup = null,
+        Action? show = null)
         => new(new LocalizationService(), new ApplicationRpcActions(
             GetGamingMode: () => new { active = false },
             SetGamingMode: _ => Task.FromResult<object?>(new { active = true }),
@@ -72,5 +75,6 @@ public class ApplicationRpcHandlerTests
             LogError: _ => { },
             OpenExternal: openExternal ?? (_ => { }),
             RequestExit: exit ?? (() => { }),
-            RequestMinimize: minimize ?? (() => { })));
+            RequestMinimize: minimize ?? (() => { }),
+            ShowMainWindow: show ?? (() => { })));
 }

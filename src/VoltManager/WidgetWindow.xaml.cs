@@ -130,7 +130,7 @@ public partial class WidgetWindow : Window
             if (_type is "usage" or "temps") _context.Monitor.MetricsUpdated += OnMetricsUpdated;
             if (_type is "power" or "plans") _context.PowerRequests.ActivePlanChanged += OnActivePlanChanged;
             if (_type == "power") _context.PowerRequests.CpuAutomationStateChanged += OnCpuAutomationStateChanged;
-            if (_type == "plans") _context.Awake.StateChanged += OnKeepAwakeStateChanged;
+            if (_type is "plans" or "actions") _context.Awake.StateChanged += OnKeepAwakeStateChanged;
 
             core.ProcessFailed += OnWidgetProcessFailed;
 
@@ -141,7 +141,7 @@ public partial class WidgetWindow : Window
                 OnMetricsUpdated(_context.Monitor.Latest);
                 if (_type is "power" or "plans") OnActivePlanChanged(_context.PowerRequests.ActivePlan);
                 if (_type == "power") OnCpuAutomationStateChanged(_context.PowerRequests.CpuAutomationState);
-                if (_type == "plans") OnKeepAwakeStateChanged(_context.Awake.GetState());
+                if (_type is "plans" or "actions") OnKeepAwakeStateChanged(_context.Awake.GetState());
                 // Initialize this document only: broadcasting on every widget load was O(n²).
                 _bridge?.PushEvent(BridgeEventNames.ThemeChanged, _context.Theme.GetWebTheme());
                 _bridge?.PushEvent(BridgeEventNames.LanguageChanged, new { language = _context.Loc.CurrentLanguage, locale = _context.Loc.CurrentCulture.Name });
@@ -359,7 +359,7 @@ public partial class WidgetWindow : Window
             PushResourceProfile(_context.ResourcePressureState());
             if (_type is "power" or "plans") OnActivePlanChanged(_context.PowerRequests.ActivePlan);
             if (_type == "power") OnCpuAutomationStateChanged(_context.PowerRequests.CpuAutomationState);
-            if (_type == "plans") OnKeepAwakeStateChanged(_context.Awake.GetState());
+            if (_type is "plans" or "actions") OnKeepAwakeStateChanged(_context.Awake.GetState());
         }
         catch (Exception ex) { Logger.Warn($"Widget '{_type}' resume failed: " + ex.Message); }
     }

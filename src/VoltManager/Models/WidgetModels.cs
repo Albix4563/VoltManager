@@ -22,7 +22,11 @@ public class WidgetItem
 
 public class WidgetSettings
 {
-    public static readonly string[] Types = ["clock", "calendar", "usage", "temps", "power", "plans"];
+    public static readonly string[] Types =
+    [
+        "clock", "calendar", "usage", "temps", "power", "plans",
+        "launcher", "actions", "brightness", "processes", "memory",
+    ];
     public static readonly string[] Sizes = ["mini", "medium", "large"];
     public static readonly string[] Anchors =
     [

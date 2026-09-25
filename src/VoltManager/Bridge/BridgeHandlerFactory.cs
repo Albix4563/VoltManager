@@ -161,7 +161,31 @@ internal static class BridgeHandlerFactory
                 Logger.Error,
                 url => Process.Start(new ProcessStartInfo(url) { UseShellExecute = true }),
                 requestExit,
-                requestMinimize));
+                requestMinimize,
+                app.ShowMainWindow));
+
+        var launcherHandler = new LauncherRpcHandler(new LauncherRpcActions(
+            app.Launchers.GetLaunchersAsync,
+            app.Launchers.LaunchAsync,
+            cancellationToken => dialogs.OpenFileAsync(
+                new BridgeOpenFileRequest(
+                    loc.T("FilePicker_LauncherTitle"),
+                    loc.T("FilePicker_LauncherFilter"),
+                    CheckFileExists: true,
+                    Multiselect: false),
+                cancellationToken),
+            path =>
+            {
+                try { return app.Launchers.AddCustom(path, null); }
+                catch (System.IO.FileNotFoundException) { throw new InvalidOperationException(loc.T("Launcher_Error_NotFound")); }
+                catch (ArgumentException) { throw new InvalidOperationException(loc.T("Launcher_Error_Unsupported")); }
+                catch (InvalidOperationException ex) when (ex.Message == LauncherDiscoveryService.LimitReachedMessage)
+                {
+                    throw new InvalidOperationException(loc.T("Launcher_Error_Limit", LauncherSettings.MaxCustomApps));
+                }
+            },
+            app.Launchers.RemoveCustom,
+            app.Launchers.SetHidden));
 
         var lanRemoteHandler = new LanRemoteControlRpcHandler(new LanRemoteControlRpcActions(
             app.LanRemoteControl.GetState,
@@ -179,6 +203,7 @@ internal static class BridgeHandlerFactory
             updateHandler,
             applicationHandler,
             lanRemoteHandler,
+            launcherHandler,
         ];
     }
 

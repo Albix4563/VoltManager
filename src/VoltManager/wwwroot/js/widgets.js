@@ -1,5 +1,5 @@
 (function () {
-    const TYPES = ['clock', 'calendar', 'usage', 'temps', 'power', 'plans'];
+    const TYPES = ['clock', 'calendar', 'usage', 'temps', 'power', 'plans', 'launcher', 'actions', 'brightness', 'processes', 'memory'];
     const SIZES = ['mini', 'medium', 'large'];
     const PLAN_ORDER = ['powerSaver', 'balanced', 'performance'];
     const params = new URLSearchParams(location.search);
@@ -12,8 +12,19 @@
     let settingKeepAwake = false;
     let clockTimer = null;
     let dateTick = null;
-    let powerTimer = null;
-    let powerPolling = false;
+    let pollTimer = null;
+    let polling = false;
+    let launcherItems = [];
+    let launcherLoaded = false;
+    let launcherLoading = false;
+    let launcherReloadPending = false;
+    let gamingActive = false;
+    let settingGaming = false;
+    let scheduleState = null;
+    let scheduleTimer = null;
+    let purging = false;
+    let brightnessTimer = null;
+    let brightnessDragging = false;
     let resourceProfile = 'full';
     let resourceReducedEffects = false;
     let locale = (window.I18n && I18n.getLocale ? I18n.getLocale() : 'it-IT');
@@ -26,6 +37,11 @@
         temps: ['device_thermostat', 'widget_temps'],
         power: ['bolt', 'widget_power'],
         plans: ['tune', 'widget_plans'],
+        launcher: ['apps', 'widget_launcher'],
+        actions: ['bolt', 'widget_actions'],
+        brightness: ['brightness_6', 'widget_brightness'],
+        processes: ['list_alt', 'widget_processes'],
+        memory: ['memory', 'widget_memory'],
     };
 
     function t(key, fallback) {
@@ -104,10 +120,12 @@
     }
 
     function reflectKeepAwake() {
-        const btn = document.getElementById('widget-keep-awake');
-        if (!btn) return;
-        btn.dataset.on = keepAwake ? 'true' : 'false';
-        btn.setAttribute('aria-pressed', keepAwake ? 'true' : 'false');
+        for (const id of ['widget-keep-awake', 'action-awake']) {
+            const btn = document.getElementById(id);
+            if (!btn) continue;
+            btn.dataset.on = keepAwake ? 'true' : 'false';
+            btn.setAttribute('aria-pressed', keepAwake ? 'true' : 'false');
+        }
     }
 
     function pct(value) {
@@ -262,7 +280,7 @@
                 '<div class="power-row"><span class="widget-muted" data-i18n="widget_cpu_auto">CPU avg</span><strong id="power-auto-cpu">--</strong></div>' +
                 '<div class="power-row"><span class="widget-muted" data-i18n="widget_sample_interval">Sample</span><strong id="power-auto-sample">--</strong></div>'));
         if (window.I18n && I18n.apply) I18n.apply();
-        syncPowerPolling();
+        syncPolling();
         if (size !== 'mini') {
             pollPlan();
             pollCpuAutomation();
@@ -272,21 +290,24 @@
     }
 
     async function pollPower() {
-        if (document.hidden || powerPolling) return;
-        powerPolling = true;
-        try {
-            const state = await Host.call('getBatteryPower');
-            renderPower(state);
-        } catch { }
-        finally { powerPolling = false; }
+        renderPower(await Host.call('getBatteryPower'));
     }
 
-    function syncPowerPolling() {
-        if (powerTimer != null) clearInterval(powerTimer);
-        powerTimer = null;
-        if (type !== 'power' || document.hidden) return;
-        pollPower();
-        powerTimer = setInterval(pollPower,
+    // One poller per data widget; the cadence follows the host resource profile.
+    async function runPoll() {
+        const poll = POLLERS[type];
+        if (!poll || document.hidden || polling) return;
+        polling = true;
+        try { await poll(); } catch { }
+        finally { polling = false; }
+    }
+
+    function syncPolling() {
+        if (pollTimer != null) clearInterval(pollTimer);
+        pollTimer = null;
+        if (!POLLERS[type] || document.hidden) return;
+        runPoll();
+        pollTimer = setInterval(runPoll,
             resourceProfile === 'critical' ? 15000 :
             (resourceProfile === 'gaming' || resourceProfile === 'workload') ? 10000 : 5000);
     }
@@ -450,6 +471,443 @@
         }
     }
 
+    function esc(value) {
+        return String(value == null ? '' : value).replace(/[&<>"']/g, (c) => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+        }[c]));
+    }
+
+    function gb(value) {
+        value = Number(value);
+        return Number.isFinite(value) ? value.toFixed(value >= 10 ? 0 : 1) + ' GB' : '--';
+    }
+
+    function mb(value) {
+        value = Number(value);
+        if (!Number.isFinite(value)) return '--';
+        return value >= 1024 ? (value / 1024).toFixed(1) + ' GB' : Math.round(value) + ' MB';
+    }
+
+    function setText(id, text) {
+        const el = document.getElementById(id);
+        if (el) el.textContent = text;
+    }
+
+    // Transient feedback on a button: launching -> launched | error, then back to idle.
+    function flashState(btn, ok) {
+        if (!btn) return;
+        btn.dataset.state = ok ? 'launched' : 'error';
+        setTimeout(() => {
+            if (btn.dataset.state !== 'launching') delete btn.dataset.state;
+        }, ok ? 1400 : 2400);
+    }
+
+    // ---- Launcher -------------------------------------------------------
+
+    function startLauncher() {
+        shell('<div class="launcher-grid" id="launcher-grid" role="list"></div>' +
+            '<div class="launcher-empty hidden" id="launcher-empty">' +
+            '<span class="widget-muted" data-i18n="widget_launcher_empty">No launchers found. Add apps from VoltManager.</span>' +
+            '<button class="widget-button" id="launcher-open" type="button"><span class="material-symbols-outlined">open_in_new</span><span data-i18n="widget_launcher_manage">Manage apps</span></button>' +
+            '</div>');
+        document.getElementById('launcher-grid').addEventListener('click', (e) => {
+            const tile = e.target && e.target.closest ? e.target.closest('[data-launch-id]') : null;
+            if (tile) launchTile(tile);
+        });
+        document.getElementById('launcher-open').addEventListener('click', () => {
+            Host.call('showMainWindow').catch(() => {});
+        });
+        if (launcherLoaded) renderLaunchers();
+        else loadLaunchers();
+    }
+
+    async function loadLaunchers() {
+        if (launcherLoading) {
+            launcherReloadPending = true;
+            return;
+        }
+        launcherLoading = true;
+        try {
+            const list = await Host.call('getLaunchers');
+            launcherItems = Array.isArray(list) ? list.filter(item => item && item.id && !item.hidden) : [];
+        } catch {
+            launcherItems = [];
+        } finally {
+            launcherLoading = false;
+            launcherLoaded = true;
+        }
+        renderLaunchers();
+        if (launcherReloadPending) {
+            launcherReloadPending = false;
+            loadLaunchers();
+        }
+    }
+
+    function launcherIcon(item) {
+        const url = typeof item.iconDataUrl === 'string' && item.iconDataUrl.startsWith('data:image/png;base64,')
+            ? item.iconDataUrl : '';
+        if (url) return '<img src="' + esc(url) + '" alt="" draggable="false">';
+        return '<span class="material-symbols-outlined">' + (item.source === 'custom' ? 'apps' : 'sports_esports') + '</span>';
+    }
+
+    function renderLaunchers() {
+        const grid = document.getElementById('launcher-grid');
+        const empty = document.getElementById('launcher-empty');
+        if (!grid || !empty) return;
+        const showNames = size !== 'mini';
+        grid.innerHTML = launcherItems.map((item) => {
+            const available = item.available !== false;
+            const name = item.name || '';
+            const label = available
+                ? t('widget_launcher_launch', 'Open {name}').replace('{name}', name)
+                : t('widget_launcher_missing', '{name} is no longer installed').replace('{name}', name);
+            return '<button class="launcher-tile" type="button" role="listitem" data-launch-id="' + esc(item.id) + '"' +
+                ' title="' + esc(label) + '" aria-label="' + esc(label) + '"' + (available ? '' : ' disabled') + '>' +
+                '<span class="launcher-icon">' + launcherIcon(item) + '</span>' +
+                (showNames ? '<span class="launcher-name">' + esc(name) + '</span>' : '') +
+                '</button>';
+        }).join('');
+        const isEmpty = launcherLoaded && launcherItems.length === 0;
+        grid.classList.toggle('hidden', isEmpty);
+        empty.classList.toggle('hidden', !isEmpty);
+    }
+
+    async function launchTile(tile) {
+        if (tile.dataset.state === 'launching') return;
+        tile.dataset.state = 'launching';
+        let ok = false;
+        try {
+            const result = await Host.call('launchApp', { id: tile.dataset.launchId });
+            ok = !!(result && result.success);
+            if (!ok && result && (result.error === 'unknown' || result.error === 'missing')) loadLaunchers();
+        } catch { }
+        flashState(tile, ok);
+    }
+
+    // ---- Quick actions --------------------------------------------------
+
+    const TIMER_PRESETS = [30, 60, 120];
+
+    function actionTile(id, icon, key, fallback, toggle) {
+        const label = esc(t(key, fallback));
+        return '<button class="action-tile" id="action-' + id + '" type="button" data-action="' + id + '"' +
+            (toggle ? ' aria-pressed="false"' : '') + ' title="' + label + '" aria-label="' + label + '">' +
+            '<span class="material-symbols-outlined">' + icon + '</span>' +
+            (size === 'mini' ? '' : '<span class="action-label" data-i18n="' + key + '">' + label + '</span>') +
+            '</button>';
+    }
+
+    function startActions() {
+        const timer = size === 'mini' ? '' :
+            '<div class="action-timer" id="action-timer" data-on="false">' +
+            '<span class="material-symbols-outlined" aria-hidden="true">timer</span>' +
+            '<span class="action-timer-label" id="action-timer-label">' + esc(t('widget_action_timer', 'Shut down in')) + '</span>' +
+            '<div class="action-timer-controls" id="action-timer-controls"></div>' +
+            '</div>';
+        shell('<div class="action-grid" id="action-grid">' +
+            actionTile('purge', 'cleaning_services', 'widget_action_purge', 'Free RAM', false) +
+            actionTile('awake', 'bedtime_off', 'power_group_keepawake', 'Keep PC awake', true) +
+            actionTile('gaming', 'sports_esports', 'widget_action_gaming', 'Gaming mode', true) +
+            actionTile('open', 'open_in_new', 'widget_action_open', 'Open VoltManager', false) +
+            timer + '</div>');
+        document.getElementById('action-grid').addEventListener('click', (e) => {
+            const target = e.target && e.target.closest ? e.target.closest('[data-action],[data-timer]') : null;
+            if (!target) return;
+            if (target.dataset.timer) runTimerAction(target.dataset.timer);
+            else runAction(target.dataset.action);
+        });
+        reflectKeepAwake();
+        reflectGaming();
+        renderSchedule();
+        if (!Host.available) return;
+        Host.call('getKeepAwakeState').then((state) => {
+            keepAwake = !!(state && state.enabled);
+            reflectKeepAwake();
+        }).catch(() => {});
+        Host.call('getGamingMode').then(applyGamingState).catch(() => {});
+        if (size !== 'mini') Host.call('getScheduledPowerAction').then(applySchedule).catch(() => {});
+    }
+
+    async function runAction(action) {
+        if (action === 'open') {
+            Host.call('showMainWindow').catch(() => {});
+        } else if (action === 'purge') {
+            await purgeMemory('action-purge');
+        } else if (action === 'awake') {
+            if (settingKeepAwake) return;
+            settingKeepAwake = true;
+            const target = !keepAwake;
+            keepAwake = target;
+            reflectKeepAwake();
+            try {
+                const state = await Host.call('setKeepAwake', { enabled: target });
+                keepAwake = !!(state && state.enabled);
+            } catch {
+                keepAwake = !target;
+            } finally {
+                settingKeepAwake = false;
+                reflectKeepAwake();
+            }
+        } else if (action === 'gaming') {
+            if (settingGaming) return;
+            settingGaming = true;
+            const target = !gamingActive;
+            gamingActive = target;
+            reflectGaming();
+            try {
+                await Host.call('setGamingMode', { enabled: target });
+                applyGamingState(await Host.call('getGamingMode'));
+            } catch {
+                gamingActive = !target;
+                reflectGaming();
+                flashState(document.getElementById('action-gaming'), false);
+            } finally {
+                settingGaming = false;
+            }
+        }
+    }
+
+    // Shared by the quick-actions and memory widgets. Resolves to the fresh memory status.
+    async function purgeMemory(buttonId) {
+        if (purging) return null;
+        purging = true;
+        const btn = document.getElementById(buttonId);
+        if (btn) btn.dataset.state = 'launching';
+        let memory = null;
+        let ok = false;
+        try {
+            const res = await Host.call('purgeStandbyList');
+            ok = !!(res && res.success);
+            memory = (res && res.memory) || null;
+        } catch { }
+        finally { purging = false; }
+        flashState(btn, ok);
+        return memory;
+    }
+
+    function applyGamingState(state) {
+        gamingActive = !!(state && state.active);
+        reflectGaming();
+    }
+
+    function reflectGaming() {
+        const btn = document.getElementById('action-gaming');
+        if (!btn) return;
+        btn.dataset.on = gamingActive ? 'true' : 'false';
+        btn.setAttribute('aria-pressed', gamingActive ? 'true' : 'false');
+    }
+
+    function applySchedule(state) {
+        scheduleState = state && typeof state === 'object' ? state : null;
+        renderSchedule();
+    }
+
+    function scheduleRemainingSeconds() {
+        if (!scheduleState || !scheduleState.enabled) return 0;
+        const at = scheduleState.executeAtUtc ? new Date(scheduleState.executeAtUtc).getTime() : NaN;
+        if (Number.isFinite(at)) return Math.max(0, Math.floor((at - Date.now()) / 1000));
+        return Math.max(0, Math.floor(Number(scheduleState.remainingSeconds) || 0));
+    }
+
+    function formatCountdown(seconds) {
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        const sec = seconds % 60;
+        const pad = (n) => (n < 10 ? '0' : '') + n;
+        return h > 0 ? h + ':' + pad(m) + ':' + pad(sec) : m + ':' + pad(sec);
+    }
+
+    function scheduleLabel(action) {
+        if (action === 'Sleep') return t('widget_action_sleep_in', 'Sleep in');
+        if (action === 'Restart') return t('widget_action_restart_in', 'Restart in');
+        return t('widget_action_timer', 'Shut down in');
+    }
+
+    function renderSchedule() {
+        if (scheduleTimer != null) clearInterval(scheduleTimer);
+        scheduleTimer = null;
+        const box = document.getElementById('action-timer');
+        const controls = document.getElementById('action-timer-controls');
+        if (!box || !controls) return;
+        const active = !!(scheduleState && scheduleState.enabled && !scheduleState.expired);
+        box.dataset.on = active ? 'true' : 'false';
+        setText('action-timer-label', active ? scheduleLabel(scheduleState.action) : t('widget_action_timer', 'Shut down in'));
+        if (!active) {
+            controls.innerHTML = TIMER_PRESETS.map((minutes) =>
+                '<button class="timer-chip" type="button" data-timer="' + minutes + '">' +
+                (minutes >= 60 ? (minutes / 60) + 'h' : minutes + 'm') + '</button>').join('');
+            return;
+        }
+        const daily = scheduleState.mode === 'Daily';
+        const cancel = esc(t('widget_action_timer_cancel', 'Cancel timer'));
+        controls.innerHTML =
+            '<strong class="timer-countdown" id="action-timer-countdown">' +
+            (daily ? esc(scheduleState.dailyTime || '--:--') : formatCountdown(scheduleRemainingSeconds())) + '</strong>' +
+            '<button class="timer-chip timer-cancel" type="button" data-timer="cancel" title="' + cancel + '" aria-label="' + cancel + '">' +
+            '<span class="material-symbols-outlined">close</span></button>';
+        if (daily || document.hidden) return;
+        scheduleTimer = setInterval(() => {
+            const remaining = scheduleRemainingSeconds();
+            setText('action-timer-countdown', formatCountdown(remaining));
+            if (remaining <= 0 && scheduleTimer != null) {
+                clearInterval(scheduleTimer);
+                scheduleTimer = null;
+            }
+        }, 1000);
+    }
+
+    async function runTimerAction(value) {
+        try {
+            if (value === 'cancel') {
+                applySchedule(await Host.call('cancelScheduledPowerAction'));
+                return;
+            }
+            const minutes = parseInt(value, 10);
+            if (!TIMER_PRESETS.includes(minutes)) return;
+            applySchedule(await Host.call('schedulePowerAction', { mode: 'relative', action: 'shutdown', delayMinutes: minutes }));
+        } catch {
+            Host.call('getScheduledPowerAction').then(applySchedule).catch(() => {});
+        }
+    }
+
+    // ---- Brightness -----------------------------------------------------
+
+    function startBrightness() {
+        const label = esc(t('widget_brightness', 'Brightness'));
+        shell('<div class="brightness-control" id="brightness-control">' +
+            '<span class="material-symbols-outlined brightness-icon" id="brightness-icon" aria-hidden="true">brightness_medium</span>' +
+            '<input class="brightness-slider" id="brightness-slider" type="range" min="0" max="100" step="1" value="50" aria-label="' + label + '">' +
+            '<strong class="brightness-value" id="brightness-value">--</strong>' +
+            '</div>' +
+            '<p class="widget-muted brightness-unsupported hidden" id="brightness-unsupported" data-i18n="widget_brightness_unsupported">This display does not support brightness control.</p>');
+        const slider = document.getElementById('brightness-slider');
+        slider.addEventListener('input', () => {
+            brightnessDragging = true;
+            reflectBrightness(Number(slider.value));
+            if (brightnessTimer != null) clearTimeout(brightnessTimer);
+            brightnessTimer = setTimeout(commitBrightness, 150);
+        });
+        slider.addEventListener('change', () => {
+            if (brightnessTimer != null) clearTimeout(brightnessTimer);
+            commitBrightness();
+        });
+        document.getElementById('brightness-control').addEventListener('pointerenter', readBrightness);
+        readBrightness();
+    }
+
+    async function readBrightness() {
+        if (brightnessDragging || document.hidden) return;
+        try { applyBrightness(await Host.call('getDisplayBrightness')); } catch { }
+    }
+
+    async function commitBrightness() {
+        brightnessTimer = null;
+        const slider = document.getElementById('brightness-slider');
+        if (!slider) return;
+        let state = null;
+        try { state = await Host.call('setDisplayBrightness', { percent: Number(slider.value) }); } catch { }
+        // A newer drag may have started while the call was in flight.
+        if (brightnessTimer != null) return;
+        brightnessDragging = false;
+        if (state) applyBrightness(state);
+        else readBrightness();
+    }
+
+    function applyBrightness(state) {
+        const supported = !!(state && state.supported && state.percent != null);
+        document.getElementById('brightness-control')?.classList.toggle('hidden', !supported);
+        document.getElementById('brightness-unsupported')?.classList.toggle('hidden', supported);
+        if (!supported || brightnessDragging) return;
+        const value = Math.round(pct(state.percent));
+        const slider = document.getElementById('brightness-slider');
+        if (slider) slider.value = String(value);
+        reflectBrightness(value);
+    }
+
+    function reflectBrightness(value) {
+        setText('brightness-icon', value < 34 ? 'brightness_low' : value < 67 ? 'brightness_medium' : 'brightness_high');
+        setText('brightness-value', Math.round(value) + '%');
+        const slider = document.getElementById('brightness-slider');
+        if (slider && slider.style && typeof slider.style.setProperty === 'function') {
+            slider.style.setProperty('--fill', Math.round(value) + '%');
+        }
+    }
+
+    // ---- Top processes --------------------------------------------------
+
+    function startProcesses() {
+        shell('<div class="proc-list" id="proc-list" role="list"></div>');
+        syncPolling();
+    }
+
+    async function pollProcesses() {
+        const count = size === 'mini' ? 3 : size === 'large' ? 8 : 5;
+        renderProcesses(await Host.call('getTopProcesses', { count }));
+    }
+
+    function renderProcesses(list) {
+        const host = document.getElementById('proc-list');
+        if (!host) return;
+        const rows = Array.isArray(list) ? list : [];
+        if (rows.length === 0) {
+            host.innerHTML = '<p class="widget-muted" data-i18n="widget_processes_empty">Waiting for process data.</p>';
+            if (window.I18n && I18n.apply) I18n.apply();
+            return;
+        }
+        host.innerHTML = rows.map((p) => {
+            const cpu = pct(p.cpuPercent);
+            const name = (p.name || '?') + (p.instances > 1 ? ' ×' + p.instances : '');
+            return '<div class="proc-row" role="listitem">' +
+                '<span class="proc-name" title="' + esc(name) + '">' + esc(name) + '</span>' +
+                (size === 'mini' ? '' : '<span class="proc-ram">' + mb(p.ramMb) + '</span>') +
+                '<strong class="proc-cpu">' + (cpu < 10 ? cpu.toFixed(1) : Math.round(cpu)) + '%</strong>' +
+                '<div class="proc-bar" aria-hidden="true"><span style="width:' + cpu + '%"></span></div>' +
+                '</div>';
+        }).join('');
+    }
+
+    // ---- Memory ---------------------------------------------------------
+
+    function startMemory() {
+        const label = esc(t('widget_action_purge', 'Free RAM'));
+        const purgeBtn = '<button class="widget-button memory-purge" id="memory-purge" type="button" title="' + label + '" aria-label="' + label + '">' +
+            '<span class="material-symbols-outlined">cleaning_services</span>' +
+            (size === 'mini' ? '' : '<span data-i18n="widget_action_purge">' + label + '</span>') + '</button>';
+        shell('<div class="memory-head"><strong class="memory-pct" id="memory-pct">--</strong>' +
+            '<span class="widget-muted memory-detail" id="memory-detail">--</span>' + (size === 'mini' ? purgeBtn : '') + '</div>' +
+            '<div class="memory-bar" aria-hidden="true"><span class="memory-used" id="memory-bar"></span><span class="memory-standby" id="memory-standby-bar"></span></div>' +
+            (size === 'mini' ? '' :
+                '<div class="power-row"><span class="widget-muted memory-key memory-key-standby" data-i18n="widget_memory_standby">Standby</span><strong id="memory-standby">--</strong></div>' +
+                (size === 'large' ? '<div class="power-row"><span class="widget-muted memory-key" data-i18n="widget_memory_free">Free</span><strong id="memory-free">--</strong></div>' : '') +
+                purgeBtn));
+        document.getElementById('memory-purge').addEventListener('click', async () => {
+            const memory = await purgeMemory('memory-purge');
+            if (memory) renderMemory(memory);
+        });
+        syncPolling();
+    }
+
+    async function pollMemory() {
+        renderMemory(await Host.call('getMemoryStatus'));
+    }
+
+    function renderMemory(m) {
+        if (!m) return;
+        const used = pct(m.inUsePct);
+        const standby = Math.min(100 - used, pct(m.standbyPct));
+        setText('memory-pct', Math.round(used) + '%');
+        setText('memory-detail', gb(m.inUseGb) + ' / ' + gb(m.totalGb));
+        setText('memory-standby', gb(m.standbyGb));
+        setText('memory-free', gb(m.freeGb));
+        const bar = document.getElementById('memory-bar');
+        const standbyBar = document.getElementById('memory-standby-bar');
+        if (bar) bar.style.width = used + '%';
+        if (standbyBar) standbyBar.style.width = standby + '%';
+    }
+
+    const POLLERS = { power: pollPower, processes: pollProcesses, memory: pollMemory };
+
+
     function applySettings(res) {
         if (!res || !res.settings) return;
         if (window.VoltFont && VoltFont.apply) {
@@ -495,10 +953,17 @@
             case 'clock': startClock(); break;
             case 'calendar': startCalendar(); break;
             case 'plans': startPlans(); break;
+            case 'launcher': renderLaunchers(); break;
+            case 'actions': renderSchedule(); break;
         }
     });
 
     if (type === 'plans') Host.on('activePlanChanged', data => reflectPlanSelector(data && data.plan));
+    if (type === 'launcher') Host.on('launchersChanged', () => loadLaunchers());
+    if (type === 'actions') {
+        Host.on('gamingModeChanged', applyGamingState);
+        Host.on('scheduledPowerActionChanged', applySchedule);
+    }
     Host.on('resourceProfileChanged', state => {
         const profile = state && state.profile;
         if (!['full', 'balanced', 'gaming', 'workload', 'critical'].includes(profile)) return;
@@ -508,14 +973,19 @@
         resourceReducedEffects = reducedEffects;
         document.documentElement.dataset.resourceProfile = profile;
         document.documentElement.dataset.perf = reducedEffects ? 'lite' : 'full';
-        syncPowerPolling();
+        syncPolling();
     });
     document.addEventListener('visibilitychange', () => {
         scheduleDateTick();
-        syncPowerPolling();
+        syncPolling();
+        if (type === 'actions') renderSchedule();
+        if (type === 'brightness') readBrightness();
     });
 
-    ({ clock: startClock, calendar: startCalendar, usage: startUsage, temps: startTemps, power: startPower, plans: startPlans }[type] || startClock)();
+    ({
+        clock: startClock, calendar: startCalendar, usage: startUsage, temps: startTemps, power: startPower, plans: startPlans,
+        launcher: startLauncher, actions: startActions, brightness: startBrightness, processes: startProcesses, memory: startMemory,
+    }[type] || startClock)();
 
     if (Host.available) {
         Host.call('getSettings').then(applySettings).catch(() => {});

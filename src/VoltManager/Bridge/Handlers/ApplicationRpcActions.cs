@@ -11,4 +11,5 @@ public sealed record ApplicationRpcActions(
     Action<string> LogError,
     Action<string> OpenExternal,
     Action RequestExit,
-    Action RequestMinimize);
+    Action RequestMinimize,
+    Action ShowMainWindow);

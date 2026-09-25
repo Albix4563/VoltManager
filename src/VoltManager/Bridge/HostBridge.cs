@@ -63,7 +63,7 @@ public class HostBridge : IDisposable
                 app,
                 _loc,
                 dialogs,
-                () => GamingModeStateRequested?.Invoke() ?? new { active = false },
+                () => GamingModeStateRequested?.Invoke() ?? _app.GetGamingModeState(),
                 HandleGamingModeRequestedAsync,
                 () => ExitRequested?.Invoke(),
                 () => MinimizeToTrayRequested?.Invoke(),
@@ -89,8 +89,18 @@ public class HostBridge : IDisposable
             catch { }
         });
 
+        _app.Launchers.Changed += OnLaunchersChanged;
+        _lifetime.RegisterDetach(() => _app.Launchers.Changed -= OnLaunchersChanged);
+
         if (!_subscribeGlobalEvents)
+        {
+            // The main window pushes gaming mode on its own bridge; widgets get the app-level broadcast.
+            _app.GamingModeStateChanged += OnGamingModeStateChanged;
+            _lifetime.RegisterDetach(() => _app.GamingModeStateChanged -= OnGamingModeStateChanged);
+            _app.ScheduledPowerActions.StateChanged += OnScheduledPowerActionChanged;
+            _lifetime.RegisterDetach(() => _app.ScheduledPowerActions.StateChanged -= OnScheduledPowerActionChanged);
             return;
+        }
 
         _updates.DownloadProgress += OnDownloadProgress;
         _lifetime.RegisterDetach(() => _updates.DownloadProgress -= OnDownloadProgress);
@@ -137,6 +147,9 @@ public class HostBridge : IDisposable
     private void OnPlanConflict(PowerPlanConflictNotification notice) => PushEvent(BridgeEventNames.PowerPlanConflictDetected, notice);
     private void OnPlanHistoryChanged(long revision) => PushEvent(BridgeEventNames.PlanHistoryChanged, new { revision });
     private void OnStandbyCleaned(MemoryStatus memory) => PushEvent(BridgeEventNames.StandbyAutoCleaned, memory);
+    private void OnLaunchersChanged() => PushEvent(BridgeEventNames.LaunchersChanged, new { changed = true });
+    private void OnGamingModeStateChanged(object state) => PushEvent(BridgeEventNames.GamingModeChanged, state);
+    private void OnScheduledPowerActionChanged(ScheduledPowerActionState state) => PushEvent(BridgeEventNames.ScheduledPowerActionChanged, state);
 
     public void Dispose()
     {
@@ -226,8 +239,9 @@ public class HostBridge : IDisposable
     private async Task<object?> HandleGamingModeRequestedAsync(bool enabled)
     {
         Func<bool, Task<object?>>? handler = GamingModeRequested;
+        // Widget bridges have no window-level handler: route through the app instead.
         if (handler == null)
-            throw new InvalidOperationException(_loc.T("Error_GamingControlUnavailable"));
+            return await _app.SetGamingModeAsync(enabled);
         return await handler(enabled);
     }
 
