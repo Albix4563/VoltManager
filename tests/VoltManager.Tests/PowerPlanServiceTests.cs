@@ -97,7 +97,7 @@ public sealed class PowerPlanServiceTests
     }
 
     [Fact]
-    public void FindExtraPlans_Flags_named_duplicates_and_keeps_oem_as_custom()
+    public void FindExtraPlans_Lists_only_copies_of_main_plans_and_ignores_oem()
     {
         string output = string.Join('\n',
         [
@@ -116,11 +116,9 @@ public sealed class PowerPlanServiceTests
 
         Assert.True(report.HasExtras);
         Assert.Equal(3, report.Keep.Count);
-        Assert.Equal(4, report.Extras.Count);
-        Assert.Equal(3, report.Extras.Count(plan => plan.IsDuplicate));
-        Assert.All(report.Extras.Where(plan => plan.IsDuplicate),
-            plan => Assert.Equal("Balanced", plan.DuplicateOf));
-        Assert.False(report.Extras.Single(plan => plan.Guid == OemGuid).IsDuplicate);
+        Assert.Equal(3, report.Extras.Count);
+        Assert.All(report.Extras, plan => Assert.Equal("Balanced", plan.DuplicateOf));
+        Assert.DoesNotContain(report.Extras, plan => plan.Guid == OemGuid);
     }
 
     [Fact]
@@ -321,6 +319,9 @@ public sealed class PowerPlanServiceTests
         Assert.False(service.FindExtraPlans().ShouldPrompt);
 
         installed.Add((OemGuid, "OEM Quiet"));
+        Assert.False(service.FindExtraPlans().ShouldPrompt);
+
+        installed.Add((ExtraBalanced2, "Balanced"));
         Assert.True(service.FindExtraPlans().ShouldPrompt);
     }
 

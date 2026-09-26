@@ -300,15 +300,9 @@ public class PowerPlanService
                 mappedPlanIds[guid] = planId;
         }
 
+        // Only repeated copies of the three main plans count as extras: OEM and
+        // user-made plans are never listed, so they can never be deleted either.
         List<PowerPlan> extraPlans = plans.Where(plan => !keepGuids.Contains(plan.Guid)).ToList();
-        var repeatedExtraNames = extraPlans
-            .Select(plan => plan.Name.Trim())
-            .Where(name => name.Length > 0)
-            .GroupBy(name => name, StringComparer.OrdinalIgnoreCase)
-            .Where(group => group.Count() >= 2)
-            .Select(group => group.Key)
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-
         var extras = new List<ExtraPowerPlan>(extraPlans.Count);
         foreach (PowerPlan plan in extraPlans)
         {
@@ -326,15 +320,14 @@ public class PowerPlanService
                     duplicateOf = keptPlanId;
             }
 
-            bool repeatedName = !string.IsNullOrWhiteSpace(plan.Name)
-                && repeatedExtraNames.Contains(plan.Name.Trim());
+            if (duplicateOf == null) continue;
             extras.Add(new ExtraPowerPlan
             {
                 Guid = plan.Guid,
                 Name = plan.Name,
                 IsActive = plan.IsActive,
-                IsDuplicate = duplicateOf != null || repeatedName,
-                DuplicateOf = duplicateOf?.ToString(),
+                IsDuplicate = true,
+                DuplicateOf = duplicateOf.ToString(),
             });
         }
 

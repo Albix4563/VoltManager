@@ -125,8 +125,9 @@
             name.textContent = (plan.name || '').trim() || plan.guid;
             heading.appendChild(name);
 
+            const original = (currentReport?.keep || []).find(kept => kept.planId === plan.duplicateOf);
             if (plan.isDuplicate)
-                heading.appendChild(badge(t('extra_plans_duplicate'), 'border-secondary-container/25 text-secondary-container bg-secondary-container/10'));
+                heading.appendChild(badge(format('extra_plans_duplicate', { plan: original?.name || plan.duplicateOf || '' }), 'border-secondary-container/25 text-secondary-container bg-secondary-container/10'));
             if (plan.isActive)
                 heading.appendChild(badge(t('extra_plans_active'), 'border-white/15 text-on-surface-variant bg-white/5'));
 
