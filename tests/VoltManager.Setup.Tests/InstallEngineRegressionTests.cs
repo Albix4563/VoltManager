@@ -73,23 +73,33 @@ public sealed class InstallEngineRegressionTests
     }
 
     [Fact]
-    public async Task Second_installer_for_same_folder_waits_for_the_lock()
+    public void Second_installer_for_same_folder_waits_for_the_lock()
     {
         string dest = Path.Combine(Path.GetTempPath(), "VoltManagerSetupTests", Guid.NewGuid().ToString("N"));
 
+        // No await while holding: the mutex must be released on the thread that owns it.
         using (InstallEngine.InstallDirectoryLock.Acquire(dest, TimeSpan.FromSeconds(1)))
         {
             // Mutexes are re-entrant per thread: contend from another thread.
-            await Assert.ThrowsAsync<IOException>(() => Task.Run(() =>
+            Exception? contended = Record.Exception(() => Task.Run(() =>
             {
                 using (InstallEngine.InstallDirectoryLock.Acquire(dest, TimeSpan.FromMilliseconds(200))) { }
-            }));
+            }).GetAwaiter().GetResult());
+            Assert.IsType<IOException>(contended);
+
+            using var cts = new CancellationTokenSource();
+            cts.Cancel();
+            Exception? cancelled = Record.Exception(() => Task.Run(() =>
+            {
+                using (InstallEngine.InstallDirectoryLock.Acquire(dest, TimeSpan.FromMinutes(1), cts.Token)) { }
+            }).GetAwaiter().GetResult());
+            Assert.IsAssignableFrom<OperationCanceledException>(cancelled);
         }
 
-        await Task.Run(() =>
+        Task.Run(() =>
         {
             using (InstallEngine.InstallDirectoryLock.Acquire(dest, TimeSpan.FromSeconds(1))) { }
-        });
+        }).GetAwaiter().GetResult();
     }
 
     [Fact]

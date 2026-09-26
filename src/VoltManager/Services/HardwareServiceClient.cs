@@ -170,7 +170,8 @@ public sealed class HardwareServiceClient : IHardwareAccess
         {
             _lastReadUtc = DateTime.MinValue;
             _lastRequest = default;
-            _ = Call<object>("invalidate", null);
+            // Once in fallback the service is gone or hung: an RPC would only stall resume.
+            if (_fallback == null) _ = Call<object>("invalidate", null);
             _fallback?.Invalidate();
             _last = SensorReport.Empty;
         }

@@ -536,25 +536,30 @@ namespace VoltManager.Setup.Engine
                     ?? throw new InvalidOperationException("Installation directory has no parent.");
                 string installName = Path.GetFileName(fullDest);
 
-                // Synchronous from here on: the mutex is thread-affine, so no await inside.
-                using (InstallDirectoryLock.Acquire(fullDest, InstallLockTimeout))
+                // One background thread for the whole locked block: the mutex is thread-affine
+                // (no await inside), and waiting for it must not freeze the setup window.
+                string zipPath = tempZip;
+                await Task.Run(() =>
                 {
-                    stagingDir = Path.Combine(parent,
-                        "." + installName + ".staging-" + Path.GetRandomFileName());
+                    using (InstallDirectoryLock.Acquire(fullDest, InstallLockTimeout, ct))
+                    {
+                        stagingDir = Path.Combine(parent,
+                            "." + installName + ".staging-" + Path.GetRandomFileName());
 
-                    Directory.CreateDirectory(stagingDir);
-                    ZipFile.ExtractToDirectory(tempZip, stagingDir);
-                    ct.ThrowIfCancellationRequested();
+                        Directory.CreateDirectory(stagingDir);
+                        ZipFile.ExtractToDirectory(zipPath, stagingDir);
+                        ct.ThrowIfCancellationRequested();
 
-                    string backupDir = Path.Combine(parent,
-                        "." + installName + ".backup-" + Path.GetRandomFileName());
-                    ReplaceInstallDirectoryContents(destDir, stagingDir, backupDir);
+                        string backupDir = Path.Combine(parent,
+                            "." + installName + ".backup-" + Path.GetRandomFileName());
+                        ReplaceInstallDirectoryContents(destDir, stagingDir, backupDir);
 
-                    // Only after the new files are in place: an older backup kept by a failed
-                    // rollback is no longer needed, and holding the lock guarantees no other
-                    // live installer owns any of these directories.
-                    DeleteLeftoverSwapDirectories(parent, installName);
-                }
+                        // Only after the new files are in place: an older backup kept by a failed
+                        // rollback is no longer needed, and holding the lock guarantees no other
+                        // live installer owns any of these directories.
+                        DeleteLeftoverSwapDirectories(parent, installName);
+                    }
+                }, ct);
             }
             finally
             {
@@ -672,14 +677,23 @@ namespace VoltManager.Setup.Engine
                 _mutex = mutex;
             }
 
-            internal static InstallDirectoryLock Acquire(string fullDest, TimeSpan timeout)
+            internal static InstallDirectoryLock Acquire(string fullDest, TimeSpan timeout, CancellationToken ct = default)
             {
                 var mutex = new Mutex(false, MutexName(fullDest));
                 try
                 {
-                    bool acquired;
-                    try { acquired = mutex.WaitOne(timeout); }
-                    catch (AbandonedMutexException) { acquired = true; }
+                    bool acquired = false;
+                    var wait = Stopwatch.StartNew();
+                    // Short slices so a cancelled setup does not keep waiting for the full timeout.
+                    while (!acquired && wait.Elapsed < timeout)
+                    {
+                        ct.ThrowIfCancellationRequested();
+                        TimeSpan slice = timeout - wait.Elapsed;
+                        if (slice > TimeSpan.FromMilliseconds(250)) slice = TimeSpan.FromMilliseconds(250);
+                        if (slice < TimeSpan.Zero) slice = TimeSpan.Zero;
+                        try { acquired = mutex.WaitOne(slice); }
+                        catch (AbandonedMutexException) { acquired = true; }
+                    }
                     if (!acquired)
                         throw new IOException("Another VoltManager setup is installing into this folder.");
                     return new InstallDirectoryLock(mutex);
