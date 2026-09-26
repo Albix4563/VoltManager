@@ -61,6 +61,33 @@ public sealed class InstallEngineRegressionTests
     }
 
     [Fact]
+    public void Leftover_backup_and_staging_dirs_are_removed()
+    {
+        string root = Path.Combine(Path.GetTempPath(), "VoltManagerSetupTests", Guid.NewGuid().ToString("N"));
+        string backup = Path.Combine(root, ".VoltManager.backup-abc");
+        string staging = Path.Combine(root, ".VoltManager.staging-def");
+        string unrelated = Path.Combine(root, ".Other.backup-xyz");
+        foreach (string dir in new[] { backup, staging, unrelated })
+        {
+            Directory.CreateDirectory(dir);
+            File.WriteAllText(Path.Combine(dir, "file.txt"), "x");
+        }
+
+        try
+        {
+            InstallEngine.DeleteLeftoverSwapDirectories(root, "VoltManager");
+
+            Assert.False(Directory.Exists(backup));
+            Assert.False(Directory.Exists(staging));
+            Assert.True(Directory.Exists(unrelated));
+        }
+        finally
+        {
+            try { Directory.Delete(root, true); } catch { }
+        }
+    }
+
+    [Fact]
     public void Failed_move_rolls_back_to_previous_installation()
     {
         string root = Path.Combine(Path.GetTempPath(), "VoltManagerSetupTests", Guid.NewGuid().ToString("N"));

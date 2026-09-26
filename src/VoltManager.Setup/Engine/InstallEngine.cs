@@ -534,6 +534,7 @@ namespace VoltManager.Setup.Engine
                     .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
                 string parent = Path.GetDirectoryName(fullDest)
                     ?? throw new InvalidOperationException("Installation directory has no parent.");
+                DeleteLeftoverSwapDirectories(parent, Path.GetFileName(fullDest));
                 stagingDir = Path.Combine(parent,
                     "." + Path.GetFileName(fullDest) + ".staging-" + Path.GetRandomFileName());
 
@@ -626,6 +627,24 @@ namespace VoltManager.Setup.Engine
             }
 
             TryDeleteBackupDirectory(backupDir);
+        }
+
+        /// <summary>
+        /// A backup can outlive its install when a still-running process kept a renamed file
+        /// open; remove what previous runs left behind (best effort).
+        /// </summary>
+        internal static void DeleteLeftoverSwapDirectories(string parent, string installName)
+        {
+            try
+            {
+                foreach (string pattern in new[] { "." + installName + ".backup-*", "." + installName + ".staging-*" })
+                    foreach (string dir in Directory.GetDirectories(parent, pattern))
+                        TryDeleteBackupDirectory(dir);
+            }
+            catch (Exception ex)
+            {
+                SetupUpdateLog.Warn("Could not scan for leftover install directories: " + ex.Message);
+            }
         }
 
         private static void MoveEntry(string source, string target)

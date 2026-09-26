@@ -313,13 +313,20 @@ public class HostBridge : IDisposable
                 ValidationMetrics.Increment(ValidationCounter.UiMetricPublications);
 
             string payload = BridgeRpc.FormatEvent(name, data);
-            _webView.Dispatcher.Invoke(() =>
+            void Post()
             {
                 if (IsStopped)
                     return;
                 try { _webView.CoreWebView2?.PostWebMessageAsJson(payload); }
                 catch { }
-            });
+            }
+
+            // Events are raised from service threads that may hold their own locks; a
+            // synchronous Invoke deadlocks against a UI-thread RPC waiting for that lock.
+            if (_webView.Dispatcher.CheckAccess())
+                Post();
+            else
+                _webView.Dispatcher.BeginInvoke(Post);
             _pushEventFaulted = false;
         }
         catch (Exception ex)

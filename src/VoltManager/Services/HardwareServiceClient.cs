@@ -26,6 +26,8 @@ public sealed class HardwareServiceClient : IHardwareAccess
     private HardwareAccessCoordinator? _fallback;
     private bool _hardwareAvailable;
     private bool _rpcFaulted;
+    private int _consecutiveRpcFailures;
+    private const int MaxConsecutiveRpcFailures = 3;
     private bool _disposed;
     private long _nextId;
     private DateTime _lastReadUtc = DateTime.MinValue;
@@ -143,7 +145,7 @@ public sealed class HardwareServiceClient : IHardwareAccess
             });
             if (envelope == null)
             {
-                EnsureFallbackIfServiceExited();
+                EnsureFallbackIfServiceUnusable();
                 if (_fallback != null)
                 {
                     _last = _fallback.Read(request, force);
@@ -217,12 +219,14 @@ public sealed class HardwareServiceClient : IHardwareAccess
                 if (response == null || response.Id != id) throw new InvalidDataException("Hardware service returned an invalid response.");
                 if (!response.Ok) throw new InvalidOperationException(response.Error ?? "Hardware service request failed.");
                 _rpcFaulted = false;
+                _consecutiveRpcFailures = 0;
                 if (!response.Result.HasValue || response.Result.Value.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined) return default;
                 return response.Result.Value.Deserialize<T>(JsonOptions);
             }
             catch (Exception ex)
             {
                 _hardwareAvailable = false;
+                _consecutiveRpcFailures++;
                 _rpcFaulted = Logger.WarnOnce(_rpcFaulted, "Hardware service RPC failed", ex);
                 return default;
             }
@@ -263,13 +267,16 @@ public sealed class HardwareServiceClient : IHardwareAccess
         }
     }
 
-    private void EnsureFallbackIfServiceExited()
+    private void EnsureFallbackIfServiceUnusable()
     {
         if (_fallback != null || _disposed) return;
         try
         {
-            if (!_process.HasExited) return;
-            EnableFallback("Hardware service exited; continuing with in-process monitoring.");
+            if (_process.HasExited)
+                EnableFallback("Hardware service exited; continuing with in-process monitoring.");
+            // A live but hung/broken service would otherwise leave readings stale forever.
+            else if (_consecutiveRpcFailures >= MaxConsecutiveRpcFailures)
+                EnableFallback("Hardware service stopped answering; continuing with in-process monitoring.");
         }
         catch { }
     }

@@ -32,6 +32,9 @@ test('widgets resolve auto animation level and receive live setting changes', ()
   assert.match(widgets, /VoltAnimationLevel\.resolveLevel\(animationSetting, animationHardwareTier\)/);
   assert.match(widgets, /Host\.call\('getSystemInfo'\)\.then\(applyAnimationHardware\)/);
   assert.match(widgets, /Host\.on\('animationLevelChanged'/);
+  // motion.css (shared timing tokens) keys off data-anim, widgets.css off data-animation-level.
+  assert.match(widgets, /dataset\.anim = resolved/);
+  assert.match(widgets, /dataset\.animationLevel = resolved/);
   assert.match(widgetManager, /PushEvent\(BridgeEventNames\.AnimationLevelChanged, data\)/);
   assert.match(bridgeEvents, /AnimationLevelChanged = "animationLevelChanged"/);
 });

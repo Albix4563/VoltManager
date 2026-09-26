@@ -72,10 +72,13 @@ public partial class MainWindow : Window
         StateChanged += (_, _) => UpdateWebViewVisibility();
         Closing += OnClosingToTray;
         Closed += (_, _) => StopRuntime();
-        // Fires from timer threads; tooltip lives on the UI thread.
-        _app.ActivePlanChanged += p => Dispatcher.Invoke(() =>
+        // Fires from timer threads; tooltip lives on the UI thread. BeginInvoke, never Invoke:
+        // these events are raised while services hold their own locks (e.g. the scheduler's
+        // _sync around Settings.Update), and a synchronous hop would deadlock against a
+        // UI-thread call waiting for the same lock.
+        _app.ActivePlanChanged += p => Dispatcher.BeginInvoke(() =>
             TrayIcon.ToolTipText = "VoltManager – " + PlanDisplayName(p));
-        _app.Settings.SettingsChanged += s => Dispatcher.Invoke(() =>
+        _app.Settings.SettingsChanged += s => Dispatcher.BeginInvoke(() =>
         {
             _app.Theme.SetTheme(s.ThemeColor);
             // Keep the main WebView font in sync with disk (import/other writers).
@@ -218,7 +221,7 @@ public partial class MainWindow : Window
             _app.ScheduledPowerActions.StateChanged += state =>
             {
                 _bridge?.PushEvent(BridgeEventNames.ScheduledPowerActionChanged, state);
-                Dispatcher.Invoke(() => RefreshScheduledPowerTrayState(state));
+                Dispatcher.BeginInvoke(() => RefreshScheduledPowerTrayState(state));
             };
             _hostEventsWired = true;
         }

@@ -1074,15 +1074,20 @@
 
     const POLLERS = { power: pollPower, processes: pollProcesses, memory: pollMemory };
 
+    function setResolvedAnimationLevel(resolved) {
+        // widgets.css keys off data-animation-level; the shared motion.css tokens off data-anim.
+        document.documentElement.dataset.animationLevel = resolved;
+        document.documentElement.dataset.anim = resolved;
+    }
+
     function applyAnimationLevel(level) {
         animationSetting = ['auto', 'low', 'medium', 'high'].includes(level) ? level : 'auto';
         if (animationSetting !== 'auto') {
-            document.documentElement.dataset.animationLevel = animationSetting;
+            setResolvedAnimationLevel(animationSetting);
             return;
         }
         if (!animationHardwareTier || !window.VoltAnimationLevel) return;
-        document.documentElement.dataset.animationLevel =
-            VoltAnimationLevel.resolveLevel(animationSetting, animationHardwareTier);
+        setResolvedAnimationLevel(VoltAnimationLevel.resolveLevel(animationSetting, animationHardwareTier));
     }
 
     function applyAnimationHardware(info) {
