@@ -10,6 +10,7 @@ public class AppSettings
     public AppThemeColor ThemeColor { get; set; } = AppThemeColor.Blue;
     [JsonPropertyName("masterAutomationEnabled")] public bool MasterAutomationEnabled { get; set; } = true;
     [JsonPropertyName("closeToTray")] public bool CloseToTray { get; set; } = true;
+    [JsonPropertyName("animationLevel")] public string AnimationLevel { get; set; } = "auto";
     [JsonPropertyName("startWithWindows")] public bool StartWithWindows { get; set; } = false;
     /// <summary>Schema version of the registered VoltManagerAutostart task (0 = never migrated).</summary>
     [JsonPropertyName("autostartTaskSchemaVersion")] public int AutostartTaskSchemaVersion { get; set; } = 0;

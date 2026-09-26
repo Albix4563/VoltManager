@@ -5,8 +5,8 @@
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <title>VOLT MANAGER</title>
 <link href="css/app.css?v=launcher1" rel="stylesheet"/>
-<link href="css/motion.css?v=motion2" rel="stylesheet"/>
-<link href="css/redesign.css?v=motion2" rel="stylesheet"/>
+<link href="css/motion.css?v=anim1" rel="stylesheet"/>
+<link href="css/redesign.css?v=anim1" rel="stylesheet"/>
 <link href="css/polish.css?v=batteryhistory1" rel="stylesheet"/>
 <link href="css/effects.css?v=motion2" rel="stylesheet"/>
 <link href="css/theme-colors.css?v=color2" rel="stylesheet"/>
@@ -723,6 +723,19 @@
                   <div class="mini-toggle-knob"></div>
                 </div>
               </div>
+              <div class="flex items-start justify-between gap-md group mt-md" id="pref-animation-level">
+                <div class="min-w-0 flex-1">
+                  <p class="text-body-md text-on-surface" data-i18n="set_animation_label">Animations</p>
+                  <p class="text-label-sm text-on-surface-variant mt-1" id="animation-level-note"></p>
+                </div>
+                <select id="animation-level-select" class="text-label-md text-on-surface shrink-0"
+                        style="min-width:190px;background:var(--md-sys-color-surface-container-high,#1b2236);color:inherit;font-weight:600;padding:8px 12px;border-radius:8px;border:1px solid rgba(255,255,255,0.12);cursor:pointer;outline:none;">
+                  <option value="auto">Automatic</option>
+                  <option value="low" data-i18n="set_animation_low">Low</option>
+                  <option value="medium" data-i18n="set_animation_medium">Medium</option>
+                  <option value="high" data-i18n="set_animation_high">High</option>
+                </select>
+              </div>
               <div class="flex items-center justify-between group mt-md" id="pref-show-welcome">
                 <div>
                   <p class="text-body-md text-on-surface group-hover:text-secondary-fixed transition-colors" data-i18n="set_show_welcome">Mostra benvenuto</p>
@@ -1344,16 +1357,17 @@
 
 <script src="js/bridge.js?v=errlog1"></script>
 <script src="js/font.js?v=font18"></script>
-<script src="js/i18n.catalogs.js?v=launcher1"></script>
+<script src="js/i18n.catalogs.js?v=anim1"></script>
 <script src="js/i18n.js?v=catalog1"></script>
 <script src="js/view-lifecycle.js?v=mod1"></script>
 <script src="js/app.js?v=brightness1"></script>
-<script src="js/effects.js?v=ram3"></script>
-<script src="js/perf-guard.js?v=hwtier1"></script>
+<script src="js/effects.js?v=anim1"></script>
+<script src="js/animation-level.js?v=anim1"></script>
+<script src="js/perf-guard.js?v=anim1"></script>
 <script src="js/battery-history-request.js?v=1"></script>
-<script src="js/dashboard.js?v=brightness1"></script>
+<script src="js/dashboard.js?v=anim1"></script>
 <script src="js/brightness.js?v=brightness1"></script>
-<script src="js/settings.js?v=launcher1"></script>
+<script src="js/settings.js?v=anim1"></script>
 <script src="js/settings-preferences-tools.js?v=mod1"></script>
 <script src="js/lan-remote-control.js?v=1"></script>
 <script src="js/welcome.js?v=silentupdate1"></script>

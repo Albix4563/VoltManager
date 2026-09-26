@@ -1044,7 +1044,7 @@
         }
     }
 
-    function showChannelRiskConfirm(channel) {
+    function showRiskConfirm(copy) {
         return new Promise((resolve) => {
             const overlay = document.getElementById('channel-warn-overlay');
             const titleEl = document.getElementById('channel-warn-title');
@@ -1052,24 +1052,14 @@
             const btnConfirm = document.getElementById('channel-warn-confirm');
             const btnCancel = document.getElementById('channel-warn-cancel');
             if (!overlay || !btnConfirm || !btnCancel) {
-                resolve(window.confirm(
-                    channel === 'dev' ? lt('channelWarnDevBody') : lt('channelWarnPreviewBody')
-                ));
+                resolve(window.confirm(copy.body));
                 return;
             }
 
-            if (titleEl) {
-                titleEl.textContent = channel === 'dev'
-                    ? lt('channelWarnDevTitle')
-                    : lt('channelWarnPreviewTitle');
-            }
-            if (bodyEl) {
-                bodyEl.textContent = channel === 'dev'
-                    ? lt('channelWarnDevBody')
-                    : lt('channelWarnPreviewBody');
-            }
-            btnConfirm.textContent = lt('channelWarnConfirm');
-            btnCancel.textContent = lt('channelWarnCancel');
+            if (titleEl) titleEl.textContent = copy.title;
+            if (bodyEl) bodyEl.textContent = copy.body;
+            btnConfirm.textContent = copy.confirm;
+            btnCancel.textContent = copy.cancel;
 
             const close = (accepted) => {
                 overlay.classList.add('hidden');
@@ -1092,6 +1082,100 @@
             overlay.classList.remove('hidden');
             overlay.classList.add('flex');
             btnConfirm.focus();
+        });
+    }
+
+    function showChannelRiskConfirm(channel) {
+        return showRiskConfirm({
+            title: channel === 'dev' ? lt('channelWarnDevTitle') : lt('channelWarnPreviewTitle'),
+            body: channel === 'dev' ? lt('channelWarnDevBody') : lt('channelWarnPreviewBody'),
+            confirm: lt('channelWarnConfirm'),
+            cancel: lt('channelWarnCancel'),
+        });
+    }
+
+    // Animation-level strings live in the core catalog (shared with data-i18n markup).
+    function animText(key) {
+        return tr(key, key);
+    }
+
+    function animationLevelText(level) {
+        if (level === 'low') return animText('set_animation_low');
+        if (level === 'high') return animText('set_animation_high');
+        return animText('set_animation_medium');
+    }
+
+    function animationHardwareTier() {
+        return window.VoltAnimationLevel?.hardwareTier?.()
+            || document.documentElement.dataset.hwTier
+            || null;
+    }
+
+    function refreshAnimationLevelUi() {
+        const select = document.getElementById('animation-level-select');
+        const note = document.getElementById('animation-level-note');
+        if (!select || !window.VoltAnimationLevel) return;
+        const store = window.__voltSettings;
+        const settings = store && (store.get ? store.get() : store);
+        const setting = settings && ['auto', 'low', 'medium', 'high'].includes(settings.animationLevel)
+            ? settings.animationLevel
+            : 'auto';
+        const recommended = window.VoltAnimationLevel.recommended();
+        const autoOption = select.querySelector('option[value="auto"]');
+        if (autoOption) {
+            autoOption.textContent = animText('set_animation_auto')
+                .replace('{level}', animationLevelText(recommended));
+        }
+        select.value = setting;
+        if (!note) return;
+        const hwTier = animationHardwareTier();
+        const exceeds = !!hwTier && window.VoltAnimationLevel.exceedsRecommended(setting, hwTier);
+        note.style.color = exceeds ? '#ffc857' : '';
+        if (exceeds) note.textContent = animText('set_animation_over');
+        else note.textContent = animText('set_animation_note_' + window.VoltAnimationLevel.resolveLevel(setting, hwTier));
+    }
+
+    function wireAnimationLevelUi() {
+        const select = document.getElementById('animation-level-select');
+        if (!select || select.dataset.wired === 'true' || !window.VoltAnimationLevel) return;
+        select.dataset.wired = 'true';
+        select.addEventListener('change', async () => {
+            const store = window.__voltSettings;
+            if (!store) return;
+            const settings = store.get ? store.get() : store;
+            const previous = ['auto', 'low', 'medium', 'high'].includes(settings.animationLevel)
+                ? settings.animationLevel
+                : 'auto';
+            const next = select.value;
+            const hwTier = animationHardwareTier();
+
+            if (hwTier && window.VoltAnimationLevel.exceedsRecommended(next, hwTier)) {
+                select.value = previous;
+                const accepted = await showRiskConfirm({
+                    title: animText('set_animation_warn_title'),
+                    body: animText('set_animation_warn_body'),
+                    confirm: animText('set_animation_warn_confirm'),
+                    cancel: animText('set_animation_warn_cancel'),
+                });
+                if (!accepted) {
+                    refreshAnimationLevelUi();
+                    return;
+                }
+            }
+
+            settings.animationLevel = next;
+            try {
+                if (store.saveNow) await store.saveNow();
+                else if (store.save) store.save();
+            } catch {
+                settings.animationLevel = previous;
+                refreshAnimationLevelUi();
+                return;
+            }
+            refreshAnimationLevelUi();
+            document.dispatchEvent(new CustomEvent('animationlevelchange', {
+                detail: { level: next }
+            }));
         });
     }
 
@@ -1362,6 +1446,8 @@
         if (!s) return;
         const settings = s.get ? s.get() : s;
         mountGlobalHotkeysUi(settings);
+        wireAnimationLevelUi();
+        refreshAnimationLevelUi();
 
         mountAutoUpdateUi();
         const autoUpdates = normalizeAutoUpdates(settings);
@@ -1457,7 +1543,11 @@
             const channel = normalizeAutoUpdates(settings).updateChannel;
             if (channel) setChannelUi(channel);
         }
+        refreshAnimationLevelUi();
     });
+
+    document.addEventListener('perftierchange', refreshAnimationLevelUi);
+    document.addEventListener('systeminfoloaded', refreshAnimationLevelUi);
 
     window.VoltSettingsCore = { lt, tr, setStatus, setToggle };
 

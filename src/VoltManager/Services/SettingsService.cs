@@ -108,6 +108,7 @@ public class SettingsService
         NormalizeThemeColor(settings);
         NormalizeLanguage(settings);
         NormalizeFont(settings);
+        NormalizeAnimationLevel(settings);
 
         // Migrate stale repo name from pre-release installs.
         if (settings.UpdateRepo == "Albix4563/VoltManager")
@@ -177,6 +178,18 @@ public class SettingsService
             "times-new-roman" => "times-new-roman",
             "consolas" => "consolas",
             _ => "inter",
+        };
+    }
+
+    private static void NormalizeAnimationLevel(AppSettings settings)
+    {
+        settings.AnimationLevel = settings.AnimationLevel?.Trim().ToLowerInvariant() switch
+        {
+            "low" => "low",
+            "medium" => "medium",
+            "high" => "high",
+            "auto" => "auto",
+            _ => "auto",
         };
     }
 

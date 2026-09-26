@@ -11,6 +11,16 @@
   --vm-ease-exit: cubic-bezier(.4,0,.2,1);
 }
 
+html[data-anim="low"] {
+  --vm-motion-fast: 120ms;
+  --vm-motion-base: 120ms;
+  --vm-motion-sidebar: 120ms;
+  --vm-motion-slow: 1ms;
+  --vm-motion-enter: 1ms;
+  --vm-motion-exit: 1ms;
+  --vm-motion-stagger: 0ms;
+}
+
 /* Keep utility-driven micro-interactions responsive, but less abrupt. */
 .transition,
 .transition-all,

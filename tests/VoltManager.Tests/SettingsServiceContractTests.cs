@@ -7,6 +7,29 @@ namespace VoltManager.Tests;
 
 public sealed class SettingsServiceContractTests
 {
+    [Theory]
+    [InlineData(" HIGH ", "high")]
+    [InlineData("Medium", "medium")]
+    [InlineData("low", "low")]
+    [InlineData("auto", "auto")]
+    [InlineData("turbo", "auto")]
+    [InlineData("", "auto")]
+    public void AnimationLevel_IsNormalized(string input, string expected)
+    {
+        var settings = TestSettings.Create(out string path);
+        try
+        {
+            settings.Update(state => state.AnimationLevel = input);
+
+            Assert.Equal(expected, settings.Current.AnimationLevel);
+            Assert.Equal(expected, new SettingsService(path).Current.AnimationLevel);
+        }
+        finally
+        {
+            Directory.Delete(Path.GetDirectoryName(path)!, recursive: true);
+        }
+    }
+
     [Fact]
     public void Current_ReturnsDetachedSnapshot()
     {

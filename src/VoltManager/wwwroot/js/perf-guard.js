@@ -10,6 +10,8 @@
   let ramLite = false;
   let resourceLite = false;
   let effectiveLite = false;
+  let hwTier = null;
+  let animationLevel = 'auto';
 
   // Pure decision: rise past ON enters, fall past OFF leaves,
   // in between hold the current state.
@@ -86,20 +88,63 @@
     }
   }
 
+  function currentAnimationSetting(eventDetail) {
+    const detailSettings = eventDetail && (eventDetail.settings || eventDetail);
+    if (detailSettings && typeof detailSettings.animationLevel === 'string') {
+      return detailSettings.animationLevel;
+    }
+    const store = window.__voltSettings;
+    const settings = store && (store.get ? store.get() : store);
+    return settings && typeof settings.animationLevel === 'string'
+      ? settings.animationLevel
+      : animationLevel;
+  }
+
+  function applyAnimationLevel() {
+    if (!hwTier || !window.VoltAnimationLevel) return;
+    const level = window.VoltAnimationLevel.resolveLevel(animationLevel, hwTier);
+    const tier = level === 'low' ? 'lite' : level === 'high' ? 'full' : 'balanced';
+    const html = document.documentElement;
+    html.dataset.perfTier = tier;
+    html.dataset.anim = level;
+    if (level === 'high') html.dataset.fx = 'rich';
+    else delete html.dataset.fx;
+    if (tier === 'lite' && window.VoltFx && window.VoltFx.stopMotion) window.VoltFx.stopMotion();
+    document.dispatchEvent(new CustomEvent('perftierchange', {
+      detail: { tier, hwTier, animationLevel: level }
+    }));
+  }
+
   function applyTier(info) {
     if (!info) return;
-    const tier = classify(info.ramTotalGb, info.logicalCores);
-    document.documentElement.dataset.perfTier = tier;
-    if (tier === 'lite' && window.VoltFx && window.VoltFx.stopMotion) window.VoltFx.stopMotion();
-    document.dispatchEvent(new CustomEvent('perftierchange', { detail: { tier } }));
+    hwTier = classify(info.ramTotalGb, info.logicalCores);
+    document.documentElement.dataset.hwTier = hwTier;
+    applyAnimationLevel();
   }
 
   document.documentElement.dataset.resourceProfile =
     document.documentElement.dataset.resourceProfile || 'full';
 
+  if (window.VoltAnimationLevel) {
+    window.VoltAnimationLevel.hardwareTier = () => hwTier;
+    window.VoltAnimationLevel.recommended = () =>
+      window.VoltAnimationLevel.recommendedLevel(hwTier);
+    window.VoltAnimationLevel.effective = () =>
+      hwTier ? window.VoltAnimationLevel.resolveLevel(animationLevel, hwTier) : null;
+  }
+
+  if (window.__voltSettings) animationLevel = currentAnimationSetting();
   if (window.VoltSystemInfo) applyTier(window.VoltSystemInfo);
   document.addEventListener('systeminfoloaded', function (e) {
     applyTier(e.detail || window.VoltSystemInfo);
+  });
+  document.addEventListener('settingsloaded', function (e) {
+    animationLevel = currentAnimationSetting(e.detail);
+    applyAnimationLevel();
+  });
+  document.addEventListener('animationlevelchange', function (e) {
+    animationLevel = e.detail && e.detail.level ? e.detail.level : currentAnimationSetting();
+    applyAnimationLevel();
   });
 
   if (window.Host && Host.on) {

@@ -658,7 +658,8 @@
     }
 
     function processPollInterval() {
-        const tier = document.documentElement.dataset.perfTier;
+        // Polling cost follows the hardware, not the user's animation level.
+        const tier = document.documentElement.dataset.hwTier || document.documentElement.dataset.perfTier;
         return Math.max(tier === 'lite' ? 10000 : tier === 'balanced' ? 6000 : 3000,
             Number(window.VoltResourceProfile?.processPollingIntervalMs) || 0);
     }

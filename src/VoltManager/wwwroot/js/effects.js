@@ -66,13 +66,18 @@
 
   // Register/retarget a channel. First sighting snaps (no animate-from-zero);
   // reduced-motion always snaps and never starts the loop.
-  function chase(el, target, render, eps) {
+  function chase(el, target, render, eps, empty = 0) {
     if (reduce()) { channels.delete(el); render(target); return; }
     const ch = channels.get(el);
-    if (!ch) { channels.set(el, { value: target, target, render, eps }); render(target); return; }
+    if (!ch) {
+      channels.set(el, { value: target, target, render, eps, empty });
+      render(target);
+      return;
+    }
     ch.target = target;
     ch.render = render;
     ch.eps = eps;
+    ch.empty = empty;
     if (!rafId) { lastTs = 0; rafId = requestAnimationFrame(frame); }
   }
 
@@ -83,7 +88,7 @@
       const eps = decimals > 0 ? 0.5 * Math.pow(10, -decimals) : 0.4;
       chase(el, target, (v) => {
         el.textContent = (signed && v > 0 ? '+' : '') + v.toFixed(decimals) + suffix;
-      }, eps);
+      }, eps, 0);
     },
 
     /** Smooth ring fill + count-up + load-reactive colour. */
@@ -102,7 +107,7 @@
       chase(circle, toOff, (v) => {
         circle.style.strokeDashoffset = v.toFixed(1);
         if (Math.abs(toOff - v) <= 0.3) circle.style.willChange = 'auto';
-      }, 0.3);
+      }, 0.3, CIRC);
       if (label) this.animateNumber(label, clamped, { suffix: '%' });
       const { stroke, load } = ringColor(clamped);
       circle.style.stroke = stroke;
@@ -126,7 +131,23 @@
       chase(bar, clamped, (v) => {
         bar.style.transform = 'scaleX(' + (v / 100).toFixed(4) + ')';
         if (Math.abs(clamped - v) <= 0.15) bar.style.willChange = 'auto';
-      }, 0.15);
+      }, 0.15, 0);
+    },
+
+    /** Replay registered dashboard metrics from their empty state to the latest target. */
+    replayIntro(root) {
+      if (!root || document.documentElement.dataset.anim !== 'high' || reduce()) return;
+      let replayed = false;
+      channels.forEach((ch, el) => {
+        if (!root.contains(el)) return;
+        ch.value = ch.empty;
+        ch.render(ch.value);
+        replayed = true;
+      });
+      if (replayed && !rafId) {
+        lastTs = 0;
+        rafId = requestAnimationFrame(frame);
+      }
     },
 
     /** Freeze + drop every running tween at once. perf-guard.js calls this when
@@ -242,7 +263,14 @@
   function init() {
     decorateTitles();
     syncRichEffects();
-    document.addEventListener('viewchange', decorateTitles);
+    document.addEventListener('viewchange', (event) => {
+      decorateTitles();
+      if (event.detail && event.detail.view === 'monitoring' && event.detail.reorganized) {
+        VoltFx.replayIntro(document.querySelector('.vm-reorg-view[data-vm-view="monitoring"]'));
+      } else if (event.detail && event.detail.view === 'home' && !event.detail.reorganized) {
+        VoltFx.replayIntro(document.getElementById('view-home'));
+      }
+    });
     document.addEventListener('navmounted', decorateTitles);
     document.addEventListener('perftierchange', syncRichEffects);
     document.addEventListener('perfmodechange', syncRichEffects);
