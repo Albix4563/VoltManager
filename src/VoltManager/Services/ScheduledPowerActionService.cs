@@ -281,6 +281,7 @@ public sealed class ScheduledPowerActionService : IDisposable
 
     private void DailyCheckCallback(long generation)
     {
+        ScheduledPowerActionType action;
         lock (_sync)
         {
             if (!_started || generation != _generation) return;
@@ -300,16 +301,17 @@ public sealed class ScheduledPowerActionService : IDisposable
             Logger.Info($"Executing daily action: action={scheduled.Action}, time={scheduled.Time}");
 
             PublishState(CreateStateUnsafe());
+            action = scheduled.Action;
+        }
 
-            try
-            {
-                if (!_started || generation != _generation) return;
-                _executor.Execute(scheduled.Action);
-            }
-            catch (Exception ex)
-            {
-                Logger.Error("Daily scheduled power action failed", ex);
-            }
+        // Same as the relative path: never hold _sync while sleep blocks until resume.
+        try
+        {
+            _executor.Execute(action);
+        }
+        catch (Exception ex)
+        {
+            Logger.Error("Daily scheduled power action failed", ex);
         }
     }
 

@@ -82,19 +82,22 @@ public sealed class UpdatePipelineTests
     }
 
     [Fact]
-    public async Task Service_only_approves_installer_url_from_last_release_check()
+    public async Task Service_only_approves_installer_urls_from_its_own_release_checks()
     {
         const string installerUrl = "https://github.com/owner/repo/releases/download/v99.0.0/VoltManagerSetup.exe";
+        bool offline = false;
         const string releaseJson = """
         {"tag_name":"v99.0.0","name":"Release","body":"notes","published_at":"2026-09-21T00:00:00Z","html_url":"https://github.com/owner/repo/releases/tag/v99.0.0","prerelease":false,"assets":[{"name":"VoltManagerSetup.exe","browser_download_url":"https://github.com/owner/repo/releases/download/v99.0.0/VoltManagerSetup.exe"}]}
         """;
         using var http = new HttpClient(new StubHandler(request =>
-            new HttpResponseMessage(HttpStatusCode.OK)
-            {
-                Content = new StringContent(request.RequestUri!.AbsolutePath.EndsWith("/latest", StringComparison.Ordinal)
-                    ? releaseJson
-                    : "[]", Encoding.UTF8, "application/json"),
-            }));
+            offline
+                ? new HttpResponseMessage(HttpStatusCode.ServiceUnavailable)
+                : new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(request.RequestUri!.AbsolutePath.EndsWith("/latest", StringComparison.Ordinal)
+                        ? releaseJson
+                        : "[]", Encoding.UTF8, "application/json"),
+                }));
         using UpdateService service = CreateService(http, new MemoryUpdateFileSystem(), "1.0.0");
 
         Assert.False(service.IsKnownReleaseAssetUrl(installerUrl));
@@ -103,6 +106,11 @@ public sealed class UpdatePipelineTests
         Assert.Equal(installerUrl, info.DownloadUrl);
         Assert.True(service.IsKnownReleaseAssetUrl(installerUrl));
         Assert.False(service.IsKnownReleaseAssetUrl("https://evil.example/VoltManagerSetup.exe"));
+
+        // A later failing background check must not revoke the URL the UI already holds.
+        offline = true;
+        try { await service.CheckForUpdatesAsync(); } catch { }
+        Assert.True(service.IsKnownReleaseAssetUrl(installerUrl));
     }
 
     [Fact]

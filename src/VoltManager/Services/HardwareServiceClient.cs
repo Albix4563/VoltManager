@@ -91,7 +91,7 @@ public sealed class HardwareServiceClient : IHardwareAccess
                 var pong = client.Call<HardwareServicePing>("ping", null);
                 if (pong?.Ready == true)
                     break;
-                if (pong?.Failed == true)
+                if (pong?.Failed == true || client.ServiceGone)
                 {
                     client.EnableFallback("Hardware service initialization failed; continuing with in-process monitoring.");
                     return client;
@@ -259,6 +259,16 @@ public sealed class HardwareServiceClient : IHardwareAccess
             EnableFallback("Hardware service exited; continuing with in-process monitoring.");
         }
         catch { }
+    }
+
+    // True when the service process died or the pipe dropped: pinging it again is pointless.
+    private bool ServiceGone
+    {
+        get
+        {
+            try { return _process.HasExited || !_pipe.IsConnected; }
+            catch { return true; }
+        }
     }
 
     private void EnableFallback(string message)
