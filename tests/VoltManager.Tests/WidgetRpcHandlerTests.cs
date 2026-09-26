@@ -15,7 +15,7 @@ public class WidgetRpcHandlerTests
         var handler = Create();
         string[] expected =
         [
-            "beginWidgetDrag", "setWidgetTopmost", "closeWidget",
+            "beginWidgetDrag", "beginWidgetResize", "setWidgetTopmost", "closeWidget",
             "getWidgetsState", "setWidgetEnabled", "setWidgetsMaster",
             "setWidgetPinned", "setWidgetSize", "setWidgetPlacement",
             "resetWidgetPosition",
@@ -86,6 +86,7 @@ public class WidgetRpcHandlerTests
             SetPlacement: setPlacement ?? ((type, monitor, anchor) => new { type, monitor, anchor }),
             ResetPosition: type => new { type },
             BeginDrag: () => { },
+            BeginResize: () => { },
             SetTopmost: setTopmost ?? (_ => { }),
             Close: () => { }));
     }

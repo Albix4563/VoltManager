@@ -9,6 +9,8 @@ public class WidgetItem
     [JsonPropertyName("enabled")] public bool Enabled { get; set; } = false;
     [JsonPropertyName("pinned")] public bool Pinned { get; set; } = false;
     [JsonPropertyName("size")] public string Size { get; set; } = "medium";
+    [JsonPropertyName("width")] public double? Width { get; set; }
+    [JsonPropertyName("height")] public double? Height { get; set; }
     [JsonPropertyName("x")] public double? X { get; set; }
     [JsonPropertyName("y")] public double? Y { get; set; }
     [JsonPropertyName("monitorId")] public string? MonitorId { get; set; }
@@ -25,9 +27,10 @@ public class WidgetSettings
     public static readonly string[] Types =
     [
         "clock", "calendar", "usage", "temps", "power", "plans",
-        "launcher", "actions", "brightness", "processes", "memory",
+        "launcher", "apps", "actions", "brightness", "processes", "memory",
     ];
     public static readonly string[] Sizes = ["mini", "medium", "large"];
+    public static readonly string[] LauncherSizes = ["mini", "medium", "large", "bar", "column"];
     public static readonly string[] Anchors =
     [
         "topLeft", "topCenter", "topRight",
@@ -49,6 +52,16 @@ public class WidgetSettings
     public static string NormalizeSize(string? size)
         => Sizes.FirstOrDefault(s => string.Equals(s, size, StringComparison.OrdinalIgnoreCase)) ?? "medium";
 
+    public static string NormalizeSize(string? type, string? size)
+    {
+        string[] allowed = IsLauncherType(type) ? LauncherSizes : Sizes;
+        return allowed.FirstOrDefault(s => string.Equals(s, size, StringComparison.OrdinalIgnoreCase)) ?? "medium";
+    }
+
+    public static bool IsLauncherType(string? type)
+        => string.Equals(type, "launcher", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(type, "apps", StringComparison.OrdinalIgnoreCase);
+
     public static string NormalizeAnchor(string? anchor)
         => Anchors.FirstOrDefault(a => string.Equals(a, anchor, StringComparison.OrdinalIgnoreCase)) ?? "topRight";
 
@@ -61,7 +74,17 @@ public class WidgetSettings
         {
             if (item == null || !IsKnownType(item.Type)) continue;
             item.Type = Types.First(t => string.Equals(t, item.Type, StringComparison.OrdinalIgnoreCase));
-            item.Size = NormalizeSize(item.Size);
+            item.Size = NormalizeSize(item.Type, item.Size);
+            if (IsLauncherType(item.Type))
+            {
+                item.Width = NormalizeDimension(item.Width, 56, 1920);
+                item.Height = NormalizeDimension(item.Height, 56, 1080);
+            }
+            else
+            {
+                item.Width = null;
+                item.Height = null;
+            }
             if (double.IsNaN(item.X ?? 0) || double.IsInfinity(item.X ?? 0)) item.X = null;
             if (double.IsNaN(item.Y ?? 0) || double.IsInfinity(item.Y ?? 0)) item.Y = null;
             if (item.Anchor != null) item.Anchor = NormalizeAnchor(item.Anchor);
@@ -86,5 +109,11 @@ public class WidgetSettings
         Items.Add(item);
         Normalize();
         return Items.First(i => string.Equals(i.Type, type, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static double? NormalizeDimension(double? value, double min, double max)
+    {
+        if (value is not double number || !double.IsFinite(number)) return null;
+        return Math.Clamp(number, min, max);
     }
 }

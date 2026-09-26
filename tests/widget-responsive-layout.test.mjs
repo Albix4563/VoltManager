@@ -15,7 +15,12 @@ const appCss = readFileSync(
   'utf8'
 );
 
-const widgetTypes = ['clock', 'calendar', 'usage', 'temps', 'power', 'plans', 'launcher', 'actions', 'brightness', 'processes', 'memory'];
+const settingsJs = readFileSync(
+  new URL('../src/VoltManager/wwwroot/js/settings.js', import.meta.url),
+  'utf8'
+);
+
+const widgetTypes = ['clock', 'calendar', 'usage', 'temps', 'power', 'plans', 'launcher', 'apps', 'actions', 'brightness', 'processes', 'memory'];
 
 test('desktop widgets expose their type and keep fixed chrome shrink-safe', () => {
   assert.match(
@@ -65,4 +70,26 @@ test('widget settings cards wrap dynamic values and respond to card width', () =
   assert.match(appCss, /\.widgets-category-card\s+\.widget-placement-row\s*\{[^}]*flex-direction:\s*column/s);
   assert.match(appCss, /\.widgets-category-card\s+\.widget-size-control\s*\{[^}]*max-width:\s*100%/s);
   assert.match(appCss, /\.widgets-category-card\s+\.widget-anchor-wrap\s*\{[^}]*max-width:\s*100%/s);
+});
+
+test('launcher and apps widgets split categories and use secure WebView2 file drops', () => {
+  assert.match(widgetsJs, /'launcher',\s*'apps'/, 'apps must follow launcher in the widget type list');
+  assert.match(
+    widgetsJs,
+    /launcherItems\s*=\s*launcherAllItems\.filter\(item\s*=>\s*!item\.hidden\s*&&\s*launcherCategoryOf\(item\)\s*===\s*launcherCategory\)/,
+    'launcher entries must be filtered by the active games/apps category'
+  );
+  assert.match(widgetsJs, /postMessageWithAdditionalObjects\(\{\s*kind:\s*'launcherDropFiles'\s*\},\s*files\)/);
+  assert.match(widgetsJs, /addEventListener\('dragover',[\s\S]*?e\.preventDefault\(\)/);
+  assert.match(widgetsJs, /addEventListener\('drop',[\s\S]*?e\.preventDefault\(\)/);
+  assert.match(widgetsCss, /\.launcher-drop-overlay\s*\{[^}]*border:\s*2px dashed[^}]*opacity:\s*0/s);
+  assert.match(widgetsCss, /\.desktop-widget\[data-layout=horizontal\][^\{]*\.launcher-grid\s*\{[^}]*grid-auto-flow:\s*column/s);
+  assert.match(widgetsCss, /\.desktop-widget\[data-layout=vertical\][^\{]*\.launcher-grid\s*\{[^}]*grid-auto-flow:\s*row/s);
+});
+
+test('launcher settings expose bar and column presets without adding them to other widgets', () => {
+  assert.match(settingsJs, /const WIDGET_PRESETS = \['mini', 'medium', 'large'\]/);
+  assert.match(settingsJs, /const LAUNCHER_WIDGET_PRESETS = \['mini', 'medium', 'large', 'bar', 'column'\]/);
+  assert.match(settingsJs, /return isLauncherWidgetType\(type\) \? LAUNCHER_WIDGET_PRESETS : WIDGET_PRESETS/);
+  assert.match(settingsJs, /var selected = !item\.customSize && preset === sizeKey/);
 });

@@ -4,7 +4,7 @@
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <title>VOLT MANAGER</title>
-<link href="css/app.css?v=launcher1" rel="stylesheet"/>
+<link href="css/app.css?v=launcher2" rel="stylesheet"/>
 <link href="css/motion.css?v=anim1" rel="stylesheet"/>
 <link href="css/redesign.css?v=anim1" rel="stylesheet"/>
 <link href="css/polish.css?v=batteryhistory1" rel="stylesheet"/>
@@ -955,6 +955,10 @@
           </div>
           <div class="flex items-center gap-sm flex-shrink-0">
             <button class="system-icon-action system-icon-action--neutral" id="btn-launcher-refresh" type="button" data-i18n-aria-label="launcher_manage_refresh" aria-label="Rileva di nuovo" title="Rileva di nuovo"><span class="material-symbols-outlined" aria-hidden="true">refresh</span></button>
+            <select class="widget-monitor-select launcher-category-select" id="launcher-add-category" data-i18n-aria-label="launcher_category_selector" aria-label="Categoria app">
+              <option value="games" data-i18n="launcher_category_games">Giochi</option>
+              <option value="apps" data-i18n="launcher_category_apps">Applicazioni</option>
+            </select>
             <button class="btn-glow bg-secondary-container text-on-secondary-container text-label-md font-bold px-4 py-2.5 rounded-lg flex items-center gap-xs" id="btn-launcher-add" type="button"><span class="material-symbols-outlined text-[18px]" aria-hidden="true">add</span><span data-i18n="launcher_manage_add">Aggiungi app</span></button>
           </div>
         </div>
@@ -1357,7 +1361,7 @@
 
 <script src="js/bridge.js?v=errlog1"></script>
 <script src="js/font.js?v=font18"></script>
-<script src="js/i18n.catalogs.js?v=anim1"></script>
+<script src="js/i18n.catalogs.js?v=launcher2"></script>
 <script src="js/i18n.js?v=catalog1"></script>
 <script src="js/view-lifecycle.js?v=mod1"></script>
 <script src="js/app.js?v=brightness1"></script>

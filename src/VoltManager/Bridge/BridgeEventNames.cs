@@ -16,6 +16,7 @@ public static class BridgeEventNames
     public const string KeepAwakeChanged = "keepAwakeChanged";
     public const string LanguageChanged = "languageChanged";
     public const string LaunchersChanged = "launchersChanged";
+    public const string LauncherDropResult = "launcherDropResult";
     public const string ManualOverrideChanged = "manualOverrideChanged";
     public const string Metrics = "metrics";
     public const string PlanHistoryChanged = "planHistoryChanged";
@@ -36,7 +37,7 @@ public static class BridgeEventNames
         ActivePlanChanged, ActivePlanReasonChanged, AppPowerProfileActivityChanged, AppUpdated,
         AutomationStateChanged, CpuAutomationStateChanged, FontChanged, GamingModeChanged,
         GlobalHotkeysChanged, HeavyAppActivityChanged, IdlePowerGuardChanged, KeepAwakeChanged,
-        LanguageChanged, LaunchersChanged, ManualOverrideChanged, Metrics, PlanHistoryChanged,
+        LanguageChanged, LauncherDropResult, LaunchersChanged, ManualOverrideChanged, Metrics, PlanHistoryChanged,
         PowerPlanConflictDetected, PowerSourcePlanChanged, ResourceProfileChanged,
         ScheduledPowerActionChanged, StandbyAutoCleaned, ThemeChanged, ThermalGuardChanged,
         UpdateAvailable, UpdateDownloadProgress, WidgetsStateChanged, WidgetTopmostChanged,

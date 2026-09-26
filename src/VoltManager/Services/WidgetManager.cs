@@ -16,6 +16,7 @@ public sealed record WidgetItemState(
     string Size,
     double Width,
     double Height,
+    bool CustomSize,
     string? MonitorId,
     string? MonitorName,
     int? MonitorNumber,
@@ -147,8 +148,14 @@ public sealed class WidgetManager : IDisposable
     public WidgetStateSnapshot SetSize(string type, string size)
     {
         if (_disposing || !WidgetSettings.IsKnownType(type)) return GetSnapshot();
-        string normalizedSize = WidgetSettings.NormalizeSize(size);
-        _settings.Update(state => state.Widgets.GetOrAdd(type).Size = normalizedSize);
+        string normalizedSize = WidgetSettings.NormalizeSize(type, size);
+        _settings.Update(state =>
+        {
+            var item = state.Widgets.GetOrAdd(type);
+            item.Size = normalizedSize;
+            item.Width = null;
+            item.Height = null;
+        });
         return Relayout(save: false);
     }
 
@@ -209,6 +216,46 @@ public sealed class WidgetManager : IDisposable
         Relayout(save: false);
     }
 
+    internal void SaveCustomSize(string type, double width, double height)
+    {
+        if (_disposing || !WidgetSettings.IsLauncherType(type)) return;
+        if (!double.IsFinite(width) || !double.IsFinite(height)) return;
+        if (!_lastPlacements.TryGetValue(type, out var previousPlacement)) return;
+
+        width = Math.Clamp(width, 56, 1920);
+        height = Math.Clamp(height, 56, 1080);
+        double targetX = previousPlacement.FinalBounds.X;
+        double targetY = previousPlacement.FinalBounds.Y;
+
+        _settings.Update(state =>
+        {
+            var item = state.Widgets.GetOrAdd(type);
+            item.Width = width;
+            item.Height = height;
+        });
+
+        Relayout(save: false);
+        if (!_lastPlacements.TryGetValue(type, out var resizedPlacement)) return;
+
+        double sx = resizedPlacement.EffectiveDisplay.DpiScaleX <= 0 ? 1 : resizedPlacement.EffectiveDisplay.DpiScaleX;
+        double sy = resizedPlacement.EffectiveDisplay.DpiScaleY <= 0 ? 1 : resizedPlacement.EffectiveDisplay.DpiScaleY;
+        if (Math.Abs(targetX - resizedPlacement.FinalBounds.X) <= 0.5 &&
+            Math.Abs(targetY - resizedPlacement.FinalBounds.Y) <= 0.5) return;
+
+        // Same model as SaveDragOffset: offset relative to the nominal base bounds.
+        double offsetX = (targetX - resizedPlacement.BaseBounds.X) / sx;
+        double offsetY = (targetY - resizedPlacement.BaseBounds.Y) / sy;
+        if (!double.IsFinite(offsetX) || !double.IsFinite(offsetY)) return;
+
+        _settings.Update(state =>
+        {
+            var item = state.Widgets.GetOrAdd(type);
+            item.OffsetX = offsetX;
+            item.OffsetY = offsetY;
+        });
+        Relayout(save: false);
+    }
+
     internal void RequestRelayout()
     {
         if (_disposing || _relayoutQueued) return;
@@ -256,7 +303,7 @@ public sealed class WidgetManager : IDisposable
         });
     }
 
-    public static Size GetWidgetSize(string type, string size = "medium") => (type, WidgetSettings.NormalizeSize(size)) switch
+    public static Size GetWidgetSize(string type, string size = "medium") => (type, WidgetSettings.NormalizeSize(type, size)) switch
     {
         ("clock", "mini") => new Size(180, 96),
         ("clock", "large") => new Size(340, 200),
@@ -278,6 +325,13 @@ public sealed class WidgetManager : IDisposable
         ("launcher", "mini") => new Size(260, 96),
         ("launcher", "medium") => new Size(320, 230),
         ("launcher", "large") => new Size(420, 330),
+        ("launcher", "bar") => new Size(520, 64),
+        ("launcher", "column") => new Size(64, 520),
+        ("apps", "mini") => new Size(260, 96),
+        ("apps", "medium") => new Size(320, 230),
+        ("apps", "large") => new Size(420, 330),
+        ("apps", "bar") => new Size(520, 64),
+        ("apps", "column") => new Size(64, 520),
         ("actions", "mini") => new Size(240, 96),
         ("actions", "medium") => new Size(320, 200),
         ("actions", "large") => new Size(400, 250),
@@ -294,6 +348,15 @@ public sealed class WidgetManager : IDisposable
         (_, "large") => new Size(340, 200),
         _ => new Size(260, 150),
     };
+
+    public static Size GetWidgetSize(WidgetItem item)
+    {
+        var preset = GetWidgetSize(item.Type, item.Size);
+        if (!WidgetSettings.IsLauncherType(item.Type)) return preset;
+        double width = item.Width is double w && double.IsFinite(w) ? Math.Clamp(w, 56, 1920) : preset.Width;
+        double height = item.Height is double h && double.IsFinite(h) ? Math.Clamp(h, 56, 1080) : preset.Height;
+        return new Size(width, height);
+    }
 
     public void Dispose()
     {
@@ -345,7 +408,7 @@ public sealed class WidgetManager : IDisposable
                 item.Anchor ?? "topRight",
                 item.OffsetX,
                 item.OffsetY,
-                GetWidgetSize(item.Type, item.Size));
+                GetWidgetSize(item));
         }).ToList();
 
         var placements = WidgetLayout.Calculate(requests, _snapshot);
@@ -418,7 +481,7 @@ public sealed class WidgetManager : IDisposable
 
         if (item.X != null && item.Y != null)
         {
-            var size = GetWidgetSize(item.Type, item.Size);
+            var size = GetWidgetSize(item);
             // Treat stored X/Y as DIP on the primary scale for migration.
             double sx = displays.Primary.DpiScaleX <= 0 ? 1 : displays.Primary.DpiScaleX;
             double sy = displays.Primary.DpiScaleY <= 0 ? 1 : displays.Primary.DpiScaleY;
@@ -457,7 +520,7 @@ public sealed class WidgetManager : IDisposable
             return;
         }
 
-        var window = _windowFactory(this, item, EnvTask(), GetWidgetSize(item.Type, item.Size), placement);
+        var window = _windowFactory(this, item, EnvTask(), GetWidgetSize(item), placement);
         _windows[item.Type] = window;
         window.Closed += (_, _) => ForgetWindow(item.Type);
         window.Show();
@@ -491,7 +554,7 @@ public sealed class WidgetManager : IDisposable
                         item.Anchor ?? "topRight",
                         item.OffsetX,
                         item.OffsetY,
-                        GetWidgetSize(item.Type, item.Size));
+                        GetWidgetSize(item));
                 }).ToList(),
                 _snapshot)
             : Array.Empty<WidgetPlacement>();
@@ -503,15 +566,16 @@ public sealed class WidgetManager : IDisposable
         var byType = placements.ToDictionary(p => p.Type, StringComparer.OrdinalIgnoreCase);
         var items = widgets.Items.Select(item =>
         {
-            var size = GetWidgetSize(item.Type, item.Size);
+            var size = GetWidgetSize(item);
             byType.TryGetValue(item.Type, out var p);
             return new WidgetItemState(
                 item.Type,
                 item.Enabled,
                 item.Pinned,
-                WidgetSettings.NormalizeSize(item.Size),
+                WidgetSettings.NormalizeSize(item.Type, item.Size),
                 size.Width,
                 size.Height,
+                WidgetSettings.IsLauncherType(item.Type) && (item.Width != null || item.Height != null),
                 item.MonitorId,
                 item.MonitorName,
                 item.MonitorNumber,

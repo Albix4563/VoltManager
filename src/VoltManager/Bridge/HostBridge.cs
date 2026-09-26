@@ -1,3 +1,5 @@
+using System.IO;
+using System.Text.Json;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.Wpf;
 using VoltManager.Bridge.Rpc;
@@ -19,6 +21,7 @@ public class HostBridge : IDisposable
     private readonly App _app;
     private readonly LocalizationService _loc;
     private readonly bool _subscribeGlobalEvents;
+    private readonly string? _widgetType;
     private readonly BridgeLifetime _lifetime = new();
     private readonly BridgeRpcDispatcher _dispatcher;
     private readonly UiMetricsPublisher _metricsPublisher = new();
@@ -30,6 +33,7 @@ public class HostBridge : IDisposable
     public event Func<bool, Task<object?>>? GamingModeRequested;
     public event Func<object?>? GamingModeStateRequested;
     public event Action? WidgetDragRequested;
+    public event Action? WidgetResizeRequested;
     public event Action<bool>? WidgetTopmostRequested;
     public event Action? WidgetCloseRequested;
 
@@ -42,7 +46,8 @@ public class HostBridge : IDisposable
         StartupService startup,
         MonitorService monitor,
         App app,
-        bool subscribeGlobalEvents = true)
+        bool subscribeGlobalEvents = true,
+        string? widgetType = null)
     {
         _webView = webView;
         _updates = updates;
@@ -50,6 +55,7 @@ public class HostBridge : IDisposable
         _app = app;
         _loc = app.Loc;
         _subscribeGlobalEvents = subscribeGlobalEvents;
+        _widgetType = widgetType;
 
         var dialogs = new WebViewBridgeFileDialogService(webView);
         _dispatcher = new BridgeRpcDispatcher(
@@ -68,6 +74,7 @@ public class HostBridge : IDisposable
                 () => ExitRequested?.Invoke(),
                 () => MinimizeToTrayRequested?.Invoke(),
                 () => WidgetDragRequested?.Invoke(),
+                () => WidgetResizeRequested?.Invoke(),
                 topmost => WidgetTopmostRequested?.Invoke(topmost),
                 () => WidgetCloseRequested?.Invoke()),
             method => _loc.T("Error_UnknownMethod", method));
@@ -137,7 +144,107 @@ public class HostBridge : IDisposable
             return;
         }
 
+        if (TryHandleLauncherDropMessage(json, e))
+            return;
+
         await HandleMessageAsync(json);
+    }
+
+    private bool TryHandleLauncherDropMessage(string json, CoreWebView2WebMessageReceivedEventArgs e)
+    {
+        if (!WidgetSettings.IsLauncherType(_widgetType)) return false;
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            if (doc.RootElement.ValueKind != JsonValueKind.Object ||
+                !doc.RootElement.TryGetProperty("kind", out var kind) ||
+                kind.ValueKind != JsonValueKind.String ||
+                !string.Equals(kind.GetString(), "launcherDropFiles", StringComparison.Ordinal))
+                return false;
+        }
+        catch
+        {
+            return false;
+        }
+
+        // Only the bundled widget page may add launchers, never a navigated-to document.
+        string source;
+        try { source = e.Source ?? ""; }
+        catch { source = ""; }
+        if (!source.StartsWith("https://app.local/", StringComparison.OrdinalIgnoreCase))
+        {
+            Logger.Warn("Launcher drop ignored from unexpected source: " + source);
+            return true;
+        }
+
+        string category = string.Equals(_widgetType, "apps", StringComparison.OrdinalIgnoreCase) ? "apps" : "games";
+        int added = 0;
+        int duplicates = 0;
+        int rejected = 0;
+        bool limitReached = false;
+
+        try
+        {
+            foreach (object additionalObject in e.AdditionalObjects)
+            {
+                if (additionalObject is not CoreWebView2File file)
+                {
+                    rejected++;
+                    continue;
+                }
+
+                string path;
+                try { path = Path.GetFullPath(file.Path); }
+                catch
+                {
+                    rejected++;
+                    continue;
+                }
+                if (!LauncherSettings.IsAllowedCustomPath(path) || !File.Exists(path))
+                {
+                    rejected++;
+                    continue;
+                }
+
+                var current = _app.Settings.Current.Launcher.CustomApps;
+                string id = LauncherSettings.CustomIdFor(path);
+                if (current.Any(app => string.Equals(app.Id, id, StringComparison.OrdinalIgnoreCase)))
+                {
+                    duplicates++;
+                    continue;
+                }
+                if (current.Count(app => string.Equals(
+                        LauncherSettings.NormalizeCategory(app.Category), category, StringComparison.Ordinal)) >= LauncherSettings.MaxPerCategory)
+                {
+                    limitReached = true;
+                    break;
+                }
+
+                try
+                {
+                    _app.Launchers.AddCustomFromDrop(path, category);
+                    added++;
+                }
+                catch (InvalidOperationException ex) when (ex.Message == LauncherDiscoveryService.LimitReachedMessage)
+                {
+                    limitReached = true;
+                    break;
+                }
+                catch (Exception ex) when (ex is ArgumentException or IOException or UnauthorizedAccessException)
+                {
+                    rejected++;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Error("Launcher drop failed", ex);
+        }
+
+        if (added > 0)
+            _app.Launchers.NotifyChanged();
+        PushEvent(BridgeEventNames.LauncherDropResult, new { added, duplicates, rejected, limitReached });
+        return true;
     }
 
     private void OnDownloadProgress(double pct) => PushEvent(BridgeEventNames.UpdateDownloadProgress, new { pct });

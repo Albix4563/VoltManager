@@ -1,10 +1,15 @@
 (function () {
-    const TYPES = ['clock', 'calendar', 'usage', 'temps', 'power', 'plans', 'launcher', 'actions', 'brightness', 'processes', 'memory'];
+    const TYPES = ['clock', 'calendar', 'usage', 'temps', 'power', 'plans', 'launcher', 'apps', 'actions', 'brightness', 'processes', 'memory'];
     const SIZES = ['mini', 'medium', 'large'];
+    const LAUNCHER_SIZES = ['mini', 'medium', 'large', 'bar', 'column'];
+    const MAX_CUSTOM_PER_CATEGORY = 10;
     const PLAN_ORDER = ['powerSaver', 'balanced', 'performance'];
     const params = new URLSearchParams(location.search);
     const type = TYPES.includes(params.get('w')) ? params.get('w') : 'clock';
-    const size = SIZES.includes(params.get('s')) ? params.get('s') : 'medium';
+    const isLauncherWidget = type === 'launcher' || type === 'apps';
+    const launcherCategory = type === 'apps' ? 'apps' : 'games';
+    const validSizes = isLauncherWidget ? LAUNCHER_SIZES : SIZES;
+    const size = validSizes.includes(params.get('s')) ? params.get('s') : 'medium';
     const root = document.getElementById('widget-root');
     let pinned = false;
     let switchingPlan = false;
@@ -15,6 +20,7 @@
     let pollTimer = null;
     let polling = false;
     let launcherItems = [];
+    let launcherAllItems = [];
     let launcherLoaded = false;
     let launcherLoading = false;
     let launcherReloadPending = false;
@@ -38,6 +44,7 @@
         power: ['bolt', 'widget_power'],
         plans: ['tune', 'widget_plans'],
         launcher: ['apps', 'widget_launcher'],
+        apps: ['grid_view', 'widget_apps'],
         actions: ['bolt', 'widget_actions'],
         brightness: ['brightness_6', 'widget_brightness'],
         processes: ['list_alt', 'widget_processes'],
@@ -55,6 +62,11 @@
         const keepAwakeBtn = type === 'plans'
             ? '    <button class="widget-action" id="widget-keep-awake" type="button" title="' + t('power_group_keepawake', 'Keep PC awake') + '" aria-label="' + t('power_group_keepawake', 'Keep PC awake') + '" aria-pressed="false"><span class="material-symbols-outlined">bedtime_off</span></button>'
             : '';
+        const launcherChrome = isLauncherWidget
+            ? '  <div class="launcher-drop-overlay" id="launcher-drop-overlay" aria-hidden="true"><span id="launcher-drop-text"></span></div>' +
+              '  <div class="launcher-toast hidden" id="launcher-toast" role="status"></div>' +
+              '  <button class="widget-resize-grip" id="widget-resize" type="button" title="' + esc(t('widget_resize', 'Resize')) + '" aria-label="' + esc(t('widget_resize', 'Resize')) + '"><span class="material-symbols-outlined" aria-hidden="true">south_east</span></button>'
+            : '';
         root.innerHTML =
             '<article class="desktop-widget" data-size="' + size + '" data-widget-type="' + type + '">' +
             '  <header class="widget-header" id="widget-drag">' +
@@ -64,14 +76,25 @@
             '    <button class="widget-action" id="widget-close" type="button" title="' + t('widget_close', 'Close') + '" aria-label="' + t('widget_close', 'Close') + '"><span class="material-symbols-outlined">close</span></button>' +
             '  </header>' +
             '  <section class="widget-body">' + bodyHtml + '</section>' +
+            launcherChrome +
             '</article>';
         if (window.I18n && I18n.apply) I18n.apply();
         wireChrome();
     }
 
     function wireChrome() {
+        const widget = root.querySelector ? root.querySelector('.desktop-widget') : null;
         document.getElementById('widget-drag')?.addEventListener('pointerdown', (e) => {
             if (e.target.closest('button')) return;
+            Host.call('beginWidgetDrag').catch(() => {});
+        });
+        document.getElementById('widget-resize')?.addEventListener('pointerdown', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            Host.call('beginWidgetResize').catch(() => {});
+        });
+        widget?.addEventListener('pointerdown', (e) => {
+            if (!isLauncherWidget || widget.dataset.layout === 'grid' || e.target.closest('button')) return;
             Host.call('beginWidgetDrag').catch(() => {});
         });
         document.getElementById('widget-pin')?.addEventListener('click', () => {
@@ -110,6 +133,8 @@
         document.getElementById('widget-close')?.addEventListener('click', () => {
             Host.call('closeWidget').catch(() => {});
         });
+        wireDropSafety(widget);
+        if (isLauncherWidget) observeLauncherLayout(widget);
     }
 
     function reflectPin() {
@@ -504,15 +529,147 @@
 
     // ---- Launcher -------------------------------------------------------
 
+    function launcherCategoryOf(item) {
+        return item && item.category === 'apps' ? 'apps' : 'games';
+    }
+
+    function customCategoryCount() {
+        return launcherAllItems.filter(item => item && item.source === 'custom' && launcherCategoryOf(item) === launcherCategory).length;
+    }
+
+    function launcherDropText(full) {
+        const count = Math.min(MAX_CUSTOM_PER_CATEGORY, customCategoryCount());
+        const key = full ? 'widget_drop_full' : 'widget_drop_add';
+        const fallback = full ? 'List full ({count}/10)' : 'Drop to add ({count}/10)';
+        return t(key, fallback).replace('{count}', String(count));
+    }
+
+    function setDropOverlay(visible) {
+        if (!isLauncherWidget) return;
+        const overlay = document.getElementById('launcher-drop-overlay');
+        const text = document.getElementById('launcher-drop-text');
+        if (!overlay || !text) return;
+        const full = customCategoryCount() >= MAX_CUSTOM_PER_CATEGORY;
+        text.textContent = launcherDropText(full);
+        overlay.classList.toggle('is-full', full);
+        overlay.classList.toggle('is-visible', visible);
+        overlay.setAttribute('aria-hidden', visible ? 'false' : 'true');
+    }
+
+    function showLauncherToast(result) {
+        const toast = document.getElementById('launcher-toast');
+        if (!toast || !result) return;
+        const parts = [];
+        const added = Number(result.added) || 0;
+        const duplicates = Number(result.duplicates) || 0;
+        const rejected = Number(result.rejected) || 0;
+        if (added > 0) parts.push(t('widget_drop_added', 'Added {count}').replace('{count}', String(added)));
+        if (duplicates > 0) parts.push(t('widget_drop_duplicate', 'Already present: {count}').replace('{count}', String(duplicates)));
+        if (rejected > 0) parts.push(t('widget_drop_rejected', 'Unsupported file: {count}').replace('{count}', String(rejected)));
+        if (result.limitReached) parts.push(t('widget_drop_full', 'List full ({count}/10)').replace('{count}', String(MAX_CUSTOM_PER_CATEGORY)));
+        if (!parts.length) return;
+        toast.textContent = parts.join(' · ');
+        toast.classList.remove('hidden');
+        toast.classList.add('is-visible');
+        clearTimeout(showLauncherToast.timer);
+        showLauncherToast.timer = setTimeout(() => {
+            toast.classList.remove('is-visible');
+            setTimeout(() => toast.classList.add('hidden'), 180);
+        }, 2200);
+    }
+
+    // A file dropped anywhere outside the widget must never navigate the WebView.
+    document.addEventListener('dragover', e => e.preventDefault());
+    document.addEventListener('drop', e => e.preventDefault());
+
+    function wireDropSafety(widget) {
+        if (!widget) return;
+        let dragDepth = 0;
+        const hasFiles = dataTransfer => {
+            if (!dataTransfer) return false;
+            if (dataTransfer.files && dataTransfer.files.length) return true;
+            return Array.from(dataTransfer.types || []).includes('Files');
+        };
+        widget.addEventListener('dragenter', e => {
+            if (!hasFiles(e.dataTransfer)) return;
+            if (!isLauncherWidget) return;
+            e.preventDefault();
+            dragDepth++;
+            setDropOverlay(true);
+        });
+        widget.addEventListener('dragover', e => {
+            e.preventDefault();
+            if (isLauncherWidget && hasFiles(e.dataTransfer)) setDropOverlay(true);
+        });
+        widget.addEventListener('dragleave', e => {
+            if (!isLauncherWidget || !hasFiles(e.dataTransfer)) return;
+            dragDepth = Math.max(0, dragDepth - 1);
+            if (dragDepth === 0) setDropOverlay(false);
+        });
+        widget.addEventListener('drop', e => {
+            e.preventDefault();
+            dragDepth = 0;
+            setDropOverlay(false);
+            if (!isLauncherWidget) return;
+            const files = e.dataTransfer && e.dataTransfer.files;
+            if (!files || !files.length) return;
+            const webview = window.chrome && window.chrome.webview;
+            if (!webview || typeof webview.postMessageWithAdditionalObjects !== 'function') {
+                showLauncherToast({ rejected: files.length });
+                return;
+            }
+            webview.postMessageWithAdditionalObjects({ kind: 'launcherDropFiles' }, files);
+        });
+    }
+
+    function observeLauncherLayout(widget) {
+        if (!widget) return;
+        let current = '';
+        const apply = (width, height) => {
+            let next = 'grid';
+            if (width >= height * 2.2) next = 'horizontal';
+            else if (height >= width * 2.2) next = 'vertical';
+            if (next === current) return;
+            current = next;
+            widget.dataset.layout = next;
+            renderLaunchers();
+        };
+        widget.dataset.layout = size === 'bar' ? 'horizontal' : size === 'column' ? 'vertical' : 'grid';
+        current = widget.dataset.layout;
+        if (typeof ResizeObserver === 'function') {
+            const observer = new ResizeObserver(entries => {
+                const rect = entries[0] && entries[0].contentRect;
+                if (rect) apply(rect.width, rect.height);
+            });
+            observer.observe(widget);
+        }
+    }
+
     function startLauncher() {
+        const emptyKey = type === 'apps' ? 'widget_apps_empty' : 'widget_launcher_empty';
         shell('<div class="launcher-grid" id="launcher-grid" role="list"></div>' +
             '<div class="launcher-empty hidden" id="launcher-empty">' +
-            '<span class="widget-muted" data-i18n="widget_launcher_empty">No launchers found. Add apps from VoltManager.</span>' +
+            '<span class="widget-muted" data-i18n="' + emptyKey + '">' + t(emptyKey, 'Drag shortcuts here to add them') + '</span>' +
             '<button class="widget-button" id="launcher-open" type="button"><span class="material-symbols-outlined">open_in_new</span><span data-i18n="widget_launcher_manage">Manage apps</span></button>' +
             '</div>');
         document.getElementById('launcher-grid').addEventListener('click', (e) => {
             const tile = e.target && e.target.closest ? e.target.closest('[data-launch-id]') : null;
             if (tile) launchTile(tile);
+        });
+        document.getElementById('launcher-grid').addEventListener('contextmenu', async (e) => {
+            const tile = e.target && e.target.closest ? e.target.closest('[data-launch-id]') : null;
+            if (!tile) return;
+            const item = launcherItems.find(entry => entry.id === tile.dataset.launchId);
+            if (!item) return;
+            e.preventDefault();
+            const name = item.name || '';
+            if (item.source === 'custom') {
+                if (!window.confirm(t('widget_launcher_remove_confirm', 'Remove {name}?').replace('{name}', name))) return;
+                await Host.call('removeCustomLauncher', { id: item.id }).catch(() => {});
+            } else {
+                if (!window.confirm(t('widget_launcher_hide_confirm', 'Hide {name} from this widget?').replace('{name}', name))) return;
+                await Host.call('setLauncherHidden', { id: item.id, hidden: true }).catch(() => {});
+            }
         });
         document.getElementById('launcher-open').addEventListener('click', () => {
             Host.call('showMainWindow').catch(() => {});
@@ -529,8 +686,10 @@
         launcherLoading = true;
         try {
             const list = await Host.call('getLaunchers');
-            launcherItems = Array.isArray(list) ? list.filter(item => item && item.id && !item.hidden) : [];
+            launcherAllItems = Array.isArray(list) ? list.filter(item => item && item.id) : [];
+            launcherItems = launcherAllItems.filter(item => !item.hidden && launcherCategoryOf(item) === launcherCategory);
         } catch {
+            launcherAllItems = [];
             launcherItems = [];
         } finally {
             launcherLoading = false;
@@ -554,7 +713,8 @@
         const grid = document.getElementById('launcher-grid');
         const empty = document.getElementById('launcher-empty');
         if (!grid || !empty) return;
-        const showNames = size !== 'mini';
+        const widget = grid.closest('.desktop-widget');
+        const showNames = size !== 'mini' && (!widget || widget.dataset.layout === 'grid');
         grid.innerHTML = launcherItems.map((item) => {
             const available = item.available !== false;
             const name = item.name || '';
@@ -910,6 +1070,7 @@
 
     function applySettings(res) {
         if (!res || !res.settings) return;
+        document.documentElement.dataset.animationLevel = res.settings.animationLevel || 'auto';
         if (window.VoltFont && VoltFont.apply) {
             VoltFont.apply(res.settings.font || 'inter');
         }
@@ -954,12 +1115,16 @@
             case 'calendar': startCalendar(); break;
             case 'plans': startPlans(); break;
             case 'launcher': renderLaunchers(); break;
+            case 'apps': renderLaunchers(); break;
             case 'actions': renderSchedule(); break;
         }
     });
 
     if (type === 'plans') Host.on('activePlanChanged', data => reflectPlanSelector(data && data.plan));
-    if (type === 'launcher') Host.on('launchersChanged', () => loadLaunchers());
+    if (isLauncherWidget) {
+        Host.on('launchersChanged', () => loadLaunchers());
+        Host.on('launcherDropResult', result => showLauncherToast(result));
+    }
     if (type === 'actions') {
         Host.on('gamingModeChanged', applyGamingState);
         Host.on('scheduledPowerActionChanged', applySchedule);
@@ -984,7 +1149,7 @@
 
     ({
         clock: startClock, calendar: startCalendar, usage: startUsage, temps: startTemps, power: startPower, plans: startPlans,
-        launcher: startLauncher, actions: startActions, brightness: startBrightness, processes: startProcesses, memory: startMemory,
+        launcher: startLauncher, apps: startLauncher, actions: startActions, brightness: startBrightness, processes: startProcesses, memory: startMemory,
     }[type] || startClock)();
 
     if (Host.available) {

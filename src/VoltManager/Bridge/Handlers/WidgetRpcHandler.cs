@@ -12,6 +12,7 @@ public sealed record WidgetRpcActions(
     Func<string, string, string, object> SetPlacement,
     Func<string, object> ResetPosition,
     Action BeginDrag,
+    Action BeginResize,
     Action<bool> SetTopmost,
     Action Close);
 
@@ -19,7 +20,7 @@ public sealed class WidgetRpcHandler : IBridgeRpcHandler
 {
     private static readonly string[] RegisteredMethods =
     [
-        "beginWidgetDrag", "setWidgetTopmost", "closeWidget",
+        "beginWidgetDrag", "beginWidgetResize", "setWidgetTopmost", "closeWidget",
         "getWidgetsState", "setWidgetEnabled", "setWidgetsMaster",
         "setWidgetPinned", "setWidgetSize", "setWidgetPlacement",
         "resetWidgetPosition",
@@ -38,6 +39,7 @@ public sealed class WidgetRpcHandler : IBridgeRpcHandler
         object? result = method switch
         {
             "beginWidgetDrag" => Invoke(_actions.BeginDrag),
+            "beginWidgetResize" => Invoke(_actions.BeginResize),
             "setWidgetTopmost" => SetTopmost(payload),
             "closeWidget" => Invoke(_actions.Close),
             "getWidgetsState" => _actions.GetState(),

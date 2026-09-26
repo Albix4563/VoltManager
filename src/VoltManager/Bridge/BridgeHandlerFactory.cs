@@ -25,6 +25,7 @@ internal static class BridgeHandlerFactory
         Action requestExit,
         Action requestMinimize,
         Action beginWidgetDrag,
+        Action beginWidgetResize,
         Action<bool> setWidgetTopmost,
         Action closeWidget)
     {
@@ -59,6 +60,7 @@ internal static class BridgeHandlerFactory
             app.Widgets.SetPlacement,
             app.Widgets.ResetPosition,
             beginWidgetDrag,
+            beginWidgetResize,
             setWidgetTopmost,
             closeWidget));
 
@@ -174,14 +176,14 @@ internal static class BridgeHandlerFactory
                     CheckFileExists: true,
                     Multiselect: false),
                 cancellationToken),
-            path =>
+            (path, category) =>
             {
-                try { return app.Launchers.AddCustom(path, null); }
+                try { return app.Launchers.AddCustom(path, null, category); }
                 catch (System.IO.FileNotFoundException) { throw new InvalidOperationException(loc.T("Launcher_Error_NotFound")); }
                 catch (ArgumentException) { throw new InvalidOperationException(loc.T("Launcher_Error_Unsupported")); }
                 catch (InvalidOperationException ex) when (ex.Message == LauncherDiscoveryService.LimitReachedMessage)
                 {
-                    throw new InvalidOperationException(loc.T("Launcher_Error_Limit", LauncherSettings.MaxCustomApps));
+                    throw new InvalidOperationException(loc.T("Launcher_Error_Limit", LauncherSettings.MaxPerCategory));
                 }
             },
             app.Launchers.RemoveCustom,

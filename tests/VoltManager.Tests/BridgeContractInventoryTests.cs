@@ -12,7 +12,7 @@ public sealed class BridgeContractInventoryTests
         [
             "getSystemInfo", "getBatteryHealth", "getBatteryPower", "getBatteryHistory",
             "getDisplayBrightness", "setDisplayBrightness",
-            "beginWidgetDrag", "setWidgetTopmost", "closeWidget", "getWidgetsState",
+            "beginWidgetDrag", "beginWidgetResize", "setWidgetTopmost", "closeWidget", "getWidgetsState",
             "setWidgetEnabled", "setWidgetsMaster", "setWidgetPinned", "setWidgetSize",
             "setWidgetPlacement", "resetWidgetPosition", "checkDefaultPlans", "restoreDefaultPlans",
             "getActivePlan", "getActivePlanReason", "getPlanHistory", "clearPlanHistory",
@@ -51,7 +51,7 @@ public sealed class BridgeContractInventoryTests
             .. LauncherRpcHandler.MethodNames,
         ];
 
-        Assert.Equal(95, actual.Length);
+        Assert.Equal(96, actual.Length);
         Assert.Equal(actual.Length, actual.Distinct(StringComparer.Ordinal).Count());
         Assert.Equal(expected.Order(StringComparer.Ordinal), actual.Order(StringComparer.Ordinal));
     }
@@ -64,14 +64,14 @@ public sealed class BridgeContractInventoryTests
             "activePlanChanged", "activePlanReasonChanged", "appPowerProfileActivityChanged",
             "appUpdated", "automationStateChanged", "cpuAutomationStateChanged", "fontChanged",
             "gamingModeChanged", "globalHotkeysChanged", "heavyAppActivityChanged",
-            "idlePowerGuardChanged", "keepAwakeChanged", "languageChanged", "launchersChanged", "manualOverrideChanged",
+            "idlePowerGuardChanged", "keepAwakeChanged", "languageChanged", "launcherDropResult", "launchersChanged", "manualOverrideChanged",
             "metrics", "planHistoryChanged", "powerPlanConflictDetected", "powerSourcePlanChanged",
             "resourceProfileChanged", "scheduledPowerActionChanged", "standbyAutoCleaned",
             "themeChanged", "thermalGuardChanged", "updateAvailable", "updateDownloadProgress",
             "widgetsStateChanged", "widgetTopmostChanged",
         ];
 
-        Assert.Equal(28, BridgeEventNames.All.Count);
+        Assert.Equal(29, BridgeEventNames.All.Count);
         Assert.Equal(expected.Order(StringComparer.Ordinal), BridgeEventNames.All.Order(StringComparer.Ordinal));
     }
 }

@@ -116,7 +116,15 @@ internal sealed class LauncherDiscoveryService
         }
     }
 
-    public LauncherEntry AddCustom(string path, string? name)
+    public LauncherEntry AddCustom(string path, string? name, string? category = null)
+        => AddCustomCore(path, name, category, notify: true);
+
+    internal LauncherEntry AddCustomFromDrop(string path, string? category)
+        => AddCustomCore(path, null, category, notify: false);
+
+    internal void NotifyChanged() => RaiseChanged();
+
+    private LauncherEntry AddCustomCore(string path, string? name, string? category, bool notify)
     {
         if (string.IsNullOrWhiteSpace(path))
             throw new ArgumentException("path");
@@ -128,6 +136,7 @@ internal sealed class LauncherDiscoveryService
             throw new FileNotFoundException(fullPath);
 
         string id = LauncherSettings.CustomIdFor(fullPath);
+        string normalizedCategory = LauncherSettings.NormalizeCategory(category);
         string displayName = string.IsNullOrWhiteSpace(name)
             ? Path.GetFileNameWithoutExtension(fullPath)
             : name.Trim();
@@ -137,12 +146,22 @@ internal sealed class LauncherDiscoveryService
             s.Launcher ??= new LauncherSettings();
             if (s.Launcher.CustomApps.Any(a => string.Equals(a.Id, id, StringComparison.OrdinalIgnoreCase)))
                 return;
+            if (s.Launcher.CustomApps.Count(a =>
+                    string.Equals(LauncherSettings.NormalizeCategory(a.Category), normalizedCategory, StringComparison.Ordinal))
+                >= LauncherSettings.MaxPerCategory)
+                throw new InvalidOperationException(LimitReachedMessage);
             if (s.Launcher.CustomApps.Count >= LauncherSettings.MaxCustomApps)
                 throw new InvalidOperationException(LimitReachedMessage);
-            s.Launcher.CustomApps.Add(new CustomLauncherApp { Id = id, Name = displayName, Path = fullPath });
+            s.Launcher.CustomApps.Add(new CustomLauncherApp
+            {
+                Id = id,
+                Name = displayName,
+                Path = fullPath,
+                Category = normalizedCategory,
+            });
         });
 
-        RaiseChanged();
+        if (notify) RaiseChanged();
         var stored = _settings.Current.Launcher.CustomApps.First(a => string.Equals(a.Id, id, StringComparison.OrdinalIgnoreCase));
         return ToEntry(stored, _settings.Current.Launcher.HiddenIds);
     }
@@ -240,7 +259,8 @@ internal sealed class LauncherDiscoveryService
                 GetIcon(path),
                 "detected",
                 true,
-                IsHidden(launcher.HiddenIds, definition.Id)));
+                IsHidden(launcher.HiddenIds, definition.Id),
+                "games"));
         }
 
         foreach (var app in launcher.CustomApps)
@@ -260,7 +280,8 @@ internal sealed class LauncherDiscoveryService
             available ? GetIcon(app.Path) : null,
             "custom",
             available,
-            IsHidden(hiddenIds, app.Id));
+            IsHidden(hiddenIds, app.Id),
+            LauncherSettings.NormalizeCategory(app.Category));
     }
 
     private static bool IsHidden(List<string> hiddenIds, string id)

@@ -10,11 +10,13 @@ public class CustomLauncherApp
     [JsonPropertyName("id")] public string Id { get; set; } = "";
     [JsonPropertyName("name")] public string Name { get; set; } = "";
     [JsonPropertyName("path")] public string Path { get; set; } = "";
+    [JsonPropertyName("category")] public string Category { get; set; } = "games";
 }
 
 public class LauncherSettings
 {
     public const int MaxCustomApps = 24;
+    public const int MaxPerCategory = 10;
 
     private static readonly string[] AllowedExtensions = [".exe", ".lnk", ".url"];
 
@@ -57,6 +59,7 @@ public class LauncherSettings
             app.Name = string.IsNullOrWhiteSpace(app.Name)
                 ? System.IO.Path.GetFileNameWithoutExtension(path)
                 : app.Name.Trim();
+            app.Category = NormalizeCategory(app.Category);
             apps.Add(app);
             if (apps.Count >= MaxCustomApps) break;
         }
@@ -68,6 +71,9 @@ public class LauncherSettings
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
     }
+
+    public static string NormalizeCategory(string? category)
+        => string.Equals(category?.Trim(), "apps", StringComparison.OrdinalIgnoreCase) ? "apps" : "games";
 }
 
 public sealed record LauncherEntry(
@@ -78,7 +84,8 @@ public sealed record LauncherEntry(
     [property: JsonPropertyName("iconDataUrl")] string? IconDataUrl,
     [property: JsonPropertyName("source")] string Source,
     [property: JsonPropertyName("available")] bool Available,
-    [property: JsonPropertyName("hidden")] bool Hidden);
+    [property: JsonPropertyName("hidden")] bool Hidden,
+    [property: JsonPropertyName("category")] string Category);
 
 public sealed record LaunchResult(
     [property: JsonPropertyName("success")] bool Success,

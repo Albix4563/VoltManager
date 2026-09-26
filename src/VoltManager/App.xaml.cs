@@ -209,8 +209,8 @@ public partial class App : Application
             PowerRequests,
             () => _adaptiveResourcesInitialized ? ResourcePressure.Current : new Performance.ResourcePressureState(),
             requestFresh => RefreshHardwareSamplingDemand(requestFresh),
-            (webView, subscribeGlobalEvents) => new HostBridge(
-                webView, Hardware, Power, Settings, Updates, AutoStart, Monitor, this, subscribeGlobalEvents));
+            (webView, subscribeGlobalEvents, widgetType) => new HostBridge(
+                webView, Hardware, Power, Settings, Updates, AutoStart, Monitor, this, subscribeGlobalEvents, widgetType));
         Widgets = new WidgetManager(
             Settings,
             Theme,

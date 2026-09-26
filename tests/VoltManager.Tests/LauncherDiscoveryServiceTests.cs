@@ -91,9 +91,10 @@ public sealed class LauncherDiscoveryServiceTests : IDisposable
         int changes = 0;
         service.Changed += () => changes++;
 
-        var added = service.AddCustom(exe, null);
+        var added = service.AddCustom(exe, null, "games");
         Assert.StartsWith("custom:", added.Id);
         Assert.Equal("MyApp", added.Name);
+        Assert.Equal("games", added.Category);
 
         Assert.True(service.SetHidden(added.Id, true));
         var entry = Assert.Single(await service.GetLaunchersAsync(false));
@@ -114,8 +115,8 @@ public sealed class LauncherDiscoveryServiceTests : IDisposable
         var service = Create();
         _env.Files.Add(@"D:\Docs\notes.txt");
 
-        Assert.Throws<FileNotFoundException>(() => service.AddCustom(@"D:\Nope\app.exe", null));
-        Assert.Throws<ArgumentException>(() => service.AddCustom(@"D:\Docs\notes.txt", null));
+        Assert.Throws<FileNotFoundException>(() => service.AddCustom(@"D:\Nope\app.exe", null, "games"));
+        Assert.Throws<ArgumentException>(() => service.AddCustom(@"D:\Docs\notes.txt", null, "games"));
     }
 
     [Theory]
@@ -127,7 +128,7 @@ public sealed class LauncherDiscoveryServiceTests : IDisposable
         var service = Create();
         _env.Files.Add(path);
 
-        Assert.Throws<ArgumentException>(() => service.AddCustom(path, null));
+        Assert.Throws<ArgumentException>(() => service.AddCustom(path, null, "games"));
     }
 
     [Fact]
@@ -142,7 +143,7 @@ public sealed class LauncherDiscoveryServiceTests : IDisposable
         const string exe = @"D:\Tools\Gone.exe";
         _env.Files.Add(exe);
         var service = Create();
-        var added = service.AddCustom(exe, "Gone");
+        var added = service.AddCustom(exe, "Gone", "apps");
         _env.Files.Remove(exe);
 
         var entry = Assert.Single(await service.GetLaunchersAsync(false));
@@ -176,7 +177,61 @@ public sealed class LauncherDiscoveryServiceTests : IDisposable
         var app = Assert.Single(settings.CustomApps);
         Assert.Equal(LauncherSettings.CustomIdFor(@"D:\A\app.exe"), app.Id);
         Assert.Equal("app", app.Name);
+        Assert.Equal("games", app.Category);
         Assert.Equal(new[] { "steam" }, settings.HiddenIds);
+    }
+
+    [Fact]
+    public void LauncherSettings_Normalize_defaults_unknown_categories_to_games()
+    {
+        var settings = new LauncherSettings
+        {
+            CustomApps =
+            [
+                new CustomLauncherApp { Path = @"D:\A\one.exe" },
+                new CustomLauncherApp { Path = @"D:\A\two.exe", Category = "other" },
+                new CustomLauncherApp { Path = @"D:\A\three.exe", Category = "APPS" },
+            ],
+        };
+
+        settings.Normalize();
+
+        Assert.Equal(new[] { "games", "games", "apps" }, settings.CustomApps.Select(x => x.Category));
+    }
+
+    [Fact]
+    public void AddCustom_enforces_limit_per_category()
+    {
+        var settings = new SettingsService(_settingsPath);
+        var service = Create(settings);
+        for (int i = 0; i <= LauncherSettings.MaxPerCategory; i++)
+            _env.Files.Add($@"D:\Tools\Game{i}.exe");
+        _env.Files.Add(@"D:\Tools\App.exe");
+
+        for (int i = 0; i < LauncherSettings.MaxPerCategory; i++)
+            service.AddCustom($@"D:\Tools\Game{i}.exe", null, "games");
+
+        var ex = Assert.Throws<InvalidOperationException>(() =>
+            service.AddCustom($@"D:\Tools\Game{LauncherSettings.MaxPerCategory}.exe", null, "games"));
+        Assert.Equal(LauncherDiscoveryService.LimitReachedMessage, ex.Message);
+
+        var appsEntry = service.AddCustom(@"D:\Tools\App.exe", null, "apps");
+        Assert.Equal("apps", appsEntry.Category);
+    }
+
+    [Fact]
+    public async Task Entries_carry_category_and_detected_launchers_are_games()
+    {
+        _env.Registry[(RegistryHive.CurrentUser, @"Software\Valve\Steam", "SteamExe")] = @"C:\Steam\steam.exe";
+        _env.Files.Add(@"C:\Steam\steam.exe");
+        _env.Files.Add(@"D:\Tools\Tool.exe");
+        var service = Create();
+        service.AddCustom(@"D:\Tools\Tool.exe", "Tool", "apps");
+
+        var entries = await service.GetLaunchersAsync(false);
+
+        Assert.Equal("games", entries.Single(x => x.Source == "detected").Category);
+        Assert.Equal("apps", entries.Single(x => x.Source == "custom").Category);
     }
 
     [Fact]
@@ -187,7 +242,7 @@ public sealed class LauncherDiscoveryServiceTests : IDisposable
             (_, _) => Task.FromResult<IReadOnlyList<LauncherEntry>>([]),
             (id, _) => { launchedId = id; return Task.FromResult(new LaunchResult(true, null)); },
             _ => Task.FromResult<string?>(null),
-            path => new LauncherEntry("custom:1", "x", path, null, null, "custom", true, false),
+            (path, category) => new LauncherEntry("custom:1", "x", path, null, null, "custom", true, false, category),
             _ => true,
             (_, _) => true));
 
@@ -208,20 +263,21 @@ public sealed class LauncherDiscoveryServiceTests : IDisposable
             (_, _) => Task.FromResult<IReadOnlyList<LauncherEntry>>([]),
             (_, _) => Task.FromResult(new LaunchResult(true, null)),
             _ => Task.FromResult(pickedPath),
-            path => { addedPath = path; return new LauncherEntry("custom:1", "Tool", path, null, null, "custom", true, false); },
+            (path, category) => { addedPath = path; return new LauncherEntry("custom:1", "Tool", path, null, null, "custom", true, false, category); },
             _ => true,
             (_, _) => true));
 
         string cancelled = JsonSerializer.Serialize(await handler.HandleAsync(
-            "addCustomLauncher", Payload(new { path = @"\\evil\share\x.exe" }), CancellationToken.None), BridgeRpc.JsonOpts);
+            "addCustomLauncher", Payload(new { path = @"\\evil\share\x.exe", category = "apps" }), CancellationToken.None), BridgeRpc.JsonOpts);
         Assert.Null(addedPath);
         Assert.Contains("\"added\":false", cancelled);
 
         pickedPath = @"D:\Tools\tool.exe";
         string added = JsonSerializer.Serialize(await handler.HandleAsync(
-            "addCustomLauncher", Payload(new { path = @"\\evil\share\x.exe" }), CancellationToken.None), BridgeRpc.JsonOpts);
+            "addCustomLauncher", Payload(new { path = @"\\evil\share\x.exe", category = "apps" }), CancellationToken.None), BridgeRpc.JsonOpts);
         Assert.Equal(@"D:\Tools\tool.exe", addedPath);
         Assert.Contains("\"added\":true", added);
+        Assert.Contains("\"category\":\"apps\"", added);
     }
 
     private static JsonElement Payload(object value)

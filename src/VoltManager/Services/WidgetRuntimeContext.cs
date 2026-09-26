@@ -19,4 +19,4 @@ internal sealed record WidgetRuntimeContext(
     PowerRequestCoordinator PowerRequests,
     Func<ResourcePressureState> ResourcePressureState,
     Action<bool> RefreshSamplingDemand,
-    Func<WebView2, bool, HostBridge> CreateBridge);
+    Func<WebView2, bool, string?, HostBridge> CreateBridge);

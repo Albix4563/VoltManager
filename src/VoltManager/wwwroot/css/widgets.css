@@ -22,6 +22,7 @@ body {
 }
 
 .desktop-widget {
+  position: relative;
   width: 100%;
   height: 100%;
   min-width: 0;
@@ -886,11 +887,13 @@ html[data-resource-profile="critical"] .widget-bar span { transition: none; }
   gap: 10px;
 }
 
-.desktop-widget[data-widget-type=launcher] .widget-body {
+.desktop-widget[data-widget-type=launcher] .widget-body,
+.desktop-widget[data-widget-type=apps] .widget-body {
   justify-content: flex-start;
 }
 
-html[data-size=mini] .desktop-widget[data-widget-type=launcher] .widget-body {
+html[data-size=mini] .desktop-widget[data-widget-type=launcher] .widget-body,
+html[data-size=mini] .desktop-widget[data-widget-type=apps] .widget-body {
   justify-content: center;
   padding: 0 10px 10px;
 }
@@ -935,11 +938,13 @@ html[data-size=mini] .launcher-empty .widget-button span:not(.material-symbols-o
   display: none;
 }
 
-html[data-size=medium] .desktop-widget[data-widget-type=launcher] .widget-body {
+html[data-size=medium] .desktop-widget[data-widget-type=launcher] .widget-body,
+html[data-size=medium] .desktop-widget[data-widget-type=apps] .widget-body {
   padding: 0 12px 12px;
 }
 
-html[data-size=large] .desktop-widget[data-widget-type=launcher] .widget-body {
+html[data-size=large] .desktop-widget[data-widget-type=launcher] .widget-body,
+html[data-size=large] .desktop-widget[data-widget-type=apps] .widget-body {
   padding: 0 16px 16px;
 }
 
@@ -960,6 +965,200 @@ html[data-size=large] .launcher-icon {
 
 html[data-size=large] .launcher-name {
   font-size: 12px;
+}
+
+.desktop-widget[data-layout=horizontal] .widget-header,
+.desktop-widget[data-layout=vertical] .widget-header {
+  display: none;
+}
+
+.desktop-widget[data-layout=horizontal] .widget-body,
+.desktop-widget[data-layout=vertical] .widget-body {
+  justify-content: center;
+  padding: 6px;
+}
+
+.desktop-widget[data-layout=horizontal] .launcher-grid {
+  width: 100%;
+  grid-template-columns: none;
+  grid-auto-flow: column;
+  grid-auto-columns: 40px;
+  grid-auto-rows: 40px;
+  align-items: center;
+  justify-content: start;
+  gap: 6px;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.desktop-widget[data-layout=vertical] .launcher-grid {
+  height: 100%;
+  grid-template-columns: 40px;
+  grid-auto-flow: row;
+  grid-auto-rows: 40px;
+  align-content: start;
+  justify-content: center;
+  gap: 6px;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.desktop-widget[data-layout=horizontal] .launcher-tile,
+.desktop-widget[data-layout=vertical] .launcher-tile {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border-radius: 11px;
+}
+
+.desktop-widget[data-layout=horizontal] .launcher-icon,
+.desktop-widget[data-layout=vertical] .launcher-icon {
+  width: 26px;
+  height: 26px;
+}
+
+.desktop-widget[data-layout=horizontal] .launcher-icon .material-symbols-outlined,
+.desktop-widget[data-layout=vertical] .launcher-icon .material-symbols-outlined {
+  font-size: 22px;
+}
+
+.desktop-widget[data-layout=horizontal] .launcher-empty {
+  width: 100%;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  overflow: hidden;
+}
+
+.desktop-widget[data-layout=horizontal] .launcher-empty .widget-muted {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.desktop-widget[data-layout=vertical] .launcher-empty {
+  height: 100%;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding: 4px;
+}
+
+.desktop-widget[data-layout=vertical] .launcher-empty .widget-muted {
+  font-size: 10px;
+}
+
+.desktop-widget[data-layout=vertical] .launcher-empty .widget-button span:not(.material-symbols-outlined),
+.desktop-widget[data-layout=horizontal] .launcher-empty .widget-button span:not(.material-symbols-outlined) {
+  display: none;
+}
+
+.launcher-drop-overlay {
+  --launcher-danger: #ffb4ab;
+  position: absolute;
+  inset: 4px;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  border: 2px dashed var(--vm-accent);
+  border-radius: 15px;
+  color: var(--vm-accent);
+  background: rgb(var(--vm-accent-rgb) / .14);
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 140ms var(--vm-ease-standard);
+}
+
+.launcher-drop-overlay.is-visible {
+  opacity: 1;
+}
+
+.launcher-drop-overlay.is-full {
+  color: var(--launcher-danger);
+  border-color: var(--launcher-danger);
+  background: rgba(255,180,171,.12);
+}
+
+.launcher-toast {
+  position: absolute;
+  left: 50%;
+  bottom: 8px;
+  z-index: 21;
+  max-width: calc(100% - 32px);
+  padding: 6px 10px;
+  border: 1px solid rgb(var(--vm-accent-rgb) / .28);
+  border-radius: 9px;
+  color: var(--vm-text, #d4e4fa);
+  background: rgba(14,26,46,.96);
+  box-shadow: 0 5px 16px rgba(0,0,0,.28);
+  font-size: 11px;
+  font-weight: 650;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+  opacity: 0;
+  transform: translate(-50%, 4px);
+  transition: opacity 160ms var(--vm-ease-standard), transform 160ms var(--vm-ease-standard);
+}
+
+.launcher-toast.is-visible {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.widget-resize-grip {
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  z-index: 12;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 8px;
+  color: rgba(212,228,250,.55);
+  background: rgba(14,26,46,.72);
+  cursor: nwse-resize;
+  opacity: 0;
+  transition: opacity 120ms var(--vm-ease-standard), color 120ms var(--vm-ease-standard);
+}
+
+.desktop-widget:hover .widget-resize-grip,
+.widget-resize-grip:focus-visible {
+  opacity: 1;
+}
+
+.widget-resize-grip:hover,
+.widget-resize-grip:focus-visible {
+  color: var(--vm-accent);
+}
+
+.widget-resize-grip .material-symbols-outlined {
+  font-size: 16px;
+}
+
+html[data-animation-level=low] .launcher-drop-overlay,
+html[data-animation-level=low] .launcher-toast,
+html[data-animation-level=low] .widget-resize-grip {
+  transition: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .launcher-drop-overlay,
+  .launcher-toast,
+  .widget-resize-grip {
+    transition: none !important;
+  }
 }
 
 /* Quick actions */

@@ -480,8 +480,9 @@
     const widgetsList = document.getElementById('widgets-list');
     const widgetsEnabledList = document.getElementById('widgets-enabled-list');
     const widgetsDisabledList = document.getElementById('widgets-disabled-list');
-    const WIDGET_TYPES = ['clock', 'calendar', 'usage', 'temps', 'power', 'plans', 'launcher', 'actions', 'brightness', 'processes', 'memory'];
+    const WIDGET_TYPES = ['clock', 'calendar', 'usage', 'temps', 'power', 'plans', 'launcher', 'apps', 'actions', 'brightness', 'processes', 'memory'];
     const WIDGET_PRESETS = ['mini', 'medium', 'large'];
+    const LAUNCHER_WIDGET_PRESETS = ['mini', 'medium', 'large', 'bar', 'column'];
 
     function setToggle(el, on) {
         if (el) el.dataset.on = on ? 'true' : 'false';
@@ -503,12 +504,13 @@
         });
         state.items = WIDGET_TYPES.map(type => {
             const item = byType[type] || { type, enabled: false, pinned: false, size: 'medium' };
-            item.size = normalizeWidgetSize(item.size);
+            item.size = normalizeWidgetSize(item.type, item.size);
             item.anchor = WIDGET_ANCHORS.includes(item.anchor) ? item.anchor : 'topRight';
             item.offsetX = Number.isFinite(item.offsetX) ? item.offsetX : 0;
             item.offsetY = Number.isFinite(item.offsetY) ? item.offsetY : 0;
             item.width = Number.isFinite(item.width) ? item.width : 260;
             item.height = Number.isFinite(item.height) ? item.height : 150;
+            item.customSize = item.customSize === true;
             item.usesFallbackDisplay = item.usesFallbackDisplay === true;
             return item;
         });
@@ -526,7 +528,9 @@
                     type: item.type,
                     enabled: item.enabled === true,
                     pinned: item.pinned === true,
-                    size: normalizeWidgetSize(item.size),
+                    size: normalizeWidgetSize(item.type, item.size),
+                    width: item.customSize ? item.width : null,
+                    height: item.customSize ? item.height : null,
                     x: item.x,
                     y: item.y,
                     monitorId: item.monitorId || null,
@@ -549,6 +553,7 @@
             power: 'bolt',
             plans: 'tune',
             launcher: 'apps',
+            apps: 'grid_view',
             actions: 'bolt',
             brightness: 'brightness_6',
             processes: 'list_alt',
@@ -556,13 +561,28 @@
         }[type] || 'widgets';
     }
 
-    function normalizeWidgetSize(size) {
-        return WIDGET_PRESETS.includes(size) ? size : 'medium';
+    function isLauncherWidgetType(type) {
+        return type === 'launcher' || type === 'apps';
+    }
+
+    function widgetPresets(type) {
+        return isLauncherWidgetType(type) ? LAUNCHER_WIDGET_PRESETS : WIDGET_PRESETS;
+    }
+
+    function normalizeWidgetSize(type, size) {
+        return widgetPresets(type).includes(size) ? size : 'medium';
     }
 
     function widgetSizeLabel(size) {
-        size = normalizeWidgetSize(size);
         return tr('widget_size_' + size, size);
+    }
+
+    function widgetTitleKey(type) {
+        return {
+            clock: 'widget_clock', calendar: 'widget_calendar', usage: 'widget_usage', temps: 'widget_temps',
+            power: 'widget_power', plans: 'widget_plans', launcher: 'widget_launcher', apps: 'widget_apps',
+            actions: 'widget_actions', brightness: 'widget_brightness', processes: 'widget_processes', memory: 'widget_memory',
+        }[type] || 'widget_settings_title';
     }
 
     function widgetAnchorLabel(anchor) {
@@ -661,9 +681,9 @@
 
         function renderWidgetCard(item, monitors) {
             var stateAttr = item.enabled ? 'on' : 'off';
-            var sizeKey = normalizeWidgetSize(item.size);
-            var sizeButtons = WIDGET_PRESETS.map(function (preset) {
-                var selected = preset === sizeKey;
+            var sizeKey = normalizeWidgetSize(item.type, item.size);
+            var sizeButtons = widgetPresets(item.type).map(function (preset) {
+                var selected = !item.customSize && preset === sizeKey;
                 return '<button class="widget-size-option" type="button" data-widget-size data-widget-type="' + esc(item.type) + '" data-size="' + preset + '" aria-pressed="' + (selected ? 'true' : 'false') + '">' +
                     '<span data-i18n="widget_size_' + preset + '">' + esc(widgetSizeLabel(preset)) + '</span>' +
                     '</button>';
@@ -685,15 +705,17 @@
 
             var width = Math.round(item.width || 0);
             var height = Math.round(item.height || 0);
+            var sizeReadout = (item.customSize ? '<span data-i18n="widget_size_custom">' + esc(tr('widget_size_custom', 'Custom')) + '</span> · ' : '') + width + '\u00d7' + height;
+            var titleKey = widgetTitleKey(item.type);
 
             var gate = item.type === 'brightness' && !item.enabled ? ' data-vm-brightness-only data-vm-laptop-only' : '';
 
             return '<article class="startup-card" data-state="' + stateAttr + '" data-widget-row data-widget-type="' + esc(item.type) + '"' + gate + '>' +
                 '<div class="startup-card__accent"></div>' +
-                '<div class="startup-card__header"><div class="startup-card__title-wrap"><div class="startup-card__app-icon"><span class="material-symbols-outlined">' + widgetIcon(item.type) + '</span></div><div class="startup-card__meta"><p class="startup-card__name" data-i18n="widget_' + item.type + '">' + esc(item.type) + '</p><div class="startup-card__badges">' + chip + badgePin + '</div></div></div>' +
+                '<div class="startup-card__header"><div class="startup-card__title-wrap"><div class="startup-card__app-icon"><span class="material-symbols-outlined">' + widgetIcon(item.type) + '</span></div><div class="startup-card__meta"><p class="startup-card__name" data-i18n="' + titleKey + '">' + esc(tr(titleKey, item.type)) + '</p><div class="startup-card__badges">' + chip + badgePin + '</div></div></div>' +
                 '<div class="startup-actions">' + toggleBtn + pinBtn + resetBtn + '</div></div>' +
                 '<div class="startup-card__details">' +
-                '<div class="widget-size-row"><div><span class="startup-detail-label" data-i18n="widget_detail_size">Dimensione</span><span class="startup-detail-value">' + width + '\u00d7' + height + '</span></div><div class="widget-size-control" role="group" aria-label="' + esc(tr('widget_size_selector', 'Widget size')) + '">' + sizeButtons + '</div></div>' +
+                '<div class="widget-size-row"><div><span class="startup-detail-label" data-i18n="widget_detail_size">Dimensione</span><span class="startup-detail-value">' + sizeReadout + '</span></div><div class="widget-size-control" role="group" aria-label="' + esc(tr('widget_size_selector', 'Widget size')) + '">' + sizeButtons + '</div></div>' +
                 '<div class="widget-placement-row">' +
                 '<label class="widget-monitor-label"><span class="startup-detail-label" data-i18n="widget_monitor_selector">Monitor</span>' +
                 '<select class="widget-monitor-select" data-widget-monitor data-widget-type="' + esc(item.type) + '"' + (item.enabled ? '' : ' disabled') + '>' +
@@ -768,7 +790,7 @@
 
             const sizeBtn = e.target.closest('[data-widget-size]');
             if (sizeBtn && sizeBtn.dataset.widgetType === type) {
-                const size = normalizeWidgetSize(sizeBtn.dataset.size);
+                const size = normalizeWidgetSize(type, sizeBtn.dataset.size);
                 if (sizeBtn.getAttribute('aria-pressed') === 'true') return;
                 try {
                     renderWidgetsState(await Host.call('setWidgetSize', { type, size }));
@@ -831,6 +853,7 @@
     const launcherDetectedList = document.getElementById('launcher-detected-list');
     const launcherCustomList = document.getElementById('launcher-custom-list');
     const launcherStatus = document.getElementById('launcher-manage-status');
+    const launcherAddCategory = document.getElementById('launcher-add-category');
     let launcherEntries = null;
     let launcherBusy = false;
 
@@ -852,6 +875,11 @@
     function renderLauncherRow(item) {
         const hidden = item.hidden === true;
         const missing = item.available === false;
+        const category = item.category === 'apps' ? 'apps' : 'games';
+        const categoryKey = category === 'apps' ? 'launcher_category_apps' : 'launcher_category_games';
+        const categoryChip = item.source === 'custom'
+            ? '<span class="launcher-category-chip" data-category="' + category + '" data-i18n="' + categoryKey + '">' + esc(tr(categoryKey, category === 'apps' ? 'Applications' : 'Games')) + '</span>'
+            : '';
         const visibilityLabel = hidden ? tr('launcher_manage_show', 'Show in widget') : tr('launcher_manage_hide', 'Hide from widget');
         let actions = '<button class="startup-remove-btn" type="button" data-launcher-visibility data-launcher-id="' + esc(item.id) + '" data-hidden="' + (hidden ? 'true' : 'false') + '" aria-pressed="' + (hidden ? 'false' : 'true') + '" title="' + esc(visibilityLabel) + '" aria-label="' + esc(visibilityLabel) + '"><span class="material-symbols-outlined text-[18px]" aria-hidden="true">' + (hidden ? 'visibility_off' : 'visibility') + '</span></button>';
         if (item.source === 'custom') {
@@ -863,7 +891,7 @@
             : hidden ? '<span class="launcher-manage-row__note" data-i18n="launcher_manage_hidden">' + esc(tr('launcher_manage_hidden', 'Hidden from widget')) + '</span>' : '';
         return '<div class="launcher-manage-row" data-hidden="' + (hidden ? 'true' : 'false') + '" data-missing="' + (missing ? 'true' : 'false') + '">' +
             '<div class="launcher-manage-row__icon">' + launcherRowIcon(item) + '</div>' +
-            '<div class="launcher-manage-row__meta"><p class="launcher-manage-row__name">' + esc(item.name) + '</p>' +
+            '<div class="launcher-manage-row__meta"><div class="launcher-manage-row__name-line"><p class="launcher-manage-row__name">' + esc(item.name) + '</p>' + categoryChip + '</div>' +
             '<p class="launcher-manage-row__path" title="' + esc(item.path) + '">' + esc(item.path) + '</p>' + note + '</div>' +
             '<div class="launcher-manage-row__actions">' + actions + '</div></div>';
     }
@@ -925,7 +953,8 @@
 
         document.getElementById('btn-launcher-add')?.addEventListener('click', () => runLauncherAction(async () => {
             setLauncherStatus('');
-            const res = await Host.call('addCustomLauncher');
+            const category = launcherAddCategory && launcherAddCategory.value === 'apps' ? 'apps' : 'games';
+            const res = await Host.call('addCustomLauncher', { category });
             if (!res || !res.added) return;
             const entry = res.entry;
             await loadLauncherManage();

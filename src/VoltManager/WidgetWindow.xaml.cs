@@ -16,6 +16,7 @@ public partial class WidgetWindow : Window
     private const int WmNcLButtonDown = 0xA1;
     private const int WmExitSizeMove = 0x0232;
     private static readonly IntPtr HtCaption = new(0x2);
+    private static readonly IntPtr HtBottomRight = new(0x11);
 
     // WS_EX_TOOLWINDOW excludes this window from the Alt+Tab switcher and taskbar
     // (in combination with WindowStyle=None + ShowInTaskbar=False in XAML).
@@ -33,6 +34,7 @@ public partial class WidgetWindow : Window
     private string _size;
     private HwndSource? _hwndSource;
     private bool _applyingPlacement;
+    private bool _nativeResizeInProgress;
     private int _rendererReloadCount;
     private bool _initializing;
     private volatile bool _closed;
@@ -52,7 +54,7 @@ public partial class WidgetWindow : Window
         _manager = manager;
         _envTask = envTask;
         _type = item.Type;
-        _size = WidgetSettings.NormalizeSize(item.Size);
+        _size = WidgetSettings.NormalizeSize(item.Type, item.Size);
 
         InitializeComponent();
 
@@ -62,6 +64,13 @@ public partial class WidgetWindow : Window
         Left = placement.FinalBounds.X;
         Top = placement.FinalBounds.Y;
         Topmost = item.Pinned;
+        if (WidgetSettings.IsLauncherType(_type))
+        {
+            MinWidth = 56;
+            MinHeight = 56;
+            MaxWidth = 1920;
+            MaxHeight = 1080;
+        }
 
         Loaded += async (_, _) => await InitWebViewAsync();
         IsVisibleChanged += (_, _) =>
@@ -79,6 +88,11 @@ public partial class WidgetWindow : Window
             ApplyRoundedRegion();
             _coverageHwnd = new WindowInteropHelper(this).Handle;
             _context.FullscreenCoverage.RegisterSurface(_coverageHwnd);
+        };
+        // Keep the rounded clip in sync while the user drags the resize grip.
+        SizeChanged += (_, _) =>
+        {
+            if (_nativeResizeInProgress) ApplyRoundedRegion();
         };
         DpiChanged += (_, _) =>
         {
@@ -118,12 +132,14 @@ public partial class WidgetWindow : Window
             core.Settings.IsZoomControlEnabled = false;
             core.Settings.AreBrowserAcceleratorKeysEnabled = false;
             core.Settings.IsStatusBarEnabled = false;
+            WebView.AllowExternalDrop = true;
             // Widgets are tiny surfaces — keep the renderer on a low memory target.
             try { core.MemoryUsageTargetLevel = CoreWebView2MemoryUsageTargetLevel.Low; } catch { }
 
-            _bridge = _context.CreateBridge(WebView, false);
+            _bridge = _context.CreateBridge(WebView, false, _type);
             _bridge.Attach();
             _bridge.WidgetDragRequested += BeginNativeDrag;
+            _bridge.WidgetResizeRequested += BeginNativeResize;
             _bridge.WidgetTopmostRequested += SetTopmostFromWidget;
             _bridge.WidgetCloseRequested += () => _manager.SetEnabled(_type, false);
 
@@ -185,7 +201,7 @@ public partial class WidgetWindow : Window
 
     public void ApplyPlacement(WidgetPlacement placement, string sizeKey)
     {
-        string normalized = WidgetSettings.NormalizeSize(sizeKey);
+        string normalized = WidgetSettings.NormalizeSize(_type, sizeKey);
         bool sizeChanged = !string.Equals(_size, normalized, StringComparison.OrdinalIgnoreCase);
         _size = normalized;
 
@@ -390,6 +406,26 @@ public partial class WidgetWindow : Window
         SendMessage(hwnd, WmNcLButtonDown, HtCaption, IntPtr.Zero);
     }
 
+    private void BeginNativeResize()
+    {
+        if (!WidgetSettings.IsLauncherType(_type)) return;
+        var hwnd = new WindowInteropHelper(this).Handle;
+        if (hwnd == IntPtr.Zero) return;
+        _nativeResizeInProgress = true;
+        ResizeMode = ResizeMode.CanResize;
+        try
+        {
+            ReleaseCapture();
+            // Synchronous: returns when the native size loop ends (WM_EXITSIZEMOVE already handled).
+            SendMessage(hwnd, WmNcLButtonDown, HtBottomRight, IntPtr.Zero);
+        }
+        finally
+        {
+            _nativeResizeInProgress = false;
+            ResizeMode = ResizeMode.NoResize;
+        }
+    }
+
     private void HookWndProc()
     {
         _hwndSource = PresentationSource.FromVisual(this) as HwndSource;
@@ -400,8 +436,28 @@ public partial class WidgetWindow : Window
     {
         if (msg == WmExitSizeMove && !_applyingPlacement && GetWindowRect(hwnd, out var rect))
         {
-            _manager.SaveDragOffset(_type,
-                new PixelRect(rect.Left, rect.Top, rect.Right - rect.Left, rect.Bottom - rect.Top));
+            if (_nativeResizeInProgress)
+            {
+                _nativeResizeInProgress = false;
+                ResizeMode = ResizeMode.NoResize;
+                double sx = 1;
+                double sy = 1;
+                if (PresentationSource.FromVisual(this) is HwndSource source)
+                {
+                    sx = source.CompositionTarget.TransformToDevice.M11;
+                    sy = source.CompositionTarget.TransformToDevice.M22;
+                    if (sx <= 0) sx = 1;
+                    if (sy <= 0) sy = 1;
+                }
+                _manager.SaveCustomSize(_type,
+                    (rect.Right - rect.Left) / sx,
+                    (rect.Bottom - rect.Top) / sy);
+            }
+            else
+            {
+                _manager.SaveDragOffset(_type,
+                    new PixelRect(rect.Left, rect.Top, rect.Right - rect.Left, rect.Bottom - rect.Top));
+            }
         }
         return IntPtr.Zero;
     }

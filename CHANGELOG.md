@@ -7,6 +7,7 @@ Il formato segue [Keep a Changelog](https://keepachangelog.com/it/1.1.0/).
 
 ### Aggiunto
 
+- **Widget launcher più personalizzabili.** I launcher di gioco e le applicazioni hanno ora due widget separati. Basta trascinare un collegamento di Windows (.lnk), un .url o un .exe sul widget per aggiungerlo, fino a 10 elementi per widget; clic destro su un elemento per rimuoverlo o nasconderlo. Oltre a mini/medio/grande sono disponibili i formati barra orizzontale e colonna, e il widget si può ridimensionare liberamente dall'angolo in basso a destra: il layout passa automaticamente a una fila di sole icone quando è stretto e lungo.
 - **Cronologia dei cambi piano energetico.** La sezione Piani energetici mostra fino agli ultimi 500 eventi della sessione con data e ora, piano precedente/richiesto/rilevato, origine, motivo ed esito. Include automazioni, selezioni manuali, cambi esterni e problemi; supporta filtri e caricamento progressivo. I dati restano solo in memoria, sopravvivono alla riduzione nell’area di notifica e vengono azzerati alla chiusura o al riavvio di VoltManager.
 - **Controllo batteria e automazioni più trasparenti.** La soglia di batteria scarica è ora configurabile; la cronologia batteria offre intervalli 6/24/48 ore, potenza, temperatura, stato AC/DC ed export CSV. La UI mostra inoltre quale automazione sta controllando il piano energetico attivo.
 - **Scorciatoie globali configurabili.** È possibile associare combinazioni globali ai piani energetici, alla modalità automatica e al toggle Mantieni PC attivo.
