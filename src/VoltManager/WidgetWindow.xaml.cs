@@ -36,6 +36,8 @@ public partial class WidgetWindow : Window
     private bool _applyingPlacement;
     private bool _nativeResizeInProgress;
     private int _rendererReloadCount;
+    private long _lastRendererFailureTicks = long.MinValue / 2;
+    private const long RendererFailureWindowMs = 2 * 60 * 1000;
     private bool _initializing;
     private volatile bool _closed;
     private volatile bool _visible;
@@ -155,7 +157,6 @@ public partial class WidgetWindow : Window
             core.NavigationCompleted += (_, args) =>
             {
                 if (!args.IsSuccess) return;
-                Interlocked.Exchange(ref _rendererReloadCount, 0);
                 _metricsPublisher.ResetCadence();
                 OnMetricsUpdated(_context.Monitor.Latest);
                 if (_type is "power" or "plans") OnActivePlanChanged(_context.PowerRequests.ActivePlan);
@@ -187,6 +188,11 @@ public partial class WidgetWindow : Window
     private void OnWidgetProcessFailed(object? sender, CoreWebView2ProcessFailedEventArgs e)
     {
         Logger.Warn($"Widget '{_type}' WebView2 process failed: {e.ProcessFailedKind} (reason: {e.Reason})");
+        // Count failures inside a time window: a renderer that crashes right after every
+        // reload must still hit the cap, while an occasional crash hours apart must not.
+        long now = Environment.TickCount64;
+        if (now - Interlocked.Exchange(ref _lastRendererFailureTicks, now) > RendererFailureWindowMs)
+            Interlocked.Exchange(ref _rendererReloadCount, 0);
         if (Interlocked.Increment(ref _rendererReloadCount) > 5)
         {
             Logger.Error($"Widget '{_type}' renderer kept failing; giving up auto-reload.");
@@ -210,14 +216,8 @@ public partial class WidgetWindow : Window
 
     private void OnWidgetNewWindowRequested(object? sender, CoreWebView2NewWindowRequestedEventArgs e)
     {
+        // Never let a popup replace the widget document; only external links leave the app.
         e.Handled = true;
-        if (WebViewNavigationPolicy.IsTrustedAppUri(e.Uri))
-        {
-            if (sender is CoreWebView2 core)
-                core.Navigate(e.Uri);
-            return;
-        }
-
         if (WebViewNavigationPolicy.IsExternalHttpUri(e.Uri))
             WebViewNavigationPolicy.OpenExternal(e.Uri);
     }

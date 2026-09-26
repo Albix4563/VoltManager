@@ -84,6 +84,15 @@ public class HardwareServiceClientTests
         Assert.Equal(24, capped.Count(reading => reading.Type == "clock"));
     }
 
+    [Theory]
+    [InlineData("4", "5", true)]
+    [InlineData("5", "5", false)]
+    [InlineData("6", "5", false)]
+    [InlineData(null, "5", false)]
+    [InlineData("abc", "5", false)]
+    public void Late_replies_from_timed_out_calls_are_recognized_as_stale(string? responseId, string requestId, bool stale)
+        => Assert.Equal(stale, HardwareServiceClient.IsStaleResponseId(responseId, requestId));
+
     private sealed class StubHardwareAccess : IHardwareAccess
     {
         public SensorReport Report { get; } = new();

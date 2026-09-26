@@ -39,6 +39,7 @@ public sealed class PowerRequestCoordinator : IDisposable
     private int _automationTickRunning;
     private double _lastAverageCpu;
     private MetricsSnapshot _lastMetrics = new();
+    private volatile bool _hasMetrics;
     private bool _heavyAppPlanSessionActive;
     private PlanId? _planBeforeHeavyAppSession;
     private string _heavyAppHistoryName = "";
@@ -154,6 +155,7 @@ public sealed class PowerRequestCoordinator : IDisposable
             return;
 
         _lastMetrics = metrics;
+        _hasMetrics = true;
 
         if (Interlocked.Exchange(ref _automationTickRunning, 1) == 1)
             return;
@@ -361,6 +363,9 @@ public sealed class PowerRequestCoordinator : IDisposable
     /// </summary>
     private void ReevaluatePolicyPipeline(DateTime nowUtc)
     {
+        // Before the first sample there are no metrics to evaluate; the first tick handles it.
+        if (!_hasMetrics)
+            return;
         if (!TryGetEpoch(out CancellationToken epoch))
             return;
         if (Interlocked.Exchange(ref _automationTickRunning, 1) == 1)
@@ -369,6 +374,12 @@ public sealed class PowerRequestCoordinator : IDisposable
         _callbackEpoch.Value = epoch;
         try
         {
+            if (!_policyOnly)
+            {
+                ClearExpiredManualOverride(nowUtc);
+                _planGuard.RefreshManualOverride(Settings.Current.Override, nowUtc);
+            }
+
             _ =
                 _pipeline.PowerSource(nowUtc) ||
                 _pipeline.Thermal(nowUtc, _lastMetrics) ||

@@ -541,15 +541,9 @@ namespace VoltManager.Setup.Engine
                 ZipFile.ExtractToDirectory(tempZip, stagingDir);
                 ct.ThrowIfCancellationRequested();
 
-                ClearInstallDirectory(destDir);
-                foreach (string entry in Directory.GetFileSystemEntries(stagingDir))
-                {
-                    string target = Path.Combine(destDir, Path.GetFileName(entry));
-                    if (File.Exists(entry))
-                        File.Move(entry, target);
-                    else
-                        Directory.Move(entry, target);
-                }
+                string backupDir = Path.Combine(parent,
+                    "." + Path.GetFileName(fullDest) + ".backup-" + Path.GetRandomFileName());
+                ReplaceInstallDirectoryContents(destDir, stagingDir, backupDir);
             }
             finally
             {
@@ -576,22 +570,97 @@ namespace VoltManager.Setup.Engine
             catch { }
         }
 
-        internal static void ClearInstallDirectory(string destDir)
+        /// <summary>
+        /// Swaps the install directory contents for the staged payload. The previous files are
+        /// renamed into <paramref name="backupDir"/> (same volume) instead of being deleted, so a
+        /// locked file or a failed move rolls back to the previous installation.
+        /// </summary>
+        internal static void ReplaceInstallDirectoryContents(string destDir, string stagingDir, string backupDir)
         {
             Directory.CreateDirectory(destDir);
+            Directory.CreateDirectory(backupDir);
+            var backedUp = new List<string>();
+            var installed = new List<string>();
 
-            foreach (string path in Directory.GetFileSystemEntries(destDir))
+            try
             {
-                if (File.Exists(path))
+                foreach (string path in Directory.GetFileSystemEntries(destDir))
                 {
-                    MakeWritable(path);
-                    File.Delete(path);
+                    string name = Path.GetFileName(path);
+                    MoveEntry(path, Path.Combine(backupDir, name));
+                    backedUp.Add(name);
                 }
-                else if (Directory.Exists(path))
+
+                foreach (string entry in Directory.GetFileSystemEntries(stagingDir))
                 {
-                    MakeWritableTree(path);
-                    Directory.Delete(path, true);
+                    string name = Path.GetFileName(entry);
+                    MoveEntry(entry, Path.Combine(destDir, name));
+                    installed.Add(name);
                 }
+            }
+            catch
+            {
+                foreach (string name in installed)
+                {
+                    try { DeleteEntry(Path.Combine(destDir, name)); }
+                    catch (Exception ex) { SetupUpdateLog.Warn("Rollback: could not remove new entry " + name + ": " + ex.Message); }
+                }
+
+                bool restored = true;
+                foreach (string name in backedUp)
+                {
+                    try { MoveEntry(Path.Combine(backupDir, name), Path.Combine(destDir, name)); }
+                    catch (Exception ex)
+                    {
+                        restored = false;
+                        SetupUpdateLog.Warn("Rollback: could not restore " + name + ": " + ex.Message);
+                    }
+                }
+
+                // Keep the backup on disk if anything could not be put back.
+                if (restored)
+                    TryDeleteBackupDirectory(backupDir);
+                else
+                    SetupUpdateLog.Warn("Previous installation kept in " + backupDir);
+                throw;
+            }
+
+            TryDeleteBackupDirectory(backupDir);
+        }
+
+        private static void MoveEntry(string source, string target)
+        {
+            if (File.Exists(source))
+                File.Move(source, target);
+            else
+                Directory.Move(source, target);
+        }
+
+        private static void DeleteEntry(string path)
+        {
+            if (File.Exists(path))
+            {
+                MakeWritable(path);
+                File.Delete(path);
+            }
+            else if (Directory.Exists(path))
+            {
+                MakeWritableTree(path);
+                Directory.Delete(path, true);
+            }
+        }
+
+        private static void TryDeleteBackupDirectory(string backupDir)
+        {
+            try
+            {
+                if (!Directory.Exists(backupDir)) return;
+                MakeWritableTree(backupDir);
+                Directory.Delete(backupDir, true);
+            }
+            catch (Exception ex)
+            {
+                SetupUpdateLog.Warn("Could not delete install backup " + backupDir + ": " + ex.Message);
             }
         }
 

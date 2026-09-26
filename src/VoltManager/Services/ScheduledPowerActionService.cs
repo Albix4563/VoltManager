@@ -282,6 +282,7 @@ public sealed class ScheduledPowerActionService : IDisposable
     private void DailyCheckCallback(long generation)
     {
         ScheduledPowerActionType action;
+        ScheduledPowerActionState state;
         lock (_sync)
         {
             if (!_started || generation != _generation) return;
@@ -300,9 +301,13 @@ public sealed class ScheduledPowerActionService : IDisposable
 
             Logger.Info($"Executing daily action: action={scheduled.Action}, time={scheduled.Time}");
 
-            PublishState(CreateStateUnsafe());
+            state = CreateStateUnsafe();
             action = scheduled.Action;
         }
+
+        // Subscribers marshal to the UI thread synchronously: publishing under _sync
+        // deadlocks against a UI-thread Cancel/Schedule waiting for the same lock.
+        PublishState(state);
 
         // Same as the relative path: never hold _sync while sleep blocks until resume.
         try

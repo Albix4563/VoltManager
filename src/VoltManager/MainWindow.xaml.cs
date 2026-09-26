@@ -254,14 +254,8 @@ public partial class MainWindow : Window
 
     private void OnWebViewNewWindowRequested(object? sender, CoreWebView2NewWindowRequestedEventArgs e)
     {
+        // Never let a popup replace the app document; only external links leave the app.
         e.Handled = true;
-        if (WebViewNavigationPolicy.IsTrustedAppUri(e.Uri))
-        {
-            if (sender is CoreWebView2 core)
-                core.Navigate(e.Uri);
-            return;
-        }
-
         if (WebViewNavigationPolicy.IsExternalHttpUri(e.Uri))
             WebViewNavigationPolicy.OpenExternal(e.Uri);
     }

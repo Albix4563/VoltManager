@@ -203,9 +203,17 @@ public sealed class HardwareServiceClient : IHardwareAccess
                 }, JsonOptions);
                 _writer.WriteLine(request);
                 using var timeout = new CancellationTokenSource(RpcTimeout);
-                string? line = _reader.ReadLineAsync(timeout.Token).AsTask().GetAwaiter().GetResult();
-                if (line == null) throw new EndOfStreamException("Hardware service pipe closed.");
-                HardwareServiceResponse? response = JsonSerializer.Deserialize<HardwareServiceResponse>(line, JsonOptions);
+                HardwareServiceResponse? response;
+                while (true)
+                {
+                    string? line = _reader.ReadLineAsync(timeout.Token).AsTask().GetAwaiter().GetResult();
+                    if (line == null) throw new EndOfStreamException("Hardware service pipe closed.");
+                    response = JsonSerializer.Deserialize<HardwareServiceResponse>(line, JsonOptions);
+                    // A reply that arrived after its caller timed out is still in the pipe:
+                    // drop it instead of failing every later call on an id mismatch.
+                    if (response != null && IsStaleResponseId(response.Id, id)) continue;
+                    break;
+                }
                 if (response == null || response.Id != id) throw new InvalidDataException("Hardware service returned an invalid response.");
                 if (!response.Ok) throw new InvalidOperationException(response.Error ?? "Hardware service request failed.");
                 _rpcFaulted = false;
@@ -220,6 +228,11 @@ public sealed class HardwareServiceClient : IHardwareAccess
             }
         }
     }
+
+    internal static bool IsStaleResponseId(string? responseId, string requestId)
+        => long.TryParse(responseId, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out long response)
+           && long.TryParse(requestId, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out long request)
+           && response < request;
 
     public void Dispose()
     {
