@@ -15,7 +15,7 @@
   <img src="https://img.shields.io/badge/Architecture-x64-555555" alt="Architecture" />
   <img src="https://img.shields.io/badge/Lingue-IT%20%2F%20EN%20%2F%20ES%20%2F%20ZH-orange" alt="Languages" />
   <img src="https://img.shields.io/badge/.NET-8-512BD4?logo=dotnet&logoColor=white" alt=".NET" />
-  <a href="https://voltmanager.freebuff.app/"><img src="https://img.shields.io/badge/Sito%20ufficiale-voltmanager.freebuff.app-512BD4?logo=globe&logoColor=white" alt="Sito ufficiale" /></a>
+  <a href="https://albix4563.github.io/voltmanager-landing/"><img src="https://img.shields.io/badge/Sito%20ufficiale-albix4563.github.io%2Fvoltmanager--landing-512BD4?logo=globe&logoColor=white" alt="Sito ufficiale" /></a>
 </p>
 
 <p align="center">
@@ -30,7 +30,7 @@
 
 ## Sito ufficiale
 
-Il sito ufficiale dell'app è **[https://voltmanager.freebuff.app/](https://voltmanager.freebuff.app/)** — fonte ufficiale per download, informazioni e novità su VoltManager.
+Il sito ufficiale dell'app è **[https://albix4563.github.io/voltmanager-landing/](https://albix4563.github.io/voltmanager-landing/)** — fonte ufficiale per download, informazioni e novità su VoltManager.
 
 ---
 
@@ -90,7 +90,7 @@ Non serve essere esperti di sistemi: le funzioni automatiche sono opzionali e si
 
 ## Installazione
 
-> 💡 **Download ufficiale:** la pagina ufficiale dell'app è [voltmanager.freebuff.app](https://voltmanager.freebuff.app/); i file firmati sono disponibili anche dalla pagina [Releases](../../releases).
+> 💡 **Download ufficiale:** la pagina ufficiale dell'app è [albix4563.github.io/voltmanager-landing](https://albix4563.github.io/voltmanager-landing/); i file firmati sono disponibili anche dalla pagina [Releases](../../releases).
 
 ### Installer (consigliato)
 
