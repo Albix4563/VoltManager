@@ -482,7 +482,7 @@
     const widgetsDisabledList = document.getElementById('widgets-disabled-list');
     const WIDGET_TYPES = ['clock', 'calendar', 'usage', 'temps', 'power', 'plans', 'launcher', 'apps', 'actions', 'brightness', 'processes', 'memory'];
     const WIDGET_PRESETS = ['mini', 'medium', 'large'];
-    const LAUNCHER_WIDGET_PRESETS = ['mini', 'medium', 'large', 'bar', 'column'];
+    const WIDGET_ORIENTATIONS = ['horizontal', 'vertical'];
 
     function setToggle(el, on) {
         if (el) el.dataset.on = on ? 'true' : 'false';
@@ -505,6 +505,7 @@
         state.items = WIDGET_TYPES.map(type => {
             const item = byType[type] || { type, enabled: false, pinned: false, size: 'medium' };
             item.size = normalizeWidgetSize(item.type, item.size);
+            item.orientation = normalizeWidgetOrientation(item.type, item.orientation);
             item.anchor = WIDGET_ANCHORS.includes(item.anchor) ? item.anchor : 'topRight';
             item.offsetX = Number.isFinite(item.offsetX) ? item.offsetX : 0;
             item.offsetY = Number.isFinite(item.offsetY) ? item.offsetY : 0;
@@ -529,8 +530,9 @@
                     enabled: item.enabled === true,
                     pinned: item.pinned === true,
                     size: normalizeWidgetSize(item.type, item.size),
-                    width: item.customSize ? item.width : null,
-                    height: item.customSize ? item.height : null,
+                    orientation: normalizeWidgetOrientation(item.type, item.orientation),
+                    width: isLauncherWidgetType(item.type) && item.customSize && item.orientation === 'horizontal' ? item.width : null,
+                    height: isLauncherWidgetType(item.type) && item.customSize && item.orientation === 'vertical' ? item.height : null,
                     x: item.x,
                     y: item.y,
                     monitorId: item.monitorId || null,
@@ -566,11 +568,16 @@
     }
 
     function widgetPresets(type) {
-        return isLauncherWidgetType(type) ? LAUNCHER_WIDGET_PRESETS : WIDGET_PRESETS;
+        return WIDGET_PRESETS;
     }
 
     function normalizeWidgetSize(type, size) {
         return widgetPresets(type).includes(size) ? size : 'medium';
+    }
+
+    function normalizeWidgetOrientation(type, orientation) {
+        if (!isLauncherWidgetType(type)) return 'horizontal';
+        return WIDGET_ORIENTATIONS.includes(orientation) ? orientation : 'horizontal';
     }
 
     function widgetSizeLabel(size) {
@@ -683,11 +690,27 @@
             var stateAttr = item.enabled ? 'on' : 'off';
             var sizeKey = normalizeWidgetSize(item.type, item.size);
             var sizeButtons = widgetPresets(item.type).map(function (preset) {
-                var selected = !item.customSize && preset === sizeKey;
+                var selected = preset === sizeKey;
                 return '<button class="widget-size-option" type="button" data-widget-size data-widget-type="' + esc(item.type) + '" data-size="' + preset + '" aria-pressed="' + (selected ? 'true' : 'false') + '">' +
                     '<span data-i18n="widget_size_' + preset + '">' + esc(widgetSizeLabel(preset)) + '</span>' +
                     '</button>';
             }).join('');
+
+            var orientation = normalizeWidgetOrientation(item.type, item.orientation);
+            var orientationRow = '';
+            if (isLauncherWidgetType(item.type)) {
+                var orientationButtons = WIDGET_ORIENTATIONS.map(function (value) {
+                    var selected = value === orientation;
+                    var icon = value === 'horizontal' ? 'view_week' : 'view_agenda';
+                    var key = 'widget_orientation_' + value;
+                    return '<button class="widget-size-option widget-orientation-option" type="button" data-widget-orientation data-widget-type="' + esc(item.type) + '" data-orientation="' + value + '" aria-pressed="' + (selected ? 'true' : 'false') + '">' +
+                        '<span class="material-symbols-outlined" aria-hidden="true">' + icon + '</span>' +
+                        '<span data-i18n="' + key + '">' + esc(tr(key, value)) + '</span>' +
+                        '</button>';
+                }).join('');
+                orientationRow = '<div class="widget-size-row widget-orientation-row"><div><span class="startup-detail-label" data-i18n="widget_orientation">' + esc(tr('widget_orientation', 'Orientation')) + '</span></div>' +
+                    '<div class="widget-size-control widget-orientation-control" role="group" aria-label="' + esc(tr('widget_orientation', 'Orientation')) + '">' + orientationButtons + '</div></div>';
+            }
 
             var badgePin = item.pinned
                 ? '<span class="startup-managed-badge"><span class="material-symbols-outlined text-[13px]">push_pin</span><span data-i18n="widget_pinned_badge">In primo piano</span></span>'
@@ -715,6 +738,7 @@
                 '<div class="startup-card__header"><div class="startup-card__title-wrap"><div class="startup-card__app-icon"><span class="material-symbols-outlined">' + widgetIcon(item.type) + '</span></div><div class="startup-card__meta"><p class="startup-card__name" data-i18n="' + titleKey + '">' + esc(tr(titleKey, item.type)) + '</p><div class="startup-card__badges">' + chip + badgePin + '</div></div></div>' +
                 '<div class="startup-actions">' + toggleBtn + pinBtn + resetBtn + '</div></div>' +
                 '<div class="startup-card__details">' +
+                orientationRow +
                 '<div class="widget-size-row"><div><span class="startup-detail-label" data-i18n="widget_detail_size">Dimensione</span><span class="startup-detail-value">' + sizeReadout + '</span></div><div class="widget-size-control" role="group" aria-label="' + esc(tr('widget_size_selector', 'Widget size')) + '">' + sizeButtons + '</div></div>' +
                 '<div class="widget-placement-row">' +
                 '<label class="widget-monitor-label"><span class="startup-detail-label" data-i18n="widget_monitor_selector">Monitor</span>' +
@@ -787,6 +811,16 @@
             const card = e.target.closest('[data-widget-row]');
             if (!card) return;
             const type = card.dataset.widgetType;
+
+            const orientationBtn = e.target.closest('[data-widget-orientation]');
+            if (orientationBtn && orientationBtn.dataset.widgetType === type) {
+                const orientation = normalizeWidgetOrientation(type, orientationBtn.dataset.orientation);
+                if (orientationBtn.getAttribute('aria-pressed') === 'true') return;
+                try {
+                    renderWidgetsState(await Host.call('setWidgetOrientation', { type, orientation }));
+                } catch { /* re-render restores state */ }
+                return;
+            }
 
             const sizeBtn = e.target.closest('[data-widget-size]');
             if (sizeBtn && sizeBtn.dataset.widgetType === type) {

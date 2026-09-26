@@ -113,10 +113,12 @@ public static class WidgetLayout
 
             double sx = effective.DpiScaleX <= 0 ? 1 : effective.DpiScaleX;
             double sy = effective.DpiScaleY <= 0 ? 1 : effective.DpiScaleY;
-            double widthPx = request.SizeDip.Width * sx;
-            double heightPx = request.SizeDip.Height * sy;
             double marginX = MarginDip * sx;
             double marginY = MarginDip * sy;
+            double maxWidthPx = Math.Max(1, effective.WorkArea.Width - marginX * 2);
+            double maxHeightPx = Math.Max(1, effective.WorkArea.Height - marginY * 2);
+            double widthPx = Math.Min(request.SizeDip.Width * sx, maxWidthPx);
+            double heightPx = Math.Min(request.SizeDip.Height * sy, maxHeightPx);
             double gapX = GapDip * sx;
             double gapY = GapDip * sy;
             double offsetXPx = request.OffsetX * sx;

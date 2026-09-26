@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows;
 using System.Windows.Interop;
@@ -16,6 +17,11 @@ namespace VoltManager;
 
 public partial class MainWindow : Window
 {
+    private const double DesiredMinWidth = 900;
+    private const double DesiredMinHeight = 600;
+    private const int WmExitSizeMove = 0x0232;
+    private const int MdtEffectiveDpi = 0;
+    private const uint MonitorDefaultToNearest = 2;
     private readonly App _app;
     private Task<CoreWebView2Environment>? _webViewEnvironment;
     private HostBridge? _bridge;
@@ -60,7 +66,14 @@ public partial class MainWindow : Window
             DetachWebViewLifecycle);
         _webViewTray = new WebViewTrayCoordinator(new DashboardSurface(this));
         _webViewTray.Start(initiallyVisible: false);
-        SourceInitialized += (_, _) => BindGlobalHotkeys();
+        SourceInitialized += (_, _) =>
+        {
+            BindGlobalHotkeys();
+            UpdateAdaptiveMinimumSize();
+        };
+        // DpiChanged also fires mid-drag across monitors: only refresh the minimum there,
+        // bounds are clamped once the move ends (WM_EXITSIZEMOVE).
+        DpiChanged += (_, _) => UpdateAdaptiveMinimumSize(clampBounds: false);
         ApplyHostTheme(_app.Theme.CurrentTheme);
         // Tray-only launch: keep Chromium unborn until the user opens the window.
         Loaded += async (_, _) =>
@@ -69,7 +82,11 @@ public partial class MainWindow : Window
                 await ShowFromTrayWithFeedbackAsync(activateWindow: false);
         };
         IsVisibleChanged += (_, _) => UpdateWebViewVisibility();
-        StateChanged += (_, _) => UpdateWebViewVisibility();
+        StateChanged += (_, _) =>
+        {
+            UpdateWebViewVisibility();
+            if (WindowState == WindowState.Normal) UpdateAdaptiveMinimumSize();
+        };
         Closing += OnClosingToTray;
         Closed += (_, _) => StopRuntime();
         // Fires from timer threads; tooltip lives on the UI thread. BeginInvoke, never Invoke:
@@ -127,10 +144,79 @@ public partial class MainWindow : Window
         _bridge?.PushEvent(BridgeEventNames.GlobalHotkeysChanged, new { registrations = _lastHotkeyRegistrations });
     }
 
+    private void UpdateAdaptiveMinimumSize(bool clampBounds = true)
+    {
+        var hwnd = new WindowInteropHelper(this).Handle;
+        if (hwnd == IntPtr.Zero) return;
+
+        IntPtr monitor = MonitorFromWindow(hwnd, MonitorDefaultToNearest);
+        var info = new MONITORINFO { cbSize = Marshal.SizeOf<MONITORINFO>() };
+        if (monitor == IntPtr.Zero || !GetMonitorInfo(monitor, ref info)) return;
+
+        var (scaleX, scaleY) = GetMonitorScale(monitor, hwnd);
+
+        double workWidth = Math.Max(1, (info.rcWork.Right - info.rcWork.Left) / scaleX);
+        double workHeight = Math.Max(1, (info.rcWork.Bottom - info.rcWork.Top) / scaleY);
+        MinWidth = Math.Min(DesiredMinWidth, workWidth);
+        MinHeight = Math.Min(DesiredMinHeight, workHeight);
+
+        if (!clampBounds || WindowState != WindowState.Normal) return;
+
+        double width = Math.Clamp(Width, MinWidth, workWidth);
+        double height = Math.Clamp(Height, MinHeight, workHeight);
+        if (!AreClose(Width, width)) Width = width;
+        if (!AreClose(Height, height)) Height = height;
+
+        double workLeft = info.rcWork.Left / scaleX;
+        double workTop = info.rcWork.Top / scaleY;
+        double workRight = info.rcWork.Right / scaleX;
+        double workBottom = info.rcWork.Bottom / scaleY;
+        double left = double.IsFinite(Left) ? Left : workLeft;
+        double top = double.IsFinite(Top) ? Top : workTop;
+        Left = Math.Clamp(left, workLeft, Math.Max(workLeft, workRight - width));
+        Top = Math.Clamp(top, workTop, Math.Max(workTop, workBottom - height));
+    }
+
+    private (double X, double Y) GetMonitorScale(IntPtr monitor, IntPtr hwnd)
+    {
+        try
+        {
+            if (GetDpiForMonitor(monitor, MdtEffectiveDpi, out uint dpiX, out uint dpiY) == 0 && dpiX > 0 && dpiY > 0)
+                return (dpiX / 96d, dpiY / 96d);
+        }
+        catch (DllNotFoundException) { }
+        catch (EntryPointNotFoundException) { }
+
+        try
+        {
+            uint dpi = GetDpiForWindow(hwnd);
+            if (dpi > 0)
+            {
+                double scale = dpi / 96d;
+                return (scale, scale);
+            }
+        }
+        catch (EntryPointNotFoundException) { }
+
+        var fallback = Media.VisualTreeHelper.GetDpi(this);
+        double fallbackX = fallback.DpiScaleX > 0 ? fallback.DpiScaleX : 1;
+        double fallbackY = fallback.DpiScaleY > 0 ? fallback.DpiScaleY : 1;
+        return (fallbackX, fallbackY);
+    }
+
+    private static bool AreClose(double left, double right)
+        => Math.Abs(left - right) < 0.01;
+
     private bool _hotkeyHookInstalled;
 
     private IntPtr GlobalHotkeyWndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
+        if (msg == WmExitSizeMove)
+        {
+            UpdateAdaptiveMinimumSize();
+            return IntPtr.Zero;
+        }
+
         if (msg != GlobalHotkeyService.WmHotkey || !_globalHotkeys.TryGetCommand(wParam.ToInt32(), out var command))
             return IntPtr.Zero;
 
@@ -1080,5 +1166,35 @@ public partial class MainWindow : Window
                 "document.querySelector('[data-view=\"system\"]')?.click()");
         }
         catch { /* WebView may not be ready */ }
+    }
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr MonitorFromWindow(IntPtr hwnd, uint dwFlags);
+
+    [DllImport("user32.dll", CharSet = CharSet.Auto)]
+    private static extern bool GetMonitorInfo(IntPtr hMonitor, ref MONITORINFO lpmi);
+
+    [DllImport("user32.dll")]
+    private static extern uint GetDpiForWindow(IntPtr hwnd);
+
+    [DllImport("shcore.dll")]
+    private static extern int GetDpiForMonitor(IntPtr hmonitor, int dpiType, out uint dpiX, out uint dpiY);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct RECT
+    {
+        public int Left;
+        public int Top;
+        public int Right;
+        public int Bottom;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct MONITORINFO
+    {
+        public int cbSize;
+        public RECT rcMonitor;
+        public RECT rcWork;
+        public uint dwFlags;
     }
 }

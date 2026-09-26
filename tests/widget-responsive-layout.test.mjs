@@ -19,6 +19,18 @@ const settingsJs = readFileSync(
   new URL('../src/VoltManager/wwwroot/js/settings.js', import.meta.url),
   'utf8'
 );
+const mainWindowXaml = readFileSync(
+  new URL('../src/VoltManager/MainWindow.xaml', import.meta.url),
+  'utf8'
+);
+const mainWindowCs = readFileSync(
+  new URL('../src/VoltManager/MainWindow.xaml.cs', import.meta.url),
+  'utf8'
+);
+const widgetWindowCs = readFileSync(
+  new URL('../src/VoltManager/WidgetWindow.xaml.cs', import.meta.url),
+  'utf8'
+);
 
 const widgetTypes = ['clock', 'calendar', 'usage', 'temps', 'power', 'plans', 'launcher', 'apps', 'actions', 'brightness', 'processes', 'memory'];
 
@@ -87,9 +99,53 @@ test('launcher and apps widgets split categories and use secure WebView2 file dr
   assert.match(widgetsCss, /\.desktop-widget\[data-layout=vertical\][^\{]*\.launcher-grid\s*\{[^}]*grid-auto-flow:\s*row/s);
 });
 
-test('launcher settings expose bar and column presets without adding them to other widgets', () => {
+test('launcher settings expose orientation separately from the three size presets', () => {
   assert.match(settingsJs, /const WIDGET_PRESETS = \['mini', 'medium', 'large'\]/);
-  assert.match(settingsJs, /const LAUNCHER_WIDGET_PRESETS = \['mini', 'medium', 'large', 'bar', 'column'\]/);
-  assert.match(settingsJs, /return isLauncherWidgetType\(type\) \? LAUNCHER_WIDGET_PRESETS : WIDGET_PRESETS/);
-  assert.match(settingsJs, /var selected = !item\.customSize && preset === sizeKey/);
+  assert.doesNotMatch(settingsJs, /LAUNCHER_WIDGET_PRESETS/);
+  assert.match(settingsJs, /const WIDGET_ORIENTATIONS = \['horizontal', 'vertical'\]/);
+  assert.match(settingsJs, /data-widget-orientation/);
+  assert.match(settingsJs, /Host\.call\('setWidgetOrientation', \{ type, orientation \}\)/);
+  assert.match(settingsJs, /var selected = preset === sizeKey/);
+});
+
+test('launcher layout is deterministic, fixed-size and scrolls instead of shrinking icons', () => {
+  assert.match(widgetsJs, /params\.get\('o'\)/);
+  assert.match(widgetsJs, /data-layout="' \+ orientation \+ '"/);
+  assert.doesNotMatch(widgetsJs, /ResizeObserver|observeLauncherLayout/);
+  assert.match(widgetsJs, /launcherGrid\.scrollLeft \+= e\.deltaY/);
+  assert.doesNotMatch(widgetsJs, /launcher-name/);
+  assert.match(widgetsJs, /class="widget-resize-cap" id="widget-resize"/);
+  assert.doesNotMatch(widgetsJs, /widget-resize-grip|south_east/);
+  assert.match(widgetsJs, /id="widget-drag"/);
+  assert.match(widgetsJs, /if \(e\.target\.closest\('button'\)\) return;[\s\S]*?beginWidgetDrag/);
+  assert.match(widgetsCss, /--launcher-icon-size:\s*32px/);
+  assert.match(widgetsCss, /--launcher-icon-size:\s*40px/);
+  assert.match(widgetsCss, /--launcher-icon-size:\s*52px/);
+  assert.match(widgetsCss, /--launcher-leading-cap:\s*34px/);
+  assert.match(widgetsCss, /--launcher-resize-cap:\s*14px/);
+  assert.match(widgetsCss, /--launcher-body-padding:\s*6px/);
+  assert.match(widgetsCss, /grid-auto-columns:\s*var\(--launcher-slot-size\)/);
+  assert.match(widgetsCss, /grid-auto-rows:\s*var\(--launcher-slot-size\)/);
+  assert.match(widgetsCss, /width:\s*calc\(var\(--launcher-slot-size\) - 6px\)/);
+  assert.match(widgetsCss, /\.desktop-widget\[data-layout=horizontal\]\s*\{[^}]*flex-direction:\s*row/s);
+  assert.match(widgetsCss, /\.desktop-widget\[data-layout=vertical\] \.launcher-empty \.widget-muted\s*\{[^}]*display:\s*none/s);
+  assert.match(widgetsCss, /\.widget-resize-cap\s*\{[^}]*flex:\s*0 0 var\(--launcher-resize-cap\)/s);
+  assert.match(widgetsJs, /const manageLabel = t\('widget_launcher_manage', 'Manage apps'\)/);
+  assert.match(widgetsJs, /orientation === 'vertical' \? ' title="' \+ esc\(emptyHint\)/);
+});
+
+test('widget chrome and the main window enforce readable minimums', () => {
+  assert.match(widgetsCss, /html\[data-size=mini\] \.widget-title\s*\{[^}]*font-size:\s*11px/s);
+  assert.match(widgetsCss, /html\[data-size=mini\] \.widget-action\s*\{[^}]*width:\s*28px[^}]*height:\s*28px/s);
+  assert.match(widgetsCss, /\.widget-stat label\s*\{[^}]*font-size:\s*11px/s);
+  assert.match(mainWindowXaml, /MinHeight="600" MinWidth="900"/);
+  assert.match(mainWindowCs, /UpdateAdaptiveMinimumSize\(\)/);
+  assert.match(mainWindowCs, /MonitorFromWindow/);
+  assert.match(mainWindowCs, /GetDpiForMonitor/);
+  assert.match(mainWindowCs, /msg == WmExitSizeMove/);
+  assert.doesNotMatch(mainWindowCs, /LocationChanged\s*\+=/);
+  assert.match(mainWindowCs, /Math\.Min\(DesiredMinWidth, workWidth\)/);
+  assert.match(widgetWindowCs, /HtRight = new\(0xB\)/);
+  assert.match(widgetWindowCs, /HtBottom = new\(0xF\)/);
+  assert.match(widgetWindowCs, /if \(_nativeResizeInProgress\)[\s\S]*?_relayoutPendingDuringNativeResize = true;[\s\S]*?return;/);
 });

@@ -1,15 +1,16 @@
 (function () {
     const TYPES = ['clock', 'calendar', 'usage', 'temps', 'power', 'plans', 'launcher', 'apps', 'actions', 'brightness', 'processes', 'memory'];
     const SIZES = ['mini', 'medium', 'large'];
-    const LAUNCHER_SIZES = ['mini', 'medium', 'large', 'bar', 'column'];
     const MAX_CUSTOM_PER_CATEGORY = 10;
     const PLAN_ORDER = ['powerSaver', 'balanced', 'performance'];
     const params = new URLSearchParams(location.search);
     const type = TYPES.includes(params.get('w')) ? params.get('w') : 'clock';
     const isLauncherWidget = type === 'launcher' || type === 'apps';
     const launcherCategory = type === 'apps' ? 'apps' : 'games';
-    const validSizes = isLauncherWidget ? LAUNCHER_SIZES : SIZES;
-    const size = validSizes.includes(params.get('s')) ? params.get('s') : 'medium';
+    const size = SIZES.includes(params.get('s')) ? params.get('s') : 'medium';
+    const orientation = isLauncherWidget && ['horizontal', 'vertical'].includes(params.get('o'))
+        ? params.get('o')
+        : 'horizontal';
     const root = document.getElementById('widget-root');
     let pinned = false;
     let switchingPlan = false;
@@ -37,6 +38,7 @@
     let animationHardwareTier = null;
     let locale = (window.I18n && I18n.getLocale ? I18n.getLocale() : 'it-IT');
     document.documentElement.dataset.size = size;
+    if (isLauncherWidget) document.documentElement.dataset.layout = orientation;
 
     const labels = {
         clock: ['schedule', 'widget_clock'],
@@ -67,10 +69,11 @@
         const launcherChrome = isLauncherWidget
             ? '  <div class="launcher-drop-overlay" id="launcher-drop-overlay" aria-hidden="true"><span id="launcher-drop-text"></span></div>' +
               '  <div class="launcher-toast hidden" id="launcher-toast" role="status"></div>' +
-              '  <button class="widget-resize-grip" id="widget-resize" type="button" title="' + esc(t('widget_resize', 'Resize')) + '" aria-label="' + esc(t('widget_resize', 'Resize')) + '"><span class="material-symbols-outlined" aria-hidden="true">south_east</span></button>'
+              '  <button class="widget-resize-cap" id="widget-resize" type="button" title="' + esc(t('widget_resize', 'Resize')) + '" aria-label="' + esc(t('widget_resize', 'Resize')) + '"></button>'
             : '';
         root.innerHTML =
-            '<article class="desktop-widget" data-size="' + size + '" data-widget-type="' + type + '">' +
+            '<article class="desktop-widget" data-size="' + size + '" data-widget-type="' + type + '"' +
+            (isLauncherWidget ? ' data-layout="' + orientation + '"' : '') + '>' +
             '  <header class="widget-header" id="widget-drag">' +
             '    <div class="widget-title"><span class="material-symbols-outlined">' + meta[0] + '</span><span data-i18n="' + meta[1] + '">' + t(meta[1], type) + '</span></div>' +
             '    <button class="widget-action" id="widget-pin" type="button" title="' + t('widget_pin', 'Pin') + '" aria-label="' + t('widget_pin', 'Pin') + '"><span class="material-symbols-outlined">push_pin</span></button>' +
@@ -94,10 +97,6 @@
             e.preventDefault();
             e.stopPropagation();
             Host.call('beginWidgetResize').catch(() => {});
-        });
-        widget?.addEventListener('pointerdown', (e) => {
-            if (!isLauncherWidget || widget.dataset.layout === 'grid' || e.target.closest('button')) return;
-            Host.call('beginWidgetDrag').catch(() => {});
         });
         document.getElementById('widget-pin')?.addEventListener('click', () => {
             pinned = !pinned;
@@ -136,7 +135,6 @@
             Host.call('closeWidget').catch(() => {});
         });
         wireDropSafety(widget);
-        if (isLauncherWidget) observeLauncherLayout(widget);
     }
 
     function reflectPin() {
@@ -628,41 +626,21 @@
         });
     }
 
-    function observeLauncherLayout(widget) {
-        if (!widget) return;
-        let current = '';
-        const apply = (width, height) => {
-            let next = 'grid';
-            if (width >= height * 2.2) next = 'horizontal';
-            else if (height >= width * 2.2) next = 'vertical';
-            if (next === current) return;
-            current = next;
-            widget.dataset.layout = next;
-            renderLaunchers();
-        };
-        widget.dataset.layout = size === 'bar' ? 'horizontal' : size === 'column' ? 'vertical' : 'grid';
-        current = widget.dataset.layout;
-        if (typeof ResizeObserver === 'function') {
-            const observer = new ResizeObserver(entries => {
-                const rect = entries[0] && entries[0].contentRect;
-                if (rect) apply(rect.width, rect.height);
-            });
-            observer.observe(widget);
-        }
-    }
-
     function startLauncher() {
         const emptyKey = type === 'apps' ? 'widget_apps_empty' : 'widget_launcher_empty';
+        const emptyHint = t(emptyKey, 'Drag shortcuts here to add them');
+        const manageLabel = t('widget_launcher_manage', 'Manage apps');
         shell('<div class="launcher-grid" id="launcher-grid" role="list"></div>' +
-            '<div class="launcher-empty hidden" id="launcher-empty">' +
-            '<span class="widget-muted" data-i18n="' + emptyKey + '">' + t(emptyKey, 'Drag shortcuts here to add them') + '</span>' +
-            '<button class="widget-button" id="launcher-open" type="button"><span class="material-symbols-outlined">open_in_new</span><span data-i18n="widget_launcher_manage">Manage apps</span></button>' +
+            '<div class="launcher-empty hidden" id="launcher-empty"' + (orientation === 'vertical' ? ' title="' + esc(emptyHint) + '"' : '') + '>' +
+            '<span class="widget-muted" data-i18n="' + emptyKey + '">' + emptyHint + '</span>' +
+            '<button class="widget-button launcher-empty-action" id="launcher-open" type="button" title="' + esc(manageLabel) + '" aria-label="' + esc(manageLabel) + '"><span class="material-symbols-outlined" aria-hidden="true">add</span></button>' +
             '</div>');
-        document.getElementById('launcher-grid').addEventListener('click', (e) => {
+        const launcherGrid = document.getElementById('launcher-grid');
+        launcherGrid.addEventListener('click', (e) => {
             const tile = e.target && e.target.closest ? e.target.closest('[data-launch-id]') : null;
             if (tile) launchTile(tile);
         });
-        document.getElementById('launcher-grid').addEventListener('contextmenu', async (e) => {
+        launcherGrid.addEventListener('contextmenu', async (e) => {
             const tile = e.target && e.target.closest ? e.target.closest('[data-launch-id]') : null;
             if (!tile) return;
             const item = launcherItems.find(entry => entry.id === tile.dataset.launchId);
@@ -677,6 +655,13 @@
                 await Host.call('setLauncherHidden', { id: item.id, hidden: true }).catch(() => {});
             }
         });
+        if (orientation === 'horizontal') {
+            launcherGrid.addEventListener('wheel', (e) => {
+                if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
+                e.preventDefault();
+                launcherGrid.scrollLeft += e.deltaY;
+            }, { passive: false });
+        }
         document.getElementById('launcher-open').addEventListener('click', () => {
             Host.call('showMainWindow').catch(() => {});
         });
@@ -719,8 +704,6 @@
         const grid = document.getElementById('launcher-grid');
         const empty = document.getElementById('launcher-empty');
         if (!grid || !empty) return;
-        const widget = grid.closest('.desktop-widget');
-        const showNames = size !== 'mini' && (!widget || widget.dataset.layout === 'grid');
         grid.innerHTML = launcherItems.map((item) => {
             const available = item.available !== false;
             const name = item.name || '';
@@ -730,7 +713,6 @@
             return '<button class="launcher-tile" type="button" role="listitem" data-launch-id="' + esc(item.id) + '"' +
                 ' title="' + esc(label) + '" aria-label="' + esc(label) + '"' + (available ? '' : ' disabled') + '>' +
                 '<span class="launcher-icon">' + launcherIcon(item) + '</span>' +
-                (showNames ? '<span class="launcher-name">' + esc(name) + '</span>' : '') +
                 '</button>';
         }).join('');
         const isEmpty = launcherLoaded && launcherItems.length === 0;

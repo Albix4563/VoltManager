@@ -9,6 +9,7 @@ public sealed record WidgetRpcActions(
     Func<bool, object> SetMasterEnabled,
     Func<string, bool, object> SetPinned,
     Func<string, string, object> SetSize,
+    Func<string, string, object> SetOrientation,
     Func<string, string, string, object> SetPlacement,
     Func<string, object> ResetPosition,
     Action BeginDrag,
@@ -22,7 +23,7 @@ public sealed class WidgetRpcHandler : IBridgeRpcHandler
     [
         "beginWidgetDrag", "beginWidgetResize", "setWidgetTopmost", "closeWidget",
         "getWidgetsState", "setWidgetEnabled", "setWidgetsMaster",
-        "setWidgetPinned", "setWidgetSize", "setWidgetPlacement",
+        "setWidgetPinned", "setWidgetSize", "setWidgetOrientation", "setWidgetPlacement",
         "resetWidgetPosition",
     ];
 
@@ -54,6 +55,9 @@ public sealed class WidgetRpcHandler : IBridgeRpcHandler
             "setWidgetSize" => _actions.SetSize(
                 BridgePayload.RequiredString(payload, "type", "Missing widget type"),
                 RequiredStringOrDefault(payload, "size", "medium")),
+            "setWidgetOrientation" => _actions.SetOrientation(
+                BridgePayload.RequiredString(payload, "type", "Missing widget type"),
+                BridgePayload.RequiredString(payload, "orientation", "Missing widget orientation")),
             "setWidgetPlacement" => _actions.SetPlacement(
                 BridgePayload.RequiredString(payload, "type", "Missing widget type"),
                 BridgePayload.RequiredString(payload, "monitorId", "Missing monitor id"),

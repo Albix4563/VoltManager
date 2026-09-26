@@ -17,7 +17,7 @@ public class WidgetRpcHandlerTests
         [
             "beginWidgetDrag", "beginWidgetResize", "setWidgetTopmost", "closeWidget",
             "getWidgetsState", "setWidgetEnabled", "setWidgetsMaster",
-            "setWidgetPinned", "setWidgetSize", "setWidgetPlacement",
+            "setWidgetPinned", "setWidgetSize", "setWidgetOrientation", "setWidgetPlacement",
             "resetWidgetPosition",
         ];
         Assert.Equal(expected.OrderBy(x => x), handler.Methods.OrderBy(x => x));
@@ -40,6 +40,22 @@ public class WidgetRpcHandlerTests
         Assert.Equal(("power", "display-2", "bottom-right"), call);
         using var doc = JsonDocument.Parse(JsonSerializer.Serialize(result, BridgeRpc.JsonOpts));
         Assert.Equal("power", doc.RootElement.GetProperty("type").GetString());
+    }
+
+    [Fact]
+    public async Task SetWidgetOrientation_passes_orientation_to_action()
+    {
+        (string type, string orientation)? call = null;
+        var handler = Create(setOrientation: (type, orientation) =>
+        {
+            call = (type, orientation);
+            return new { type, orientation };
+        });
+
+        await handler.HandleAsync("setWidgetOrientation",
+            Payload(new { type = "launcher", orientation = "vertical" }), CancellationToken.None);
+
+        Assert.Equal(("launcher", "vertical"), call);
     }
 
     [Fact]
@@ -74,6 +90,7 @@ public class WidgetRpcHandlerTests
 
     private static WidgetRpcHandler Create(
         Func<string, bool, object>? setEnabled = null,
+        Func<string, string, object>? setOrientation = null,
         Func<string, string, string, object>? setPlacement = null,
         Action<bool>? setTopmost = null)
     {
@@ -83,6 +100,7 @@ public class WidgetRpcHandlerTests
             SetMasterEnabled: enabled => new { enabled },
             SetPinned: (type, pinned) => new { type, pinned },
             SetSize: (type, size) => new { type, size },
+            SetOrientation: setOrientation ?? ((type, orientation) => new { type, orientation }),
             SetPlacement: setPlacement ?? ((type, monitor, anchor) => new { type, monitor, anchor }),
             ResetPosition: type => new { type },
             BeginDrag: () => { },

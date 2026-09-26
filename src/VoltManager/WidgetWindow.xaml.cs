@@ -16,7 +16,8 @@ public partial class WidgetWindow : Window
     private const int WmNcLButtonDown = 0xA1;
     private const int WmExitSizeMove = 0x0232;
     private static readonly IntPtr HtCaption = new(0x2);
-    private static readonly IntPtr HtBottomRight = new(0x11);
+    private static readonly IntPtr HtRight = new(0xB);
+    private static readonly IntPtr HtBottom = new(0xF);
 
     // WS_EX_TOOLWINDOW excludes this window from the Alt+Tab switcher and taskbar
     // (in combination with WindowStyle=None + ShowInTaskbar=False in XAML).
@@ -32,9 +33,11 @@ public partial class WidgetWindow : Window
     private readonly string _type;
     private HostBridge? _bridge;
     private string _size;
+    private string _orientation;
     private HwndSource? _hwndSource;
     private bool _applyingPlacement;
     private bool _nativeResizeInProgress;
+    private bool _relayoutPendingDuringNativeResize;
     private int _rendererReloadCount;
     private long _lastRendererFailureTicks = long.MinValue / 2;
     private const long RendererFailureWindowMs = 2 * 60 * 1000;
@@ -57,6 +60,9 @@ public partial class WidgetWindow : Window
         _envTask = envTask;
         _type = item.Type;
         _size = WidgetSettings.NormalizeSize(item.Type, item.Size);
+        _orientation = WidgetSettings.IsLauncherType(item.Type)
+            ? WidgetSettings.NormalizeOrientation(item.Orientation)
+            : "horizontal";
 
         InitializeComponent();
 
@@ -66,13 +72,7 @@ public partial class WidgetWindow : Window
         Left = placement.FinalBounds.X;
         Top = placement.FinalBounds.Y;
         Topmost = item.Pinned;
-        if (WidgetSettings.IsLauncherType(_type))
-        {
-            MinWidth = 56;
-            MinHeight = 56;
-            MaxWidth = 1920;
-            MaxHeight = 1080;
-        }
+        ConfigureResizeBounds(placement.EffectiveDisplay);
 
         Loaded += async (_, _) => await InitWebViewAsync();
         IsVisibleChanged += (_, _) =>
@@ -86,7 +86,7 @@ public partial class WidgetWindow : Window
         {
             ApplyToolWindowStyle();
             HookWndProc();
-            ApplyPlacement(placement, item.Size);
+            ApplyPlacement(placement, item.Size, item.Orientation);
             ApplyRoundedRegion();
             _coverageHwnd = new WindowInteropHelper(this).Handle;
             _context.FullscreenCoverage.RegisterSurface(_coverageHwnd);
@@ -224,11 +224,24 @@ public partial class WidgetWindow : Window
 
     public void PushEvent(string name, object data) => _bridge?.PushEvent(name, data);
 
-    public void ApplyPlacement(WidgetPlacement placement, string sizeKey)
+    public void ApplyPlacement(WidgetPlacement placement, string sizeKey, string? orientation)
     {
         string normalized = WidgetSettings.NormalizeSize(_type, sizeKey);
         bool sizeChanged = !string.Equals(_size, normalized, StringComparison.OrdinalIgnoreCase);
+        string normalizedOrientation = WidgetSettings.IsLauncherType(_type)
+            ? WidgetSettings.NormalizeOrientation(orientation)
+            : "horizontal";
+        bool orientationChanged = !string.Equals(_orientation, normalizedOrientation, StringComparison.OrdinalIgnoreCase);
+
+        if (_nativeResizeInProgress)
+        {
+            _relayoutPendingDuringNativeResize = true;
+            return;
+        }
+
         _size = normalized;
+        _orientation = normalizedOrientation;
+        ConfigureResizeBounds(placement.EffectiveDisplay);
 
         var hwnd = new WindowInteropHelper(this).Handle;
         if (hwnd == IntPtr.Zero)
@@ -249,7 +262,7 @@ public partial class WidgetWindow : Window
             int h = (int)Math.Round(placement.FinalBounds.Height);
             ApplyNativeBounds(hwnd, x, y, w, h);
             ApplyRoundedRegion();
-            if (sizeChanged)
+            if (sizeChanged || orientationChanged)
                 WebView.CoreWebView2?.Navigate(WidgetUrl());
         }
         finally
@@ -307,7 +320,35 @@ public partial class WidgetWindow : Window
     private string WidgetUrl() =>
         "https://app.local/widgets.html?w=" + Uri.EscapeDataString(_type) +
         "&s=" + Uri.EscapeDataString(_size) +
+        "&o=" + Uri.EscapeDataString(_orientation) +
         "&v=" + DocumentVersion;
+
+    private void ConfigureResizeBounds(DisplayInfo display)
+    {
+        if (!WidgetSettings.IsLauncherType(_type)) return;
+
+        MinWidth = 0;
+        MinHeight = 0;
+        MaxWidth = double.PositiveInfinity;
+        MaxHeight = double.PositiveInfinity;
+
+        var range = WidgetManager.GetLauncherLengthRange(_size, _orientation, display);
+        double thickness = WidgetSettings.LauncherThickness(_size);
+        if (_orientation == "vertical")
+        {
+            MinWidth = thickness;
+            MaxWidth = thickness;
+            MinHeight = range.Min;
+            MaxHeight = range.Max;
+        }
+        else
+        {
+            MinWidth = range.Min;
+            MaxWidth = range.Max;
+            MinHeight = thickness;
+            MaxHeight = thickness;
+        }
+    }
 
     private void OnMetricsUpdated(MetricsSnapshot metrics)
     {
@@ -442,12 +483,19 @@ public partial class WidgetWindow : Window
         {
             ReleaseCapture();
             // Synchronous: returns when the native size loop ends (WM_EXITSIZEMOVE already handled).
-            SendMessage(hwnd, WmNcLButtonDown, HtBottomRight, IntPtr.Zero);
+            IntPtr hitTest = _orientation == "vertical" ? HtBottom : HtRight;
+            SendMessage(hwnd, WmNcLButtonDown, hitTest, IntPtr.Zero);
         }
         finally
         {
+            bool relayoutPending = _relayoutPendingDuringNativeResize;
             _nativeResizeInProgress = false;
             ResizeMode = ResizeMode.NoResize;
+            if (relayoutPending)
+            {
+                _relayoutPendingDuringNativeResize = false;
+                _manager.RequestRelayout();
+            }
         }
     }
 

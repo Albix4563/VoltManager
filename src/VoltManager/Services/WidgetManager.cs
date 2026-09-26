@@ -14,6 +14,7 @@ public sealed record WidgetItemState(
     bool Enabled,
     bool Pinned,
     string Size,
+    string Orientation,
     double Width,
     double Height,
     bool CustomSize,
@@ -160,6 +161,25 @@ public sealed class WidgetManager : IDisposable
         return Relayout(save: false);
     }
 
+    public WidgetStateSnapshot SetOrientation(string type, string orientation)
+    {
+        if (_disposing || !WidgetSettings.IsKnownType(type)) return GetSnapshot();
+        if (!WidgetSettings.IsLauncherType(type))
+            throw new ArgumentException("Widget orientation is only supported for launcher widgets.");
+        if (!WidgetSettings.Orientations.Contains(orientation, StringComparer.OrdinalIgnoreCase))
+            throw new ArgumentException("Unknown widget orientation: " + orientation);
+
+        string normalized = WidgetSettings.NormalizeOrientation(orientation);
+        _settings.Update(state =>
+        {
+            var item = state.Widgets.GetOrAdd(type);
+            item.Orientation = normalized;
+            item.Width = null;
+            item.Height = null;
+        });
+        return Relayout(save: false);
+    }
+
     public WidgetStateSnapshot ResetPosition(string type)
     {
         if (_disposing || !WidgetSettings.IsKnownType(type)) return GetSnapshot();
@@ -223,16 +243,20 @@ public sealed class WidgetManager : IDisposable
         if (!double.IsFinite(width) || !double.IsFinite(height)) return;
         if (!_lastPlacements.TryGetValue(type, out var previousPlacement)) return;
 
-        width = Math.Clamp(width, 56, 1920);
-        height = Math.Clamp(height, 56, 1080);
+        var current = GetSettings().GetOrAdd(type);
+        string orientation = WidgetSettings.NormalizeOrientation(current.Orientation);
+        var lengthRange = GetLauncherLengthRange(current.Size, orientation, previousPlacement.EffectiveDisplay);
+        double length = orientation == "vertical" ? height : width;
+        length = Math.Clamp(length, lengthRange.Min, lengthRange.Max);
         double targetX = previousPlacement.FinalBounds.X;
         double targetY = previousPlacement.FinalBounds.Y;
 
         _settings.Update(state =>
         {
             var item = state.Widgets.GetOrAdd(type);
-            item.Width = width;
-            item.Height = height;
+            item.Orientation = orientation;
+            item.Width = orientation == "horizontal" ? length : null;
+            item.Height = orientation == "vertical" ? length : null;
         });
 
         Relayout(save: false);
@@ -330,16 +354,9 @@ public sealed class WidgetManager : IDisposable
         ("plans", "mini") => new Size(280, 96),
         ("plans", "medium") => new Size(340, 150),
         ("plans", "large") => new Size(420, 190),
-        ("launcher", "mini") => new Size(260, 96),
-        ("launcher", "medium") => new Size(320, 230),
-        ("launcher", "large") => new Size(420, 330),
-        ("launcher", "bar") => new Size(520, 64),
-        ("launcher", "column") => new Size(64, 520),
-        ("apps", "mini") => new Size(260, 96),
-        ("apps", "medium") => new Size(320, 230),
-        ("apps", "large") => new Size(420, 330),
-        ("apps", "bar") => new Size(520, 64),
-        ("apps", "column") => new Size(64, 520),
+        ("launcher", "mini") or ("apps", "mini") => new Size(WidgetSettings.LauncherDefaultLength("mini"), WidgetSettings.LauncherThickness("mini")),
+        ("launcher", "medium") or ("apps", "medium") => new Size(WidgetSettings.LauncherDefaultLength("medium"), WidgetSettings.LauncherThickness("medium")),
+        ("launcher", "large") or ("apps", "large") => new Size(WidgetSettings.LauncherDefaultLength("large"), WidgetSettings.LauncherThickness("large")),
         ("actions", "mini") => new Size(240, 96),
         ("actions", "medium") => new Size(320, 200),
         ("actions", "large") => new Size(400, 250),
@@ -361,9 +378,38 @@ public sealed class WidgetManager : IDisposable
     {
         var preset = GetWidgetSize(item.Type, item.Size);
         if (!WidgetSettings.IsLauncherType(item.Type)) return preset;
-        double width = item.Width is double w && double.IsFinite(w) ? Math.Clamp(w, 56, 1920) : preset.Width;
-        double height = item.Height is double h && double.IsFinite(h) ? Math.Clamp(h, 56, 1080) : preset.Height;
-        return new Size(width, height);
+        string size = WidgetSettings.NormalizeSize(item.Type, item.Size);
+        string orientation = WidgetSettings.NormalizeOrientation(item.Orientation);
+        double minLength = WidgetSettings.LauncherMinLength(size);
+        double maxLength = WidgetSettings.LauncherMaxLength(size);
+        double? customLength = orientation == "vertical" ? item.Height : item.Width;
+        double length = customLength is double value && double.IsFinite(value)
+            ? Math.Clamp(value, minLength, maxLength)
+            : WidgetSettings.LauncherDefaultLength(size);
+        double thickness = WidgetSettings.LauncherThickness(size);
+        return orientation == "vertical"
+            ? new Size(thickness, length)
+            : new Size(length, thickness);
+    }
+
+    internal static (double Min, double Max) GetLauncherLengthRange(
+        string size,
+        string orientation,
+        DisplayInfo? display = null)
+    {
+        string normalizedSize = WidgetSettings.NormalizeSize(size);
+        string normalizedOrientation = WidgetSettings.NormalizeOrientation(orientation);
+        double min = WidgetSettings.LauncherMinLength(normalizedSize);
+        double max = WidgetSettings.LauncherMaxLength(normalizedSize);
+        if (display == null) return (min, max);
+
+        double scale = normalizedOrientation == "vertical" ? display.DpiScaleY : display.DpiScaleX;
+        if (scale <= 0) scale = 1;
+        double workLength = (normalizedOrientation == "vertical" ? display.WorkArea.Height : display.WorkArea.Width) / scale;
+        double available = Math.Max(1, workLength - WidgetLayout.MarginDip * 2);
+        max = Math.Min(max, available);
+        min = Math.Min(min, max);
+        return (min, max);
     }
 
     public void Dispose()
@@ -416,7 +462,7 @@ public sealed class WidgetManager : IDisposable
                 item.Anchor ?? "topRight",
                 item.OffsetX,
                 item.OffsetY,
-                GetWidgetSize(item));
+                GetWidgetSizeForDisplay(item));
         }).ToList();
 
         var placements = WidgetLayout.Calculate(requests, _snapshot);
@@ -523,12 +569,12 @@ public sealed class WidgetManager : IDisposable
         if (_windows.TryGetValue(item.Type, out var existing))
         {
             existing.Topmost = item.Pinned;
-            existing.ApplyPlacement(placement, item.Size);
+            existing.ApplyPlacement(placement, item.Size, item.Orientation);
             if (!existing.IsVisible) existing.Show();
             return;
         }
 
-        var window = _windowFactory(this, item, EnvTask(), GetWidgetSize(item), placement);
+        var window = _windowFactory(this, item, EnvTask(), PlacementSizeDip(placement), placement);
         _windows[item.Type] = window;
         window.Closed += (_, _) => ForgetWindow(item.Type);
         window.Show();
@@ -562,7 +608,7 @@ public sealed class WidgetManager : IDisposable
                         item.Anchor ?? "topRight",
                         item.OffsetX,
                         item.OffsetY,
-                        GetWidgetSize(item));
+                        GetWidgetSizeForDisplay(item));
                 }).ToList(),
                 _snapshot)
             : Array.Empty<WidgetPlacement>();
@@ -574,16 +620,18 @@ public sealed class WidgetManager : IDisposable
         var byType = placements.ToDictionary(p => p.Type, StringComparer.OrdinalIgnoreCase);
         var items = widgets.Items.Select(item =>
         {
-            var size = GetWidgetSize(item);
             byType.TryGetValue(item.Type, out var p);
+            var size = p == null ? GetWidgetSizeForDisplay(item) : PlacementSizeDip(p);
             return new WidgetItemState(
                 item.Type,
                 item.Enabled,
                 item.Pinned,
                 WidgetSettings.NormalizeSize(item.Type, item.Size),
+                WidgetSettings.IsLauncherType(item.Type) ? WidgetSettings.NormalizeOrientation(item.Orientation) : "horizontal",
                 size.Width,
                 size.Height,
-                WidgetSettings.IsLauncherType(item.Type) && (item.Width != null || item.Height != null),
+                WidgetSettings.IsLauncherType(item.Type) &&
+                    (WidgetSettings.NormalizeOrientation(item.Orientation) == "vertical" ? item.Height != null : item.Width != null),
                 item.MonitorId,
                 item.MonitorName,
                 item.MonitorNumber,
@@ -602,5 +650,24 @@ public sealed class WidgetManager : IDisposable
             .ToList();
 
         return new WidgetStateSnapshot(widgets.Enabled, items, monitors);
+    }
+
+    private Size GetWidgetSizeForDisplay(WidgetItem item)
+    {
+        var display = _snapshot.Displays.FirstOrDefault(d =>
+            string.Equals(d.Id, item.MonitorId, StringComparison.OrdinalIgnoreCase)) ?? _snapshot.Primary;
+        var size = GetWidgetSize(item);
+        double sx = display.DpiScaleX <= 0 ? 1 : display.DpiScaleX;
+        double sy = display.DpiScaleY <= 0 ? 1 : display.DpiScaleY;
+        double maxWidth = Math.Max(1, display.WorkArea.Width / sx - WidgetLayout.MarginDip * 2);
+        double maxHeight = Math.Max(1, display.WorkArea.Height / sy - WidgetLayout.MarginDip * 2);
+        return new Size(Math.Min(size.Width, maxWidth), Math.Min(size.Height, maxHeight));
+    }
+
+    private static Size PlacementSizeDip(WidgetPlacement placement)
+    {
+        double sx = placement.EffectiveDisplay.DpiScaleX <= 0 ? 1 : placement.EffectiveDisplay.DpiScaleX;
+        double sy = placement.EffectiveDisplay.DpiScaleY <= 0 ? 1 : placement.EffectiveDisplay.DpiScaleY;
+        return new Size(placement.FinalBounds.Width / sx, placement.FinalBounds.Height / sy);
     }
 }
