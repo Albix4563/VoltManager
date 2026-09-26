@@ -626,6 +626,13 @@
             <span class="material-symbols-outlined vm-acc-chevron">expand_more</span>
           </button>
           <div class="vm-acc-body"><div class="vm-acc-body-inner">
+            <div class="flex justify-end mb-md">
+              <button class="btn-ghost rounded-lg py-2.5 px-4 text-label-md flex items-center gap-xs"
+                      id="btn-clean-extra-plans" type="button">
+                <span class="material-symbols-outlined text-[18px]">delete_sweep</span>
+                <span data-i18n="extra_plans_cleanup_button">Pulisci piani extra</span>
+              </button>
+            </div>
             <div id="advanced-params-mount"></div>
           </div></div>
         </div>
@@ -1316,6 +1323,43 @@
   </main>
 </div>
 
+<!-- ============ EXTRA POWER PLANS CLEANUP OVERLAY ============ -->
+<div class="fixed inset-0 z-[115] bg-black/60 hidden items-center justify-center" id="extra-plans-overlay">
+  <div class="w-full max-w-lg mx-4 glass-modal rounded-3xl p-xl" id="extra-plans-modal"
+       role="dialog" aria-modal="true" aria-labelledby="extra-plans-title">
+    <div class="flex items-start gap-md mb-md">
+      <div class="w-11 h-11 rounded-xl bg-secondary-container/15 border border-secondary-container/25 flex items-center justify-center shrink-0">
+        <span class="material-symbols-outlined text-secondary-container">delete_sweep</span>
+      </div>
+      <div class="min-w-0">
+        <h2 class="text-headline-sm text-on-surface" id="extra-plans-title" data-i18n="extra_plans_title">Piani energetici in più</h2>
+        <p class="text-body-md text-on-surface-variant mt-xs" id="extra-plans-description"
+           data-i18n="extra_plans_description">Abbiamo trovato {count} piani energetici oltre ai tre principali. Puoi eliminarli e tenere solo Risparmio energia, Bilanciato e Prestazioni elevate.</p>
+      </div>
+    </div>
+
+    <p class="hidden text-body-sm text-on-surface-variant mb-md" id="extra-plans-status" aria-live="polite"></p>
+    <div class="max-h-64 overflow-y-auto pr-xs space-y-sm mb-md" id="extra-plans-list"></div>
+
+    <div class="flex items-start gap-xs mb-lg opacity-70">
+      <span class="material-symbols-outlined text-[16px] text-secondary-container mt-[1px]">admin_panel_settings</span>
+      <p class="text-label-sm text-on-surface-variant" data-i18n="extra_plans_admin_note">Richiede privilegi di amministratore. Se elimini il piano attivo, prima verrà attivato il piano principale corrispondente.</p>
+    </div>
+
+    <div class="flex flex-col sm:flex-row gap-sm">
+      <button class="btn-primary flex-1 rounded-lg py-3 px-4 text-label-md flex items-center justify-center gap-xs"
+              id="btn-extra-plans-delete" type="button">
+        <span class="material-symbols-outlined text-[18px]">delete</span>
+        <span data-i18n="extra_plans_delete">Elimina selezionati</span>
+      </button>
+      <button class="btn-ghost rounded-lg py-3 px-4 text-label-md" id="btn-extra-plans-later" type="button"
+              data-i18n="extra_plans_not_now">Non ora</button>
+    </div>
+    <button class="mt-md text-label-sm text-on-surface-variant underline underline-offset-4 hover:text-on-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-secondary-container rounded"
+            id="btn-extra-plans-dismiss" type="button" data-i18n="extra_plans_dismiss">Non chiedere più per questi piani</button>
+  </div>
+</div>
+
 <!-- ============ ENERGY TIPS POPUP ============ -->
 <div class="fixed inset-0 z-[110] bg-black/60 hidden items-center justify-center" id="energy-tips-overlay">
   <div class="w-full max-w-md mx-4 glass-modal rounded-2xl overflow-hidden" id="energy-tips-modal" role="dialog" aria-modal="true" aria-labelledby="energy-tips-title">
@@ -1361,7 +1405,7 @@
 
 <script src="js/bridge.js?v=errlog1"></script>
 <script src="js/font.js?v=font18"></script>
-<script src="js/i18n.catalogs.js?v=launcher2"></script>
+<script src="js/i18n.catalogs.js?v=extra1"></script>
 <script src="js/i18n.js?v=catalog1"></script>
 <script src="js/view-lifecycle.js?v=mod1"></script>
 <script src="js/app.js?v=brightness1"></script>
@@ -1379,6 +1423,7 @@
 <script src="js/tips.js?v=brightness1"></script>
 <script src="js/changelog.js?v=brightness1"></script>
 <script src="js/setup.js?v=temps1"></script>
+<script src="js/setup-extra-plans.js?v=extra1"></script>
 <!-- Settings bootstrap also wires Home, welcome, appearance and widgets. -->
 <script src="js/power-app-profiles.js?v=mod1"></script>
 <script src="js/power-detection.js?v=mod1"></script>

@@ -9,7 +9,7 @@
         if (loading) return loading;
         loading = new Promise((resolve, reject) => {
             const script = document.createElement('script');
-            script.src = 'js/tour.feature.js?v=brightness1';
+            script.src = 'js/tour.feature.js?v=extra1';
             script.async = false;
             script.dataset.vmLazyFeature = 'guided-tour';
             script.addEventListener('load', () => {

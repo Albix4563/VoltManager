@@ -15,6 +15,7 @@ public sealed class BridgeContractInventoryTests
             "beginWidgetDrag", "beginWidgetResize", "setWidgetTopmost", "closeWidget", "getWidgetsState",
             "setWidgetEnabled", "setWidgetsMaster", "setWidgetPinned", "setWidgetSize",
             "setWidgetPlacement", "resetWidgetPosition", "checkDefaultPlans", "restoreDefaultPlans",
+            "findExtraPlans", "deleteExtraPlans", "dismissExtraPlans",
             "getActivePlan", "getActivePlanReason", "getPlanHistory", "clearPlanHistory",
             "listPowerPlans", "getKeepAwakeState", "setKeepAwake", "setKeepAwakeSafety",
             "getCpuAutomationState", "setManualOverride", "clearManualOverride", "getGamingMode",
@@ -51,7 +52,7 @@ public sealed class BridgeContractInventoryTests
             .. LauncherRpcHandler.MethodNames,
         ];
 
-        Assert.Equal(96, actual.Length);
+        Assert.Equal(99, actual.Length);
         Assert.Equal(actual.Length, actual.Distinct(StringComparer.Ordinal).Count());
         Assert.Equal(expected.Order(StringComparer.Ordinal), actual.Order(StringComparer.Ordinal));
     }

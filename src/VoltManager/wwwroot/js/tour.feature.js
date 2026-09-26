@@ -344,7 +344,7 @@
 
     function blocked() {
         // Don't auto-launch over the setup / update / welcome overlays.
-        const ids = ['setup-overlay', 'update-modal-overlay', 'welcome-overlay'];
+        const ids = ['setup-overlay', 'extra-plans-overlay', 'update-modal-overlay', 'welcome-overlay'];
         return ids.some(id => {
             const o = document.getElementById(id);
             return o && !o.classList.contains('hidden');

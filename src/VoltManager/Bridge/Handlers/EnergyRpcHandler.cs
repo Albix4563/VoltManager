@@ -15,7 +15,8 @@ public sealed class EnergyRpcHandler : IBridgeRpcHandler
     [
         "getBatteryHealth", "getBatteryPower", "getBatteryHistory", "exportBatteryHistory",
         "getDisplayBrightness", "setDisplayBrightness",
-        "checkDefaultPlans", "restoreDefaultPlans", "getActivePlan", "getActivePlanReason",
+        "checkDefaultPlans", "restoreDefaultPlans", "findExtraPlans", "deleteExtraPlans", "dismissExtraPlans",
+        "getActivePlan", "getActivePlanReason",
         "getPlanHistory", "clearPlanHistory", "listPowerPlans", "getKeepAwakeState",
         "setKeepAwake", "setKeepAwakeSafety", "getCpuAutomationState", "setManualOverride",
         "clearManualOverride", "getPowerSourcePlanState", "setPowerSourcePlanSwitch",
@@ -72,6 +73,19 @@ public sealed class EnergyRpcHandler : IBridgeRpcHandler
             }
             case "restoreDefaultPlans":
                 return new { success = await Task.Run(_actions.RestoreDefaultPlans, cancellationToken) };
+            case "findExtraPlans":
+                return await Task.Run(_actions.FindExtraPlans, cancellationToken);
+            case "deleteExtraPlans":
+            {
+                string[] guids = RequiredStringArray(payload, "guids");
+                return await Task.Run(() => _actions.DeleteExtraPlans(guids), cancellationToken);
+            }
+            case "dismissExtraPlans":
+            {
+                string[] guids = RequiredStringArray(payload, "guids");
+                await Task.Run(() => _actions.DismissExtraPlans(guids), cancellationToken);
+                return new { success = true };
+            }
             case "getActivePlan":
                 return await Task.Run(_actions.GetActivePlan, cancellationToken);
             case "getActivePlanReason":
@@ -291,5 +305,24 @@ public sealed class EnergyRpcHandler : IBridgeRpcHandler
         }
 
         return value.GetString();
+    }
+
+    private static string[] RequiredStringArray(JsonElement payload, string propertyName)
+    {
+        if (payload.ValueKind != JsonValueKind.Object
+            || !payload.TryGetProperty(propertyName, out JsonElement value)
+            || value.ValueKind != JsonValueKind.Array)
+        {
+            throw new ArgumentException($"Missing or invalid {propertyName}");
+        }
+
+        var result = new List<string>();
+        foreach (JsonElement item in value.EnumerateArray())
+        {
+            if (item.ValueKind != JsonValueKind.String)
+                throw new ArgumentException($"Missing or invalid {propertyName}");
+            result.Add(item.GetString() ?? "");
+        }
+        return result.ToArray();
     }
 }

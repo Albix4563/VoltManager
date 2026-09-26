@@ -66,6 +66,7 @@ public class SettingsRpcHandlerTests
         settings.Update(s =>
         {
             s.PlanGuidMap["Balanced"] = "machine-guid";
+            s.DismissedExtraPlanGuids.Add("dismissed-guid");
             s.AutostartTaskSchemaVersion = 7;
             s.Language = "it";
             s.Widgets.Enabled = false;
@@ -91,6 +92,7 @@ public class SettingsRpcHandlerTests
 
         Assert.False(settings.Current.CloseToTray);
         Assert.Equal("machine-guid", settings.Current.PlanGuidMap["Balanced"]);
+        Assert.Equal(new[] { "dismissed-guid" }, settings.Current.DismissedExtraPlanGuids);
         Assert.Equal(7, settings.Current.AutostartTaskSchemaVersion);
         Assert.Equal("it", settings.Current.Language);
         Assert.False(settings.Current.Widgets.Enabled);

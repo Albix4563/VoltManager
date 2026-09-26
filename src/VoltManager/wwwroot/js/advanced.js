@@ -694,6 +694,12 @@
     function wireAdvancedUi() {
         if (advWired) return;
 
+        document.addEventListener('click', e => {
+            const cleanup = e.target.closest('#btn-clean-extra-plans');
+            if (!cleanup) return;
+            window.ExtraPlansCleanup?.open();
+        });
+
         // DC toggle
         document.addEventListener('click', e => {
             const dcToggle = e.target.closest('#adv-toggle-dc');
@@ -1162,5 +1168,9 @@
         const lastEl = document.getElementById('ram-last-clean-val');
         if (lastEl) lastEl.textContent = fmtTime(ramLastClean);
         showRamStatus(t('ram_cleaned'), false);
+    });
+
+    window.VoltAdvanced = Object.assign(window.VoltAdvanced || {}, {
+        reloadPowerPlans: refreshPlanCatalog,
     });
 })();

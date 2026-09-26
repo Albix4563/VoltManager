@@ -90,6 +90,11 @@ public class SettingsService
         settings.LanRemoteControl ??= new LanRemoteControlSettings();
         settings.Launcher ??= new LauncherSettings();
         settings.PlanGuidMap ??= new Dictionary<string, string>();
+        settings.DismissedExtraPlanGuids = (settings.DismissedExtraPlanGuids ?? new List<string>())
+            .Where(guid => !string.IsNullOrWhiteSpace(guid))
+            .Select(guid => guid.Trim().ToLowerInvariant())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
 
         NormalizeScheduledPowerAction(settings.AutoShutdown);
         NormalizeAutoUpdateSettings(settings.AutoUpdates);

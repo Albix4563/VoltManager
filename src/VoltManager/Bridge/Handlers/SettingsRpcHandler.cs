@@ -232,6 +232,7 @@ public sealed class SettingsRpcHandler : IBridgeRpcHandler
     internal static void PreserveRuntimeOwnedSettings(AppSettings settings, AppSettings current)
     {
         settings.PlanGuidMap = current.PlanGuidMap;
+        settings.DismissedExtraPlanGuids = current.DismissedExtraPlanGuids;
         settings.Override = current.Override;
         settings.AutostartTaskSchemaVersion = current.AutostartTaskSchemaVersion;
         settings.StandbyAutoCleaner = current.StandbyAutoCleaner;

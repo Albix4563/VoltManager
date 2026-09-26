@@ -254,6 +254,241 @@ public class PowerPlanService
         return (missing.Count == 0, missing);
     }
 
+    public ExtraPlansReport FindExtraPlans()
+    {
+        lock (_sync)
+            return FindExtraPlansLocked();
+    }
+
+    private ExtraPlansReport FindExtraPlansLocked()
+    {
+        AppSettings settings = _settings.Current;
+        List<PowerPlan> plans = ParseListOutput(_runPowercfg("/list"), settings.PlanGuidMap);
+        var installed = plans.ToDictionary(plan => plan.Guid, StringComparer.OrdinalIgnoreCase);
+        var keep = new List<KeptPowerPlan>();
+        var keepGuids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (PlanId planId in Enum.GetValues<PlanId>())
+        {
+            PowerPlan? selected = null;
+            string canonical = GuidFor(planId);
+            if (installed.TryGetValue(canonical, out PowerPlan? canonicalPlan))
+            {
+                selected = canonicalPlan;
+            }
+            else if (settings.PlanGuidMap.TryGetValue(planId.ToString(), out string? mappedGuid)
+                     && !string.IsNullOrWhiteSpace(mappedGuid)
+                     && installed.TryGetValue(mappedGuid, out PowerPlan? mappedPlan))
+            {
+                selected = mappedPlan;
+            }
+
+            if (selected == null) continue;
+            keepGuids.Add(selected.Guid);
+            keep.Add(new KeptPowerPlan
+            {
+                PlanId = planId.ToString(),
+                Guid = selected.Guid,
+                Name = selected.Name,
+            });
+        }
+
+        var mappedPlanIds = new Dictionary<string, PlanId>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (planText, guid) in settings.PlanGuidMap)
+        {
+            if (!string.IsNullOrWhiteSpace(guid) && Enum.TryParse(planText, true, out PlanId planId))
+                mappedPlanIds[guid] = planId;
+        }
+
+        List<PowerPlan> extraPlans = plans.Where(plan => !keepGuids.Contains(plan.Guid)).ToList();
+        var repeatedExtraNames = extraPlans
+            .Select(plan => plan.Name.Trim())
+            .Where(name => name.Length > 0)
+            .GroupBy(name => name, StringComparer.OrdinalIgnoreCase)
+            .Where(group => group.Count() >= 2)
+            .Select(group => group.Key)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        var extras = new List<ExtraPowerPlan>(extraPlans.Count);
+        foreach (PowerPlan plan in extraPlans)
+        {
+            PlanId? duplicateOf = null;
+            if (mappedPlanIds.TryGetValue(plan.Guid, out PlanId mappedPlanId))
+            {
+                duplicateOf = mappedPlanId;
+            }
+            else if (!string.IsNullOrWhiteSpace(plan.Name))
+            {
+                KeptPowerPlan? sameName = keep.FirstOrDefault(kept =>
+                    !string.IsNullOrWhiteSpace(kept.Name)
+                    && kept.Name.Trim().Equals(plan.Name.Trim(), StringComparison.OrdinalIgnoreCase));
+                if (sameName != null && Enum.TryParse(sameName.PlanId, out PlanId keptPlanId))
+                    duplicateOf = keptPlanId;
+            }
+
+            bool repeatedName = !string.IsNullOrWhiteSpace(plan.Name)
+                && repeatedExtraNames.Contains(plan.Name.Trim());
+            extras.Add(new ExtraPowerPlan
+            {
+                Guid = plan.Guid,
+                Name = plan.Name,
+                IsActive = plan.IsActive,
+                IsDuplicate = duplicateOf != null || repeatedName,
+                DuplicateOf = duplicateOf?.ToString(),
+            });
+        }
+
+        var dismissed = settings.DismissedExtraPlanGuids
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        bool hasExtras = extras.Count > 0;
+        return new ExtraPlansReport
+        {
+            HasExtras = hasExtras,
+            ShouldPrompt = hasExtras && extras.Any(extra => !dismissed.Contains(extra.Guid)),
+            Keep = keep,
+            Extras = extras,
+        };
+    }
+
+    public DeleteExtraPlansResult DeleteExtraPlans(IReadOnlyCollection<string> guids)
+    {
+        ArgumentNullException.ThrowIfNull(guids);
+
+        var historyRevisions = new List<long>(2);
+        DeleteExtraPlansResult result;
+        lock (_sync)
+        {
+            List<string> requested = guids
+                .Select(guid => (guid ?? "").Trim().ToLowerInvariant())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            ExtraPlansReport report = FindExtraPlansLocked();
+            var extras = report.Extras.ToDictionary(extra => extra.Guid, StringComparer.OrdinalIgnoreCase);
+            var canonicalGuids = new HashSet<string>(
+                [SaverGuid, BalancedGuid, PerformanceGuid],
+                StringComparer.OrdinalIgnoreCase);
+            var eligible = requested
+                .Where(guid => extras.ContainsKey(guid) && !canonicalGuids.Contains(guid))
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var failed = requested
+                .Where(guid => !eligible.Contains(guid))
+                .ToList();
+
+            string? activeGuid = TryReadActiveGuid();
+            if (activeGuid != null && eligible.Contains(activeGuid))
+            {
+                // Prefer the main plan the active duplicate was copied from, then Balanced.
+                string? duplicateOf = extras[activeGuid].DuplicateOf;
+                KeptPowerPlan? fallback = report.Keep.FirstOrDefault(kept =>
+                    duplicateOf != null && kept.PlanId.Equals(duplicateOf, StringComparison.Ordinal))
+                    ?? report.Keep.FirstOrDefault(kept =>
+                    kept.PlanId.Equals(PlanId.Balanced.ToString(), StringComparison.Ordinal))
+                    ?? report.Keep.FirstOrDefault();
+
+                bool switched = false;
+                if (fallback != null)
+                {
+                    PlanId? fallbackPlanId = Enum.TryParse(fallback.PlanId, out PlanId parsed) ? parsed : null;
+                    switched = ApplyPlanLocked(
+                        fallback.Guid,
+                        fallbackPlanId,
+                        new PlanChangeContext(
+                            PlanHistoryCategory.Manual,
+                            "manual",
+                            "extra_plan_cleanup",
+                            new Dictionary<string, string>()),
+                        reapplyOnly: false,
+                        historyRevisions);
+                }
+
+                if (!switched)
+                {
+                    eligible.Remove(activeGuid);
+                    if (!failed.Contains(activeGuid, StringComparer.OrdinalIgnoreCase))
+                        failed.Add(activeGuid);
+                }
+            }
+
+            foreach (string guid in eligible)
+                _runPowercfg($"-delete {guid}");
+
+            var installedAfterDelete = ParseListOutput(_runPowercfg("/list"))
+                .Select(plan => plan.Guid)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var deleted = new List<string>();
+            foreach (string guid in eligible)
+            {
+                if (installedAfterDelete.Contains(guid))
+                {
+                    if (!failed.Contains(guid, StringComparer.OrdinalIgnoreCase))
+                        failed.Add(guid);
+                }
+                else
+                {
+                    deleted.Add(guid);
+                }
+            }
+
+            if (deleted.Count > 0)
+            {
+                var deletedSet = deleted.ToHashSet(StringComparer.OrdinalIgnoreCase);
+                _settings.Update(state =>
+                {
+                    foreach (string key in state.PlanGuidMap
+                                 .Where(entry => deletedSet.Contains(entry.Value))
+                                 .Select(entry => entry.Key)
+                                 .ToList())
+                    {
+                        state.PlanGuidMap.Remove(key);
+                    }
+                });
+            }
+
+            result = new DeleteExtraPlansResult
+            {
+                Success = failed.Count == 0,
+                Deleted = deleted,
+                Failed = failed,
+            };
+        }
+
+        PublishHistoryChanges(historyRevisions);
+        return result;
+    }
+
+    public void DismissExtraPlans(IEnumerable<string> guids)
+    {
+        ArgumentNullException.ThrowIfNull(guids);
+        List<string> normalized = guids
+            .Where(guid => !string.IsNullOrWhiteSpace(guid))
+            .Select(guid => guid.Trim().ToLowerInvariant())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (normalized.Count == 0) return;
+
+        _settings.Update(state =>
+        {
+            state.DismissedExtraPlanGuids = state.DismissedExtraPlanGuids
+                .Concat(normalized)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Select(guid => guid.ToLowerInvariant())
+                .ToList();
+        });
+    }
+
+    private string? TryReadActiveGuid()
+    {
+        try
+        {
+            return _readActiveScheme()?.ToString("D").ToLowerInvariant();
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn("Could not read active power plan during extra-plan cleanup: " + ex.Message);
+            return null;
+        }
+    }
+
     /// <summary>
     /// Restores missing default plans via powercfg -duplicatescheme. Duplicate gets a NEW guid,
     /// which we persist in settings so the switcher targets the right plan.

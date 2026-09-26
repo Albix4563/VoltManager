@@ -32,6 +32,7 @@ public class AppSettings
     [JsonPropertyName("launcher")] public LauncherSettings Launcher { get; set; } = new();
     // duplicatescheme assigns new GUIDs; map canonical plan -> actual GUID on this machine.
     [JsonPropertyName("planGuidMap")] public Dictionary<string, string> PlanGuidMap { get; set; } = new();
+    [JsonPropertyName("dismissedExtraPlanGuids")] public List<string> DismissedExtraPlanGuids { get; set; } = new();
     [JsonPropertyName("override")] public ManualOverride? Override { get; set; }
     [JsonPropertyName("welcomeCompleted")] public bool WelcomeCompleted { get; set; } = false;
     [JsonPropertyName("tourCompleted")] public bool TourCompleted { get; set; } = false;

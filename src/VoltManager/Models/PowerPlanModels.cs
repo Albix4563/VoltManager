@@ -17,6 +17,37 @@ public record PowerPlan
     [JsonPropertyName("isActive")] public bool IsActive { get; init; }
 }
 
+public record ExtraPowerPlan
+{
+    [JsonPropertyName("guid")] public string Guid { get; init; } = "";
+    [JsonPropertyName("name")] public string Name { get; init; } = "";
+    [JsonPropertyName("isActive")] public bool IsActive { get; init; }
+    [JsonPropertyName("isDuplicate")] public bool IsDuplicate { get; init; }
+    [JsonPropertyName("duplicateOf")] public string? DuplicateOf { get; init; }
+}
+
+public record KeptPowerPlan
+{
+    [JsonPropertyName("planId")] public string PlanId { get; init; } = "";
+    [JsonPropertyName("guid")] public string Guid { get; init; } = "";
+    [JsonPropertyName("name")] public string Name { get; init; } = "";
+}
+
+public record ExtraPlansReport
+{
+    [JsonPropertyName("hasExtras")] public bool HasExtras { get; init; }
+    [JsonPropertyName("shouldPrompt")] public bool ShouldPrompt { get; init; }
+    [JsonPropertyName("keep")] public List<KeptPowerPlan> Keep { get; init; } = new();
+    [JsonPropertyName("extras")] public List<ExtraPowerPlan> Extras { get; init; } = new();
+}
+
+public record DeleteExtraPlansResult
+{
+    [JsonPropertyName("success")] public bool Success { get; init; }
+    [JsonPropertyName("deleted")] public List<string> Deleted { get; init; } = new();
+    [JsonPropertyName("failed")] public List<string> Failed { get; init; } = new();
+}
+
 public record ActivePlanReasonState
 {
     [JsonPropertyName("source")] public string Source { get; init; } = "system";

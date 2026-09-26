@@ -29,7 +29,8 @@ public class EnergyRpcHandlerTests
         [
             "getBatteryHealth", "getBatteryPower", "getBatteryHistory", "exportBatteryHistory",
             "getDisplayBrightness", "setDisplayBrightness",
-            "checkDefaultPlans", "restoreDefaultPlans", "getActivePlan", "getActivePlanReason",
+            "checkDefaultPlans", "restoreDefaultPlans", "findExtraPlans", "deleteExtraPlans", "dismissExtraPlans",
+            "getActivePlan", "getActivePlanReason",
             "getPlanHistory", "clearPlanHistory", "listPowerPlans", "getKeepAwakeState",
             "setKeepAwake", "setKeepAwakeSafety", "getCpuAutomationState", "setManualOverride",
             "clearManualOverride", "getPowerSourcePlanState", "setPowerSourcePlanSwitch",
@@ -171,6 +172,37 @@ public class EnergyRpcHandlerTests
         Assert.Equal(0, calls);
     }
 
+    [Fact]
+    public async Task ExtraPlanRpcMethods_delegate_guid_payloads()
+    {
+        string[]? deleted = null;
+        string[]? dismissed = null;
+        var report = new ExtraPlansReport { HasExtras = true, ShouldPrompt = true };
+        var handler = Create(
+            findExtraPlans: () => report,
+            deleteExtraPlans: guids =>
+            {
+                deleted = guids.ToArray();
+                return new DeleteExtraPlansResult { Success = true, Deleted = guids.ToList() };
+            },
+            dismissExtraPlans: guids => dismissed = guids.ToArray());
+
+        object? found = await handler.HandleAsync("findExtraPlans", default, CancellationToken.None);
+        object? deleteResult = await handler.HandleAsync(
+            "deleteExtraPlans",
+            Payload(new { guids = new[] { "guid-a", "guid-b" } }),
+            CancellationToken.None);
+        await handler.HandleAsync(
+            "dismissExtraPlans",
+            Payload(new { guids = new[] { "guid-c" } }),
+            CancellationToken.None);
+
+        Assert.Same(report, found);
+        Assert.Equal(["guid-a", "guid-b"], deleted);
+        Assert.Equal(["guid-c"], dismissed);
+        Assert.IsType<DeleteExtraPlansResult>(deleteResult);
+    }
+
     private static EnergyRpcHandler Create(
         SettingsService? settings = null,
         Func<DateTime>? now = null,
@@ -179,12 +211,15 @@ public class EnergyRpcHandlerTests
         Func<TimeSpan, ScheduledPowerActionType, object>? scheduleAfter = null,
         Func<PlanId, TimeSpan?, bool>? setManualOverride = null,
         Func<object>? getDisplayBrightness = null,
-        Func<int, object>? setDisplayBrightness = null)
+        Func<int, object>? setDisplayBrightness = null,
+        Func<ExtraPlansReport>? findExtraPlans = null,
+        Func<IReadOnlyCollection<string>, DeleteExtraPlansResult>? deleteExtraPlans = null,
+        Action<IEnumerable<string>>? dismissExtraPlans = null)
     {
         settings ??= TestSettings.Create();
         var actions = CreateActions(
             settings, now, getHistory, setKeepAwakeSafety, scheduleAfter, setManualOverride,
-            getDisplayBrightness, setDisplayBrightness);
+            getDisplayBrightness, setDisplayBrightness, findExtraPlans, deleteExtraPlans, dismissExtraPlans);
         return new EnergyRpcHandler(settings, new LocalizationService(), actions, new FakeDialogs());
     }
 
@@ -196,7 +231,10 @@ public class EnergyRpcHandlerTests
         Func<TimeSpan, ScheduledPowerActionType, object>? scheduleAfter,
         Func<PlanId, TimeSpan?, bool>? setManualOverride,
         Func<object>? getDisplayBrightness,
-        Func<int, object>? setDisplayBrightness)
+        Func<int, object>? setDisplayBrightness,
+        Func<ExtraPlansReport>? findExtraPlans,
+        Func<IReadOnlyCollection<string>, DeleteExtraPlansResult>? deleteExtraPlans,
+        Action<IEnumerable<string>>? dismissExtraPlans)
         => new(
             GetBatteryHealth: () => new BatteryHealthState { Available = true },
             GetBatteryPower: () => new BatteryPowerState { Available = true },
@@ -205,6 +243,9 @@ public class EnergyRpcHandlerTests
             SetDisplayBrightness: setDisplayBrightness ?? (percent => new { supported = true, percent }),
             CheckDefaultPlans: () => (true, new List<PlanId>()),
             RestoreDefaultPlans: () => true,
+            FindExtraPlans: findExtraPlans ?? (() => new ExtraPlansReport()),
+            DeleteExtraPlans: deleteExtraPlans ?? (_ => new DeleteExtraPlansResult { Success = true }),
+            DismissExtraPlans: dismissExtraPlans ?? (_ => { }),
             GetActivePlan: () => new { name = "Balanced" },
             GetActivePlanReason: () => new { reason = "manual" },
             GetPlanHistory: () => new { revision = 1L },
