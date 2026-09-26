@@ -75,6 +75,7 @@ public sealed class WidgetManager : IDisposable
         _settings.SettingsChanged += _ => {
             PushTheme();
             PushFont();
+            PushAnimationLevel();
         };
         _theme.ThemeChanged += _ => PushTheme();
     }
@@ -292,6 +293,13 @@ public sealed class WidgetManager : IDisposable
         var data = new { font = _settings.Current.Font };
         foreach (var window in _windows.Values.ToList())
             window.PushEvent(BridgeEventNames.FontChanged, data);
+    }
+
+    internal void PushAnimationLevel()
+    {
+        var data = new { level = _settings.Current.AnimationLevel };
+        foreach (var window in _windows.Values.ToList())
+            window.PushEvent(BridgeEventNames.AnimationLevelChanged, data);
     }
 
     internal void PushResourceProfile(ResourcePressureState state)

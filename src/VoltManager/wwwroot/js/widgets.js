@@ -33,6 +33,8 @@
     let brightnessDragging = false;
     let resourceProfile = 'full';
     let resourceReducedEffects = false;
+    let animationSetting = 'auto';
+    let animationHardwareTier = null;
     let locale = (window.I18n && I18n.getLocale ? I18n.getLocale() : 'it-IT');
     document.documentElement.dataset.size = size;
 
@@ -572,9 +574,13 @@
         toast.classList.remove('hidden');
         toast.classList.add('is-visible');
         clearTimeout(showLauncherToast.timer);
+        clearTimeout(showLauncherToast.hideTimer);
         showLauncherToast.timer = setTimeout(() => {
             toast.classList.remove('is-visible');
-            setTimeout(() => toast.classList.add('hidden'), 180);
+            showLauncherToast.hideTimer = setTimeout(() => {
+                toast.classList.add('hidden');
+                showLauncherToast.hideTimer = null;
+            }, 180);
         }, 2200);
     }
 
@@ -878,8 +884,9 @@
     }
 
     function scheduleLabel(action) {
-        if (action === 'Sleep') return t('widget_action_sleep_in', 'Sleep in');
-        if (action === 'Restart') return t('widget_action_restart_in', 'Restart in');
+        const normalized = String(action || '').toLowerCase();
+        if (normalized === 'sleep') return t('widget_action_sleep_in', 'Sleep in');
+        if (normalized === 'restart') return t('widget_action_restart_in', 'Restart in');
         return t('widget_action_timer', 'Shut down in');
     }
 
@@ -898,7 +905,7 @@
                 (minutes >= 60 ? (minutes / 60) + 'h' : minutes + 'm') + '</button>').join('');
             return;
         }
-        const daily = scheduleState.mode === 'Daily';
+        const daily = String(scheduleState.mode || '').toLowerCase() === 'daily';
         const cancel = esc(t('widget_action_timer_cancel', 'Cancel timer'));
         controls.innerHTML =
             '<strong class="timer-countdown" id="action-timer-countdown">' +
@@ -1067,10 +1074,27 @@
 
     const POLLERS = { power: pollPower, processes: pollProcesses, memory: pollMemory };
 
+    function applyAnimationLevel(level) {
+        animationSetting = ['auto', 'low', 'medium', 'high'].includes(level) ? level : 'auto';
+        if (animationSetting !== 'auto') {
+            document.documentElement.dataset.animationLevel = animationSetting;
+            return;
+        }
+        if (!animationHardwareTier || !window.VoltAnimationLevel) return;
+        document.documentElement.dataset.animationLevel =
+            VoltAnimationLevel.resolveLevel(animationSetting, animationHardwareTier);
+    }
+
+    function applyAnimationHardware(info) {
+        if (!info || !window.VoltAnimationLevel || !VoltAnimationLevel.classifyHardwareTier) return;
+        animationHardwareTier = VoltAnimationLevel.classifyHardwareTier(info.ramTotalGb, info.logicalCores);
+        document.documentElement.dataset.hwTier = animationHardwareTier;
+        applyAnimationLevel(animationSetting);
+    }
 
     function applySettings(res) {
         if (!res || !res.settings) return;
-        document.documentElement.dataset.animationLevel = res.settings.animationLevel || 'auto';
+        applyAnimationLevel(res.settings.animationLevel || 'auto');
         if (window.VoltFont && VoltFont.apply) {
             VoltFont.apply(res.settings.font || 'inter');
         }
@@ -1096,6 +1120,9 @@
         if (window.VoltFont && VoltFont.apply && data && data.font) {
             VoltFont.apply(data.font);
         }
+    });
+    Host.on('animationLevelChanged', (data) => {
+        applyAnimationLevel(data && data.level);
     });
     Host.on('widgetTopmostChanged', (data) => {
         pinned = !!(data && data.topmost);
@@ -1153,6 +1180,7 @@
     }[type] || startClock)();
 
     if (Host.available) {
+        Host.call('getSystemInfo').then(applyAnimationHardware).catch(() => {});
         Host.call('getSettings').then(applySettings).catch(() => {});
     }
 })();

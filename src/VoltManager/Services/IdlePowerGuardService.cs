@@ -97,7 +97,7 @@ public sealed class IdlePowerGuardService
 
             if (isIdle)
             {
-                _planBeforeSession = activePlan == cfg.TargetPlan ? PlanId.Balanced : activePlan;
+                _planBeforeSession = activePlan;
                 _sessionActive = true;
                 var target = activePlan == cfg.TargetPlan ? (PlanId?)null : cfg.TargetPlan;
                 return Decision(target, true, idleSec, onBattery, true, target == null ? "tripped_already" : "tripped");
@@ -112,11 +112,6 @@ public sealed class IdlePowerGuardService
         _settings.Update(state => state.IdlePowerGuard.Enabled = enabled);
         lock (_lock)
         {
-            if (!enabled)
-            {
-                _sessionActive = false;
-                _planBeforeSession = null;
-            }
             var state = BuildState(0, null, true, enabled ? "enabled" : "disabled");
             Publish(state);
             return state;

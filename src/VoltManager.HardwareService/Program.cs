@@ -73,7 +73,7 @@ internal static class Program
         JsonElement payload = request.Payload;
         return request.Method switch
         {
-            "ping" => new { ready = true },
+            "ping" => hardware.Ping(),
             "read" => hardware.Read(ReadSampleRequest(payload), payload.TryGetProperty("force", out JsonElement force) && force.ValueKind == JsonValueKind.True),
             "invalidate" => hardware.Invalidate(),
             "shutdown" => new { success = true },
@@ -141,9 +141,16 @@ internal sealed class HardwareHost : IDisposable
     private DateTime _lastUpdateUtc = DateTime.MinValue;
     private HardwareSampleRequestDto _lastRequest;
     private bool _ready;
+    private bool _initializationFailed;
     private bool _disposed;
 
     public HardwareHost() => Task.Run(Initialize);
+
+    public object Ping()
+    {
+        lock (_gate)
+            return new { ready = _ready, failed = _initializationFailed };
+    }
 
     public object Read(HardwareSampleRequestDto request, bool force)
     {
@@ -187,7 +194,14 @@ internal sealed class HardwareHost : IDisposable
                 RefreshLocked(HardwareSampleRequestDto.Full, true);
             }
         }
-        catch { }
+        catch
+        {
+            lock (_gate)
+            {
+                if (!_disposed)
+                    _initializationFailed = true;
+            }
+        }
     }
 
     private void RefreshLocked(HardwareSampleRequestDto request, bool force)

@@ -9,6 +9,15 @@
     return 'medium';
   }
 
+  function classifyHardwareTier(ramGb, cores) {
+    const ram = Number(ramGb);
+    const c = Number(cores);
+    if (!Number.isFinite(ram) || !Number.isFinite(c)) return 'full';
+    if (ram < 8 || c <= 2) return 'lite';
+    if (ram < 16 || c <= 4) return 'balanced';
+    return 'full';
+  }
+
   function resolveLevel(setting, tier) {
     return ['low', 'medium', 'high'].includes(setting)
       ? setting
@@ -28,5 +37,5 @@
     return rank >= 0 && rank > levelRank(recommendedLevel(tier));
   }
 
-  return { recommendedLevel, resolveLevel, levelRank, exceedsRecommended };
+  return { recommendedLevel, classifyHardwareTier, resolveLevel, levelRank, exceedsRecommended };
 });

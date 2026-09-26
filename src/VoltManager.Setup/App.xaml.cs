@@ -57,12 +57,17 @@ namespace VoltManager.Setup
             {
                 InstallDir = InstallOptions.NormalizeInstallDir(null),
             };
+            int exit = 0;
             try
             {
                 await engine.InstallAsync(opts, GetVersion());
             }
-            catch { /* silent — swallow */ }
-            Shutdown();
+            catch (Exception ex)
+            {
+                exit = 1;
+                SetupUpdateLog.Error("Silent install failed: " + ex);
+            }
+            Shutdown(exit);
         }
 
         private async void RunUpdate(int pid)

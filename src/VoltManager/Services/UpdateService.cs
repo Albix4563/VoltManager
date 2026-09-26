@@ -12,6 +12,10 @@ public sealed class UpdateService : IDisposable
     private readonly UpdateDownloadClient _downloader;
     private readonly Func<string> _currentVersion;
     private readonly bool _ownsHttpClient;
+    private readonly object _releaseGate = new();
+    // Asset URLs returned by our own release checks: a later (or failed) background
+    // check must not invalidate a URL the UI already obtained and is about to download.
+    private readonly HashSet<string> _knownReleaseDownloadUrls = new(StringComparer.Ordinal);
     private int _disposed;
 
     public event Action<double>? DownloadProgress;
@@ -94,6 +98,11 @@ public sealed class UpdateService : IDisposable
         string? downloadUrl = release.Assets
             .FirstOrDefault(asset => asset.Name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
             ?.DownloadUrl;
+        if (!string.IsNullOrWhiteSpace(downloadUrl))
+        {
+            lock (_releaseGate)
+                _knownReleaseDownloadUrls.Add(downloadUrl);
+        }
         bool updateAvailable = latestVersion.Length > 0 && CompareVersions(latestVersion, CurrentVersion) > 0;
 
         return new UpdateInfo
@@ -176,6 +185,13 @@ public sealed class UpdateService : IDisposable
     {
         ThrowIfDisposed();
         return _downloader.DownloadAsync(url, progress => DownloadProgress?.Invoke(progress), cancellationToken);
+    }
+
+    public bool IsKnownReleaseAssetUrl(string url)
+    {
+        if (string.IsNullOrWhiteSpace(url)) return false;
+        lock (_releaseGate)
+            return _knownReleaseDownloadUrls.Contains(url);
     }
 
     public static int CompareVersions(string a, string b)

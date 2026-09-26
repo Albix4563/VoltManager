@@ -100,7 +100,18 @@ namespace VoltManager.Setup.Engine
                 new SetupWorkflowStep("extract-payload", async token =>
                 {
                     Report(I18n.T("status_extract"), 15);
-                    await ExtractPayloadAsync(opts.InstallDir, token, previewPayloadZip).ConfigureAwait(false);
+                    try
+                    {
+                        await ExtractPayloadAsync(opts.InstallDir, token, previewPayloadZip).ConfigureAwait(false);
+                    }
+                    finally
+                    {
+                        if (!string.IsNullOrWhiteSpace(previewPayloadZip))
+                        {
+                            TryDeleteTempDirectory(Path.GetDirectoryName(previewPayloadZip));
+                            previewPayloadZip = null;
+                        }
+                    }
                 }),
                 new SetupWorkflowStep("ensure-webview2", async token =>
                 {
@@ -255,8 +266,17 @@ namespace VoltManager.Setup.Engine
             if (!IsPathUnder(self, installDir))
                 return false;
 
-            string tempExe = Path.Combine(Path.GetTempPath(), "VoltManagerUninstall.exe");
-            File.Copy(self, tempExe, true);
+            string tempDir = CreateUniqueTempDirectory();
+            string tempExe = Path.Combine(tempDir, "VoltManagerUninstall.exe");
+            try
+            {
+                File.Copy(self, tempExe, true);
+            }
+            catch
+            {
+                TryDeleteTempDirectory(tempDir);
+                throw;
+            }
 
             var parts = new List<string> { "/uninstall", "--from-temp", "--target", installDir };
             if (args.SilentUninstall) parts.Add("/SILENT");
@@ -273,9 +293,19 @@ namespace VoltManager.Setup.Engine
                 CreateNoWindow = args.SilentUninstall,
             };
 
-            var child = Process.Start(psi);
+            Process? child;
+            try
+            {
+                child = Process.Start(psi);
+            }
+            catch
+            {
+                TryDeleteTempDirectory(tempDir);
+                throw;
+            }
             if (child == null)
             {
+                TryDeleteTempDirectory(tempDir);
                 exitCode = 1;
                 return true;
             }
@@ -284,10 +314,13 @@ namespace VoltManager.Setup.Engine
             {
                 child.WaitForExit();
                 exitCode = child.ExitCode;
+                child.Dispose();
+                TryDeleteTempDirectory(tempDir);
             }
             else
             {
                 exitCode = 0;
+                child.Dispose();
             }
 
             return true;
@@ -330,6 +363,7 @@ namespace VoltManager.Setup.Engine
         /// </summary>
         private static string ExtractPreviewPayloadZip(string previewSetupExe, CancellationToken ct)
         {
+            string? tempDir = null;
             try
             {
                 var asm = Assembly.Load(File.ReadAllBytes(previewSetupExe));
@@ -338,16 +372,26 @@ namespace VoltManager.Setup.Engine
                 if (resName == null)
                     throw new InvalidOperationException(I18n.T("err_preview_payload"));
 
-                string zipPath = Path.Combine(Path.GetTempPath(), "VoltManagerPreviewPayload.zip");
+                tempDir = CreateUniqueTempDirectory();
+                string zipPath = Path.Combine(tempDir, "VoltManagerPreviewPayload.zip");
                 using (var src = asm.GetManifestResourceStream(resName)!)
                 using (var dst = File.Create(zipPath))
                     src.CopyToAsync(dst, 81920, ct).GetAwaiter().GetResult();
                 return zipPath;
             }
-            catch (OperationCanceledException) { throw; }
-            catch (InvalidOperationException) { throw; }
+            catch (OperationCanceledException)
+            {
+                TryDeleteTempDirectory(tempDir);
+                throw;
+            }
+            catch (InvalidOperationException)
+            {
+                TryDeleteTempDirectory(tempDir);
+                throw;
+            }
             catch (Exception ex)
             {
+                TryDeleteTempDirectory(tempDir);
                 throw new InvalidOperationException(
                     I18n.T("err_preview_payload") + " " + ex.Message, ex);
             }
@@ -464,32 +508,72 @@ namespace VoltManager.Setup.Engine
         {
             Directory.CreateDirectory(destDir);
 
-            string tempZip;
-            if (payloadZipPath != null)
+            string? tempZip = payloadZipPath;
+            string? ownedTempDir = null;
+            string? stagingDir = null;
+
+            try
             {
-                // Payload taken from the downloaded Preview release.
-                tempZip = payloadZipPath;
+                if (tempZip == null)
+                {
+                    // Extract payload.zip from embedded resources.
+                    var asm = Assembly.GetExecutingAssembly();
+                    string? resName = Array.Find(asm.GetManifestResourceNames(),
+                        n => n.EndsWith("payload.zip", StringComparison.OrdinalIgnoreCase));
+
+                    if (resName == null) return; // dev build without payload
+
+                    ownedTempDir = CreateUniqueTempDirectory();
+                    tempZip = Path.Combine(ownedTempDir, "VoltManagerPayload.zip");
+                    using (var src = asm.GetManifestResourceStream(resName)!)
+                    using (var fs = File.Create(tempZip))
+                        await src.CopyToAsync(fs, 81920, ct);
+                }
+
+                string fullDest = Path.GetFullPath(destDir)
+                    .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                string parent = Path.GetDirectoryName(fullDest)
+                    ?? throw new InvalidOperationException("Installation directory has no parent.");
+                stagingDir = Path.Combine(parent,
+                    "." + Path.GetFileName(fullDest) + ".staging-" + Path.GetRandomFileName());
+
+                Directory.CreateDirectory(stagingDir);
+                ZipFile.ExtractToDirectory(tempZip, stagingDir);
+                ct.ThrowIfCancellationRequested();
+
+                ClearInstallDirectory(destDir);
+                foreach (string entry in Directory.GetFileSystemEntries(stagingDir))
+                {
+                    string target = Path.Combine(destDir, Path.GetFileName(entry));
+                    if (File.Exists(entry))
+                        File.Move(entry, target);
+                    else
+                        Directory.Move(entry, target);
+                }
             }
-            else
+            finally
             {
-                // Extract payload.zip from embedded resources.
-                var asm = Assembly.GetExecutingAssembly();
-                string? resName = Array.Find(asm.GetManifestResourceNames(),
-                    n => n.EndsWith("payload.zip", StringComparison.OrdinalIgnoreCase));
-
-                if (resName == null) return; // dev build without payload
-
-                tempZip = Path.Combine(Path.GetTempPath(), "VoltManagerPayload.zip");
-                using (var src = asm.GetManifestResourceStream(resName)!)
-                using (var fs = File.Create(tempZip))
-                    await src.CopyToAsync(fs, 81920, ct);
+                TryDeleteTempDirectory(stagingDir);
+                TryDeleteTempDirectory(ownedTempDir);
             }
+        }
 
-            ClearInstallDirectory(destDir);
+        private static string CreateUniqueTempDirectory()
+        {
+            string path = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+            Directory.CreateDirectory(path);
+            return path;
+        }
 
-            ZipFile.ExtractToDirectory(tempZip, destDir);
-            if (payloadZipPath == null)
-                try { File.Delete(tempZip); } catch { }
+        private static void TryDeleteTempDirectory(string? path)
+        {
+            if (string.IsNullOrWhiteSpace(path)) return;
+            try
+            {
+                if (Directory.Exists(path))
+                    Directory.Delete(path, true);
+            }
+            catch { }
         }
 
         internal static void ClearInstallDirectory(string destDir)
@@ -548,17 +632,44 @@ namespace VoltManager.Setup.Engine
             var asm = Assembly.GetExecutingAssembly();
             string? resName = Array.Find(asm.GetManifestResourceNames(),
                 n => n.EndsWith("MicrosoftEdgeWebview2Setup.exe", StringComparison.OrdinalIgnoreCase));
-            if (resName == null) return;
+            if (resName == null)
+            {
+                SetupUpdateLog.Warn("WebView2 bootstrapper resource is missing.");
+                if (WebView2Missing())
+                    throw new InvalidOperationException("Microsoft Edge WebView2 Runtime is not installed.");
+                return;
+            }
 
-            string tmp = Path.Combine(Path.GetTempPath(), "MicrosoftEdgeWebview2Setup.exe");
-            using (var src = asm.GetManifestResourceStream(resName)!)
-            using (var dst = File.Create(tmp))
-                await src.CopyToAsync(dst, 81920, ct);
+            string tempDir = CreateUniqueTempDirectory();
+            string tmp = Path.Combine(tempDir, "MicrosoftEdgeWebview2Setup.exe");
+            try
+            {
+                using (var src = asm.GetManifestResourceStream(resName)!)
+                using (var dst = File.Create(tmp))
+                    await src.CopyToAsync(dst, 81920, ct);
 
-            var p = Process.Start(new ProcessStartInfo(tmp, "/silent /install")
-            { UseShellExecute = true })!;
-            await Task.Run(() => p.WaitForExit(300_000), ct);
-            try { File.Delete(tmp); } catch { }
+                using var p = Process.Start(new ProcessStartInfo(tmp, "/silent /install")
+                { UseShellExecute = true });
+                if (p == null)
+                {
+                    SetupUpdateLog.Warn("WebView2 bootstrapper process did not start.");
+                }
+                else
+                {
+                    bool exited = await Task.Run(() => p.WaitForExit(300_000), ct);
+                    if (!exited)
+                        SetupUpdateLog.Warn("WebView2 bootstrapper timed out after 300 seconds.");
+                    else if (p.ExitCode != 0)
+                        SetupUpdateLog.Warn("WebView2 bootstrapper exited with code " + p.ExitCode + ".");
+                }
+
+                if (WebView2Missing())
+                    throw new InvalidOperationException("Microsoft Edge WebView2 Runtime installation failed.");
+            }
+            finally
+            {
+                TryDeleteTempDirectory(tempDir);
+            }
         }
 
         private static void CreateShortcuts(InstallOptions opts)
@@ -668,10 +779,19 @@ namespace VoltManager.Setup.Engine
             // Persist the wizard's channel choice so in-app updates keep following it.
             json = SetUpdateChannelState(json, IsPreviewChannel(opts) ? "preview" : "stable");
 
-            string tmpPath = settingsPath + ".tmp";
-            File.WriteAllText(tmpPath, json);
-            File.Copy(tmpPath, settingsPath, overwrite: true);
-            try { File.Delete(tmpPath); } catch { }
+            string tmpPath = Path.Combine(settingsDir, "settings." + Path.GetRandomFileName() + ".tmp");
+            try
+            {
+                File.WriteAllText(tmpPath, json);
+                if (File.Exists(settingsPath))
+                    File.Replace(tmpPath, settingsPath, null);
+                else
+                    File.Move(tmpPath, settingsPath);
+            }
+            finally
+            {
+                try { if (File.Exists(tmpPath)) File.Delete(tmpPath); } catch { }
+            }
         }
 
         /// <summary>

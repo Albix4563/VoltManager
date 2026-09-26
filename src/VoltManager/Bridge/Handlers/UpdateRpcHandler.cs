@@ -39,10 +39,13 @@ public sealed class UpdateRpcHandler : IBridgeRpcHandler
 
     private async Task<object> DownloadUpdateAsync(string url, CancellationToken cancellationToken)
     {
+        if (!_actions.IsDownloadUrlAllowed(url))
+            throw new InvalidOperationException("URL aggiornamento non autorizzato.");
+
         if (_actions.IsHeavyAppSessionActive())
             return Deferred(url);
 
-        string path = await _actions.DownloadUpdate(url);
+        string path = await _actions.DownloadUpdate(url, cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
         if (_actions.IsHeavyAppSessionActive())
             return Deferred(url);

@@ -232,12 +232,38 @@ public partial class MainWindow : Window
     {
         core.ProcessFailed += OnWebViewProcessFailed;
         core.NavigationCompleted += OnWebViewNavigationCompleted;
+        core.NavigationStarting += OnWebViewNavigationStarting;
+        core.NewWindowRequested += OnWebViewNewWindowRequested;
     }
 
     private void DetachWebViewLifecycle(CoreWebView2 core)
     {
         core.ProcessFailed -= OnWebViewProcessFailed;
         core.NavigationCompleted -= OnWebViewNavigationCompleted;
+        core.NavigationStarting -= OnWebViewNavigationStarting;
+        core.NewWindowRequested -= OnWebViewNewWindowRequested;
+    }
+
+    private void OnWebViewNavigationStarting(object? sender, CoreWebView2NavigationStartingEventArgs e)
+    {
+        if (WebViewNavigationPolicy.IsAllowedTopLevelUri(e.Uri)) return;
+        e.Cancel = true;
+        if (WebViewNavigationPolicy.IsExternalHttpUri(e.Uri))
+            WebViewNavigationPolicy.OpenExternal(e.Uri);
+    }
+
+    private void OnWebViewNewWindowRequested(object? sender, CoreWebView2NewWindowRequestedEventArgs e)
+    {
+        e.Handled = true;
+        if (WebViewNavigationPolicy.IsTrustedAppUri(e.Uri))
+        {
+            if (sender is CoreWebView2 core)
+                core.Navigate(e.Uri);
+            return;
+        }
+
+        if (WebViewNavigationPolicy.IsExternalHttpUri(e.Uri))
+            WebViewNavigationPolicy.OpenExternal(e.Uri);
     }
 
     private void OnWebViewNavigationCompleted(object? sender, CoreWebView2NavigationCompletedEventArgs args)

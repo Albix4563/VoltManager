@@ -471,23 +471,26 @@ public sealed class LanRemoteControlService : IDisposable
         {
             await context.Response.WriteAsync("event: ready\ndata: {}\n\n", context.RequestAborted);
             await context.Response.Body.FlushAsync(context.RequestAborted);
-            using var heartbeat = new PeriodicTimer(TimeSpan.FromSeconds(15));
+            Task<bool> eventWait = channel.Reader.WaitToReadAsync(context.RequestAborted).AsTask();
+            Task heartbeatWait = Task.Delay(TimeSpan.FromSeconds(15), context.RequestAborted);
             while (!context.RequestAborted.IsCancellationRequested)
             {
-                Task<bool> eventWait = channel.Reader.WaitToReadAsync(context.RequestAborted).AsTask();
-                Task<bool> heartbeatWait = heartbeat.WaitForNextTickAsync(context.RequestAborted).AsTask();
                 Task completed = await Task.WhenAny(eventWait, heartbeatWait);
                 if (!_sessions.TryValidate(sessionId, out _))
                     break;
 
-                if (completed == eventWait && await eventWait)
+                if (completed == eventWait)
                 {
+                    if (!await eventWait)
+                        break;
                     while (channel.Reader.TryRead(out _)) { }
                     await context.Response.WriteAsync("event: state\ndata: {}\n\n", context.RequestAborted);
+                    eventWait = channel.Reader.WaitToReadAsync(context.RequestAborted).AsTask();
                 }
                 else
                 {
                     await context.Response.WriteAsync(": keepalive\n\n", context.RequestAborted);
+                    heartbeatWait = Task.Delay(TimeSpan.FromSeconds(15), context.RequestAborted);
                 }
                 await context.Response.Body.FlushAsync(context.RequestAborted);
             }

@@ -28,25 +28,24 @@
 
   /** @returns {'full'|'balanced'|'lite'} */
   function classify(ramGb, cores) {
-    const ram = Number(ramGb);
-    const c = Number(cores);
-    if (!Number.isFinite(ram) || !Number.isFinite(c)) return 'full';
-    if (ram < 8 || c <= 2) return 'lite';
-    if (ram < 16 || c <= 4) return 'balanced';
-    return 'full';
+    return window.VoltAnimationLevel && window.VoltAnimationLevel.classifyHardwareTier
+      ? window.VoltAnimationLevel.classifyHardwareTier(ramGb, cores)
+      : 'full';
   }
 
-  console.assert(
-    classify(4, 2) === 'lite' &&
-    classify(7.9, 8) === 'lite' &&
-    classify(8, 4) === 'balanced' &&
-    classify(8, 2) === 'lite' &&
-    classify(16, 4) === 'balanced' &&
-    classify(16, 5) === 'full' &&
-    classify(32, 8) === 'full' &&
-    classify(undefined, 8) === 'full' &&
-    classify(16, NaN) === 'full',
-    'perf-guard classify broken');
+  if (window.VoltAnimationLevel && window.VoltAnimationLevel.classifyHardwareTier) {
+    console.assert(
+      classify(4, 2) === 'lite' &&
+      classify(7.9, 8) === 'lite' &&
+      classify(8, 4) === 'balanced' &&
+      classify(8, 2) === 'lite' &&
+      classify(16, 4) === 'balanced' &&
+      classify(16, 5) === 'full' &&
+      classify(32, 8) === 'full' &&
+      classify(undefined, 8) === 'full' &&
+      classify(16, NaN) === 'full',
+      'perf-guard classify broken');
+  }
 
   function syncEffectiveLite() {
     const next = ramLite || resourceLite;

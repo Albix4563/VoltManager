@@ -121,7 +121,9 @@ public sealed class PowerSourcePlanService
     {
         if (!_lowBatterySessionActive)
         {
-            _planBeforeLowBatterySession = activePlan == PlanId.PowerSaver ? PlanId.Balanced : activePlan;
+            _planBeforeLowBatterySession = _acSessionActive
+                ? _planBeforeAcSession
+                : activePlan == PlanId.PowerSaver ? PlanId.Balanced : activePlan;
             _lowBatterySessionActive = true;
             ClearAcSession();
         }

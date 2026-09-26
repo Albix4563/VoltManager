@@ -505,11 +505,13 @@
             dailyContent.classList.add('hidden');
             cancelBtn.classList.remove('hidden');
 
-            var actionName = t(state.action === 'Sleep' ? 'sleep' : (state.action === 'Restart' ? 'restart' : 'shutdown'));
+            var action = String(state.action || '').toLowerCase();
+            var mode = String(state.mode || '').toLowerCase();
+            var actionName = t(action === 'sleep' ? 'sleep' : (action === 'restart' ? 'restart' : 'shutdown'));
             var activeText = document.getElementById('schedule-active-text');
             if (activeText) activeText.textContent = actionName;
 
-            if (state.mode === 'Relative' && state.executeAtUtc && state.remainingSeconds > 0) {
+            if (mode === 'relative' && state.executeAtUtc && state.remainingSeconds > 0) {
                 var countdownEl = document.getElementById('schedule-active-countdown');
                 var updateCountdown = function() {
                     if (!currentScheduleState || !currentScheduleState.executeAtUtc) return;
@@ -528,7 +530,7 @@
                 };
                 updateCountdown();
                 scheduleCountdownTimer = setInterval(updateCountdown, 1000);
-            } else if (state.mode === 'Daily' && state.dailyTime) {
+            } else if (mode === 'daily' && state.dailyTime) {
                 var countdownEl = document.getElementById('schedule-active-countdown');
                 if (countdownEl) countdownEl.textContent = t('at') + ' ' + state.dailyTime;
             }

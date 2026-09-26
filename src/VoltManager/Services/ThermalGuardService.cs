@@ -96,7 +96,7 @@ public sealed class ThermalGuardService
                     return Decision(null, false, "warming", held);
 
                 // Trip: open session.
-                _planBeforeSession = activePlan == cfg.TargetPlan ? PlanId.Balanced : activePlan;
+                _planBeforeSession = activePlan;
                 _sessionActive = true;
                 _hotSinceUtc = nowUtc;
                 var target = activePlan == cfg.TargetPlan ? (PlanId?)null : cfg.TargetPlan;
@@ -117,9 +117,6 @@ public sealed class ThermalGuardService
         {
             if (!enabled && _sessionActive)
             {
-                // Session ends on next Evaluate; mark inactive for UI immediately.
-                _sessionActive = false;
-                _planBeforeSession = null;
                 _hotSinceUtc = null;
             }
             var state = BuildState(_lastCpu, _lastGpu, false, enabled ? "enabled" : "disabled");

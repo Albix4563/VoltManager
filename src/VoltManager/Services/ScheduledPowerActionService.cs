@@ -173,6 +173,7 @@ public sealed class ScheduledPowerActionService : IDisposable
         lock (_sync)
         {
             _started = false;
+            ++_generation;
             CancelTimersUnsafe();
         }
     }
@@ -226,7 +227,7 @@ public sealed class ScheduledPowerActionService : IDisposable
 
         lock (_sync)
         {
-            if (generation != _generation)
+            if (!_started || generation != _generation)
                 return;
 
             var config = _settings.Current.AutoShutdown;
@@ -255,6 +256,8 @@ public sealed class ScheduledPowerActionService : IDisposable
 
         PublishState(GetState());
 
+        // Execute outside _sync: sleep blocks inside SetSuspendState until resume,
+        // and GetState/Stop callers on the UI thread must not wait on it.
         try
         {
             _executor.Execute(action);
@@ -268,17 +271,19 @@ public sealed class ScheduledPowerActionService : IDisposable
     private void StartDailyTimerUnsafe()
     {
         _dailyTimer?.Dispose();
+        long generation = ++_generation;
         _dailyTimer = new System.Threading.Timer(
-            _ => DailyCheckCallback(),
+            _ => DailyCheckCallback(generation),
             null,
             TimeSpan.FromSeconds(5),
             TimeSpan.FromSeconds(15));
     }
 
-    private void DailyCheckCallback()
+    private void DailyCheckCallback(long generation)
     {
         lock (_sync)
         {
+            if (!_started || generation != _generation) return;
             var scheduled = _settings.Current.AutoShutdown;
             if (scheduled is not { Enabled: true }) return;
             if (scheduled.Mode != ScheduledPowerMode.Daily) return;
@@ -298,6 +303,7 @@ public sealed class ScheduledPowerActionService : IDisposable
 
             try
             {
+                if (!_started || generation != _generation) return;
                 _executor.Execute(scheduled.Action);
             }
             catch (Exception ex)

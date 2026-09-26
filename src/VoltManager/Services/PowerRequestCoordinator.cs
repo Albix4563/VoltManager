@@ -38,6 +38,7 @@ public sealed class PowerRequestCoordinator : IDisposable
     private CancellationToken? _epochToken;
     private int _automationTickRunning;
     private double _lastAverageCpu;
+    private MetricsSnapshot _lastMetrics = new();
     private bool _heavyAppPlanSessionActive;
     private PlanId? _planBeforeHeavyAppSession;
     private string _heavyAppHistoryName = "";
@@ -151,6 +152,8 @@ public sealed class PowerRequestCoordinator : IDisposable
     {
         if (!TryGetEpoch(out CancellationToken epoch))
             return;
+
+        _lastMetrics = metrics;
 
         if (Interlocked.Exchange(ref _automationTickRunning, 1) == 1)
             return;
@@ -335,6 +338,56 @@ public sealed class PowerRequestCoordinator : IDisposable
         PowerSourcePlans.SetEnabled(enabled, Settings.Current.Override?.IsActive(DateTime.UtcNow) == true);
         HandlePowerSourcePlans(DateTime.UtcNow);
         return PowerSourcePlans.Current;
+    }
+
+    public ThermalGuardState SetThermalGuardEnabled(bool enabled)
+    {
+        ThermalGuard.SetEnabled(enabled);
+        ReevaluatePolicyPipeline(DateTime.UtcNow);
+        return ThermalGuard.Current;
+    }
+
+    public IdlePowerGuardState SetIdlePowerGuardEnabled(bool enabled)
+    {
+        IdlePowerGuard.SetEnabled(enabled);
+        ReevaluatePolicyPipeline(DateTime.UtcNow);
+        return IdlePowerGuard.Current;
+    }
+
+    /// <summary>
+    /// Runs the policy priority chain right away (e.g. so disabling a guard mid-session
+    /// restores the plan without waiting for the next sample). Shares the tick gate with
+    /// <see cref="ProcessMetrics"/>; if a tick is already running, the next one handles it.
+    /// </summary>
+    private void ReevaluatePolicyPipeline(DateTime nowUtc)
+    {
+        if (!TryGetEpoch(out CancellationToken epoch))
+            return;
+        if (Interlocked.Exchange(ref _automationTickRunning, 1) == 1)
+            return;
+
+        _callbackEpoch.Value = epoch;
+        try
+        {
+            _ =
+                _pipeline.PowerSource(nowUtc) ||
+                _pipeline.Thermal(nowUtc, _lastMetrics) ||
+                _pipeline.Idle(nowUtc) ||
+                _pipeline.AppProfile(nowUtc) ||
+                _pipeline.HeavyApp(nowUtc);
+
+            if (!_policyOnly && CallbackIsCurrent())
+                PublishActivePlanReason();
+        }
+        catch (Exception ex)
+        {
+            Logger.Error("Policy re-evaluation failed", ex);
+        }
+        finally
+        {
+            _callbackEpoch.Value = null;
+            Interlocked.Exchange(ref _automationTickRunning, 0);
+        }
     }
 
     private bool TryGetEpoch(out CancellationToken token)

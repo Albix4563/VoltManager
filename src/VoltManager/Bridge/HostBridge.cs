@@ -136,6 +136,15 @@ public class HostBridge : IDisposable
         if (IsStopped)
             return;
 
+        string source;
+        try { source = e.Source ?? ""; }
+        catch { source = ""; }
+        if (!WebViewNavigationPolicy.IsTrustedAppUri(source))
+        {
+            Logger.Warn("Web message ignored from unexpected source: " + source);
+            return;
+        }
+
         string json;
         try { json = e.WebMessageAsJson; }
         catch (Exception ex)
@@ -171,7 +180,7 @@ public class HostBridge : IDisposable
         string source;
         try { source = e.Source ?? ""; }
         catch { source = ""; }
-        if (!source.StartsWith("https://app.local/", StringComparison.OrdinalIgnoreCase))
+        if (!WebViewNavigationPolicy.IsTrustedAppUri(source))
         {
             Logger.Warn("Launcher drop ignored from unexpected source: " + source);
             return true;

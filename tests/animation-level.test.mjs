@@ -15,6 +15,14 @@ test('recommendedLevel maps hardware tiers to animation levels', () => {
   assert.equal(animationLevel.recommendedLevel('full'), 'high');
 });
 
+test('classifyHardwareTier matches the main UI hardware thresholds', () => {
+  assert.equal(animationLevel.classifyHardwareTier(4, 8), 'lite');
+  assert.equal(animationLevel.classifyHardwareTier(16, 2), 'lite');
+  assert.equal(animationLevel.classifyHardwareTier(8, 4), 'balanced');
+  assert.equal(animationLevel.classifyHardwareTier(16, 5), 'full');
+  assert.equal(animationLevel.classifyHardwareTier(undefined, 8), 'full');
+});
+
 test('resolveLevel keeps explicit levels and treats every other setting as auto', () => {
   for (const level of ['low', 'medium', 'high']) {
     assert.equal(animationLevel.resolveLevel(level, 'balanced'), level);

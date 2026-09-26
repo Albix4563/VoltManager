@@ -149,10 +149,13 @@ public partial class WidgetWindow : Window
             if (_type is "plans" or "actions") _context.Awake.StateChanged += OnKeepAwakeStateChanged;
 
             core.ProcessFailed += OnWidgetProcessFailed;
+            core.NavigationStarting += OnWidgetNavigationStarting;
+            core.NewWindowRequested += OnWidgetNewWindowRequested;
 
             core.NavigationCompleted += (_, args) =>
             {
                 if (!args.IsSuccess) return;
+                Interlocked.Exchange(ref _rendererReloadCount, 0);
                 _metricsPublisher.ResetCadence();
                 OnMetricsUpdated(_context.Monitor.Latest);
                 if (_type is "power" or "plans") OnActivePlanChanged(_context.PowerRequests.ActivePlan);
@@ -195,6 +198,28 @@ public partial class WidgetWindow : Window
             try { WebView.CoreWebView2?.Navigate(WidgetUrl()); }
             catch (Exception ex) { Logger.Warn("Widget reload after process failure failed: " + ex.Message); }
         });
+    }
+
+    private void OnWidgetNavigationStarting(object? sender, CoreWebView2NavigationStartingEventArgs e)
+    {
+        if (WebViewNavigationPolicy.IsAllowedTopLevelUri(e.Uri)) return;
+        e.Cancel = true;
+        if (WebViewNavigationPolicy.IsExternalHttpUri(e.Uri))
+            WebViewNavigationPolicy.OpenExternal(e.Uri);
+    }
+
+    private void OnWidgetNewWindowRequested(object? sender, CoreWebView2NewWindowRequestedEventArgs e)
+    {
+        e.Handled = true;
+        if (WebViewNavigationPolicy.IsTrustedAppUri(e.Uri))
+        {
+            if (sender is CoreWebView2 core)
+                core.Navigate(e.Uri);
+            return;
+        }
+
+        if (WebViewNavigationPolicy.IsExternalHttpUri(e.Uri))
+            WebViewNavigationPolicy.OpenExternal(e.Uri);
     }
 
     public void PushEvent(string name, object data) => _bridge?.PushEvent(name, data);

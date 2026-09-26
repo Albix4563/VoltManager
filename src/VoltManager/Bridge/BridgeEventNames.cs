@@ -6,6 +6,7 @@ public static class BridgeEventNames
     public const string ActivePlanReasonChanged = "activePlanReasonChanged";
     public const string AppPowerProfileActivityChanged = "appPowerProfileActivityChanged";
     public const string AppUpdated = "appUpdated";
+    public const string AnimationLevelChanged = "animationLevelChanged";
     public const string AutomationStateChanged = "automationStateChanged";
     public const string CpuAutomationStateChanged = "cpuAutomationStateChanged";
     public const string FontChanged = "fontChanged";
@@ -34,7 +35,7 @@ public static class BridgeEventNames
 
     public static IReadOnlyCollection<string> All { get; } = Array.AsReadOnly(new[]
     {
-        ActivePlanChanged, ActivePlanReasonChanged, AppPowerProfileActivityChanged, AppUpdated,
+        ActivePlanChanged, ActivePlanReasonChanged, AppPowerProfileActivityChanged, AppUpdated, AnimationLevelChanged,
         AutomationStateChanged, CpuAutomationStateChanged, FontChanged, GamingModeChanged,
         GlobalHotkeysChanged, HeavyAppActivityChanged, IdlePowerGuardChanged, KeepAwakeChanged,
         LanguageChanged, LauncherDropResult, LaunchersChanged, ManualOverrideChanged, Metrics, PlanHistoryChanged,

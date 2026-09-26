@@ -26,7 +26,7 @@ public class UpdateRpcHandlerTests
         int downloads = 0, defers = 0;
         var handler = Create(
             heavy: () => true,
-            download: _ => { downloads++; return Task.FromResult("installer.exe"); },
+            download: (_, _) => { downloads++; return Task.FromResult("installer.exe"); },
             defer: _ => defers++);
 
         object? result = await handler.HandleAsync(
@@ -36,6 +36,37 @@ public class UpdateRpcHandlerTests
         Assert.Equal(1, defers);
         using var doc = JsonDocument.Parse(JsonSerializer.Serialize(result, BridgeRpc.JsonOpts));
         Assert.True(doc.RootElement.GetProperty("deferred").GetBoolean());
+    }
+
+    [Fact]
+    public async Task DownloadUpdate_rejects_url_not_approved_by_update_service()
+    {
+        int downloads = 0;
+        var handler = Create(
+            allowed: _ => false,
+            download: (_, _) => { downloads++; return Task.FromResult("installer.exe"); });
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => handler.HandleAsync(
+            "downloadUpdate", Payload(new { url = "https://evil.example/update.exe" }), CancellationToken.None));
+
+        Assert.Equal(0, downloads);
+    }
+
+    [Fact]
+    public async Task DownloadUpdate_passes_rpc_cancellation_token_to_download()
+    {
+        using var cts = new CancellationTokenSource();
+        CancellationToken observed = default;
+        var handler = Create(download: (_, token) =>
+        {
+            observed = token;
+            return Task.FromResult("installer.exe");
+        });
+
+        await handler.HandleAsync(
+            "downloadUpdate", Payload(new { url = "https://example/update.exe" }), cts.Token);
+
+        Assert.Equal(cts.Token, observed);
     }
 
     [Fact]
@@ -60,14 +91,16 @@ public class UpdateRpcHandlerTests
 
     private static UpdateRpcHandler Create(
         Func<bool>? heavy = null,
-        Func<string, Task<string>>? download = null,
+        Func<string, bool>? allowed = null,
+        Func<string, CancellationToken, Task<string>>? download = null,
         Action<string>? defer = null,
         Action<string, string>? launch = null,
         Action? exit = null)
         => new(new LocalizationService(), new UpdateRpcActions(
             CheckForUpdates: () => Task.FromResult(new UpdateInfo()),
             GetReleaseHistory: () => Task.FromResult(new ReleaseHistory()),
-            DownloadUpdate: download ?? (_ => Task.FromResult("installer.exe")),
+            IsDownloadUrlAllowed: allowed ?? (_ => true),
+            DownloadUpdate: download ?? ((_, _) => Task.FromResult("installer.exe")),
             IsHeavyAppSessionActive: heavy ?? (() => false),
             DeferUpdateUntilGameEnds: defer ?? (_ => { }),
             LaunchInstaller: launch ?? ((_, _) => { }),

@@ -63,7 +63,7 @@ public sealed class BridgeContractInventoryTests
         string[] expected =
         [
             "activePlanChanged", "activePlanReasonChanged", "appPowerProfileActivityChanged",
-            "appUpdated", "automationStateChanged", "cpuAutomationStateChanged", "fontChanged",
+            "appUpdated", "animationLevelChanged", "automationStateChanged", "cpuAutomationStateChanged", "fontChanged",
             "gamingModeChanged", "globalHotkeysChanged", "heavyAppActivityChanged",
             "idlePowerGuardChanged", "keepAwakeChanged", "languageChanged", "launcherDropResult", "launchersChanged", "manualOverrideChanged",
             "metrics", "planHistoryChanged", "powerPlanConflictDetected", "powerSourcePlanChanged",
@@ -72,7 +72,7 @@ public sealed class BridgeContractInventoryTests
             "widgetsStateChanged", "widgetTopmostChanged",
         ];
 
-        Assert.Equal(29, BridgeEventNames.All.Count);
+        Assert.Equal(30, BridgeEventNames.All.Count);
         Assert.Equal(expected.Order(StringComparer.Ordinal), BridgeEventNames.All.Order(StringComparer.Ordinal));
     }
 }

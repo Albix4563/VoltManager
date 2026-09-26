@@ -82,6 +82,30 @@ public sealed class UpdatePipelineTests
     }
 
     [Fact]
+    public async Task Service_only_approves_installer_url_from_last_release_check()
+    {
+        const string installerUrl = "https://github.com/owner/repo/releases/download/v99.0.0/VoltManagerSetup.exe";
+        const string releaseJson = """
+        {"tag_name":"v99.0.0","name":"Release","body":"notes","published_at":"2026-09-21T00:00:00Z","html_url":"https://github.com/owner/repo/releases/tag/v99.0.0","prerelease":false,"assets":[{"name":"VoltManagerSetup.exe","browser_download_url":"https://github.com/owner/repo/releases/download/v99.0.0/VoltManagerSetup.exe"}]}
+        """;
+        using var http = new HttpClient(new StubHandler(request =>
+            new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(request.RequestUri!.AbsolutePath.EndsWith("/latest", StringComparison.Ordinal)
+                    ? releaseJson
+                    : "[]", Encoding.UTF8, "application/json"),
+            }));
+        using UpdateService service = CreateService(http, new MemoryUpdateFileSystem(), "1.0.0");
+
+        Assert.False(service.IsKnownReleaseAssetUrl(installerUrl));
+        UpdateInfo info = await service.CheckForUpdatesAsync();
+
+        Assert.Equal(installerUrl, info.DownloadUrl);
+        Assert.True(service.IsKnownReleaseAssetUrl(installerUrl));
+        Assert.False(service.IsKnownReleaseAssetUrl("https://evil.example/VoltManagerSetup.exe"));
+    }
+
+    [Fact]
     public async Task Downloader_timeout_removes_partial_file()
     {
         var fs = new MemoryUpdateFileSystem();

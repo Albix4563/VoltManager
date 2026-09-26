@@ -106,6 +106,10 @@ namespace VoltManager.Setup.Engine
                     return;
                 if (!string.Equals(Path.GetFileName(self), "VoltManagerUninstall.exe", StringComparison.OrdinalIgnoreCase))
                     return;
+                string selfDir = Path.GetDirectoryName(self) ?? tempRoot;
+                string removeTempDir = string.Equals(selfDir, tempRoot, StringComparison.OrdinalIgnoreCase)
+                    ? ""
+                    : "rmdir \"" + selfDir + "\" 2>nul\r\n";
 
                 string cleanup = Path.Combine(Path.GetTempPath(), "vmgr_uninstall_cleanup.bat");
                 try { if (File.Exists(cleanup)) File.Delete(cleanup); } catch { }
@@ -117,6 +121,7 @@ namespace VoltManager.Setup.Engine
                     "  timeout /t 1 /nobreak >nul\r\n" +
                     ")\r\n" +
                     ":done\r\n" +
+                    removeTempDir +
                     "del /f /q \"%~f0\" 2>nul\r\n");
 
                 Process.Start(new ProcessStartInfo("cmd.exe", "/d /c \"\"" + cleanup + "\"\"")

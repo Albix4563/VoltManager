@@ -10,6 +10,7 @@ namespace VoltManager.Services;
 public sealed class HardwareServiceClient : IHardwareAccess
 {
     private static readonly TimeSpan RpcTimeout = TimeSpan.FromSeconds(8);
+    private static readonly TimeSpan InitializationTimeout = TimeSpan.FromSeconds(45);
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -84,11 +85,23 @@ public sealed class HardwareServiceClient : IHardwareAccess
             var client = new HardwareServiceClient(pipe, process);
             pipe = null;
             process = null;
-            var pong = client.Call<HardwareServicePing>("ping", null);
-            if (pong == null || !pong.Ready)
+            var initWatch = Stopwatch.StartNew();
+            while (true)
             {
-                client.Dispose();
-                return null;
+                var pong = client.Call<HardwareServicePing>("ping", null);
+                if (pong?.Ready == true)
+                    break;
+                if (pong?.Failed == true)
+                {
+                    client.EnableFallback("Hardware service initialization failed; continuing with in-process monitoring.");
+                    return client;
+                }
+                if (initWatch.Elapsed >= InitializationTimeout)
+                {
+                    client.EnableFallback("Hardware service initialization timed out; continuing with in-process monitoring.");
+                    return client;
+                }
+                Thread.Sleep(100);
             }
             Logger.Info("Isolated hardware service connected.");
             return client;
@@ -113,6 +126,13 @@ public sealed class HardwareServiceClient : IHardwareAccess
 
             DateTime nowUtc = DateTime.UtcNow;
             if (!force && IsReadFresh(_lastReadUtc, nowUtc, _lastRequest, request)) return _last;
+            if (_fallback != null)
+            {
+                _last = _fallback.Read(request, force);
+                _lastReadUtc = nowUtc;
+                _lastRequest = request;
+                return _last;
+            }
 
             HardwareReadEnvelope? envelope = Call<HardwareReadEnvelope>("read", new
             {
@@ -236,10 +256,18 @@ public sealed class HardwareServiceClient : IHardwareAccess
         try
         {
             if (!_process.HasExited) return;
-            _fallback = new HardwareAccessCoordinator();
-            Logger.Warn("Hardware service exited; continuing with in-process monitoring.");
+            EnableFallback("Hardware service exited; continuing with in-process monitoring.");
         }
         catch { }
+    }
+
+    private void EnableFallback(string message)
+    {
+        if (_fallback != null || _disposed) return;
+        _fallback = new HardwareAccessCoordinator();
+        _hardwareAvailable = false;
+        Logger.Warn(message);
+        try { _ = Call<object>("shutdown", null); } catch { }
     }
 
     private sealed class HardwareServiceRequest
@@ -257,7 +285,11 @@ public sealed class HardwareServiceClient : IHardwareAccess
         public string? Error { get; set; }
     }
 
-    private sealed class HardwareServicePing { public bool Ready { get; set; } }
+    private sealed class HardwareServicePing
+    {
+        public bool Ready { get; set; }
+        public bool Failed { get; set; }
+    }
     private sealed class HardwareReadEnvelope
     {
         public bool Available { get; set; }
