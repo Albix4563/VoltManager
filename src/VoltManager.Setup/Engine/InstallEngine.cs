@@ -534,17 +534,27 @@ namespace VoltManager.Setup.Engine
                     .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
                 string parent = Path.GetDirectoryName(fullDest)
                     ?? throw new InvalidOperationException("Installation directory has no parent.");
-                DeleteLeftoverSwapDirectories(parent, Path.GetFileName(fullDest));
-                stagingDir = Path.Combine(parent,
-                    "." + Path.GetFileName(fullDest) + ".staging-" + Path.GetRandomFileName());
+                string installName = Path.GetFileName(fullDest);
 
-                Directory.CreateDirectory(stagingDir);
-                ZipFile.ExtractToDirectory(tempZip, stagingDir);
-                ct.ThrowIfCancellationRequested();
+                // Synchronous from here on: the mutex is thread-affine, so no await inside.
+                using (InstallDirectoryLock.Acquire(fullDest, InstallLockTimeout))
+                {
+                    stagingDir = Path.Combine(parent,
+                        "." + installName + ".staging-" + Path.GetRandomFileName());
 
-                string backupDir = Path.Combine(parent,
-                    "." + Path.GetFileName(fullDest) + ".backup-" + Path.GetRandomFileName());
-                ReplaceInstallDirectoryContents(destDir, stagingDir, backupDir);
+                    Directory.CreateDirectory(stagingDir);
+                    ZipFile.ExtractToDirectory(tempZip, stagingDir);
+                    ct.ThrowIfCancellationRequested();
+
+                    string backupDir = Path.Combine(parent,
+                        "." + installName + ".backup-" + Path.GetRandomFileName());
+                    ReplaceInstallDirectoryContents(destDir, stagingDir, backupDir);
+
+                    // Only after the new files are in place: an older backup kept by a failed
+                    // rollback is no longer needed, and holding the lock guarantees no other
+                    // live installer owns any of these directories.
+                    DeleteLeftoverSwapDirectories(parent, installName);
+                }
             }
             finally
             {
@@ -644,6 +654,59 @@ namespace VoltManager.Setup.Engine
             catch (Exception ex)
             {
                 SetupUpdateLog.Warn("Could not scan for leftover install directories: " + ex.Message);
+            }
+        }
+
+        private static readonly TimeSpan InstallLockTimeout = TimeSpan.FromMinutes(2);
+
+        /// <summary>
+        /// Serializes installers targeting the same folder (e.g. a silent auto-update and a
+        /// manual run), so one never swaps or cleans up while another is mid-install.
+        /// </summary>
+        internal sealed class InstallDirectoryLock : IDisposable
+        {
+            private readonly Mutex _mutex;
+
+            private InstallDirectoryLock(Mutex mutex)
+            {
+                _mutex = mutex;
+            }
+
+            internal static InstallDirectoryLock Acquire(string fullDest, TimeSpan timeout)
+            {
+                var mutex = new Mutex(false, MutexName(fullDest));
+                try
+                {
+                    bool acquired;
+                    try { acquired = mutex.WaitOne(timeout); }
+                    catch (AbandonedMutexException) { acquired = true; }
+                    if (!acquired)
+                        throw new IOException("Another VoltManager setup is installing into this folder.");
+                    return new InstallDirectoryLock(mutex);
+                }
+                catch
+                {
+                    mutex.Dispose();
+                    throw;
+                }
+            }
+
+            internal static string MutexName(string fullDest)
+            {
+                string normalized = Path.GetFullPath(fullDest)
+                    .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                    .ToUpperInvariant();
+                using (var sha = System.Security.Cryptography.SHA256.Create())
+                {
+                    byte[] hash = sha.ComputeHash(System.Text.Encoding.UTF8.GetBytes(normalized));
+                    return @"Global\VoltManagerSetup_Install_" + BitConverter.ToString(hash, 0, 16).Replace("-", "");
+                }
+            }
+
+            public void Dispose()
+            {
+                try { _mutex.ReleaseMutex(); } catch { }
+                _mutex.Dispose();
             }
         }
 

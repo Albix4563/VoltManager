@@ -61,6 +61,38 @@ public sealed class InstallEngineRegressionTests
     }
 
     [Fact]
+    public void Install_lock_name_ignores_case_and_trailing_separator()
+    {
+        string a = InstallEngine.InstallDirectoryLock.MutexName(@"C:\Program Files\VoltManager");
+        string b = InstallEngine.InstallDirectoryLock.MutexName(@"c:\program files\voltmanager\");
+        string other = InstallEngine.InstallDirectoryLock.MutexName(@"C:\Program Files\Other");
+
+        Assert.Equal(a, b);
+        Assert.NotEqual(a, other);
+        Assert.StartsWith(@"Global\VoltManagerSetup_Install_", a);
+    }
+
+    [Fact]
+    public async Task Second_installer_for_same_folder_waits_for_the_lock()
+    {
+        string dest = Path.Combine(Path.GetTempPath(), "VoltManagerSetupTests", Guid.NewGuid().ToString("N"));
+
+        using (InstallEngine.InstallDirectoryLock.Acquire(dest, TimeSpan.FromSeconds(1)))
+        {
+            // Mutexes are re-entrant per thread: contend from another thread.
+            await Assert.ThrowsAsync<IOException>(() => Task.Run(() =>
+            {
+                using (InstallEngine.InstallDirectoryLock.Acquire(dest, TimeSpan.FromMilliseconds(200))) { }
+            }));
+        }
+
+        await Task.Run(() =>
+        {
+            using (InstallEngine.InstallDirectoryLock.Acquire(dest, TimeSpan.FromSeconds(1))) { }
+        });
+    }
+
+    [Fact]
     public void Leftover_backup_and_staging_dirs_are_removed()
     {
         string root = Path.Combine(Path.GetTempPath(), "VoltManagerSetupTests", Guid.NewGuid().ToString("N"));

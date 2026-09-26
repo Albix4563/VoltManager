@@ -243,20 +243,7 @@ public sealed class HardwareServiceClient : IHardwareAccess
         lock (_gate)
         {
             if (_disposed) return;
-            try
-            {
-                if (_pipe.IsConnected)
-                {
-                    string id = Interlocked.Increment(ref _nextId).ToString(System.Globalization.CultureInfo.InvariantCulture);
-                    _writer.WriteLine(JsonSerializer.Serialize(new HardwareServiceRequest
-                    {
-                        Id = id,
-                        Method = "shutdown",
-                        Payload = JsonSerializer.SerializeToElement(new { }, JsonOptions),
-                    }, JsonOptions));
-                }
-            }
-            catch { }
+            WriteShutdownRequest();
             _disposed = true;
             try { _writer.Dispose(); } catch { }
             try { _reader.Dispose(); } catch { }
@@ -274,6 +261,9 @@ public sealed class HardwareServiceClient : IHardwareAccess
         {
             if (_process.HasExited)
                 EnableFallback("Hardware service exited; continuing with in-process monitoring.");
+            // Call() returns early without counting a failure once the pipe is gone.
+            else if (!_pipe.IsConnected)
+                EnableFallback("Hardware service pipe disconnected; continuing with in-process monitoring.");
             // A live but hung/broken service would otherwise leave readings stale forever.
             else if (_consecutiveRpcFailures >= MaxConsecutiveRpcFailures)
                 EnableFallback("Hardware service stopped answering; continuing with in-process monitoring.");
@@ -294,10 +284,42 @@ public sealed class HardwareServiceClient : IHardwareAccess
     private void EnableFallback(string message)
     {
         if (_fallback != null || _disposed) return;
+        Logger.Warn(message);
+        StopServiceProcess();
         _fallback = new HardwareAccessCoordinator();
         _hardwareAvailable = false;
-        Logger.Warn(message);
-        try { _ = Call<object>("shutdown", null); } catch { }
+    }
+
+    // The service may be hung: never wait on an RPC reply here. Ask it to exit, then make
+    // sure it does not keep its own hardware driver session alive next to the fallback.
+    private void StopServiceProcess()
+    {
+        WriteShutdownRequest();
+        try
+        {
+            if (!_process.HasExited && !_process.WaitForExit(1000))
+                _process.Kill(entireProcessTree: true);
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn("Could not stop hardware service: " + ex.Message);
+        }
+    }
+
+    private void WriteShutdownRequest()
+    {
+        try
+        {
+            if (!_pipe.IsConnected) return;
+            string id = Interlocked.Increment(ref _nextId).ToString(System.Globalization.CultureInfo.InvariantCulture);
+            _writer.WriteLine(JsonSerializer.Serialize(new HardwareServiceRequest
+            {
+                Id = id,
+                Method = "shutdown",
+                Payload = JsonSerializer.SerializeToElement(new { }, JsonOptions),
+            }, JsonOptions));
+        }
+        catch { }
     }
 
     private sealed class HardwareServiceRequest

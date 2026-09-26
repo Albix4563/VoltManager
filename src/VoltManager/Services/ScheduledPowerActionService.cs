@@ -305,8 +305,8 @@ public sealed class ScheduledPowerActionService : IDisposable
             action = scheduled.Action;
         }
 
-        // Subscribers marshal to the UI thread synchronously: publishing under _sync
-        // deadlocks against a UI-thread Cancel/Schedule waiting for the same lock.
+        // Publish outside _sync: a subscriber that marshals synchronously to the UI thread
+        // would deadlock against a UI-thread Cancel/Schedule waiting for the same lock.
         PublishState(state);
 
         // Same as the relative path: never hold _sync while sleep blocks until resume.
