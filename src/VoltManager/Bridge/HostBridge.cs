@@ -219,6 +219,14 @@ public class HostBridge : IDisposable
                     continue;
                 }
 
+                string? persistedPath = _app.Launchers.ShortcutStore.PersistDropped(path);
+                if (persistedPath == null)
+                {
+                    rejected++;
+                    continue;
+                }
+                path = persistedPath;
+
                 var current = _app.Settings.Current.Launcher.CustomApps;
                 string id = LauncherSettings.CustomIdFor(path);
                 if (current.Any(app => string.Equals(app.Id, id, StringComparison.OrdinalIgnoreCase)))

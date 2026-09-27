@@ -24,6 +24,7 @@ internal interface ILauncherEnvironment
     bool FileExists(string path);
     string? ReadAllText(string path);
     string GetFolderPath(Environment.SpecialFolder folder);
+    IEnumerable<string> FindFiles(string directory, string fileName, bool recursive);
 }
 
 internal sealed record UninstallEntry(string DisplayName, string? InstallLocation, string? DisplayIcon);
@@ -48,10 +49,12 @@ internal sealed class LauncherDiscoveryService
     private readonly Action<string, string?> _launcher;
     private readonly IReadOnlyList<LauncherDefinition> _catalog;
     private readonly ConcurrentDictionary<string, string> _icons = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, byte> _unrepairablePaths = new(StringComparer.OrdinalIgnoreCase);
     private readonly SemaphoreSlim _detectGate = new(1, 1);
     private IReadOnlyList<(LauncherDefinition Definition, string Path)>? _detected;
 
     public event Action? Changed;
+    internal LauncherShortcutStore ShortcutStore { get; }
 
     public LauncherDiscoveryService(SettingsService settings)
         : this(settings, new SystemLauncherEnvironment(), ShellIconLoader.TryGetPngDataUrl, StartProcess, DefaultCatalog)
@@ -70,11 +73,15 @@ internal sealed class LauncherDiscoveryService
         _iconLoader = iconLoader;
         _launcher = launcher;
         _catalog = catalog;
+        ShortcutStore = new LauncherShortcutStore();
     }
 
     public async Task<IReadOnlyList<LauncherEntry>> GetLaunchersAsync(bool refresh, CancellationToken ct = default)
     {
         var detected = await EnsureDetectedAsync(refresh, ct).ConfigureAwait(false);
+        if (refresh)
+            _unrepairablePaths.Clear();
+        RepairTransientCustomApps();
         return await BuildEntriesAsync(detected, ct).ConfigureAwait(false);
     }
 
@@ -284,6 +291,89 @@ internal sealed class LauncherDiscoveryService
         }
 
         return entries;
+    }
+
+    private void RepairTransientCustomApps()
+    {
+        // Unrecoverable paths are remembered so widget refreshes don't rescan the Start menu.
+        var broken = _settings.Current.Launcher.CustomApps
+            .Where(app => IsShortcutPath(app.Path) &&
+                          LauncherShortcutStore.IsTransientPath(app.Path) &&
+                          !_unrepairablePaths.ContainsKey(app.Path) &&
+                          !_environment.FileExists(app.Path))
+            .ToList();
+        if (broken.Count == 0)
+            return;
+
+        var repairs = new List<(string OldPath, string NewPath)>();
+        foreach (var app in broken)
+        {
+            string fileName = Path.GetFileName(app.Path);
+            if (string.IsNullOrWhiteSpace(fileName))
+                continue;
+
+            string? replacement = FindShortcut(fileName);
+            if (replacement != null)
+                repairs.Add((app.Path, replacement));
+            else
+                _unrepairablePaths.TryAdd(app.Path, 0);
+        }
+        if (repairs.Count == 0)
+            return;
+
+        bool changed = false;
+        _settings.Update(settings =>
+        {
+            foreach (var (oldPath, newPath) in repairs)
+            {
+                var apps = settings.Launcher.CustomApps;
+                var current = apps.FirstOrDefault(app =>
+                    string.Equals(app.Path, oldPath, StringComparison.OrdinalIgnoreCase));
+                if (current == null)
+                    continue;
+
+                string newId = LauncherSettings.CustomIdFor(newPath);
+                bool duplicate = apps.Any(app =>
+                    !ReferenceEquals(app, current) &&
+                    string.Equals(LauncherSettings.CustomIdFor(app.Path), newId, StringComparison.OrdinalIgnoreCase));
+                if (duplicate)
+                    apps.Remove(current);
+                else
+                    current.Path = newPath;
+                changed = true;
+            }
+        });
+
+        if (changed)
+            RaiseChanged();
+    }
+
+    private string? FindShortcut(string fileName)
+    {
+        var locations = new[]
+        {
+            (Environment.SpecialFolder.Programs, true),
+            (Environment.SpecialFolder.CommonPrograms, true),
+            (Environment.SpecialFolder.DesktopDirectory, false),
+            (Environment.SpecialFolder.CommonDesktopDirectory, false),
+        };
+        foreach (var (folder, recursive) in locations)
+        {
+            string directory = _environment.GetFolderPath(folder);
+            if (string.IsNullOrWhiteSpace(directory))
+                continue;
+            string? match = _environment.FindFiles(directory, fileName, recursive).FirstOrDefault();
+            if (match != null)
+                return match;
+        }
+        return null;
+    }
+
+    private static bool IsShortcutPath(string path)
+    {
+        string extension = Path.GetExtension(path);
+        return string.Equals(extension, ".lnk", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(extension, ".url", StringComparison.OrdinalIgnoreCase);
     }
 
     private LauncherEntry ToEntry(CustomLauncherApp app, List<string> hiddenIds)
@@ -545,6 +635,8 @@ internal sealed class UninstallSnapshotEnvironment(ILauncherEnvironment inner) :
     public bool FileExists(string path) => inner.FileExists(path);
     public string? ReadAllText(string path) => inner.ReadAllText(path);
     public string GetFolderPath(Environment.SpecialFolder folder) => inner.GetFolderPath(folder);
+    public IEnumerable<string> FindFiles(string directory, string fileName, bool recursive)
+        => inner.FindFiles(directory, fileName, recursive);
 }
 
 internal sealed class SystemLauncherEnvironment : ILauncherEnvironment
@@ -621,6 +713,33 @@ internal sealed class SystemLauncherEnvironment : ILauncherEnvironment
     }
 
     public string GetFolderPath(Environment.SpecialFolder folder) => Environment.GetFolderPath(folder);
+
+    public IEnumerable<string> FindFiles(string directory, string fileName, bool recursive)
+    {
+        if (string.IsNullOrWhiteSpace(directory) || string.IsNullOrWhiteSpace(fileName) || !Directory.Exists(directory))
+            yield break;
+
+        var pending = new Stack<string>();
+        pending.Push(directory);
+        while (pending.Count > 0)
+        {
+            string current = pending.Pop();
+            string[] files;
+            try { files = Directory.GetFiles(current, fileName, SearchOption.TopDirectoryOnly); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { continue; }
+            foreach (string file in files)
+                yield return file;
+
+            if (!recursive)
+                continue;
+
+            string[] subdirectories;
+            try { subdirectories = Directory.GetDirectories(current); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { continue; }
+            foreach (string subdirectory in subdirectories)
+                pending.Push(subdirectory);
+        }
+    }
 }
 
 /// <summary>Extracts a file's shell icon as a small PNG data URL without System.Drawing.</summary>

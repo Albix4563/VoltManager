@@ -202,6 +202,51 @@ public sealed class LauncherDiscoveryServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Missing_transient_shortcut_is_repaired_from_start_menu()
+    {
+        const string oldPath = @"C:\Temp\chrome_drag1_2\Epic Games Launcher.lnk";
+        const string newPath = @"C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Epic Games Launcher.lnk";
+        var settings = new SettingsService(_settingsPath);
+        settings.Update(state => state.Launcher.CustomApps.Add(new CustomLauncherApp
+        {
+            Path = oldPath,
+            Name = "Epic Games Launcher",
+            Category = "apps",
+        }));
+        _env.Files.Add(newPath);
+
+        var entry = Assert.Single(await Create(settings).GetLaunchersAsync(false));
+
+        Assert.Equal(newPath, entry.Path);
+        Assert.True(entry.Available);
+        var stored = Assert.Single(settings.Current.Launcher.CustomApps);
+        Assert.Equal(newPath, stored.Path);
+        Assert.Equal(LauncherSettings.CustomIdFor(newPath), stored.Id);
+        Assert.Equal("Epic Games Launcher", stored.Name);
+        Assert.Equal("apps", stored.Category);
+    }
+
+    [Fact]
+    public async Task Missing_non_transient_shortcut_is_not_repaired()
+    {
+        const string path = @"D:\Tools\Gone.lnk";
+        var settings = new SettingsService(_settingsPath);
+        settings.Update(state => state.Launcher.CustomApps.Add(new CustomLauncherApp
+        {
+            Path = path,
+            Name = "Gone",
+            Category = "apps",
+        }));
+
+        var entry = Assert.Single(await Create(settings).GetLaunchersAsync(false));
+
+        Assert.Equal(path, entry.Path);
+        Assert.False(entry.Available);
+        Assert.Equal(0, _env.FindFilesCalls);
+        Assert.Equal(path, Assert.Single(settings.Current.Launcher.CustomApps).Path);
+    }
+
+    [Fact]
     public void LauncherSettings_Normalize_dedupes_and_recomputes_ids()
     {
         var settings = new LauncherSettings
@@ -378,6 +423,7 @@ public sealed class LauncherDiscoveryServiceTests : IDisposable
         public List<UninstallEntry> Uninstall { get; } = new();
         public HashSet<string> Files { get; } = new(StringComparer.OrdinalIgnoreCase);
         public Dictionary<string, string> Texts { get; } = new(StringComparer.OrdinalIgnoreCase);
+        public int FindFilesCalls { get; private set; }
 
         public string? ReadRegistryString(RegistryHive hive, string keyPath, string valueName)
             => Registry.TryGetValue((hive, keyPath, valueName), out var value) ? value : null;
@@ -392,7 +438,28 @@ public sealed class LauncherDiscoveryServiceTests : IDisposable
             Environment.SpecialFolder.ProgramFiles => @"C:\Program Files",
             Environment.SpecialFolder.LocalApplicationData => @"C:\Users\test\AppData\Local",
             Environment.SpecialFolder.CommonApplicationData => @"C:\ProgramData",
+            Environment.SpecialFolder.Programs => @"C:\Users\test\AppData\Roaming\Microsoft\Windows\Start Menu\Programs",
+            Environment.SpecialFolder.CommonPrograms => @"C:\ProgramData\Microsoft\Windows\Start Menu\Programs",
+            Environment.SpecialFolder.DesktopDirectory => @"C:\Users\test\Desktop",
+            Environment.SpecialFolder.CommonDesktopDirectory => @"C:\Users\Public\Desktop",
             _ => "",
         };
+
+        public IEnumerable<string> FindFiles(string directory, string fileName, bool recursive)
+        {
+            FindFilesCalls++;
+            string normalizedDirectory = directory.TrimEnd('\\', '/');
+            foreach (string file in Files)
+            {
+                if (!string.Equals(Path.GetFileName(file), fileName, StringComparison.OrdinalIgnoreCase))
+                    continue;
+                string? parent = Path.GetDirectoryName(file)?.TrimEnd('\\', '/');
+                if (parent == null)
+                    continue;
+                if (string.Equals(parent, normalizedDirectory, StringComparison.OrdinalIgnoreCase) ||
+                    (recursive && parent.StartsWith(normalizedDirectory + "\\", StringComparison.OrdinalIgnoreCase)))
+                    yield return file;
+            }
+        }
     }
 }
