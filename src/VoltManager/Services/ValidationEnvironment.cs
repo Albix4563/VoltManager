@@ -33,7 +33,7 @@ internal static class ValidationEnvironment
         => string.Equals(Environment.GetEnvironmentVariable(SuppressPowerVariable), "1", StringComparison.Ordinal);
 
     public static WebViewRendererVariant RendererVariant
-        => IsValidationRenderer("hardware")
+        => !IsActive || IsValidationRenderer("hardware")
             ? WebViewRendererVariant.HardwareDefault
             : WebViewRendererVariant.SwiftShader;
 
@@ -60,7 +60,6 @@ internal static class WebViewRuntimeOptions
 {
     private const string CommonArguments =
         "--js-flags=--max-old-space-size=128 " +
-        "--enable-low-end-device-mode " +
         "--process-per-site " +
         "--disable-accelerated-2d-canvas " +
         "--disable-accelerated-video-decode " +
@@ -74,32 +73,10 @@ internal static class WebViewRuntimeOptions
         "--disable-features=BackForwardCache,InterestFeedContentSuggestions,Translate," +
         "MediaRouter,OptimizationHints,AutofillServerCommunication";
 
-    // Tile budget follows the largest monitor. A fixed 32 MB could not hold the layers of a
-    // maximized window, so the compositor evicted tiles and re-rastered them on every hover
-    // (pieces of long lists flickering in and out). ~3 RGBA full-screen layers per pixel.
-    private const int GpuTileBytesPerPixel = 12;
-    private const int MinGpuTileBudgetMb = 64;
-    private const int MaxGpuTileBudgetMb = 256;
-
     public static string BrowserArguments(WebViewRendererVariant renderer)
-        => BrowserArguments(renderer, GpuTileBudgetMb(LargestDisplayPixels()));
-
-    public static string BrowserArguments(WebViewRendererVariant renderer, int gpuTileBudgetMb)
-    {
-        string arguments = CommonArguments + " --force-gpu-mem-available-mb=" + gpuTileBudgetMb;
-        return renderer == WebViewRendererVariant.SwiftShader
-            ? arguments + " --use-angle=swiftshader --use-gl=angle"
-            : arguments;
-    }
-
-    public static int GpuTileBudgetMb(double displayPixels)
-        => (int)Math.Clamp(
-            Math.Ceiling(displayPixels * GpuTileBytesPerPixel / (1024 * 1024)),
-            MinGpuTileBudgetMb,
-            MaxGpuTileBudgetMb);
-
-    private static double LargestDisplayPixels()
-        => DisplayService.CaptureSnapshot().Displays.Max(d => d.WorkArea.Width * d.WorkArea.Height);
+        => renderer == WebViewRendererVariant.SwiftShader
+            ? CommonArguments + " --use-angle=swiftshader --use-gl=angle"
+            : CommonArguments;
 }
 
 internal enum ValidationCounter

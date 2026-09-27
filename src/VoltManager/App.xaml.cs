@@ -289,8 +289,8 @@ public partial class App : Application
         var userDataFolder = Path.Combine(
             ValidationEnvironment.ApplicationDataRoot,
             "VoltManager", "WebView2");
-        // Cap V8 + low-end tiles. SwiftShader keeps a GPU process but with a smaller
-        // driver working set than the full hardware path on this dashboard.
+        // Keep WebView2 on its normal hardware renderer in production; validation runs
+        // may pin SwiftShader for deterministic benchmarks.
         // --disable-gpu / --in-process-gpu either crashed or grew the renderer.
         // Do NOT set --renderer-process-limit: widgets are separate WebView hosts.
         //
@@ -301,7 +301,6 @@ public partial class App : Application
         // The remaining switches turn off browser subsystems this app never uses
         // (component updater, phishing model, telemetry pings): all of them are pure
         // resident cost here because the WebView only ever loads local content.
-        // The GPU tile budget is sized from the largest monitor (see WebViewRuntimeOptions).
         string arguments = WebViewRuntimeOptions.BrowserArguments(ValidationEnvironment.RendererVariant);
         Logger.Info("WebView2 browser arguments: " + arguments);
         var opts = new CoreWebView2EnvironmentOptions(arguments);
