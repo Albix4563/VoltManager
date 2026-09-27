@@ -723,7 +723,7 @@
 
 #vm-settings-info > .glass-panel {
     max-width: 720px;
-    margin-inline: auto;
+    margin-inline: auto !important;
 }
 
 #vm-settings-changelog #changelog-list {
