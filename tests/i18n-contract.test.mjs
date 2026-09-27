@@ -59,7 +59,7 @@ test('static feature catalog keys are referenced by their owning frontend module
   const catalogs = loadCatalogs();
   const owners = {
     system: ['src/VoltManager/wwwroot/js/app.js'],
-    settings: ['src/VoltManager/wwwroot/js/settings.js'],
+    settings: ['src/VoltManager/wwwroot/js/settings.js', 'src/VoltManager/wwwroot/js/widget-appearance-helpers.js'],
     power: [
       'src/VoltManager/wwwroot/js/power.js',
       'src/VoltManager/wwwroot/js/power-app-profiles.js',
@@ -74,7 +74,7 @@ test('static feature catalog keys are referenced by their owning frontend module
 
   const orphanedKeys = [];
   for (const [namespace, files] of Object.entries(owners)) {
-    const source = files.map(read).join('\n');
+    const source = files.map(read).join('\r\n');
     const orphaned = Object.keys(catalogs.namespaces[namespace].en)
       .filter(key => !(dynamicPrefixes[namespace] || []).some(prefix => key.startsWith(prefix)))
       .filter(key => ![`'${key}'`, `"${key}"`, `\`${key}\``].some(token => source.includes(token)))

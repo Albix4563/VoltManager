@@ -953,9 +953,13 @@
         <div class="mb-lg">
           <h3 class="text-title-lg text-on-surface flex items-center gap-xs">
             <span class="material-symbols-outlined text-secondary-container">palette</span>
-            <span data-i18n="widget_appearance_title">Aspetto dei widget</span>
+            <span data-i18n="widget_appearance_title">Stile globale dei widget</span>
           </h3>
-          <p class="text-body-md text-on-surface-variant mt-1" data-i18n="widget_appearance_sub">Scegli materiale, tinta, sfumatura e intensità per tutti i widget desktop.</p>
+          <p class="text-body-md text-on-surface-variant mt-1" data-i18n="widget_appearance_sub">Si applica a ogni widget impostato su "Globale". Scegli materiale, tinta, sfumatura e intensità.</p>
+          <div class="widget-appearance-global-status mt-2">
+            <span id="widget-appearance-global-status">Applicato a 0 widget.</span>
+            <button class="widget-appearance-link-button hidden" type="button" data-widget-appearance-reset-all data-i18n="widget_appearance_reset_all">Riporta tutti allo stile globale</button>
+          </div>
         </div>
 
         <div class="widget-appearance-layout">
@@ -1557,7 +1561,8 @@
 <script src="js/battery-history-request.js?v=1"></script>
 <script src="js/dashboard.js?v=anim1"></script>
 <script src="js/brightness.js?v=brightness1"></script>
-<script src="js/settings.js?v=widgetappearance2-themechooser1"></script>
+<script src="js/widget-appearance-helpers.js?v=widgetappearance1"></script>
+<script src="js/settings.js?v=widgetappearance3-themechooser1"></script>
 <script src="js/settings-preferences-tools.js?v=mod1"></script>
 <script src="js/lan-remote-control.js?v=1"></script>
 <script src="js/welcome.js?v=silentupdate1"></script>

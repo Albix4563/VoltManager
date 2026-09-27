@@ -486,11 +486,15 @@
     const WIDGET_MATERIALS = ['solid', 'acrylic', 'transparent'];
     const WIDGET_TINTS = ['theme', 'midnight', 'graphite', 'aurora', 'ember', 'neutral'];
     const WIDGET_GRADIENTS = ['vertical', 'diagonal', 'radial', 'flat'];
+    const WIDGET_APPEARANCE_HELPERS = window.VoltWidgetAppearanceHelpers;
     let currentWidgetAppearance = normalizeWidgetAppearance(null);
     let desiredWidgetAppearance = currentWidgetAppearance;
     let widgetAppearanceSliderTimer = 0;
     let widgetAppearanceRequestSequence = 0;
     let widgetAppearanceRequestsPending = 0;
+    const widgetAppearanceOverridePending = new Set();
+    let widgetAppearanceResetAllPending = false;
+    let currentWidgetsState = null;
 
     function setToggle(el, on) {
         if (el) el.dataset.on = on ? 'true' : 'false';
@@ -511,6 +515,34 @@
             gradient: WIDGET_GRADIENTS.includes(value.gradient) ? value.gradient : 'vertical',
             intensity: Number.isFinite(intensity) ? Math.max(0, Math.min(100, Math.round(intensity))) : 60,
         };
+    }
+
+    function formatWidgetText(template, values) {
+        if (window.I18n && I18n.format) return I18n.format(template, values);
+        return String(template).replace(/\{([A-Za-z_][A-Za-z0-9_]*)\}/g, function (match, name) {
+            return Object.prototype.hasOwnProperty.call(values || {}, name) ? String(values[name]) : match;
+        });
+    }
+
+    function widgetMaterialLabel(material) {
+        const key = 'widget_material_' + material;
+        const fallbacks = {
+            solid: 'Monocromatico',
+            acrylic: 'Acrilico',
+            transparent: 'Trasparente',
+        };
+        return tr(key, fallbacks[material] || material);
+    }
+
+    function renderWidgetAppearanceGlobalStatus(items) {
+        const status = document.getElementById('widget-appearance-global-status');
+        const reset = document.querySelector('[data-widget-appearance-reset-all]');
+        const counts = WIDGET_APPEARANCE_HELPERS.counts(items);
+        if (status) status.textContent = WIDGET_APPEARANCE_HELPERS.statusText(items, tr, formatWidgetText);
+        if (reset) {
+            reset.classList.toggle('hidden', counts.overrideCount === 0);
+            reset.disabled = widgetAppearanceResetAllPending;
+        }
     }
 
     function normalizeWidgetsState(state) {
@@ -812,11 +844,27 @@
                 intensity: Number(event.target.value),
             }), true);
         });
+        card.querySelector('[data-widget-appearance-reset-all]')?.addEventListener('click', async event => {
+            if (widgetAppearanceResetAllPending || !currentWidgetsState) return;
+            widgetAppearanceResetAllPending = true;
+            event.currentTarget.disabled = true;
+            try {
+                const state = await WIDGET_APPEARANCE_HELPERS.resetAll(
+                    currentWidgetsState.items,
+                    type => Host.call('setWidgetAppearanceOverride', { type, appearance: null }),
+                    () => Host.call('getWidgetsState'));
+                if (state) renderWidgetsState(state);
+            } finally {
+                widgetAppearanceResetAllPending = false;
+                renderWidgetAppearanceGlobalStatus(currentWidgetsState ? currentWidgetsState.items : []);
+            }
+        });
         renderWidgetAppearanceState(currentWidgetAppearance);
     }
 
     function renderWidgetsState(state, appearanceRequestSequence) {
         state = normalizeWidgetsState(state);
+        currentWidgetsState = state;
         const appearanceRequestPending = widgetAppearanceSliderTimer !== 0 || widgetAppearanceRequestsPending > 0;
         const sequencedAppearance = appearanceRequestSequence != null;
         if ((sequencedAppearance && appearanceRequestSequence === widgetAppearanceRequestSequence)
@@ -833,6 +881,7 @@
         const totalEl = document.getElementById('widgets-total-count');
         if (activeEl) activeEl.textContent = String(activeCount);
         if (totalEl) totalEl.textContent = String(totalCount);
+        renderWidgetAppearanceGlobalStatus(state.items);
 
         const hasGroupedLists = widgetsEnabledList && widgetsDisabledList;
         if (!widgetsList && !hasGroupedLists) return;
@@ -882,20 +931,32 @@
             var sizeReadout = (item.customSize ? '<span data-i18n="widget_size_custom">' + esc(tr('widget_size_custom', 'Custom')) + '</span> · ' : '') + width + '\u00d7' + height;
             var titleKey = widgetTitleKey(item.type);
             var appearanceMaterial = item.appearance ? item.appearance.material : 'global';
-            var appearanceOptions = [
-                ['global', 'widget_material_global', tr('widget_material_global', 'Global')],
-                ['solid', 'widget_material_solid', tr('widget_material_solid', 'Solid')],
-                ['acrylic', 'widget_material_acrylic', tr('widget_material_acrylic', 'Acrylic')],
-                ['transparent', 'widget_material_transparent', tr('widget_material_transparent', 'Transparent')],
+            var globalMaterial = state.appearance.material;
+            var globalMaterialLabel = widgetMaterialLabel(globalMaterial);
+            var pendingAppearance = widgetAppearanceOverridePending.has(item.type);
+            var appearanceChoices = [
+                ['global', 'widget_material_global', tr('widget_material_global', 'Globale')],
+                ['solid', 'widget_material_solid', widgetMaterialLabel('solid')],
+                ['acrylic', 'widget_material_acrylic', widgetMaterialLabel('acrylic')],
+                ['transparent', 'widget_material_transparent', widgetMaterialLabel('transparent')],
             ].map(function (option) {
-                return '<option value="' + option[0] + '" data-i18n="' + option[1] + '"' +
-                    (appearanceMaterial === option[0] ? ' selected' : '') + '>' + esc(option[2]) + '</option>';
+                var selected = appearanceMaterial === option[0];
+                var title = option[0] === 'global'
+                    ? formatWidgetText(tr('widget_appearance_follow_global', 'Segui lo stile globale ({material})'), { material: globalMaterialLabel })
+                    : formatWidgetText(tr('widget_appearance_use_material', 'Usa {material} solo per questo widget'), { material: option[2] });
+                var visual = option[0] === 'global'
+                    ? '<span class="material-symbols-outlined widget-appearance-link-icon" aria-hidden="true">link</span><span class="widget-material-swatch widget-material-swatch--mini" data-material-preview="' + globalMaterial + '" aria-hidden="true"></span>'
+                    : '<span class="widget-material-swatch widget-material-swatch--mini" data-material-preview="' + option[0] + '" aria-hidden="true"></span>';
+                return '<button class="widget-appearance-choice" type="button" role="radio" aria-checked="' + (selected ? 'true' : 'false') + '" tabindex="' + (selected ? '0' : '-1') + '" data-widget-appearance-choice="' + option[0] + '" data-widget-type="' + esc(item.type) + '" title="' + esc(title) + '" aria-label="' + esc(title) + '"' + (pendingAppearance ? ' disabled' : '') + '>' +
+                    visual + '<span class="widget-appearance-choice-label" data-i18n="' + option[1] + '">' + esc(option[2]) + '</span></button>';
             }).join('');
-            var appearanceRow = '<label class="widget-size-row widget-appearance-override-row">' +
-                '<div><span class="startup-detail-label" data-i18n="widget_appearance_override">Aspetto</span>' +
-                '<span class="startup-detail-value" data-i18n="widget_appearance_override_hint">Usa il globale o sostituisci il materiale.</span></div>' +
-                '<select class="widget-monitor-select widget-appearance-override-select" data-widget-appearance-override data-widget-type="' + esc(item.type) + '">' +
-                appearanceOptions + '</select></label>';
+            var appearanceStatus = appearanceMaterial === 'global'
+                ? '<span>' + esc(formatWidgetText(tr('widget_appearance_status_global', 'Segue lo stile globale: {material}.'), { material: globalMaterialLabel })) + '</span> <button class="widget-appearance-link-button" type="button" data-widget-appearance-jump>' + esc(tr('widget_appearance_edit_global', 'Modifica stile globale')) + '</button>'
+                : '<span>' + esc(formatWidgetText(tr('widget_appearance_status_custom', 'Solo questo widget usa {material}. Tinta, sfumatura e intensità restano quelle globali.'), { material: widgetMaterialLabel(appearanceMaterial) })) + '</span>';
+            var appearanceRow = '<div class="widget-size-row widget-appearance-override-row">' +
+                '<div class="widget-appearance-override-heading"><span class="startup-detail-label" data-i18n="widget_appearance_override">Aspetto</span></div>' +
+                '<div class="widget-appearance-override-wrap"><div class="widget-appearance-override" role="radiogroup" aria-label="' + esc(tr('widget_appearance_override_group', 'Aspetto del widget')) + '">' +
+                appearanceChoices + '</div><div class="widget-appearance-override-status">' + appearanceStatus + '</div></div></div>';
 
             var gate = item.type === 'brightness' && !item.enabled ? ' data-vm-brightness-only data-vm-laptop-only' : '';
 
@@ -979,6 +1040,43 @@
             if (!card) return;
             const type = card.dataset.widgetType;
 
+            const jumpBtn = e.target.closest('[data-widget-appearance-jump]');
+            if (jumpBtn) {
+                const appearanceCard = document.getElementById('widget-appearance-card');
+                const selectedMaterial = appearanceCard?.querySelector('[data-widget-material][aria-checked="true"]');
+                const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
+                appearanceCard?.scrollIntoView({ behavior: reducedMotion ? 'auto' : 'smooth', block: 'start' });
+                selectedMaterial?.focus();
+                return;
+            }
+
+            const appearanceChoice = e.target.closest('[data-widget-appearance-choice]');
+            if (appearanceChoice && appearanceChoice.dataset.widgetType === type) {
+                if (appearanceChoice.getAttribute('aria-checked') === 'true' || widgetAppearanceOverridePending.has(type)) return;
+                const appearance = WIDGET_APPEARANCE_HELPERS.choicePayload(appearanceChoice.dataset.widgetAppearanceChoice, desiredWidgetAppearance);
+                widgetAppearanceOverridePending.add(type);
+                card.querySelectorAll('[data-widget-appearance-choice]').forEach(button => { button.disabled = true; });
+                try {
+                    const state = await Host.call('setWidgetAppearanceOverride', { type, appearance });
+                    widgetAppearanceOverridePending.delete(type);
+                    renderWidgetsState(state);
+                } catch {
+                    widgetAppearanceOverridePending.delete(type);
+                    try { renderWidgetsState(await Host.call('getWidgetsState')); } catch { /* ignore */ }
+                } finally {
+                    widgetAppearanceOverridePending.delete(type);
+                    if (card.isConnected) {
+                        card.querySelectorAll('[data-widget-appearance-choice]').forEach(button => { button.disabled = false; });
+                    }
+                    // The row is re-rendered: keep keyboard focus on the checked option.
+                    if (!document.activeElement || document.activeElement === document.body) {
+                        const row = Array.from(document.querySelectorAll('[data-widget-row]')).find(el => el.dataset.widgetType === type);
+                        row?.querySelector('[data-widget-appearance-choice][aria-checked="true"]')?.focus();
+                    }
+                }
+                return;
+            }
+
             const orientationBtn = e.target.closest('[data-widget-orientation]');
             if (orientationBtn && orientationBtn.dataset.widgetType === type) {
                 const orientation = normalizeWidgetOrientation(type, orientationBtn.dataset.orientation);
@@ -1037,22 +1135,23 @@
             }
         });
 
-        widgetsClickRoot.addEventListener('change', async (e) => {
-            const appearanceSelect = e.target.closest('[data-widget-appearance-override]');
-            if (appearanceSelect) {
-                const type = appearanceSelect.dataset.widgetType;
-                const material = appearanceSelect.value;
-                const appearance = material === 'global'
-                    ? null
-                    : Object.assign({}, desiredWidgetAppearance, { material });
-                try {
-                    renderWidgetsState(await Host.call('setWidgetAppearanceOverride', { type, appearance }));
-                } catch {
-                    try { renderWidgetsState(await Host.call('getWidgetsState')); } catch { /* ignore */ }
-                }
-                return;
-            }
+        widgetsClickRoot.addEventListener('keydown', e => {
+            const appearanceChoice = e.target.closest('[data-widget-appearance-choice]');
+            if (!appearanceChoice) return;
+            const keys = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'];
+            if (!keys.includes(e.key)) return;
+            const group = appearanceChoice.closest('[data-widget-row]')?.querySelector('.widget-appearance-override');
+            if (!group) return;
+            const buttons = Array.from(group.querySelectorAll('[data-widget-appearance-choice]'));
+            const currentIndex = buttons.indexOf(appearanceChoice);
+            const nextIndex = WIDGET_APPEARANCE_HELPERS.rovingIndex(currentIndex, e.key, buttons.length);
+            e.preventDefault();
+            if (nextIndex < 0 || nextIndex === currentIndex) return;
+            buttons[nextIndex].focus();
+            buttons[nextIndex].click();
+        });
 
+        widgetsClickRoot.addEventListener('change', async (e) => {
             const select = e.target.closest('[data-widget-monitor]');
             if (!select) return;
             const card = select.closest('[data-widget-row]');
