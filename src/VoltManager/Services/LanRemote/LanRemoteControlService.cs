@@ -21,6 +21,7 @@ internal sealed record LanRemoteControlActions(
     Func<PowerPlan?> GetActivePlan,
     Func<PlanId, bool> SetManualPlan,
     Action<ScheduledPowerActionType> ExecutePowerAction,
+    Func<WindowsPowerCapabilityState> GetPowerCapabilities,
     Func<string> GetVersion);
 
 public sealed record LanRemoteEnableResult(LanRemoteControlState State, string? GeneratedPin);
@@ -41,6 +42,7 @@ public sealed class LanRemoteControlService : IDisposable
     private readonly Func<IReadOnlyCollection<IPAddress>, X509Certificate2> _certificateProvider;
     private readonly Func<IPAddress?, bool> _clientAddressAllowed;
     private readonly string _remoteAssetsPath;
+    private readonly bool _useHttps;
     private readonly SemaphoreSlim _lifecycleGate = new(1, 1);
     private readonly ConcurrentDictionary<Guid, Channel<byte>> _eventClients = new();
 
@@ -62,6 +64,7 @@ public sealed class LanRemoteControlService : IDisposable
                 () => powerRequests.ActivePlan,
                 plan => powerRequests.SetManualOverride(plan, null, "lan_remote"),
                 scheduledPowerActions.ExecuteNow,
+                WindowsPowerCapabilities.Query,
                 ResolveVersion))
     {
         powerRequests.ActivePlanChanged += OnActivePlanChanged;
@@ -76,7 +79,8 @@ public sealed class LanRemoteControlService : IDisposable
         Func<IReadOnlyList<IPAddress>, int, bool>? portAvailable = null,
         Func<IReadOnlyCollection<IPAddress>, X509Certificate2>? certificateProvider = null,
         Func<IPAddress?, bool>? clientAddressAllowed = null,
-        string? remoteAssetsPath = null)
+        string? remoteAssetsPath = null,
+        bool useHttps = true)
     {
         _settings = settings;
         _actions = actions;
@@ -87,11 +91,13 @@ public sealed class LanRemoteControlService : IDisposable
         _certificateProvider = certificateProvider ?? LanRemoteCertificateManager.GetOrCreate;
         _clientAddressAllowed = clientAddressAllowed ?? (address => address is not null && LanRemoteNetwork.IsPrivateLanAddress(address));
         _remoteAssetsPath = remoteAssetsPath ?? Path.Combine(AppContext.BaseDirectory, "wwwroot", "remote");
+        _useHttps = useHttps;
     }
 
     public LanRemoteControlState GetState()
     {
         LanRemoteControlSettings settings = _settings.Current.LanRemoteControl;
+        WindowsPowerCapabilityState capabilities = _actions.GetPowerCapabilities();
         IReadOnlyList<string> addresses = _addresses.Select(static address => address.ToString()).ToArray();
         return new LanRemoteControlState
         {
@@ -105,6 +111,10 @@ public sealed class LanRemoteControlService : IDisposable
             AllowPlanChange = settings.AllowPlanChange,
             AllowShutdown = settings.AllowShutdown,
             AllowRestart = settings.AllowRestart,
+            AllowSleep = settings.AllowSleep,
+            AllowHibernate = settings.AllowHibernate,
+            SleepAvailable = capabilities.SleepAvailable,
+            HibernateAvailable = capabilities.HibernateAvailable,
         };
     }
 
@@ -135,7 +145,12 @@ public sealed class LanRemoteControlService : IDisposable
         return new LanRemoteEnableResult(GetState(), generatedPin);
     }
 
-    public LanRemoteControlState SetPermissions(bool allowPlanChange, bool allowShutdown, bool allowRestart)
+    public LanRemoteControlState SetPermissions(
+        bool allowPlanChange,
+        bool allowShutdown,
+        bool allowRestart,
+        bool allowSleep,
+        bool allowHibernate)
     {
         ThrowIfDisposed();
         _settings.Update(state =>
@@ -143,6 +158,8 @@ public sealed class LanRemoteControlService : IDisposable
             state.LanRemoteControl.AllowPlanChange = allowPlanChange;
             state.LanRemoteControl.AllowShutdown = allowShutdown;
             state.LanRemoteControl.AllowRestart = allowRestart;
+            state.LanRemoteControl.AllowSleep = allowSleep;
+            state.LanRemoteControl.AllowHibernate = allowHibernate;
         });
         PublishStateChanged();
         return GetState();
@@ -200,7 +217,7 @@ public sealed class LanRemoteControlService : IDisposable
             if (port != config.Port)
                 _settings.Update(state => state.LanRemoteControl.Port = port);
 
-            X509Certificate2 certificate = _certificateProvider(addresses);
+            X509Certificate2? certificate = _useHttps ? _certificateProvider(addresses) : null;
             WebApplication app = BuildWebApplication(addresses, port, certificate);
             try
             {
@@ -211,14 +228,14 @@ public sealed class LanRemoteControlService : IDisposable
             {
                 try { await app.StopAsync(CancellationToken.None).ConfigureAwait(false); } catch { }
                 await app.DisposeAsync().ConfigureAwait(false);
-                certificate.Dispose();
+                certificate?.Dispose();
                 TryRemoveFirewall();
                 throw;
             }
 
             _addresses = addresses;
             _certificate = certificate;
-            _fingerprint = LanRemoteCertificateManager.Sha256Fingerprint(certificate);
+            _fingerprint = certificate is null ? null : LanRemoteCertificateManager.Sha256Fingerprint(certificate);
             _webApplication = app;
             PublishStateChanged();
         }
@@ -265,7 +282,7 @@ public sealed class LanRemoteControlService : IDisposable
         _lifecycleGate.Dispose();
     }
 
-    private WebApplication BuildWebApplication(IReadOnlyList<IPAddress> addresses, int port, X509Certificate2 certificate)
+    private WebApplication BuildWebApplication(IReadOnlyList<IPAddress> addresses, int port, X509Certificate2? certificate)
     {
         var builder = WebApplication.CreateSlimBuilder(new WebApplicationOptions
         {
@@ -281,7 +298,8 @@ public sealed class LanRemoteControlService : IDisposable
                 options.Listen(address, port, listen =>
                 {
                     listen.Protocols = HttpProtocols.Http1AndHttp2;
-                    listen.UseHttps(certificate);
+                    if (_useHttps)
+                        listen.UseHttps(certificate ?? throw new InvalidOperationException("TLS certificate is required."));
                 });
             }
         });
@@ -386,7 +404,7 @@ public sealed class LanRemoteControlService : IDisposable
             LanRemoteSession session = _sessions.Create();
             context.Response.Cookies.Append(SessionCookieName, session.Id, new CookieOptions
             {
-                Secure = true,
+                Secure = _useHttps,
                 HttpOnly = true,
                 SameSite = SameSiteMode.Strict,
                 Path = "/",
@@ -400,7 +418,7 @@ public sealed class LanRemoteControlService : IDisposable
         {
             if (!TryAuthorizePost(context, out string sessionId)) return;
             _sessions.Revoke(sessionId);
-            context.Response.Cookies.Delete(SessionCookieName, new CookieOptions { Secure = true, HttpOnly = true, SameSite = SameSiteMode.Strict, Path = "/" });
+            context.Response.Cookies.Delete(SessionCookieName, new CookieOptions { Secure = _useHttps, HttpOnly = true, SameSite = SameSiteMode.Strict, Path = "/" });
             await context.Response.WriteAsJsonAsync(new { success = true });
         });
 
@@ -450,6 +468,8 @@ public sealed class LanRemoteControlService : IDisposable
 
         app.MapPost("/api/actions/shutdown", context => ExecutePowerActionAsync(context, LanRemoteAction.Shutdown, ScheduledPowerActionType.Shutdown));
         app.MapPost("/api/actions/restart", context => ExecutePowerActionAsync(context, LanRemoteAction.Restart, ScheduledPowerActionType.Restart));
+        app.MapPost("/api/actions/sleep", context => ExecutePowerActionAsync(context, LanRemoteAction.Sleep, ScheduledPowerActionType.Sleep));
+        app.MapPost("/api/actions/hibernate", context => ExecutePowerActionAsync(context, LanRemoteAction.Hibernate, ScheduledPowerActionType.Hibernate));
     }
 
     private async Task HandleEventsAsync(HttpContext context)
@@ -512,6 +532,21 @@ public sealed class LanRemoteControlService : IDisposable
             return;
         }
 
+        WindowsPowerCapabilityState capabilities = _actions.GetPowerCapabilities();
+        bool available = action switch
+        {
+            ScheduledPowerActionType.Sleep => capabilities.SleepAvailable,
+            ScheduledPowerActionType.Hibernate => capabilities.HibernateAvailable,
+            ScheduledPowerActionType.Shutdown or ScheduledPowerActionType.Restart => true,
+            _ => false,
+        };
+        if (!available)
+        {
+            context.Response.StatusCode = StatusCodes.Status409Conflict;
+            await context.Response.WriteAsJsonAsync(new { error = "capability_unavailable" });
+            return;
+        }
+
         context.Response.StatusCode = StatusCodes.Status202Accepted;
         await context.Response.WriteAsJsonAsync(new { accepted = true });
         await context.Response.CompleteAsync();
@@ -521,6 +556,7 @@ public sealed class LanRemoteControlService : IDisposable
     private object BuildRemoteState()
     {
         LanRemoteControlSettings settings = _settings.Current.LanRemoteControl;
+        WindowsPowerCapabilityState capabilities = _actions.GetPowerCapabilities();
         PowerPlan? active = _actions.GetActivePlan();
         return new
         {
@@ -532,6 +568,13 @@ public sealed class LanRemoteControlService : IDisposable
                 planChange = settings.AllowPlanChange,
                 shutdown = settings.AllowShutdown,
                 restart = settings.AllowRestart,
+                sleep = settings.AllowSleep,
+                hibernate = settings.AllowHibernate,
+            },
+            capabilities = new
+            {
+                sleep = capabilities.SleepAvailable,
+                hibernate = capabilities.HibernateAvailable,
             },
         };
     }

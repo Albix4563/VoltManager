@@ -15,6 +15,8 @@ internal enum LanRemoteAction
     PowerPlan,
     Shutdown,
     Restart,
+    Sleep,
+    Hibernate,
 }
 
 internal static class LanRemotePermissionPolicy
@@ -25,6 +27,8 @@ internal static class LanRemotePermissionPolicy
             LanRemoteAction.PowerPlan => settings.AllowPlanChange,
             LanRemoteAction.Shutdown => settings.AllowShutdown,
             LanRemoteAction.Restart => settings.AllowRestart,
+            LanRemoteAction.Sleep => settings.AllowSleep,
+            LanRemoteAction.Hibernate => settings.AllowHibernate,
             _ => false,
         };
 }

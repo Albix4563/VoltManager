@@ -8,27 +8,36 @@ namespace VoltManager.Services;
 public sealed class PowerActionExecutor : IPowerActionExecutor
 {
     [DllImport("powrprof.dll", SetLastError = true)]
-    private static extern bool SetSuspendState(bool hibernate, bool forceCritical, bool disableWakeEvent);
+    [return: MarshalAs(UnmanagedType.U1)]
+    private static extern bool SetSuspendState(
+        [MarshalAs(UnmanagedType.U1)] bool hibernate,
+        [MarshalAs(UnmanagedType.U1)] bool forceCritical,
+        [MarshalAs(UnmanagedType.U1)] bool disableWakeEvent);
 
     public void Execute(ScheduledPowerActionType action)
     {
         switch (action)
         {
+            case ScheduledPowerActionType.Shutdown:
+                StartShutdownProcess("/s /t 0");
+                break;
             case ScheduledPowerActionType.Sleep:
-                ExecuteSleep();
+                ExecuteSuspend(hibernate: false);
+                break;
+            case ScheduledPowerActionType.Hibernate:
+                ExecuteSuspend(hibernate: true);
                 break;
             case ScheduledPowerActionType.Restart:
                 StartShutdownProcess("/r /t 0");
                 break;
             default:
-                StartShutdownProcess("/s /t 0");
-                break;
+                throw new ArgumentOutOfRangeException(nameof(action), action, "Unsupported power action.");
         }
     }
 
-    private static void ExecuteSleep()
+    private static void ExecuteSuspend(bool hibernate)
     {
-        bool success = SetSuspendState(hibernate: false, forceCritical: false, disableWakeEvent: false);
+        bool success = SetSuspendState(hibernate, forceCritical: false, disableWakeEvent: false);
         if (!success)
             throw new Win32Exception(Marshal.GetLastWin32Error());
     }

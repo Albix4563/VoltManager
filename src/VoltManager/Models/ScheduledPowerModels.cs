@@ -7,7 +7,8 @@ public enum ScheduledPowerActionType
 {
     Shutdown,
     Restart,
-    Sleep
+    Sleep,
+    Hibernate
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter))]

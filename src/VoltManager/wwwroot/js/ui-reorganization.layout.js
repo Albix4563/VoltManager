@@ -276,6 +276,8 @@
                     <label class="lan-remote-permission"><span><strong data-vm-i18n="remote_allow_plan"></strong><small data-vm-i18n="remote_allow_plan_sub"></small></span><input id="lan-remote-perm-plan" type="checkbox" /></label>
                     <label class="lan-remote-permission"><span><strong data-vm-i18n="remote_allow_shutdown"></strong><small data-vm-i18n="remote_allow_shutdown_sub"></small></span><input id="lan-remote-perm-shutdown" type="checkbox" /></label>
                     <label class="lan-remote-permission"><span><strong data-vm-i18n="remote_allow_restart"></strong><small data-vm-i18n="remote_allow_restart_sub"></small></span><input id="lan-remote-perm-restart" type="checkbox" /></label>
+                    <label class="lan-remote-permission hidden" id="lan-remote-perm-sleep-row"><span><strong data-vm-i18n="remote_allow_sleep"></strong><small data-vm-i18n="remote_allow_sleep_sub"></small></span><input id="lan-remote-perm-sleep" type="checkbox" /></label>
+                    <label class="lan-remote-permission hidden" id="lan-remote-perm-hibernate-row"><span><strong data-vm-i18n="remote_allow_hibernate"></strong><small data-vm-i18n="remote_allow_hibernate_sub"></small></span><input id="lan-remote-perm-hibernate" type="checkbox" /></label>
                 </section>
             </div>`);
     }

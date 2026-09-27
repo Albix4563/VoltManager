@@ -33,6 +33,10 @@
         if ($('lan-remote-perm-plan')) $('lan-remote-perm-plan').checked = !!next.allowPlanChange;
         if ($('lan-remote-perm-shutdown')) $('lan-remote-perm-shutdown').checked = !!next.allowShutdown;
         if ($('lan-remote-perm-restart')) $('lan-remote-perm-restart').checked = !!next.allowRestart;
+        if ($('lan-remote-perm-sleep')) $('lan-remote-perm-sleep').checked = !!next.allowSleep;
+        if ($('lan-remote-perm-hibernate')) $('lan-remote-perm-hibernate').checked = !!next.allowHibernate;
+        $('lan-remote-perm-sleep-row')?.classList.toggle('hidden', !next.sleepAvailable);
+        $('lan-remote-perm-hibernate-row')?.classList.toggle('hidden', !next.hibernateAvailable);
     }
 
     async function refresh() {
@@ -58,7 +62,9 @@
             const next = await Host.call('setLanRemoteControlPermissions', {
                 allowPlanChange: !!$('lan-remote-perm-plan')?.checked,
                 allowShutdown: !!$('lan-remote-perm-shutdown')?.checked,
-                allowRestart: !!$('lan-remote-perm-restart')?.checked
+                allowRestart: !!$('lan-remote-perm-restart')?.checked,
+                allowSleep: !!$('lan-remote-perm-sleep')?.checked,
+                allowHibernate: !!$('lan-remote-perm-hibernate')?.checked
             });
             render(next);
             feedback('remote_saved');
@@ -122,7 +128,7 @@
         if (wired || !$('lan-remote-enabled')) return;
         wired = true;
         $('lan-remote-enabled')?.addEventListener('change', setEnabled);
-        ['lan-remote-perm-plan', 'lan-remote-perm-shutdown', 'lan-remote-perm-restart'].forEach(id => $(id)?.addEventListener('change', savePermissions));
+        ['lan-remote-perm-plan', 'lan-remote-perm-shutdown', 'lan-remote-perm-restart', 'lan-remote-perm-sleep', 'lan-remote-perm-hibernate'].forEach(id => $(id)?.addEventListener('change', savePermissions));
         $('lan-remote-generate-pin')?.addEventListener('click', generatePin);
         $('lan-remote-set-pin')?.addEventListener('click', setPin);
         $('lan-remote-copy-url')?.addEventListener('click', () => copyValue($('lan-remote-url')?.textContent));

@@ -44,11 +44,25 @@ test('remote client omits unauthorized actions, refreshes on SSE, confirms destr
   assert.match(source, /permissions\.planChange/);
   assert.match(source, /permissions\.shutdown/);
   assert.match(source, /permissions\.restart/);
+  assert.match(source, /permissions\.sleep\s*&&\s*capabilities\.sleep/);
+  assert.match(source, /permissions\.hibernate\s*&&\s*capabilities\.hibernate/);
+  assert.match(source, /\/api\/actions\/sleep/);
+  assert.match(source, /\/api\/actions\/hibernate/);
   assert.match(source, /new EventSource\(['"]\/api\/events['"]\)/);
   assert.match(source, /addEventListener\(['"]state['"]/);
   assert.match(source, /confirm\(/);
   assert.match(source, /response\.status === 401/);
   assert.match(source, /showLogin/);
+});
+
+test('local LAN remote sleep and hibernate permissions start hidden and are capability gated', () => {
+  const layout = read('src/VoltManager/wwwroot/js/ui-reorganization.layout.js');
+  const source = read('src/VoltManager/wwwroot/js/lan-remote-control.js');
+
+  assert.match(layout, /lan-remote-permission hidden[^>]+id="lan-remote-perm-sleep-row"/);
+  assert.match(layout, /lan-remote-permission hidden[^>]+id="lan-remote-perm-hibernate-row"/);
+  assert.match(source, /sleep-row'\)\?\.classList\.toggle\('hidden', !next\.sleepAvailable\)/);
+  assert.match(source, /hibernate-row'\)\?\.classList\.toggle\('hidden', !next\.hibernateAvailable\)/);
 });
 
 test('LAN remote desktop and onboarding strings exist in every supported locale', () => {
@@ -58,7 +72,8 @@ test('LAN remote desktop and onboarding strings exist in every supported locale'
   const locales = ['it', 'en', 'es', 'zh'];
   const coreKeys = [
     'welcome_remote_title', 'welcome_remote_sub', 'welcome_remote_enable', 'welcome_remote_plan',
-    'welcome_remote_shutdown', 'welcome_remote_restart', 'welcome_remote_pin_once', 'welcome_remote_copy'
+    'welcome_remote_shutdown', 'welcome_remote_restart', 'welcome_remote_sleep', 'welcome_remote_hibernate',
+    'welcome_remote_pin_once', 'welcome_remote_copy'
   ];
   const reorgKeys = [
     'nav_remote_control', 'remote_title', 'remote_subtitle', 'remote_status_disabled', 'remote_status_running',
@@ -67,6 +82,7 @@ test('LAN remote desktop and onboarding strings exist in every supported locale'
     'remote_generate_pin', 'remote_pin_placeholder', 'remote_set_pin', 'remote_generated_once', 'remote_copy_pin',
     'remote_permissions_title', 'remote_permissions_help', 'remote_allow_plan', 'remote_allow_plan_sub',
     'remote_allow_shutdown', 'remote_allow_shutdown_sub', 'remote_allow_restart', 'remote_allow_restart_sub',
+    'remote_allow_sleep', 'remote_allow_sleep_sub', 'remote_allow_hibernate', 'remote_allow_hibernate_sub',
     'remote_pin_missing', 'remote_error', 'remote_saved', 'remote_started', 'remote_stopped', 'remote_pin_replaced',
     'remote_pin_invalid', 'remote_copied', 'remote_copy_failed', 'search_desc_remote', 'search_kw_remote', 'search_kw_lan'
   ];

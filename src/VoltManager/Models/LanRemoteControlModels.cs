@@ -9,6 +9,8 @@ public sealed class LanRemoteControlSettings
     [JsonPropertyName("allowPlanChange")] public bool AllowPlanChange { get; set; } = false;
     [JsonPropertyName("allowShutdown")] public bool AllowShutdown { get; set; } = false;
     [JsonPropertyName("allowRestart")] public bool AllowRestart { get; set; } = false;
+    [JsonPropertyName("allowSleep")] public bool AllowSleep { get; set; } = false;
+    [JsonPropertyName("allowHibernate")] public bool AllowHibernate { get; set; } = false;
 }
 
 public sealed record LanRemotePinVerifier
@@ -31,4 +33,8 @@ public sealed record LanRemoteControlState
     [JsonPropertyName("allowPlanChange")] public bool AllowPlanChange { get; init; }
     [JsonPropertyName("allowShutdown")] public bool AllowShutdown { get; init; }
     [JsonPropertyName("allowRestart")] public bool AllowRestart { get; init; }
+    [JsonPropertyName("allowSleep")] public bool AllowSleep { get; init; }
+    [JsonPropertyName("allowHibernate")] public bool AllowHibernate { get; init; }
+    [JsonPropertyName("sleepAvailable")] public bool SleepAvailable { get; init; }
+    [JsonPropertyName("hibernateAvailable")] public bool HibernateAvailable { get; init; }
 }

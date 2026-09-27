@@ -4,8 +4,6 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Net.Sockets;
-using System.Security.Cryptography;
-using System.Security.Cryptography.X509Certificates;
 using System.Text.Json;
 using VoltManager.Models;
 using VoltManager.Services;
@@ -41,7 +39,7 @@ public sealed class LanRemoteControlIntegrationTests
     }
 
     [Fact]
-    public async Task HttpsApi_LoginProtectsStateRequiresCsrfAndLogoutRevokesSession()
+    public async Task Api_LoginProtectsStateRequiresCsrfAndLogoutRevokesSession()
     {
         const string pin = "1234";
         int port = GetFreeTcpPort();
@@ -62,7 +60,6 @@ public sealed class LanRemoteControlIntegrationTests
         });
 
         var firewall = new RecordingFirewall();
-        using X509Certificate2 testCertificate = CreateTestCertificate();
         using var service = new LanRemoteControlService(
             settings,
             CreateActions(),
@@ -70,9 +67,9 @@ public sealed class LanRemoteControlIntegrationTests
             firewall: firewall,
             addressProvider: () => [IPAddress.Loopback],
             portAvailable: (_, _) => true,
-            certificateProvider: _ => testCertificate,
             clientAddressAllowed: _ => true,
-            remoteAssetsPath: remoteAssetsPath);
+            remoteAssetsPath: remoteAssetsPath,
+            useHttps: false);
 
         await service.StartAsync();
         Assert.True(service.GetState().Running);
@@ -83,9 +80,8 @@ public sealed class LanRemoteControlIntegrationTests
             UseCookies = true,
             CookieContainer = new CookieContainer(),
             UseProxy = false,
-            ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator,
         };
-        using var client = new HttpClient(handler) { BaseAddress = new Uri($"https://127.0.0.1:{port}/") };
+        using var client = new HttpClient(handler) { BaseAddress = new Uri($"http://127.0.0.1:{port}/") };
 
         HttpResponseMessage remoteUi = await client.GetAsync("");
         Assert.Equal(HttpStatusCode.OK, remoteUi.StatusCode);
@@ -134,12 +130,103 @@ public sealed class LanRemoteControlIntegrationTests
         Assert.True(firewall.RemoveCount >= 1);
     }
 
-    private static LanRemoteControlActions CreateActions()
+    [Fact]
+    public async Task PowerActions_RequireCsrfPermissionAndCurrentCapabilityBeforeRouting()
+    {
+        const string pin = "1234";
+        int port = GetFreeTcpPort();
+        SettingsService settings = TestSettings.Create(out string settingsPath);
+        string root = Path.GetDirectoryName(settingsPath)!;
+        var auth = new LanRemoteAuthStore(Path.Combine(root, "remote-control-auth.json"));
+        auth.SetPin(pin);
+        settings.Update(current =>
+        {
+            current.LanRemoteControl.Enabled = true;
+            current.LanRemoteControl.Port = port;
+            current.LanRemoteControl.AllowSleep = true;
+            current.LanRemoteControl.AllowHibernate = false;
+        });
+
+        WindowsPowerCapabilityState capabilities = new(SleepAvailable: true, HibernateAvailable: true);
+        var routedActions = new List<ScheduledPowerActionType>();
+        using var service = new LanRemoteControlService(
+            settings,
+            CreateActions(() => capabilities, routedActions.Add),
+            auth: auth,
+            firewall: new RecordingFirewall(),
+            addressProvider: () => [IPAddress.Loopback],
+            portAvailable: (_, _) => true,
+            clientAddressAllowed: _ => true,
+            remoteAssetsPath: root,
+            useHttps: false);
+
+        await service.StartAsync();
+        using var handler = new HttpClientHandler
+        {
+            UseCookies = true,
+            CookieContainer = new CookieContainer(),
+            UseProxy = false,
+        };
+        using var client = new HttpClient(handler) { BaseAddress = new Uri($"http://127.0.0.1:{port}/") };
+
+        using var login = new HttpRequestMessage(HttpMethod.Post, "api/auth/login") { Content = JsonContent.Create(new { pin }) };
+        AddOrigin(login, port);
+        using HttpResponseMessage loginResponse = await client.SendAsync(login);
+        using JsonDocument loginJson = JsonDocument.Parse(await loginResponse.Content.ReadAsStringAsync());
+        string csrf = loginJson.RootElement.GetProperty("csrfToken").GetString()!;
+
+        using HttpResponseMessage stateResponse = await client.GetAsync("api/state");
+        using JsonDocument stateJson = JsonDocument.Parse(await stateResponse.Content.ReadAsStringAsync());
+        Assert.True(stateJson.RootElement.GetProperty("capabilities").GetProperty("sleep").GetBoolean());
+        Assert.True(stateJson.RootElement.GetProperty("capabilities").GetProperty("hibernate").GetBoolean());
+
+        using HttpResponseMessage noCsrf = await SendPowerActionAsync(client, port, "sleep", csrf: null);
+        Assert.Equal(HttpStatusCode.Forbidden, noCsrf.StatusCode);
+        Assert.Empty(routedActions);
+
+        using HttpResponseMessage denied = await SendPowerActionAsync(client, port, "hibernate", csrf);
+        Assert.Equal(HttpStatusCode.Forbidden, denied.StatusCode);
+        Assert.Empty(routedActions);
+
+        settings.Update(current => current.LanRemoteControl.AllowHibernate = true);
+        capabilities = new WindowsPowerCapabilityState(SleepAvailable: true, HibernateAvailable: false);
+        using HttpResponseMessage unavailable = await SendPowerActionAsync(client, port, "hibernate", csrf);
+        Assert.Equal(HttpStatusCode.Conflict, unavailable.StatusCode);
+        Assert.Contains("capability_unavailable", await unavailable.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+        Assert.Empty(routedActions);
+
+        capabilities = new WindowsPowerCapabilityState(SleepAvailable: true, HibernateAvailable: true);
+        using HttpResponseMessage hibernate = await SendPowerActionAsync(client, port, "hibernate", csrf);
+        Assert.Equal(HttpStatusCode.Accepted, hibernate.StatusCode);
+        Assert.Equal([ScheduledPowerActionType.Hibernate], routedActions);
+
+        using HttpResponseMessage sleep = await SendPowerActionAsync(client, port, "sleep", csrf);
+        Assert.Equal(HttpStatusCode.Accepted, sleep.StatusCode);
+        Assert.Equal([ScheduledPowerActionType.Hibernate, ScheduledPowerActionType.Sleep], routedActions);
+    }
+
+    private static LanRemoteControlActions CreateActions(
+        Func<WindowsPowerCapabilityState>? getCapabilities = null,
+        Action<ScheduledPowerActionType>? executePowerAction = null)
         => new(
             () => new PowerPlan { PlanId = PlanId.Balanced, Name = "Balanced", IsActive = true },
             _ => true,
-            _ => { },
+            executePowerAction ?? (_ => { }),
+            getCapabilities ?? (() => new WindowsPowerCapabilityState(SleepAvailable: true, HibernateAvailable: true)),
             () => "1.0.0");
+
+    private static async Task<HttpResponseMessage> SendPowerActionAsync(
+        HttpClient client,
+        int port,
+        string action,
+        string? csrf)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Post, $"api/actions/{action}");
+        AddOrigin(request, port);
+        if (!string.IsNullOrEmpty(csrf))
+            request.Headers.Add(LanRemoteControlService.CsrfHeaderName, csrf);
+        return await client.SendAsync(request);
+    }
 
     private static LanRemoteAuthStore CreateAuthStore(out string root)
     {
@@ -153,29 +240,6 @@ public sealed class LanRemoteControlIntegrationTests
         listener.Start();
         try { return ((IPEndPoint)listener.LocalEndpoint).Port; }
         finally { listener.Stop(); }
-    }
-
-    private static X509Certificate2 CreateTestCertificate()
-    {
-        using RSA rsa = RSA.Create(2048);
-        var request = new CertificateRequest("CN=VoltManager LAN Remote Test", rsa, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
-        var san = new SubjectAlternativeNameBuilder();
-        san.AddIpAddress(IPAddress.Loopback);
-        request.CertificateExtensions.Add(san.Build());
-        request.CertificateExtensions.Add(new X509BasicConstraintsExtension(false, false, 0, true));
-        request.CertificateExtensions.Add(new X509KeyUsageExtension(X509KeyUsageFlags.DigitalSignature, true));
-        request.CertificateExtensions.Add(new X509EnhancedKeyUsageExtension(
-            new OidCollection { new("1.3.6.1.5.5.7.3.1") }, true));
-        using X509Certificate2 generated = request.CreateSelfSigned(
-            DateTimeOffset.UtcNow.AddMinutes(-1),
-            DateTimeOffset.UtcNow.AddHours(1));
-        byte[] pfx = generated.Export(X509ContentType.Pfx);
-#pragma warning disable SYSLIB0057
-        return new X509Certificate2(
-            pfx,
-            (string?)null,
-            X509KeyStorageFlags.PersistKeySet | X509KeyStorageFlags.UserKeySet);
-#pragma warning restore SYSLIB0057
     }
 
     private static void AddOrigin(HttpRequestMessage request, int port)

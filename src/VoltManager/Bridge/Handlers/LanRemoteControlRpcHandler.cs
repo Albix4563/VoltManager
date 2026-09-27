@@ -8,7 +8,7 @@ namespace VoltManager.Bridge.Handlers;
 public sealed record LanRemoteControlRpcActions(
     Func<LanRemoteControlState> GetState,
     Func<bool, CancellationToken, Task<LanRemoteEnableResult>> SetEnabled,
-    Func<bool, bool, bool, LanRemoteControlState> SetPermissions,
+    Func<bool, bool, bool, bool, bool, LanRemoteControlState> SetPermissions,
     Func<string> GeneratePin,
     Func<string, LanRemoteControlState> SetPin);
 
@@ -40,7 +40,9 @@ public sealed class LanRemoteControlRpcHandler : IBridgeRpcHandler
             "setLanRemoteControlPermissions" => _actions.SetPermissions(
                 BridgePayload.RequiredBoolean(payload, "allowPlanChange", "Invalid plan-change permission."),
                 BridgePayload.RequiredBoolean(payload, "allowShutdown", "Invalid shutdown permission."),
-                BridgePayload.RequiredBoolean(payload, "allowRestart", "Invalid restart permission.")),
+                BridgePayload.RequiredBoolean(payload, "allowRestart", "Invalid restart permission."),
+                BridgePayload.RequiredBoolean(payload, "allowSleep", "Invalid sleep permission."),
+                BridgePayload.RequiredBoolean(payload, "allowHibernate", "Invalid hibernate permission.")),
             "generateLanRemoteControlPin" => new { pin = _actions.GeneratePin(), state = _actions.GetState() },
             "setLanRemoteControlPin" => _actions.SetPin(
                 BridgePayload.RequiredString(payload, "pin", "Invalid LAN remote-control PIN.")),

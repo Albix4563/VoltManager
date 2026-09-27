@@ -158,10 +158,16 @@
         const plan = document.getElementById('welcome-remote-plan');
         const shutdown = document.getElementById('welcome-remote-shutdown');
         const restart = document.getElementById('welcome-remote-restart');
+        const sleep = document.getElementById('welcome-remote-sleep');
+        const hibernate = document.getElementById('welcome-remote-hibernate');
         if (enabled) enabled.checked = !!state.enabled;
         if (plan) plan.checked = !!state.allowPlanChange;
         if (shutdown) shutdown.checked = !!state.allowShutdown;
         if (restart) restart.checked = !!state.allowRestart;
+        if (sleep) sleep.checked = !!state.allowSleep;
+        if (hibernate) hibernate.checked = !!state.allowHibernate;
+        document.getElementById('welcome-remote-sleep-row')?.classList.toggle('hidden', !state.sleepAvailable);
+        document.getElementById('welcome-remote-hibernate-row')?.classList.toggle('hidden', !state.hibernateAvailable);
     }
 
     function showGeneratedRemotePin(pin) {
@@ -185,7 +191,9 @@
         const state = await Host.call('setLanRemoteControlPermissions', {
             allowPlanChange: !!document.getElementById('welcome-remote-plan')?.checked,
             allowShutdown: !!document.getElementById('welcome-remote-shutdown')?.checked,
-            allowRestart: !!document.getElementById('welcome-remote-restart')?.checked
+            allowRestart: !!document.getElementById('welcome-remote-restart')?.checked,
+            allowSleep: !!document.getElementById('welcome-remote-sleep')?.checked,
+            allowHibernate: !!document.getElementById('welcome-remote-hibernate')?.checked
         });
         applyRemoteState(state);
         return state;
@@ -280,7 +288,7 @@
             if (settingsToggle) settingsToggle.dataset.on = enabled ? 'true' : 'false';
         });
 
-        ['welcome-remote-plan', 'welcome-remote-shutdown', 'welcome-remote-restart'].forEach(id => {
+        ['welcome-remote-plan', 'welcome-remote-shutdown', 'welcome-remote-restart', 'welcome-remote-sleep', 'welcome-remote-hibernate'].forEach(id => {
             document.getElementById(id)?.addEventListener('change', async () => {
                 try { await saveRemotePermissions(); }
                 catch (error) { console.error('setLanRemoteControlPermissions failed', error); }

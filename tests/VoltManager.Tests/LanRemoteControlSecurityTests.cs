@@ -138,6 +138,8 @@ public sealed class LanRemoteControlSecurityTests
         Assert.False(settings.AllowPlanChange);
         Assert.False(settings.AllowShutdown);
         Assert.False(settings.AllowRestart);
+        Assert.False(settings.AllowSleep);
+        Assert.False(settings.AllowHibernate);
     }
 
     [Fact]
@@ -221,10 +223,14 @@ public sealed class LanRemoteControlSecurityTests
             AllowPlanChange = true,
             AllowShutdown = false,
             AllowRestart = true,
+            AllowSleep = true,
+            AllowHibernate = false,
         };
 
         Assert.True(LanRemotePermissionPolicy.Allows(LanRemoteAction.PowerPlan, settings));
         Assert.False(LanRemotePermissionPolicy.Allows(LanRemoteAction.Shutdown, settings));
         Assert.True(LanRemotePermissionPolicy.Allows(LanRemoteAction.Restart, settings));
+        Assert.True(LanRemotePermissionPolicy.Allows(LanRemoteAction.Sleep, settings));
+        Assert.False(LanRemotePermissionPolicy.Allows(LanRemoteAction.Hibernate, settings));
     }
 }

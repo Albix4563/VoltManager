@@ -233,7 +233,8 @@ public sealed class EnergyRpcHandler : IBridgeRpcHandler
             payload, "mode", _loc.T("Error_InvalidScheduleMode"));
         string actionText = BridgePayload.RequiredString(
             payload, "action", _loc.T("Error_InvalidPowerAction"));
-        if (!Enum.TryParse(actionText, true, out ScheduledPowerActionType action))
+        if (!Enum.TryParse(actionText, true, out ScheduledPowerActionType action)
+            || action is not (ScheduledPowerActionType.Shutdown or ScheduledPowerActionType.Restart or ScheduledPowerActionType.Sleep))
             throw new ArgumentException(_loc.T("Error_InvalidPowerAction"));
 
         if (string.Equals(modeText, "relative", StringComparison.OrdinalIgnoreCase))

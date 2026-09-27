@@ -114,7 +114,12 @@
       setFeedback(successMessage);
       await loadState();
     } catch (error) {
-      if (error.message !== 'unauthorized') setFeedback('The command could not be completed.', true);
+      if (error.message === 'capability_unavailable') {
+        await loadState();
+        setFeedback('This command is not available on this PC.', true);
+      } else if (error.message !== 'unauthorized') {
+        setFeedback('The command could not be completed.', true);
+      }
     }
   }
 
@@ -144,6 +149,7 @@
     actionsGrid.replaceChildren();
 
     const permissions = state.permissions || {};
+    const capabilities = state.capabilities || {};
     if (permissions.planChange) actionsGrid.append(renderPlanCard(state));
     if (permissions.shutdown) {
       const card = makeCard('Shut down', 'power_settings_new');
@@ -157,6 +163,20 @@
       card.append(makeButton('Restart computer', 'restart_alt', () => {
         if (window.confirm('Restart this computer now?')) runAction('/api/actions/restart', null, 'Restart requested.');
       }, 'action-button danger'));
+      actionsGrid.append(card);
+    }
+    if (permissions.sleep && capabilities.sleep) {
+      const card = makeCard('Sleep', 'bedtime');
+      card.append(makeButton('Put computer to sleep', 'bedtime', () => {
+        if (window.confirm('Put this computer to sleep now?')) runAction('/api/actions/sleep', null, 'Sleep requested.');
+      }));
+      actionsGrid.append(card);
+    }
+    if (permissions.hibernate && capabilities.hibernate) {
+      const card = makeCard('Hibernate', 'mode_standby');
+      card.append(makeButton('Hibernate computer', 'mode_standby', () => {
+        if (window.confirm('Hibernate this computer now?')) runAction('/api/actions/hibernate', null, 'Hibernate requested.');
+      }));
       actionsGrid.append(card);
     }
     actionsEmpty.classList.toggle('hidden', actionsGrid.children.length > 0);
