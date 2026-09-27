@@ -79,4 +79,46 @@ public class GpuCounterProviderTests
         Assert.True(GpuCounterProvider.IsSampleFresh(t0, t0.AddMilliseconds(4999), interval));
         Assert.False(GpuCounterProvider.IsSampleFresh(t0, t0.AddSeconds(5), interval));
     }
+
+    [Fact]
+    public void Dispose_does_not_wait_for_a_gate_held_by_a_slow_enumeration()
+    {
+        var provider = new GpuCounterProvider();
+        object gate = typeof(GpuCounterProvider)
+            .GetField("_gate", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+            .GetValue(provider)!;
+        using var held = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        var holder = new Thread(() =>
+        {
+            lock (gate)
+            {
+                held.Set();
+                release.Wait(TimeSpan.FromSeconds(30));
+            }
+        }) { IsBackground = true };
+        holder.Start();
+        Assert.True(held.Wait(TimeSpan.FromSeconds(5)));
+
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        provider.Dispose();
+        watch.Stop();
+        release.Set();
+        Assert.True(holder.Join(TimeSpan.FromSeconds(5)));
+
+        Assert.True(watch.Elapsed < TimeSpan.FromSeconds(2), $"Dispose blocked for {watch.Elapsed}");
+        Assert.Equal(0, provider.Read(TimeSpan.Zero, collectPerProcess: false, force: true));
+    }
+
+    [Fact]
+    public void Dispose_is_idempotent_and_read_after_dispose_returns_zero()
+    {
+        var provider = new GpuCounterProvider();
+
+        provider.Dispose();
+        provider.Dispose();
+        provider.Reset();
+
+        Assert.Equal(0, provider.Read(TimeSpan.Zero, collectPerProcess: true, force: true));
+    }
 }

@@ -16,7 +16,8 @@ public class GpuCounterProvider : IDisposable
     private double _lastValue;
     private bool _readFaulted; // throttles per-counter read-failure logging
     private volatile bool _ready;
-    private bool _disposed;
+    private static readonly TimeSpan DisposeGateTimeout = TimeSpan.FromMilliseconds(200);
+    private volatile bool _disposed;
     private readonly object _gate = new();
     private volatile Gpu3DSnapshot _perProcess = Gpu3DSnapshot.Empty;
 
@@ -41,9 +42,10 @@ public class GpuCounterProvider : IDisposable
     {
         try
         {
-            RefreshCounters();
             lock (_gate)
             {
+                if (_disposed) return;
+                RefreshCounters();
                 if (_disposed)
                 {
                     DisposeCounters();
@@ -101,18 +103,32 @@ public class GpuCounterProvider : IDisposable
     public double Read(TimeSpan sampleInterval, bool collectPerProcess, bool force = false)
     {
         if (!_ready) return 0;
-        if (!GpuAvailable) return 0;
+        lock (_gate)
+        {
+            try
+            {
+                return ReadLocked(sampleInterval, collectPerProcess, force);
+            }
+            finally
+            {
+                // Dispose may have stopped waiting for the gate; the owner releases counters.
+                if (_disposed) DisposeCounters();
+            }
+        }
+    }
+
+    private double ReadLocked(TimeSpan sampleInterval, bool collectPerProcess, bool force)
+    {
+        if (_disposed || !GpuAvailable) return 0;
         DateTime nowUtc = DateTime.UtcNow;
         if (!force && IsSampleFresh(_lastSampleUtc, nowUtc, sampleInterval)) return _lastValue;
         ValidationMetrics.Increment(ValidationCounter.GpuSamples);
-        // GPU engine instances come and go per-process; refresh the set periodically.
         if ((nowUtc - _lastRefresh).TotalSeconds > 10)
             RefreshCounters();
         if (_counters == null) return 0;
 
         double sum = 0;
         bool anyFailed = false;
-        // Same pass feeds the per-process map: the PID is already in the instance name.
         Dictionary<int, double>? byPid = collectPerProcess ? new Dictionary<int, double>() : null;
         foreach (var pair in _counters)
         {
@@ -130,6 +146,22 @@ public class GpuCounterProvider : IDisposable
         if (byPid != null) _perProcess = new Gpu3DSnapshot(byPid, nowUtc);
         _lastValue = Math.Min(100, Math.Round(sum, 1));
         return _lastValue;
+    }
+
+    internal void Reset()
+    {
+        lock (_gate)
+        {
+            if (_disposed) return;
+            _ready = false;
+            DisposeCounters();
+            GpuAvailable = false;
+            _lastRefresh = DateTime.MinValue;
+            _lastSampleUtc = DateTime.MinValue;
+            _lastValue = 0;
+            _perProcess = Gpu3DSnapshot.Empty;
+        }
+        Task.Run(InitCounters);
     }
 
     internal static bool IsSampleFresh(DateTime lastSampleUtc, DateTime nowUtc)
@@ -187,11 +219,12 @@ public class GpuCounterProvider : IDisposable
 
     public void Dispose()
     {
-        lock (_gate)
-        {
-            _disposed = true;
-            _ready = false;
-            DisposeCounters();
-        }
+        _disposed = true;
+        _ready = false;
+        // A cold PERFLIB enumeration can hold the gate for seconds; shutdown must
+        // not wait for it. The gate owner disposes the counters when it sees _disposed.
+        if (!System.Threading.Monitor.TryEnter(_gate, DisposeGateTimeout)) return;
+        try { DisposeCounters(); }
+        finally { System.Threading.Monitor.Exit(_gate); }
     }
 }

@@ -81,4 +81,49 @@ public sealed class ApplicationLifecycleCoordinatorTests
         coordinator.Dispose();
         Assert.Throws<ObjectDisposedException>(coordinator.Start);
     }
+
+    [Fact]
+    public void Resume_recovery_resource_is_created_and_disposed_with_each_lifecycle_epoch()
+    {
+        int created = 0;
+        int disposed = 0;
+        var actions = new ApplicationLifecycleActions(
+            () => { }, () => { }, () => { }, () => { },
+            _ => new CallbackDisposable(), _ => new CallbackDisposable(),
+            CreateResumeRecovery: _ => new CallbackDisposable(
+                onCreate: () => created++, onDispose: () => disposed++));
+        using var coordinator = new ApplicationLifecycleCoordinator(actions);
+
+        coordinator.Start();
+        Assert.Equal(1, created);
+        coordinator.Stop();
+        Assert.Equal(1, disposed);
+
+        coordinator.Start();
+        Assert.Equal(2, created);
+        coordinator.Stop();
+        Assert.Equal(2, disposed);
+    }
+
+    [Fact]
+    public void Two_hundred_lifecycle_restart_cycles_dispose_every_resume_coordinator()
+    {
+        int created = 0;
+        int disposed = 0;
+        var actions = new ApplicationLifecycleActions(
+            () => { }, () => { }, () => { }, () => { },
+            _ => new CallbackDisposable(), _ => new CallbackDisposable(),
+            CreateResumeRecovery: _ => new CallbackDisposable(
+                onCreate: () => created++, onDispose: () => disposed++));
+        using var coordinator = new ApplicationLifecycleCoordinator(actions);
+
+        for (int i = 0; i < 200; i++)
+        {
+            coordinator.Start();
+            coordinator.Stop();
+        }
+
+        Assert.Equal(200, created);
+        Assert.Equal(200, disposed);
+    }
 }

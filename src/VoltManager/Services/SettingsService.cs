@@ -14,9 +14,14 @@ public class SettingsService
     };
 
     private readonly string _path;
+    private readonly Action<string, string, string> _replaceFile;
     private readonly object _lock = new();
     private bool _needsThemeMigrationSave;
+    private bool _mainKnownGood;
+    private bool _backupKnownGood;
     private AppSettings _current = new();
+
+    private string BackupPath => _path + ".bak";
 
     /// <summary>
     /// Returns a detached snapshot of the persisted settings state.
@@ -38,10 +43,16 @@ public class SettingsService
     public event Action<AppSettings>? SettingsChanged;
 
     public SettingsService(string? path = null)
+        : this(path, static (source, destination, backup) => File.Replace(source, destination, backup))
+    {
+    }
+
+    internal SettingsService(string? path, Action<string, string, string> replaceFile)
     {
         _path = path ?? Path.Combine(
             ValidationEnvironment.ApplicationDataRoot,
             "VoltManager", "settings.json");
+        _replaceFile = replaceFile;
         _current = Load();
         if (_needsThemeMigrationSave)
             Save();
@@ -49,25 +60,97 @@ public class SettingsService
 
     private AppSettings Load()
     {
+        SettingsLoadResult main = TryLoadSettings(_path, out AppSettings? loaded, out bool needsMigration, out Exception? error);
+        if (main == SettingsLoadResult.Loaded)
+        {
+            _mainKnownGood = true;
+            _needsThemeMigrationSave = needsMigration;
+            RefreshBackupFromKnownGoodMain();
+            return loaded!;
+        }
+
+        // A locked file (antivirus, sync client) is not corruption: never quarantine
+        // or overwrite it, it may be newer than the backup.
+        bool mainUnreadable = main == SettingsLoadResult.Unreadable;
+        if (main != SettingsLoadResult.Missing)
+        {
+            Logger.Error("Failed to load settings from " + _path + "; trying last-known-good backup.", error ?? new InvalidDataException("Invalid settings file."));
+            if (!mainUnreadable)
+                BackupCorruptSettings();
+        }
+
+        if (TryLoadSettings(BackupPath, out AppSettings? backup, out bool backupNeedsMigration, out _) == SettingsLoadResult.Loaded)
+        {
+            _backupKnownGood = true;
+            Logger.Warn("Loaded settings from last-known-good backup: " + BackupPath);
+            if (mainUnreadable)
+                return backup!;
+            _needsThemeMigrationSave = backupNeedsMigration;
+            RestoreMainFromBackup();
+            return backup!;
+        }
+
+        return NormalizeSettings(new AppSettings());
+    }
+
+    internal enum SettingsLoadResult { Loaded, Missing, Corrupt, Unreadable }
+
+    private static readonly TimeSpan[] TransientReadRetryDelays =
+    [
+        TimeSpan.FromMilliseconds(50),
+        TimeSpan.FromMilliseconds(150),
+        TimeSpan.FromMilliseconds(300),
+    ];
+
+    private static SettingsLoadResult TryLoadSettings(
+        string path,
+        out AppSettings? settings,
+        out bool needsThemeMigration,
+        out Exception? error)
+    {
+        settings = null;
+        needsThemeMigration = false;
+        error = null;
+        if (!File.Exists(path)) return SettingsLoadResult.Missing;
+
+        string json;
+        for (int attempt = 0; ; attempt++)
+        {
+            try
+            {
+                json = File.ReadAllText(path);
+                break;
+            }
+            catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException)
+            {
+                return SettingsLoadResult.Missing;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                if (attempt >= TransientReadRetryDelays.Length)
+                {
+                    error = ex;
+                    return SettingsLoadResult.Unreadable;
+                }
+                Thread.Sleep(TransientReadRetryDelays[attempt]);
+            }
+        }
+
         try
         {
-            if (File.Exists(_path))
-            {
-                var json = File.ReadAllText(_path);
-                InspectThemeMigration(json);
-                var loaded = JsonSerializer.Deserialize<AppSettings>(json, JsonOpts);
-                if (loaded != null)
-                    return NormalizeSettings(loaded);
-            }
+            needsThemeMigration = InspectThemeMigration(json);
+            settings = JsonSerializer.Deserialize<AppSettings>(json, JsonOpts)
+                ?? throw new JsonException("Settings payload deserialized to null.");
+            settings = NormalizeSettings(settings);
+            return SettingsLoadResult.Loaded;
         }
         catch (Exception ex)
         {
-            // Corrupt/unreadable settings: keep a copy so user data isn't silently
-            // overwritten by the next Save, then fall through to defaults.
-            Logger.Error("Failed to load settings from " + _path + "; using defaults.", ex);
-            BackupCorruptSettings();
+            error = ex;
+            settings = null;
+            needsThemeMigration = false;
+            return SettingsLoadResult.Corrupt;
         }
-        return NormalizeSettings(new AppSettings());
     }
 
     private static AppSettings NormalizeSettings(AppSettings settings)
@@ -145,14 +228,36 @@ public class SettingsService
         }
     }
 
-    private void InspectThemeMigration(string json)
+    private void RefreshBackupFromKnownGoodMain()
+    {
+        if (!_mainKnownGood || !File.Exists(_path)) return;
+        if (TryCopyAtomically(_path, BackupPath))
+            _backupKnownGood = true;
+    }
+
+    private void RestoreMainFromBackup()
+    {
+        try
+        {
+            var dir = Path.GetDirectoryName(_path);
+            if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
+            string restore = _path + ".restore.tmp";
+            File.Copy(BackupPath, restore, overwrite: true);
+            File.Move(restore, _path, overwrite: true);
+            _mainKnownGood = true;
+        }
+        catch (Exception ex)
+        {
+            _mainKnownGood = false;
+            Logger.Warn("Could not restore settings from backup: " + ex.Message);
+        }
+    }
+
+    private static bool InspectThemeMigration(string json)
     {
         using var document = JsonDocument.Parse(json);
         if (document.RootElement.ValueKind != JsonValueKind.Object)
-        {
-            _needsThemeMigrationSave = true;
-            return;
-        }
+            return true;
 
         var root = document.RootElement;
         bool hasLegacyTheme = root.TryGetProperty("theme", out _);
@@ -161,7 +266,7 @@ public class SettingsService
             && themeColorElement.ValueKind == JsonValueKind.String
             && AppThemeColorExtensions.TryParse(themeColorElement.GetString(), out _);
 
-        _needsThemeMigrationSave = hasLegacyTheme || !validThemeColor;
+        return hasLegacyTheme || !validThemeColor;
     }
 
     private static void NormalizeThemeColor(AppSettings settings)
@@ -439,9 +544,45 @@ public class SettingsService
 
         var tmp = _path + ".tmp";
         File.WriteAllText(tmp, JsonSerializer.Serialize(settings, JsonOpts));
-        // Atomic replace: the previous file survives intact until the move
-        // completes, so a crash mid-write can never leave settings.json gone.
+        bool hadKnownGoodMain = _mainKnownGood && File.Exists(_path);
+        if (hadKnownGoodMain)
+        {
+            try
+            {
+                _replaceFile(tmp, _path, BackupPath);
+                _mainKnownGood = true;
+                _backupKnownGood = true;
+                return;
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn("Atomic settings replace unavailable; using copy/move fallback: " + ex.Message);
+                if (TryCopyAtomically(_path, BackupPath))
+                    _backupKnownGood = true;
+            }
+        }
+
         File.Move(tmp, _path, overwrite: true);
+        _mainKnownGood = true;
+        if (!_backupKnownGood && TryCopyAtomically(_path, BackupPath))
+            _backupKnownGood = true;
+    }
+
+    private static bool TryCopyAtomically(string source, string destination)
+    {
+        string temporary = destination + ".tmp";
+        try
+        {
+            File.Copy(source, temporary, overwrite: true);
+            File.Move(temporary, destination, overwrite: true);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            try { if (File.Exists(temporary)) File.Delete(temporary); } catch { }
+            Logger.Warn("Could not refresh settings backup: " + ex.Message);
+            return false;
+        }
     }
 
     private void NotifySettingsChanged(AppSettings snapshot)

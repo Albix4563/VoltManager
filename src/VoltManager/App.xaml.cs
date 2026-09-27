@@ -25,6 +25,7 @@ public partial class App : Application
     private RegisteredWaitHandle? _showWait;
     private RemoteCommandService? _remoteCommands;
     private ApplicationLifecycleCoordinator? _applicationLifecycle;
+    private ResumeRecoveryCoordinator? _resumeRecovery;
     public AppServiceGraph Services { get; private set; } = null!;
     private static readonly TimeSpan ExitWatchdogTimeout = TimeSpan.FromSeconds(10);
     private int _exitStarted;
@@ -459,7 +460,8 @@ public partial class App : Application
             StartServices: StartRuntimeServices,
             StopServices: StopRuntimeServices,
             CreatePlanPollTimer: CreatePlanPollTimer,
-            CreateBatteryHistoryTimer: CreateBatteryHistoryTimer));
+            CreateBatteryHistoryTimer: CreateBatteryHistoryTimer,
+            CreateResumeRecovery: CreateResumeRecovery));
 
     private void OnLifecycleSettingsChanged(AppSettings _)
     {
@@ -496,15 +498,20 @@ public partial class App : Application
     }
 
     private IDisposable CreatePlanPollTimer(CancellationToken epoch)
-        => new System.Threading.Timer(_ =>
+    {
+        var gate = new SingleFlightGate("Active power-plan poll");
+        return new System.Threading.Timer(_ => SingleFlightCallback.Run(gate, () =>
         {
             if (_applicationLifecycle?.IsCurrent(epoch) != true) return;
             try { PowerRequests.RefreshActivePlanFromSystem(DateTime.UtcNow); }
             catch (Exception ex) { Logger.Error("Plan poll failed", ex); }
-        }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(3));
+        }), null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(3));
+    }
 
     private IDisposable CreateBatteryHistoryTimer(CancellationToken epoch)
-        => new System.Threading.Timer(_ =>
+    {
+        var gate = new SingleFlightGate("Battery history sample");
+        return new System.Threading.Timer(_ => SingleFlightCallback.Run(gate, () =>
         {
             if (_applicationLifecycle?.IsCurrent(epoch) != true) return;
             try
@@ -518,7 +525,29 @@ public partial class App : Application
             {
                 Logger.Error("Battery history sample failed", ex);
             }
-        }, null, TimeSpan.FromSeconds(20), TimeSpan.FromSeconds(60));
+        }), null, TimeSpan.FromSeconds(20), TimeSpan.FromSeconds(60));
+    }
+
+    private IDisposable CreateResumeRecovery(CancellationToken epoch)
+    {
+        var coordinator = new ResumeRecoveryCoordinator(
+        [
+            new("stop metric sampling", Monitor.Stop),
+            new("reset metric providers", Monitor.ResetSamplingProviders),
+            new("restart metric sampling", () =>
+            {
+                if (_applicationLifecycle?.IsCurrent(epoch) == true)
+                    Monitor.Start(PowerRequests.CurrentSamplingInterval);
+            }),
+            new("refresh active power plan", () =>
+            {
+                if (_applicationLifecycle?.IsCurrent(epoch) == true)
+                    PowerRequests.RefreshActivePlanFromSystem(DateTime.UtcNow);
+            }),
+        ]);
+        _resumeRecovery = coordinator;
+        return coordinator;
+    }
 
     private void OnMetricsSampled(MetricsSnapshot metrics)
         => PowerRequests.ProcessMetrics(metrics, DateTime.UtcNow);
@@ -602,6 +631,8 @@ public partial class App : Application
         {
             Logger.Warn("Hardware resume handling failed: " + ex.Message);
         }
+        try { _resumeRecovery?.SignalResume(); }
+        catch (Exception ex) { Logger.Warn("Resume recovery scheduling failed: " + ex.Message); }
     }
 
     public void ExitApp()

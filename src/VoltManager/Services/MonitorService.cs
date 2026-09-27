@@ -44,6 +44,7 @@ public class MonitorService : IDisposable
     private int _foregroundRefreshRequested;
     private bool _disposed;
     private readonly object _cpuInfoGate = new();
+    private int _counterGeneration;
 
     private static readonly TimeSpan CpuClockRefreshInterval = TimeSpan.FromSeconds(2);
     private static readonly TimeSpan RamClockRefreshInterval = TimeSpan.FromMinutes(5);
@@ -95,11 +96,22 @@ public class MonitorService : IDisposable
         _sensors = new HardwareSensorProvider(hardwareAccess);
         // PERFLIB can block for seconds on a cold Windows boot. Metrics degrade to zero
         // until the counters are ready, just like the existing GPU/clock providers.
-        Task.Run(InitBaseCounters);
-        Task.Run(InitCpuInfoCounters);
+        QueueCounterInitialization();
     }
 
-    private void InitBaseCounters()
+    private void QueueCounterInitialization()
+    {
+        int generation;
+        lock (_cpuInfoGate)
+        {
+            if (_disposed) return;
+            generation = ++_counterGeneration;
+        }
+        Task.Run(() => InitBaseCounters(generation));
+        Task.Run(() => InitCpuInfoCounters(generation));
+    }
+
+    private void InitBaseCounters(int generation)
     {
         var cpu = TryCreate("Processor", "% Processor Time", "_Total");
         var disk = TryCreate("PhysicalDisk", "% Disk Time", "_Total");
@@ -107,7 +119,7 @@ public class MonitorService : IDisposable
         disk?.NextValue();
         lock (_cpuInfoGate)
         {
-            if (_disposed)
+            if (_disposed || generation != _counterGeneration)
             {
                 cpu?.Dispose();
                 disk?.Dispose();
@@ -118,7 +130,7 @@ public class MonitorService : IDisposable
         }
     }
 
-    private void InitCpuInfoCounters()
+    private void InitCpuInfoCounters(int generation)
     {
         try
         {
@@ -132,7 +144,7 @@ public class MonitorService : IDisposable
             perf?.NextValue();
             lock (_cpuInfoGate)
             {
-                if (_disposed)
+                if (_disposed || generation != _counterGeneration)
                 {
                     freq?.Dispose();
                     perf?.Dispose();
@@ -208,6 +220,32 @@ public class MonitorService : IDisposable
         timer?.Dispose();
     }
 
+    internal void ResetSamplingProviders()
+    {
+        lock (_cpuInfoGate)
+        {
+            if (_disposed) return;
+            _counterGeneration++;
+            _cpuInfoReady = false;
+            _cpuCounter?.Dispose();
+            _diskCounter?.Dispose();
+            _cpuFreqCounter?.Dispose();
+            _cpuPerfCounter?.Dispose();
+            _cpuCounter = null;
+            _diskCounter = null;
+            _cpuFreqCounter = null;
+            _cpuPerfCounter = null;
+            _cachedCpuClock = null;
+            _cachedRamClock = null;
+            _nextCpuClockRefreshUtc = DateTime.MinValue;
+            _nextRamClockRefreshUtc = DateTime.MinValue;
+            _lastDiskSampleUtc = null;
+        }
+        _gpu.Reset();
+        _vram.Reset();
+        QueueCounterInitialization();
+    }
+
     public void SetInterval(TimeSpan interval)
     {
         _interval = NormalizeInterval(interval);
@@ -257,12 +295,18 @@ public class MonitorService : IDisposable
             MonitorSamplingDemand demand = SamplingDemand;
             bool forceAccessoryRefresh = demand.VisualDetails
                 && Interlocked.Exchange(ref _foregroundRefreshRequested, 0) != 0;
-            double cpu = SafeRead(_cpuCounter);
+            double cpu;
             double disk = Latest.Disk;
-            if (demand.VisualDetails)
+            bool diskAvailable;
+            lock (_cpuInfoGate)
             {
-                disk = Math.Min(100, SafeRead(_diskCounter));
-                _lastDiskSampleUtc = nowUtc;
+                cpu = SafeRead(_cpuCounter);
+                diskAvailable = demand.VisualDetails && _diskCounter != null;
+                if (demand.VisualDetails)
+                {
+                    disk = Math.Min(100, SafeRead(_diskCounter));
+                    _lastDiskSampleUtc = nowUtc;
+                }
             }
             TimeSpan gpuInterval = demand.GpuProcessDetection
                 ? TimeSpan.FromSeconds(2)
@@ -290,7 +334,7 @@ public class MonitorService : IDisposable
                 RamUsedGb = Math.Round(usedGb, 1),
                 RamTotalGb = _ramTotalGb,
                 Disk = Math.Round(disk, 1),
-                DiskAvailable = demand.VisualDetails && _diskCounter != null,
+                DiskAvailable = diskAvailable,
                 DiskSampledAtUtc = _lastDiskSampleUtc,
                 CpuTemp = sensors.CpuTemp,
                 GpuTemp = sensors.GpuTemp,
@@ -392,20 +436,23 @@ public class MonitorService : IDisposable
 
     private double? ReadCpuClockFromPerf()
     {
-        if (!_cpuInfoReady) return null;
-        var freq = _cpuFreqCounter;
-        var perf = _cpuPerfCounter;
-        if (freq == null || perf == null) return null;
-        try
+        lock (_cpuInfoGate)
         {
-            double baseMhz = freq.NextValue();
-            double perfPct = perf.NextValue();
-            return SensorAggregation.EffectiveCpuMhz(baseMhz, perfPct);
-        }
-        catch (Exception ex)
-        {
-            _clockFaulted = Logger.WarnOnce(_clockFaulted, "CPU-clock perf counter read failed", ex);
-            return null;
+            if (!_cpuInfoReady) return null;
+            var freq = _cpuFreqCounter;
+            var perf = _cpuPerfCounter;
+            if (freq == null || perf == null) return null;
+            try
+            {
+                double baseMhz = freq.NextValue();
+                double perfPct = perf.NextValue();
+                return SensorAggregation.EffectiveCpuMhz(baseMhz, perfPct);
+            }
+            catch (Exception ex)
+            {
+                _clockFaulted = Logger.WarnOnce(_clockFaulted, "CPU-clock perf counter read failed", ex);
+                return null;
+            }
         }
     }
 
@@ -489,6 +536,7 @@ public class MonitorService : IDisposable
         {
             if (_disposed) return;
             _disposed = true;
+            _counterGeneration++;
             _cpuInfoReady = false;
             _cpuCounter?.Dispose();
             _diskCounter?.Dispose();

@@ -1,6 +1,7 @@
 using System.Runtime.InteropServices;
 using System.Threading;
 using VoltManager.Models;
+using VoltManager.Reliability;
 
 namespace VoltManager.Services;
 
@@ -20,6 +21,7 @@ public sealed class PowerAwakeService : IDisposable
     private readonly Func<DateTime> _utcNow;
     private readonly object _lock = new();
     private readonly Timer _guardTimer;
+    private readonly SingleFlightGate _guardGate = new("Keep-awake guard");
     private IntPtr _requestHandle = IntPtr.Zero;
     private bool _systemRequestApplied;
     private bool _executionRequestApplied;
@@ -40,7 +42,7 @@ public sealed class PowerAwakeService : IDisposable
         _utcNow = utcNow ?? (() => DateTime.UtcNow);
         _settings.SettingsChanged += OnSettingsChanged;
         // Guard tick every 20s — cheap, covers unplug and duration expiry while trayed.
-        _guardTimer = new Timer(_ => SafeGuardTick(), null, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(20));
+        _guardTimer = new Timer(_ => SingleFlightCallback.Run(_guardGate, SafeGuardTick), null, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(20));
         ApplyFromSettings();
     }
 

@@ -43,6 +43,10 @@ public sealed class LanRemoteControlService : IDisposable
     private readonly Func<IPAddress?, bool> _clientAddressAllowed;
     private readonly string _remoteAssetsPath;
     private readonly bool _useHttps;
+    private readonly TimeSpan _shutdownTimeout;
+    private readonly Func<CancellationToken, Task> _beforeStart;
+    private readonly Func<CancellationToken, Task> _beforeStop;
+    private readonly Action<string> _warningLogger;
     private readonly SemaphoreSlim _lifecycleGate = new(1, 1);
     private readonly ConcurrentDictionary<Guid, Channel<byte>> _eventClients = new();
 
@@ -51,8 +55,9 @@ public sealed class LanRemoteControlService : IDisposable
     private IReadOnlyList<IPAddress> _addresses = [];
     private string? _fingerprint;
     private int _networkRestartQueued;
+    private long _lifecycleRequestVersion;
     private bool _networkSubscribed;
-    private bool _disposed;
+    private int _disposed;
 
     public LanRemoteControlService(
         SettingsService settings,
@@ -80,7 +85,11 @@ public sealed class LanRemoteControlService : IDisposable
         Func<IReadOnlyCollection<IPAddress>, X509Certificate2>? certificateProvider = null,
         Func<IPAddress?, bool>? clientAddressAllowed = null,
         string? remoteAssetsPath = null,
-        bool useHttps = true)
+        bool useHttps = true,
+        TimeSpan? shutdownTimeout = null,
+        Func<CancellationToken, Task>? beforeStart = null,
+        Func<CancellationToken, Task>? beforeStop = null,
+        Action<string>? warningLogger = null)
     {
         _settings = settings;
         _actions = actions;
@@ -92,6 +101,10 @@ public sealed class LanRemoteControlService : IDisposable
         _clientAddressAllowed = clientAddressAllowed ?? (address => address is not null && LanRemoteNetwork.IsPrivateLanAddress(address));
         _remoteAssetsPath = remoteAssetsPath ?? Path.Combine(AppContext.BaseDirectory, "wwwroot", "remote");
         _useHttps = useHttps;
+        _shutdownTimeout = shutdownTimeout ?? TimeSpan.FromSeconds(5);
+        _beforeStart = beforeStart ?? (_ => Task.CompletedTask);
+        _beforeStop = beforeStop ?? (_ => Task.CompletedTask);
+        _warningLogger = warningLogger ?? Logger.Warn;
     }
 
     public LanRemoteControlState GetState()
@@ -123,7 +136,7 @@ public sealed class LanRemoteControlService : IDisposable
         ThrowIfDisposed();
         if (!_settings.Current.LanRemoteControl.Enabled)
             return;
-        StartAsync().GetAwaiter().GetResult();
+        ObserveDetached(StartAsync(), "start");
     }
 
     public async Task<LanRemoteEnableResult> SetEnabledAsync(bool enabled, CancellationToken cancellationToken = default)
@@ -185,59 +198,52 @@ public sealed class LanRemoteControlService : IDisposable
     }
 
     public void Stop()
-        => StopAsync().GetAwaiter().GetResult();
+    {
+        Task stop = StopAsync();
+        try
+        {
+            if (!stop.Wait(_shutdownTimeout))
+                _warningLogger($"LAN remote-control stop did not complete within {_shutdownTimeout.TotalSeconds:F1}s; cleanup continues in the background.");
+        }
+        catch (AggregateException ex)
+        {
+            _warningLogger("LAN remote-control stop failed: " + ex.GetBaseException().Message);
+        }
+    }
 
-    internal async Task StartAsync(CancellationToken cancellationToken = default)
+    internal Task StartAsync(CancellationToken cancellationToken = default)
     {
         ThrowIfDisposed();
+        if (!_settings.Current.LanRemoteControl.Enabled)
+            return Task.CompletedTask;
+        return RequestStateAsync(running: true, cancellationToken);
+    }
+
+    internal Task StopAsync(CancellationToken cancellationToken = default)
+        => RequestStateAsync(running: false, cancellationToken);
+
+    private Task RequestStateAsync(bool running, CancellationToken cancellationToken)
+    {
+        long requestVersion = Interlocked.Increment(ref _lifecycleRequestVersion);
+        return Task.Run(() => ApplyStateAsync(requestVersion, running, cancellationToken));
+    }
+
+    private async Task ApplyStateAsync(long requestVersion, bool running, CancellationToken cancellationToken)
+    {
         await _lifecycleGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            EnsureNetworkSubscription();
-            if (!_settings.Current.LanRemoteControl.Enabled || _webApplication is not null)
+            if (requestVersion != Volatile.Read(ref _lifecycleRequestVersion))
                 return;
 
-            IReadOnlyList<IPAddress> addresses = _addressProvider()
-                .Distinct()
-                .OrderBy(static address => address.ToString(), StringComparer.Ordinal)
-                .ToArray();
-            if (addresses.Count == 0)
-            {
-                _addresses = [];
-                _fingerprint = null;
-                TryRemoveFirewall();
-                PublishStateChanged();
+            await (running ? _beforeStart(cancellationToken) : _beforeStop(cancellationToken)).ConfigureAwait(false);
+            if (requestVersion != Volatile.Read(ref _lifecycleRequestVersion))
                 return;
-            }
 
-            LanRemoteControlSettings config = _settings.Current.LanRemoteControl;
-            int port = config.Port;
-            if (!_portAvailable(addresses, port))
-                port = LanRemotePortSelector.Select(51737, candidate => _portAvailable(addresses, candidate));
-            if (port != config.Port)
-                _settings.Update(state => state.LanRemoteControl.Port = port);
-
-            X509Certificate2? certificate = _useHttps ? _certificateProvider(addresses) : null;
-            WebApplication app = BuildWebApplication(addresses, port, certificate);
-            try
-            {
-                await app.StartAsync(cancellationToken).ConfigureAwait(false);
-                _firewall.Apply(port);
-            }
-            catch
-            {
-                try { await app.StopAsync(CancellationToken.None).ConfigureAwait(false); } catch { }
-                await app.DisposeAsync().ConfigureAwait(false);
-                certificate?.Dispose();
-                TryRemoveFirewall();
-                throw;
-            }
-
-            _addresses = addresses;
-            _certificate = certificate;
-            _fingerprint = certificate is null ? null : LanRemoteCertificateManager.Sha256Fingerprint(certificate);
-            _webApplication = app;
-            PublishStateChanged();
+            if (running)
+                await StartCoreAsync(cancellationToken).ConfigureAwait(false);
+            else
+                await StopCoreAsync(cancellationToken).ConfigureAwait(false);
         }
         finally
         {
@@ -245,41 +251,89 @@ public sealed class LanRemoteControlService : IDisposable
         }
     }
 
-    internal async Task StopAsync(CancellationToken cancellationToken = default)
+    private async Task StartCoreAsync(CancellationToken cancellationToken)
     {
-        await _lifecycleGate.WaitAsync(cancellationToken).ConfigureAwait(false);
-        try
-        {
-            WebApplication? app = _webApplication;
-            _webApplication = null;
-            _sessions.Clear();
-            CompleteEventClients();
-            if (app is not null)
-            {
-                try { await app.StopAsync(cancellationToken).ConfigureAwait(false); }
-                finally { await app.DisposeAsync().ConfigureAwait(false); }
-            }
+        EnsureNetworkSubscription();
+        if (!_settings.Current.LanRemoteControl.Enabled || _webApplication is not null)
+            return;
 
-            _certificate?.Dispose();
-            _certificate = null;
+        IReadOnlyList<IPAddress> addresses = _addressProvider()
+            .Distinct()
+            .OrderBy(static address => address.ToString(), StringComparer.Ordinal)
+            .ToArray();
+        if (addresses.Count == 0)
+        {
             _addresses = [];
             _fingerprint = null;
             TryRemoveFirewall();
             PublishStateChanged();
+            return;
         }
-        finally
+
+        LanRemoteControlSettings config = _settings.Current.LanRemoteControl;
+        int port = config.Port;
+        if (!_portAvailable(addresses, port))
+            port = LanRemotePortSelector.Select(51737, candidate => _portAvailable(addresses, candidate));
+        if (port != config.Port)
+            _settings.Update(state => state.LanRemoteControl.Port = port);
+
+        X509Certificate2? certificate = _useHttps ? _certificateProvider(addresses) : null;
+        WebApplication app = BuildWebApplication(addresses, port, certificate);
+        try
         {
-            _lifecycleGate.Release();
+            await app.StartAsync(cancellationToken).ConfigureAwait(false);
+            _firewall.Apply(port);
         }
+        catch
+        {
+            try { await app.StopAsync(CancellationToken.None).ConfigureAwait(false); } catch { }
+            await app.DisposeAsync().ConfigureAwait(false);
+            certificate?.Dispose();
+            TryRemoveFirewall();
+            throw;
+        }
+
+        _addresses = addresses;
+        _certificate = certificate;
+        _fingerprint = certificate is null ? null : LanRemoteCertificateManager.Sha256Fingerprint(certificate);
+        _webApplication = app;
+        PublishStateChanged();
+    }
+
+    private async Task StopCoreAsync(CancellationToken cancellationToken)
+    {
+        WebApplication? app = _webApplication;
+        _webApplication = null;
+        _sessions.Clear();
+        CompleteEventClients();
+        if (app is not null)
+        {
+            try { await app.StopAsync(cancellationToken).ConfigureAwait(false); }
+            finally { await app.DisposeAsync().ConfigureAwait(false); }
+        }
+
+        _certificate?.Dispose();
+        _certificate = null;
+        _addresses = [];
+        _fingerprint = null;
+        TryRemoveFirewall();
+        PublishStateChanged();
     }
 
     public void Dispose()
     {
-        if (_disposed) return;
-        _disposed = true;
+        if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
         RemoveNetworkSubscription();
-        try { StopAsync().GetAwaiter().GetResult(); } catch (Exception ex) { Logger.Warn("LAN remote-control stop failed: " + ex.Message); }
-        _lifecycleGate.Dispose();
+        Stop();
+    }
+
+    private static void ObserveDetached(Task task, string operation)
+    {
+        _ = task.ContinueWith(
+            completed => Logger.Error("LAN remote-control " + operation + " failed", completed.Exception!.GetBaseException()),
+            CancellationToken.None,
+            TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default);
     }
 
     private WebApplication BuildWebApplication(IReadOnlyList<IPAddress> addresses, int port, X509Certificate2? certificate)
@@ -685,7 +739,7 @@ public sealed class LanRemoteControlService : IDisposable
             try
             {
                 await StopAsync().ConfigureAwait(false);
-                if (_settings.Current.LanRemoteControl.Enabled && !_disposed)
+                if (_settings.Current.LanRemoteControl.Enabled && Volatile.Read(ref _disposed) == 0)
                     await StartAsync().ConfigureAwait(false);
             }
             catch (Exception ex)
@@ -740,6 +794,6 @@ public sealed class LanRemoteControlService : IDisposable
 
     private void ThrowIfDisposed()
     {
-        if (_disposed) throw new ObjectDisposedException(nameof(LanRemoteControlService));
+        if (Volatile.Read(ref _disposed) != 0) throw new ObjectDisposedException(nameof(LanRemoteControlService));
     }
 }

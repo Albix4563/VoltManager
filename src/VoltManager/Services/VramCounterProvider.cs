@@ -176,6 +176,22 @@ public sealed class VramCounterProvider : IDisposable
             System.Globalization.CultureInfo.InvariantCulture, out result);
     }
 
+    internal void Reset()
+    {
+        lock (_gate)
+        {
+            if (_disposed) return;
+            _ready = false;
+            foreach (var counter in _counters.Values) counter.Dispose();
+            _counters.Clear();
+            _capacities = new Dictionary<GpuLuid, long>();
+            _lastRefreshUtc = DateTime.MinValue;
+            _lastSampleUtc = DateTime.MinValue;
+            _last = new VramMemorySnapshot();
+        }
+        Task.Run(Initialize);
+    }
+
     private static IReadOnlyDictionary<GpuLuid, long> ReadDxgiCapacities()
     {
         Guid iid = new("770AAE78-F26F-4DBA-A829-253C83D1B387");

@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Reflection;
 using System.Text.Json;
@@ -133,12 +134,66 @@ public static class CrashDiagnostics
             string temporaryPath = finalPath + ".tmp";
             File.WriteAllText(temporaryPath, JsonSerializer.Serialize(payload, new JsonSerializerOptions { WriteIndented = true }));
             File.Move(temporaryPath, finalPath);
+            PruneDirectory(directory, finalPath, DateTimeOffset.UtcNow);
             return finalPath;
         }
         catch
         {
             return null;
         }
+    }
+
+    internal static void PruneDirectory(string directory, string? justWrittenPath = null, DateTimeOffset? now = null)
+    {
+        try
+        {
+            if (!Directory.Exists(directory)) return;
+            DateTimeOffset current = now ?? DateTimeOffset.UtcNow;
+            var files = Directory.EnumerateFiles(directory, "crash-*.json", SearchOption.TopDirectoryOnly)
+                .Select(path => (Path: path, Timestamp: TryParseCrashTimestamp(Path.GetFileName(path))))
+                .Where(item => item.Timestamp.HasValue)
+                .OrderByDescending(item => item.Timestamp!.Value)
+                .ToArray();
+
+            for (int index = 0; index < files.Length; index++)
+            {
+                string path = files[index].Path;
+                if (justWrittenPath is not null && string.Equals(path, justWrittenPath, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                bool overCount = index >= 20;
+                bool tooOld = current - files[index].Timestamp!.Value > TimeSpan.FromDays(30);
+                if (!overCount && !tooOld) continue;
+                try { File.Delete(path); }
+                catch { /* retention is best-effort */ }
+            }
+        }
+        catch
+        {
+            // Crash capture must never fail because retention maintenance failed.
+        }
+    }
+
+    private static DateTimeOffset? TryParseCrashTimestamp(string fileName)
+    {
+        if (!fileName.StartsWith("crash-", StringComparison.Ordinal) ||
+            !fileName.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+            return null;
+
+        string[] parts = fileName[..^5].Split('-');
+        if (parts.Length != 5 || parts[0] != "crash" ||
+            !int.TryParse(parts[3], NumberStyles.None, CultureInfo.InvariantCulture, out _) ||
+            !Guid.TryParseExact(parts[4], "N", out _))
+            return null;
+
+        return DateTimeOffset.TryParseExact(
+            parts[1] + parts[2],
+            "yyyyMMddHHmmssfff",
+            CultureInfo.InvariantCulture,
+            DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
+            out DateTimeOffset timestamp)
+            ? timestamp
+            : null;
     }
 
     private static IEnumerable<string> EnumerateInnerTypes(Exception? exception)

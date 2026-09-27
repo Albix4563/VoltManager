@@ -1,5 +1,6 @@
 using System.Globalization;
 using VoltManager.Models;
+using VoltManager.Reliability;
 
 namespace VoltManager.Services;
 
@@ -15,6 +16,7 @@ public sealed class ScheduledPowerActionService : IDisposable
 
     private System.Threading.Timer? _relativeTimer;
     private System.Threading.Timer? _dailyTimer;
+    private readonly SingleFlightGate _dailyTimerGate = new("Daily scheduled power-action check");
     private bool _started;
     private long _generation;
 
@@ -273,7 +275,7 @@ public sealed class ScheduledPowerActionService : IDisposable
         _dailyTimer?.Dispose();
         long generation = ++_generation;
         _dailyTimer = new System.Threading.Timer(
-            _ => DailyCheckCallback(generation),
+            _ => SingleFlightCallback.Run(_dailyTimerGate, () => DailyCheckCallback(generation)),
             null,
             TimeSpan.FromSeconds(5),
             TimeSpan.FromSeconds(15));
