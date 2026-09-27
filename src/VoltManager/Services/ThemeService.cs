@@ -35,7 +35,8 @@ public sealed record ThemeWebPalette(
 
 public sealed record ThemeWebState(
     [property: JsonPropertyName("themeColor")] string ThemeColor,
-    [property: JsonPropertyName("palette")] ThemeWebPalette Palette);
+    [property: JsonPropertyName("palette")] ThemeWebPalette Palette,
+    [property: JsonPropertyName("customColor")] string? CustomColor);
 
 /// <summary>
 /// Applies the selected color theme to WPF resources and exposes the same
@@ -56,6 +57,7 @@ public sealed class ThemeService
 
     public AppThemeColor CurrentTheme { get; private set; } = AppThemeColor.Blue;
     public ThemePalette CurrentPalette { get; private set; } = GetPalette(AppThemeColor.Blue);
+    public string? CurrentCustomColor { get; private set; }
 
     public event Action<AppThemeColor>? ThemeChanged;
 
@@ -64,13 +66,20 @@ public sealed class ThemeService
         ApplyResources(CurrentPalette);
     }
 
-    public void SetTheme(AppThemeColor themeColor)
+    public void SetTheme(AppThemeColor themeColor, string? customColor = null)
     {
         var normalized = themeColor.Normalize();
-        bool changed = normalized != CurrentTheme;
+        string? normalizedCustom = TryNormalizeCustomColor(customColor, out string parsedCustom)
+            ? parsedCustom
+            : null;
+        bool changed = normalized != CurrentTheme
+            || !string.Equals(normalizedCustom, CurrentCustomColor, StringComparison.OrdinalIgnoreCase);
 
         CurrentTheme = normalized;
-        CurrentPalette = GetPalette(normalized);
+        CurrentCustomColor = normalizedCustom;
+        CurrentPalette = normalizedCustom is null
+            ? GetPalette(normalized)
+            : CreateCustomPalette(normalized, normalizedCustom);
         ApplyResources(CurrentPalette);
 
         if (changed)
@@ -78,14 +87,31 @@ public sealed class ThemeService
     }
 
     public ThemeWebState GetWebTheme()
-        => ToWebState(CurrentPalette);
+        => ToWebState(CurrentPalette, CurrentCustomColor);
+
+    public static ThemeWebState CreateWebTheme(AppThemeColor themeColor, string? customColor = null)
+    {
+        var normalizedTheme = themeColor.Normalize();
+        string? normalizedCustom = TryNormalizeCustomColor(customColor, out string parsedCustom)
+            ? parsedCustom
+            : null;
+        var palette = normalizedCustom is null
+            ? GetPalette(normalizedTheme)
+            : CreateCustomPalette(normalizedTheme, normalizedCustom);
+        return ToWebState(palette, normalizedCustom);
+    }
 
     public IReadOnlyDictionary<string, ThemeWebPalette> GetWebThemeCatalog()
         => Enum.GetValues<AppThemeColor>()
             .ToDictionary(
                 color => color.ToKey(),
-                color => ToWebState(GetPalette(color)).Palette,
+                color => ToWebState(GetPalette(color), null).Palette,
                 StringComparer.OrdinalIgnoreCase);
+
+    public static ThemePalette GetPalette(AppThemeColor themeColor, string? customColor)
+        => TryNormalizeCustomColor(customColor, out string normalizedCustom)
+            ? CreateCustomPalette(themeColor.Normalize(), normalizedCustom)
+            : GetPalette(themeColor);
 
     public static ThemePalette GetPalette(AppThemeColor themeColor)
     {
@@ -96,6 +122,78 @@ public sealed class ThemeService
             ParseHexColor(accent.Primary),
             ParseHexColor(accent.Secondary),
             ParseHexColor(accent.Hover));
+    }
+
+    public static bool TryNormalizeCustomColor(string? value, out string normalized)
+    {
+        normalized = string.Empty;
+        string input = (value ?? string.Empty).Trim();
+        if (input.Length is not (4 or 5 or 7) || input[0] != '#')
+            return false;
+
+        ReadOnlySpan<char> hex = input.AsSpan(1);
+        foreach (char c in hex)
+        {
+            if (!Uri.IsHexDigit(c))
+                return false;
+        }
+
+        byte r;
+        byte g;
+        byte b;
+        byte a = 255;
+        if (hex.Length is 3 or 4)
+        {
+            r = ExpandNibble(hex[0]);
+            g = ExpandNibble(hex[1]);
+            b = ExpandNibble(hex[2]);
+            if (hex.Length == 4)
+                a = ExpandNibble(hex[3]);
+        }
+        else
+        {
+            r = Convert.ToByte(input.Substring(1, 2), 16);
+            g = Convert.ToByte(input.Substring(3, 2), 16);
+            b = Convert.ToByte(input.Substring(5, 2), 16);
+        }
+
+        if (a < 255)
+        {
+            // CSS #RGBA carries alpha. Theme palettes are intentionally opaque,
+            // so composite against the same dark base used to build app surfaces.
+            r = CompositeChannel(r, BaseBackground.R, a);
+            g = CompositeChannel(g, BaseBackground.G, a);
+            b = CompositeChannel(b, BaseBackground.B, a);
+        }
+
+        normalized = $"#{r:X2}{g:X2}{b:X2}";
+        return true;
+    }
+
+    private static byte ExpandNibble(char value)
+    {
+        int nibble = value <= '9'
+            ? value - '0'
+            : char.ToUpperInvariant(value) - 'A' + 10;
+        return (byte)(nibble * 17);
+    }
+
+    private static byte CompositeChannel(byte foreground, byte background, byte alpha)
+    {
+        double weight = alpha / 255d;
+        return (byte)Math.Round(
+            foreground * weight + background * (1d - weight),
+            MidpointRounding.AwayFromZero);
+    }
+
+    private static ThemePalette CreateCustomPalette(AppThemeColor themeColor, string normalizedColor)
+    {
+        var primary = ParseHexColor(normalizedColor);
+        var onPrimary = BestContrastingText(primary);
+        var secondary = Blend(primary, Colors.White, RelativeLuminance(primary) > 0.72 ? 0.12 : 0.24);
+        var hoverTarget = RelativeLuminance(onPrimary) > 0.5 ? Colors.Black : Colors.White;
+        var hover = Blend(primary, hoverTarget, 0.16);
+        return Create(themeColor, primary, secondary, hover);
     }
 
     private static ThemePalette Create(
@@ -157,7 +255,14 @@ public sealed class ThemeService
     {
         var light = Colors.White;
         var dark = Color.FromRgb(15, 23, 42);
-        return ContrastRatio(background, light) >= ContrastRatio(background, dark) ? light : dark;
+        double lightContrast = ContrastRatio(background, light);
+        double darkContrast = ContrastRatio(background, dark);
+        if (Math.Max(lightContrast, darkContrast) >= MinimumTextContrast)
+            return lightContrast >= darkContrast ? light : dark;
+
+        // Mid-luminance custom colors can sit in the narrow range where neither
+        // white nor the brand navy reaches AA. Pure black is the safe fallback.
+        return lightContrast >= ContrastRatio(background, Colors.Black) ? light : Colors.Black;
     }
 
     private static double ContrastRatio(Color first, Color second)
@@ -216,9 +321,9 @@ public sealed class ThemeService
         resources["ThemeOnPrimaryBrush"] = CreateBrush(palette.OnPrimary);
     }
 
-    private static ThemeWebState ToWebState(ThemePalette palette)
+    private static ThemeWebState ToWebState(ThemePalette palette, string? customColor)
         => new(
-            palette.Key,
+            customColor is null ? palette.Key : "custom",
             new ThemeWebPalette(
                 ToHex(palette.Background),
                 ToHex(palette.Surface),
@@ -229,7 +334,8 @@ public sealed class ThemeService
                 ToHex(palette.Text),
                 ToHex(palette.MutedText),
                 ToHex(palette.Border),
-                ToHex(palette.OnPrimary)));
+                ToHex(palette.OnPrimary)),
+            customColor);
 
     private static SolidColorBrush CreateBrush(Color color)
     {

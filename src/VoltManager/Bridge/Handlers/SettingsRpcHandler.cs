@@ -28,7 +28,7 @@ public sealed class SettingsRpcHandler : IBridgeRpcHandler
 
     private static readonly string[] RegisteredMethods =
     [
-        "getSettings", "setThemeColor", "saveSettings", "setLanguage",
+        "getSettings", "previewThemeColor", "setThemeColor", "saveSettings", "setLanguage",
         "setStartWithWindows", "setCloseToTray", "setAutoUpdateChecks",
         "setSilentAutoUpdates", "setUpdateChannel", "snoozeUpdate",
         "skipUpdateVersion", "getStandbyAutoCleanSettings",
@@ -70,15 +70,22 @@ public sealed class SettingsRpcHandler : IBridgeRpcHandler
                     resolvedLocale = _loc.CurrentCulture.Name,
                 };
 
+            case "previewThemeColor":
+            {
+                var selection = ReadThemeSelection(payload);
+                return ThemeService.CreateWebTheme(selection.ThemeColor, selection.CustomColor);
+            }
+
             case "setThemeColor":
             {
-                string? requested = payload.ValueKind == JsonValueKind.Object
-                    && payload.TryGetProperty("themeColor", out JsonElement themeColorElement)
-                    ? themeColorElement.GetString()
-                    : null;
-                AppThemeColorExtensions.TryParse(requested, out AppThemeColor themeColor);
-                _settings.Update(state => state.ThemeColor = themeColor);
-                return _actions.GetWebTheme();
+                var selection = ReadThemeSelection(payload);
+                _settings.Update(state =>
+                {
+                    state.ThemeColor = selection.ThemeColor;
+                    state.CustomThemeColor = selection.CustomColor;
+                });
+                AppSettings saved = _settings.Current;
+                return ThemeService.CreateWebTheme(saved.ThemeColor, saved.CustomThemeColor);
             }
 
             case "saveSettings":
@@ -190,6 +197,31 @@ public sealed class SettingsRpcHandler : IBridgeRpcHandler
             default:
                 throw new ArgumentException($"Handler cannot process RPC method '{method}'.");
         }
+    }
+
+    private (AppThemeColor ThemeColor, string? CustomColor) ReadThemeSelection(JsonElement payload)
+    {
+        string? requested = payload.ValueKind == JsonValueKind.Object
+            && payload.TryGetProperty("themeColor", out JsonElement themeColorElement)
+            && themeColorElement.ValueKind == JsonValueKind.String
+                ? themeColorElement.GetString()
+                : null;
+
+        if (string.Equals(requested, "custom", StringComparison.OrdinalIgnoreCase))
+        {
+            string? customColor = payload.ValueKind == JsonValueKind.Object
+                && payload.TryGetProperty("customColor", out JsonElement customColorElement)
+                && customColorElement.ValueKind == JsonValueKind.String
+                    ? customColorElement.GetString()
+                    : null;
+            if (!ThemeService.TryNormalizeCustomColor(customColor, out string normalizedCustom))
+                throw new ArgumentException("Invalid custom theme color");
+
+            return (_settings.Current.ThemeColor, normalizedCustom);
+        }
+
+        AppThemeColorExtensions.TryParse(requested, out AppThemeColor themeColor);
+        return (themeColor, null);
     }
 
     private async Task<object> ExportSettingsAsync(CancellationToken cancellationToken)

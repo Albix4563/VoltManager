@@ -14,12 +14,12 @@ public sealed class BridgeContractInventoryTests
             "getDisplayBrightness", "setDisplayBrightness",
             "beginWidgetDrag", "beginWidgetResize", "setWidgetTopmost", "closeWidget", "getWidgetsState",
             "setWidgetEnabled", "setWidgetsMaster", "setWidgetPinned", "setWidgetSize", "setWidgetOrientation",
-            "setWidgetPlacement", "resetWidgetPosition", "checkDefaultPlans", "restoreDefaultPlans",
+            "setWidgetPlacement", "setWidgetAppearance", "setWidgetAppearanceOverride", "resetWidgetPosition", "checkDefaultPlans", "restoreDefaultPlans",
             "findExtraPlans", "deleteExtraPlans", "dismissExtraPlans",
             "getActivePlan", "getActivePlanReason", "getPlanHistory", "clearPlanHistory",
             "listPowerPlans", "getKeepAwakeState", "setKeepAwake", "setKeepAwakeSafety",
             "getCpuAutomationState", "setManualOverride", "clearManualOverride", "getGamingMode",
-            "setGamingMode", "getSettings", "setThemeColor", "saveSettings", "setLanguage",
+            "setGamingMode", "getSettings", "previewThemeColor", "setThemeColor", "saveSettings", "setLanguage",
             "setStartWithWindows", "setCloseToTray", "setAutoUpdateChecks", "setSilentAutoUpdates",
             "setUpdateChannel", "snoozeUpdate", "skipUpdateVersion", "getHeavyAppStatus",
             "refreshHeavyAppDetection", "getAppPowerProfileStatus", "getPowerSourcePlanState",
@@ -52,7 +52,7 @@ public sealed class BridgeContractInventoryTests
             .. LauncherRpcHandler.MethodNames,
         ];
 
-        Assert.Equal(100, actual.Length);
+        Assert.Equal(103, actual.Length);
         Assert.Equal(actual.Length, actual.Distinct(StringComparer.Ordinal).Count());
         Assert.Equal(expected.Order(StringComparer.Ordinal), actual.Order(StringComparer.Ordinal));
     }
@@ -69,10 +69,10 @@ public sealed class BridgeContractInventoryTests
             "metrics", "planHistoryChanged", "powerPlanConflictDetected", "powerSourcePlanChanged",
             "resourceProfileChanged", "scheduledPowerActionChanged", "standbyAutoCleaned",
             "themeChanged", "thermalGuardChanged", "updateAvailable", "updateDownloadProgress",
-            "widgetsStateChanged", "widgetTopmostChanged",
+            "widgetsStateChanged", "widgetAppearanceChanged", "widgetTopmostChanged",
         ];
 
-        Assert.Equal(30, BridgeEventNames.All.Count);
+        Assert.Equal(31, BridgeEventNames.All.Count);
         Assert.Equal(expected.Order(StringComparer.Ordinal), BridgeEventNames.All.Order(StringComparer.Ordinal));
     }
 }

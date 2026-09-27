@@ -59,6 +59,8 @@ internal static class BridgeHandlerFactory
             app.Widgets.SetSize,
             app.Widgets.SetOrientation,
             app.Widgets.SetPlacement,
+            app.Widgets.SetAppearance,
+            app.Widgets.SetAppearanceOverride,
             app.Widgets.ResetPosition,
             beginWidgetDrag,
             beginWidgetResize,

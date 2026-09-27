@@ -50,6 +50,26 @@ public sealed class SettingsServiceContractTests
     }
 
     [Fact]
+    public void CustomThemeColor_IsNormalizedAndPersistsAcrossReload()
+    {
+        var settings = TestSettings.Create(out string path);
+        try
+        {
+            settings.Update(state => state.CustomThemeColor = "#F008");
+
+            Assert.Equal("#8D080F", settings.Current.CustomThemeColor);
+            Assert.Equal("#8D080F", new SettingsService(path).Current.CustomThemeColor);
+
+            settings.Update(state => state.CustomThemeColor = "#invalid");
+            Assert.Null(settings.Current.CustomThemeColor);
+        }
+        finally
+        {
+            Directory.Delete(Path.GetDirectoryName(path)!, recursive: true);
+        }
+    }
+
+    [Fact]
     public void Update_DoesNotPublishReplacementWhenPersistenceFails()
     {
         string root = Path.Combine(Path.GetTempPath(), "VoltManager.Tests", Guid.NewGuid().ToString("N"));

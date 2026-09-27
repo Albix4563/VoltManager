@@ -8,6 +8,53 @@ namespace VoltManager.Tests;
 public sealed class WidgetCustomizationTests
 {
     [Fact]
+    public void WidgetAppearance_normalizes_unknown_values_and_clamps_intensity()
+    {
+        var appearance = new WidgetAppearance
+        {
+            Material = "glass",
+            Tint = "invalid",
+            Gradient = "sideways",
+            Intensity = 240,
+        };
+
+        appearance.Normalize();
+
+        Assert.Equal("solid", appearance.Material);
+        Assert.Equal("theme", appearance.Tint);
+        Assert.Equal("vertical", appearance.Gradient);
+        Assert.Equal(100, appearance.Intensity);
+    }
+
+    [Fact]
+    public void WidgetAppearance_value_equality_compares_normalized_values()
+    {
+        var left = new WidgetAppearance { Material = "ACRYLIC", Tint = "Graphite", Gradient = "RADIAL", Intensity = 42 };
+        var right = new WidgetAppearance { Material = "acrylic", Tint = "graphite", Gradient = "radial", Intensity = 42 };
+        var different = right.CloneNormalized();
+        different.Intensity = 43;
+
+        Assert.True(left.ValueEquals(right));
+        Assert.False(left.ValueEquals(different));
+        Assert.False(left.ValueEquals(null));
+    }
+
+    [Fact]
+    public void Legacy_widget_json_without_appearance_keeps_classic_defaults()
+    {
+        var settings = JsonSerializer.Deserialize<AppSettings>(
+            """{"widgets":{"enabled":true,"items":[{"type":"clock","enabled":true,"size":"medium"}]}}""")!;
+
+        settings.Widgets.Normalize();
+
+        Assert.Equal("solid", settings.Widgets.Appearance.Material);
+        Assert.Equal("theme", settings.Widgets.Appearance.Tint);
+        Assert.Equal("vertical", settings.Widgets.Appearance.Gradient);
+        Assert.Equal(60, settings.Widgets.Appearance.Intensity);
+        Assert.Null(settings.Widgets.Items.Single(x => x.Type == "clock").Appearance);
+    }
+
+    [Fact]
     public void WidgetSettings_adds_apps_after_launcher_and_uses_shared_size_presets()
     {
         int launcher = Array.IndexOf(WidgetSettings.Types, "launcher");

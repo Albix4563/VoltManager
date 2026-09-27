@@ -2,6 +2,59 @@ using System.Text.Json.Serialization;
 
 namespace VoltManager.Models;
 
+public class WidgetAppearance
+{
+    public static readonly string[] Materials = ["solid", "acrylic", "transparent"];
+    public static readonly string[] Tints = ["theme", "midnight", "graphite", "aurora", "ember", "neutral"];
+    public static readonly string[] Gradients = ["vertical", "diagonal", "radial", "flat"];
+
+    [JsonPropertyName("material")] public string Material { get; set; } = "solid";
+    [JsonPropertyName("tint")] public string Tint { get; set; } = "theme";
+    [JsonPropertyName("gradient")] public string Gradient { get; set; } = "vertical";
+    [JsonPropertyName("intensity")] public int Intensity { get; set; } = 60;
+
+    public void Normalize()
+    {
+        Material = NormalizeMaterial(Material);
+        Tint = NormalizeTint(Tint);
+        Gradient = NormalizeGradient(Gradient);
+        Intensity = Math.Clamp(Intensity, 0, 100);
+    }
+
+    public WidgetAppearance CloneNormalized()
+    {
+        var copy = new WidgetAppearance
+        {
+            Material = Material,
+            Tint = Tint,
+            Gradient = Gradient,
+            Intensity = Intensity,
+        };
+        copy.Normalize();
+        return copy;
+    }
+
+    public bool ValueEquals(WidgetAppearance? other)
+    {
+        if (other is null) return false;
+        var left = CloneNormalized();
+        var right = other.CloneNormalized();
+        return string.Equals(left.Material, right.Material, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(left.Tint, right.Tint, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(left.Gradient, right.Gradient, StringComparison.OrdinalIgnoreCase)
+            && left.Intensity == right.Intensity;
+    }
+
+    public static string NormalizeMaterial(string? value)
+        => Materials.FirstOrDefault(x => string.Equals(x, value, StringComparison.OrdinalIgnoreCase)) ?? "solid";
+
+    public static string NormalizeTint(string? value)
+        => Tints.FirstOrDefault(x => string.Equals(x, value, StringComparison.OrdinalIgnoreCase)) ?? "theme";
+
+    public static string NormalizeGradient(string? value)
+        => Gradients.FirstOrDefault(x => string.Equals(x, value, StringComparison.OrdinalIgnoreCase)) ?? "vertical";
+}
+
 public class WidgetItem
 {
     [JsonPropertyName("type")] public string Type { get; set; } = "";
@@ -22,6 +75,7 @@ public class WidgetItem
     [JsonPropertyName("anchor")] public string? Anchor { get; set; }
     [JsonPropertyName("offsetX")] public double OffsetX { get; set; }
     [JsonPropertyName("offsetY")] public double OffsetY { get; set; }
+    [JsonPropertyName("appearance")] public WidgetAppearance? Appearance { get; set; }
 }
 
 public class WidgetSettings
@@ -42,6 +96,7 @@ public class WidgetSettings
     ];
 
     [JsonPropertyName("enabled")] public bool Enabled { get; set; } = false;
+    [JsonPropertyName("appearance")] public WidgetAppearance Appearance { get; set; } = new();
     [JsonPropertyName("items")] public List<WidgetItem> Items { get; set; } = DefaultItems();
 
     public static List<WidgetItem> DefaultItems() => Types.Select(t => new WidgetItem { Type = t }).ToList();
@@ -98,6 +153,8 @@ public class WidgetSettings
 
     public void Normalize()
     {
+        Appearance ??= new WidgetAppearance();
+        Appearance.Normalize();
         Items ??= new List<WidgetItem>();
 
         var byType = new Dictionary<string, WidgetItem>(StringComparer.OrdinalIgnoreCase);
@@ -164,6 +221,7 @@ public class WidgetSettings
             if (item.MonitorNumber is <= 0) item.MonitorNumber = null;
             item.MonitorId = string.IsNullOrWhiteSpace(item.MonitorId) ? null : item.MonitorId.Trim();
             item.MonitorName = string.IsNullOrWhiteSpace(item.MonitorName) ? null : item.MonitorName.Trim();
+            item.Appearance?.Normalize();
             byType.TryAdd(item.Type, item);
         }
 
@@ -180,6 +238,14 @@ public class WidgetSettings
         Items.Add(item);
         Normalize();
         return Items.First(i => string.Equals(i.Type, type, StringComparison.OrdinalIgnoreCase));
+    }
+
+    public WidgetAppearance ResolveAppearance(WidgetItem item)
+    {
+        Appearance ??= new WidgetAppearance();
+        Appearance.Normalize();
+        item.Appearance?.Normalize();
+        return (item.Appearance ?? Appearance).CloneNormalized();
     }
 
     private static double? NormalizeDimension(double? value, double min, double max)

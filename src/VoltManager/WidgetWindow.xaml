@@ -6,7 +6,7 @@
         Background="{DynamicResource ThemeBackgroundBrush}"
         ShowInTaskbar="False"
         ResizeMode="NoResize">
-    <Grid Background="{DynamicResource ThemeBackgroundBrush}">
+    <Grid x:Name="RootGrid" Background="{DynamicResource ThemeBackgroundBrush}">
         <wv2:WebView2 x:Name="WebView" />
     </Grid>
 </Window>

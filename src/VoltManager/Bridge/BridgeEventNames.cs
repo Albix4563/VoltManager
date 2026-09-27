@@ -31,6 +31,7 @@ public static class BridgeEventNames
     public const string UpdateAvailable = "updateAvailable";
     public const string UpdateDownloadProgress = "updateDownloadProgress";
     public const string WidgetsStateChanged = "widgetsStateChanged";
+    public const string WidgetAppearanceChanged = "widgetAppearanceChanged";
     public const string WidgetTopmostChanged = "widgetTopmostChanged";
 
     public static IReadOnlyCollection<string> All { get; } = Array.AsReadOnly(new[]
@@ -41,6 +42,6 @@ public static class BridgeEventNames
         LanguageChanged, LauncherDropResult, LaunchersChanged, ManualOverrideChanged, Metrics, PlanHistoryChanged,
         PowerPlanConflictDetected, PowerSourcePlanChanged, ResourceProfileChanged,
         ScheduledPowerActionChanged, StandbyAutoCleaned, ThemeChanged, ThermalGuardChanged,
-        UpdateAvailable, UpdateDownloadProgress, WidgetsStateChanged, WidgetTopmostChanged,
+        UpdateAvailable, UpdateDownloadProgress, WidgetsStateChanged, WidgetAppearanceChanged, WidgetTopmostChanged,
     });
 }

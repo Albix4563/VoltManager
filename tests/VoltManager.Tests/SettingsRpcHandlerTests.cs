@@ -49,7 +49,7 @@ public class SettingsRpcHandlerTests
         var handler = CreateHandler(TestSettings.Create());
         string[] expected =
         [
-            "getSettings", "setThemeColor", "saveSettings", "setLanguage",
+            "getSettings", "previewThemeColor", "setThemeColor", "saveSettings", "setLanguage",
             "setStartWithWindows", "setCloseToTray", "setAutoUpdateChecks",
             "setSilentAutoUpdates", "setUpdateChannel", "snoozeUpdate",
             "skipUpdateVersion", "getStandbyAutoCleanSettings",
@@ -57,6 +57,49 @@ public class SettingsRpcHandlerTests
         ];
 
         Assert.Equal(expected.OrderBy(x => x), handler.Methods.OrderBy(x => x));
+    }
+
+    [Fact]
+    public async Task CustomTheme_preview_is_non_persistent_and_apply_persists_normalized_color()
+    {
+        SettingsService settings = TestSettings.Create();
+        settings.Update(state => state.ThemeColor = AppThemeColor.Red);
+        var handler = CreateHandler(settings);
+
+        object? preview = await handler.HandleAsync(
+            "previewThemeColor",
+            Payload(new { themeColor = "custom", customColor = "#F008" }),
+            CancellationToken.None);
+
+        Assert.Null(settings.Current.CustomThemeColor);
+        using (var previewDoc = JsonDocument.Parse(JsonSerializer.Serialize(preview, BridgeRpc.JsonOpts)))
+        {
+            Assert.Equal("custom", previewDoc.RootElement.GetProperty("themeColor").GetString());
+            Assert.Equal("#8D080F", previewDoc.RootElement.GetProperty("customColor").GetString());
+        }
+
+        object? applied = await handler.HandleAsync(
+            "setThemeColor",
+            Payload(new { themeColor = "custom", customColor = "#F008" }),
+            CancellationToken.None);
+
+        Assert.Equal(AppThemeColor.Red, settings.Current.ThemeColor);
+        Assert.Equal("#8D080F", settings.Current.CustomThemeColor);
+        using var appliedDoc = JsonDocument.Parse(JsonSerializer.Serialize(applied, BridgeRpc.JsonOpts));
+        Assert.Equal("custom", appliedDoc.RootElement.GetProperty("themeColor").GetString());
+        Assert.Equal("#8D080F", appliedDoc.RootElement.GetProperty("customColor").GetString());
+    }
+
+    [Fact]
+    public async Task CustomTheme_rejects_invalid_hex()
+    {
+        var handler = CreateHandler(TestSettings.Create());
+
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            handler.HandleAsync(
+                "setThemeColor",
+                Payload(new { themeColor = "custom", customColor = "#12" }),
+                CancellationToken.None));
     }
 
     [Fact]

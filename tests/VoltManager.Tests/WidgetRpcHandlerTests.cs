@@ -1,6 +1,7 @@
 using System.Text.Json;
 using VoltManager.Bridge;
 using VoltManager.Bridge.Handlers;
+using VoltManager.Models;
 
 namespace VoltManager.Tests;
 
@@ -18,6 +19,7 @@ public class WidgetRpcHandlerTests
             "beginWidgetDrag", "beginWidgetResize", "setWidgetTopmost", "closeWidget",
             "getWidgetsState", "setWidgetEnabled", "setWidgetsMaster",
             "setWidgetPinned", "setWidgetSize", "setWidgetOrientation", "setWidgetPlacement",
+            "setWidgetAppearance", "setWidgetAppearanceOverride",
             "resetWidgetPosition",
         ];
         Assert.Equal(expected.OrderBy(x => x), handler.Methods.OrderBy(x => x));
@@ -59,6 +61,27 @@ public class WidgetRpcHandlerTests
     }
 
     [Fact]
+    public async Task SetWidgetAppearance_deserializes_appearance_payload()
+    {
+        WidgetAppearance? call = null;
+        var handler = Create(setAppearance: appearance =>
+        {
+            call = appearance;
+            return appearance;
+        });
+
+        await handler.HandleAsync("setWidgetAppearance",
+            Payload(new { material = "acrylic", tint = "aurora", gradient = "radial", intensity = 75 }),
+            CancellationToken.None);
+
+        Assert.NotNull(call);
+        Assert.Equal("acrylic", call.Material);
+        Assert.Equal("aurora", call.Tint);
+        Assert.Equal("radial", call.Gradient);
+        Assert.Equal(75, call.Intensity);
+    }
+
+    [Fact]
     public async Task SetWidgetTopmost_invokes_native_callback_and_preserves_result_shape()
     {
         bool? requested = null;
@@ -92,6 +115,7 @@ public class WidgetRpcHandlerTests
         Func<string, bool, object>? setEnabled = null,
         Func<string, string, object>? setOrientation = null,
         Func<string, string, string, object>? setPlacement = null,
+        Func<WidgetAppearance, object>? setAppearance = null,
         Action<bool>? setTopmost = null)
     {
         return new WidgetRpcHandler(new WidgetRpcActions(
@@ -102,6 +126,8 @@ public class WidgetRpcHandlerTests
             SetSize: (type, size) => new { type, size },
             SetOrientation: setOrientation ?? ((type, orientation) => new { type, orientation }),
             SetPlacement: setPlacement ?? ((type, monitor, anchor) => new { type, monitor, anchor }),
+            SetAppearance: setAppearance ?? (appearance => appearance),
+            SetAppearanceOverride: (type, appearance) => new { type, appearance },
             ResetPosition: type => new { type },
             BeginDrag: () => { },
             BeginResize: () => { },

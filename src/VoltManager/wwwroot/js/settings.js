@@ -483,6 +483,14 @@
     const WIDGET_TYPES = ['clock', 'calendar', 'usage', 'temps', 'power', 'plans', 'launcher', 'apps', 'actions', 'brightness', 'processes', 'memory'];
     const WIDGET_PRESETS = ['mini', 'medium', 'large'];
     const WIDGET_ORIENTATIONS = ['horizontal', 'vertical'];
+    const WIDGET_MATERIALS = ['solid', 'acrylic', 'transparent'];
+    const WIDGET_TINTS = ['theme', 'midnight', 'graphite', 'aurora', 'ember', 'neutral'];
+    const WIDGET_GRADIENTS = ['vertical', 'diagonal', 'radial', 'flat'];
+    let currentWidgetAppearance = normalizeWidgetAppearance(null);
+    let desiredWidgetAppearance = currentWidgetAppearance;
+    let widgetAppearanceSliderTimer = 0;
+    let widgetAppearanceRequestSequence = 0;
+    let widgetAppearanceRequestsPending = 0;
 
     function setToggle(el, on) {
         if (el) el.dataset.on = on ? 'true' : 'false';
@@ -494,10 +502,22 @@
         'bottomLeft', 'bottomCenter', 'bottomRight',
     ];
 
+    function normalizeWidgetAppearance(value) {
+        value = value || {};
+        const intensity = Number(value.intensity);
+        return {
+            material: WIDGET_MATERIALS.includes(value.material) ? value.material : 'solid',
+            tint: WIDGET_TINTS.includes(value.tint) ? value.tint : 'theme',
+            gradient: WIDGET_GRADIENTS.includes(value.gradient) ? value.gradient : 'vertical',
+            intensity: Number.isFinite(intensity) ? Math.max(0, Math.min(100, Math.round(intensity))) : 60,
+        };
+    }
+
     function normalizeWidgetsState(state) {
         state = state || { enabled: false, items: [], monitors: [] };
         if (!Array.isArray(state.items)) state.items = [];
         if (!Array.isArray(state.monitors)) state.monitors = [];
+        state.appearance = normalizeWidgetAppearance(state.appearance);
         const byType = {};
         state.items.forEach(item => {
             if (item && WIDGET_TYPES.includes(item.type)) byType[item.type] = item;
@@ -513,6 +533,8 @@
             item.height = Number.isFinite(item.height) ? item.height : 150;
             item.customSize = item.customSize === true;
             item.usesFallbackDisplay = item.usesFallbackDisplay === true;
+            item.appearance = item.appearance ? normalizeWidgetAppearance(item.appearance) : null;
+            item.effectiveAppearance = normalizeWidgetAppearance(item.effectiveAppearance || item.appearance || state.appearance);
             return item;
         });
         state.enabled = state.enabled === true;
@@ -524,6 +546,7 @@
         const settings = window.__voltSettings.get ? window.__voltSettings.get() : window.__voltSettings;
         settings.widgets = {
             enabled: state.enabled === true,
+            appearance: normalizeWidgetAppearance(state.appearance),
             items: (state.items || []).map(function (item) {
                 return {
                     type: item.type,
@@ -541,6 +564,7 @@
                     anchor: item.anchor || null,
                     offsetX: Number.isFinite(item.offsetX) ? item.offsetX : 0,
                     offsetY: Number.isFinite(item.offsetY) ? item.offsetY : 0,
+                    appearance: item.appearance ? normalizeWidgetAppearance(item.appearance) : null,
                 };
             }),
         };
@@ -672,8 +696,135 @@
         return '<div class="widgets-empty-state"><span class="material-symbols-outlined text-[18px]">' + icon + '</span><span data-i18n="' + key + '">' + esc(tr(key, fallback)) + '</span></div>';
     }
 
-    function renderWidgetsState(state) {
+    function applyWidgetAppearancePreview(el, appearance) {
+        if (!el) return;
+        const normalized = normalizeWidgetAppearance(appearance);
+        const level = normalized.intensity / 100;
+        el.dataset.material = normalized.material;
+        el.dataset.tint = normalized.tint;
+        el.dataset.gradient = normalized.gradient;
+        el.style.setProperty('--vm-widget-intensity', String(level));
+        el.style.setProperty('--vm-widget-solid-alpha', String(0.70 + level * 0.25));
+        el.style.setProperty('--vm-widget-acrylic-alpha', String(0.18 + level * 0.37));
+        el.style.setProperty('--vm-widget-transparent-alpha', String(level * 0.20));
+    }
+
+    function renderWidgetAppearanceState(value, updateDesired = true) {
+        currentWidgetAppearance = normalizeWidgetAppearance(value);
+        if (updateDesired) desiredWidgetAppearance = currentWidgetAppearance;
+        document.querySelectorAll('[data-widget-material]').forEach(button => {
+            const selected = button.dataset.widgetMaterial === currentWidgetAppearance.material;
+            button.setAttribute('aria-checked', selected ? 'true' : 'false');
+            button.setAttribute('aria-pressed', selected ? 'true' : 'false');
+            button.tabIndex = selected ? 0 : -1;
+        });
+        document.querySelectorAll('[data-widget-tint]').forEach(button => {
+            const selected = button.dataset.widgetTint === currentWidgetAppearance.tint;
+            button.setAttribute('aria-checked', selected ? 'true' : 'false');
+            button.setAttribute('aria-pressed', selected ? 'true' : 'false');
+            button.tabIndex = selected ? 0 : -1;
+        });
+        document.querySelectorAll('[data-widget-gradient]').forEach(button => {
+            const selected = button.dataset.widgetGradient === currentWidgetAppearance.gradient;
+            button.setAttribute('aria-checked', selected ? 'true' : 'false');
+            button.setAttribute('aria-pressed', selected ? 'true' : 'false');
+            button.tabIndex = selected ? 0 : -1;
+        });
+
+        const slider = document.getElementById('widget-appearance-intensity');
+        const readout = document.getElementById('widget-appearance-intensity-value');
+        if (slider && document.activeElement !== slider) slider.value = String(currentWidgetAppearance.intensity);
+        if (readout) readout.textContent = currentWidgetAppearance.intensity + '%';
+        const hint = document.getElementById('widget-material-hint');
+        if (hint) {
+            const key = 'widget_material_' + currentWidgetAppearance.material + '_hint';
+            hint.textContent = tr(key, currentWidgetAppearance.material);
+        }
+        applyWidgetAppearancePreview(document.getElementById('widget-appearance-preview'), currentWidgetAppearance);
+    }
+
+    function persistWidgetAppearance(next, debounce) {
+        const payload = normalizeWidgetAppearance(next);
+        desiredWidgetAppearance = payload;
+        renderWidgetAppearanceState(payload, false);
+        const requestSequence = ++widgetAppearanceRequestSequence;
+        if (widgetAppearanceSliderTimer) {
+            clearTimeout(widgetAppearanceSliderTimer);
+            widgetAppearanceSliderTimer = 0;
+        }
+
+        const commit = async () => {
+            widgetAppearanceSliderTimer = 0;
+            widgetAppearanceRequestsPending++;
+            try {
+                const state = await Host.call('setWidgetAppearance', payload);
+                if (requestSequence === widgetAppearanceRequestSequence) {
+                    renderWidgetsState(state, requestSequence);
+                }
+            } catch {
+                try {
+                    const state = await Host.call('getWidgetsState');
+                    if (requestSequence === widgetAppearanceRequestSequence) {
+                        renderWidgetsState(state, requestSequence);
+                    }
+                } catch { /* ignore */ }
+            } finally {
+                widgetAppearanceRequestsPending = Math.max(0, widgetAppearanceRequestsPending - 1);
+            }
+        };
+        if (debounce) widgetAppearanceSliderTimer = setTimeout(commit, 150);
+        else commit();
+    }
+
+    function mountWidgetAppearanceUi() {
+        const card = document.getElementById('widget-appearance-card');
+        if (!card || card.dataset.wired === 'true') return;
+        card.dataset.wired = 'true';
+
+        function wireRadioGroup(selector, field, dataKey) {
+            const buttons = Array.from(card.querySelectorAll(selector));
+            buttons.forEach(button => {
+                const activate = () => persistWidgetAppearance(Object.assign({}, desiredWidgetAppearance, {
+                    [field]: button.dataset[dataKey],
+                }), false);
+                button.addEventListener('click', activate);
+                button.addEventListener('keydown', event => {
+                    if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) return;
+                    event.preventDefault();
+                    const index = buttons.indexOf(button);
+                    const nextIndex = event.key === 'Home' ? 0
+                        : event.key === 'End' ? buttons.length - 1
+                        : (event.key === 'ArrowLeft' || event.key === 'ArrowUp')
+                            ? (index - 1 + buttons.length) % buttons.length
+                            : (index + 1) % buttons.length;
+                    buttons[nextIndex].focus();
+                    buttons[nextIndex].click();
+                });
+            });
+        }
+
+        wireRadioGroup('[data-widget-material]', 'material', 'widgetMaterial');
+        wireRadioGroup('[data-widget-tint]', 'tint', 'widgetTint');
+        wireRadioGroup('[data-widget-gradient]', 'gradient', 'widgetGradient');
+
+        document.getElementById('widget-appearance-intensity')?.addEventListener('input', event => {
+            persistWidgetAppearance(Object.assign({}, desiredWidgetAppearance, {
+                intensity: Number(event.target.value),
+            }), true);
+        });
+        renderWidgetAppearanceState(currentWidgetAppearance);
+    }
+
+    function renderWidgetsState(state, appearanceRequestSequence) {
         state = normalizeWidgetsState(state);
+        const appearanceRequestPending = widgetAppearanceSliderTimer !== 0 || widgetAppearanceRequestsPending > 0;
+        const sequencedAppearance = appearanceRequestSequence != null;
+        if ((sequencedAppearance && appearanceRequestSequence === widgetAppearanceRequestSequence)
+            || (!sequencedAppearance && !appearanceRequestPending)) {
+            renderWidgetAppearanceState(state.appearance);
+        } else {
+            state.appearance = normalizeWidgetAppearance(desiredWidgetAppearance);
+        }
         setToggle(toggleWidgetsMaster, state.enabled);
 
         const activeCount = state.items.filter(function (i) { return i.enabled; }).length;
@@ -730,6 +881,21 @@
             var height = Math.round(item.height || 0);
             var sizeReadout = (item.customSize ? '<span data-i18n="widget_size_custom">' + esc(tr('widget_size_custom', 'Custom')) + '</span> · ' : '') + width + '\u00d7' + height;
             var titleKey = widgetTitleKey(item.type);
+            var appearanceMaterial = item.appearance ? item.appearance.material : 'global';
+            var appearanceOptions = [
+                ['global', 'widget_material_global', tr('widget_material_global', 'Global')],
+                ['solid', 'widget_material_solid', tr('widget_material_solid', 'Solid')],
+                ['acrylic', 'widget_material_acrylic', tr('widget_material_acrylic', 'Acrylic')],
+                ['transparent', 'widget_material_transparent', tr('widget_material_transparent', 'Transparent')],
+            ].map(function (option) {
+                return '<option value="' + option[0] + '" data-i18n="' + option[1] + '"' +
+                    (appearanceMaterial === option[0] ? ' selected' : '') + '>' + esc(option[2]) + '</option>';
+            }).join('');
+            var appearanceRow = '<label class="widget-size-row widget-appearance-override-row">' +
+                '<div><span class="startup-detail-label" data-i18n="widget_appearance_override">Aspetto</span>' +
+                '<span class="startup-detail-value" data-i18n="widget_appearance_override_hint">Usa il globale o sostituisci il materiale.</span></div>' +
+                '<select class="widget-monitor-select widget-appearance-override-select" data-widget-appearance-override data-widget-type="' + esc(item.type) + '">' +
+                appearanceOptions + '</select></label>';
 
             var gate = item.type === 'brightness' && !item.enabled ? ' data-vm-brightness-only data-vm-laptop-only' : '';
 
@@ -739,6 +905,7 @@
                 '<div class="startup-actions">' + toggleBtn + pinBtn + resetBtn + '</div></div>' +
                 '<div class="startup-card__details">' +
                 orientationRow +
+                appearanceRow +
                 '<div class="widget-size-row"><div><span class="startup-detail-label" data-i18n="widget_detail_size">Dimensione</span><span class="startup-detail-value">' + sizeReadout + '</span></div><div class="widget-size-control" role="group" aria-label="' + esc(tr('widget_size_selector', 'Widget size')) + '">' + sizeButtons + '</div></div>' +
                 '<div class="widget-placement-row">' +
                 '<label class="widget-monitor-label"><span class="startup-detail-label" data-i18n="widget_monitor_selector">Monitor</span>' +
@@ -871,6 +1038,21 @@
         });
 
         widgetsClickRoot.addEventListener('change', async (e) => {
+            const appearanceSelect = e.target.closest('[data-widget-appearance-override]');
+            if (appearanceSelect) {
+                const type = appearanceSelect.dataset.widgetType;
+                const material = appearanceSelect.value;
+                const appearance = material === 'global'
+                    ? null
+                    : Object.assign({}, desiredWidgetAppearance, { material });
+                try {
+                    renderWidgetsState(await Host.call('setWidgetAppearanceOverride', { type, appearance }));
+                } catch {
+                    try { renderWidgetsState(await Host.call('getWidgetsState')); } catch { /* ignore */ }
+                }
+                return;
+            }
+
             const select = e.target.closest('[data-widget-monitor]');
             if (!select) return;
             const card = select.closest('[data-widget-row]');
@@ -1333,20 +1515,313 @@
     }
 
     function normalizeThemeColor(settings) {
-        const normalized = window.VoltTheme && VoltTheme.normalize
+        const custom = window.VoltTheme && VoltTheme.normalizeCustomColor
+            ? VoltTheme.normalizeCustomColor(settings.customThemeColor)
+            : null;
+        if (custom) {
+            settings.customThemeColor = custom;
+            settings.themeColor = 'custom';
+            return 'custom';
+        }
+
+        settings.customThemeColor = null;
+        const preset = window.VoltTheme && VoltTheme.normalize
             ? VoltTheme.normalize(settings.themeColor)
             : 'blue';
-        settings.themeColor = normalized;
-        return normalized;
+        settings.themeColor = preset;
+        return preset;
     }
 
-    function setThemeUi(themeColor, palette) {
+    const themeLabelKeys = {
+        blue: ['set_theme_blue', 'Blu'],
+        red: ['set_theme_red', 'Rosso'],
+        green: ['set_theme_green', 'Verde'],
+        orange: ['set_theme_orange', 'Arancione'],
+        purple: ['set_theme_purple', 'Viola'],
+        pink: ['set_theme_pink', 'Rosa'],
+        gray: ['set_theme_gray', 'Grigio'],
+        custom: ['set_theme_custom', 'Personalizzato'],
+    };
+    const themeChooserState = {
+        open: false,
+        original: null,
+        selection: null,
+        lastFocused: null,
+        previewSequence: 0,
+        saving: false,
+    };
+
+    function themeLabel(themeColor, customColor) {
+        const entry = themeLabelKeys[themeColor] || themeLabelKeys.blue;
+        const label = tr(entry[0], entry[1]);
+        return themeColor === 'custom' && customColor ? label + ' · ' + customColor : label;
+    }
+
+    function setThemeUi(themeColor, palette, customColor) {
         const normalized = window.VoltTheme && VoltTheme.apply
             ? VoltTheme.apply(themeColor, palette)
             : 'blue';
-        const select = document.getElementById('theme-select');
-        if (select) select.value = normalized;
+        const resolvedPalette = palette
+            || (window.__voltThemeCatalog && window.__voltThemeCatalog[normalized])
+            || null;
+        const swatch = document.getElementById('theme-current-swatch');
+        if (swatch && resolvedPalette && resolvedPalette.primary) {
+            swatch.style.background = resolvedPalette.primary;
+        }
+        const label = document.getElementById('theme-current-label');
+        if (label) label.textContent = themeLabel(normalized, customColor);
         return normalized;
+    }
+
+    function cloneThemeState(state) {
+        if (!state || !state.palette) return null;
+        return {
+            themeColor: state.themeColor === 'custom'
+                ? 'custom'
+                : (window.VoltTheme && VoltTheme.normalize ? VoltTheme.normalize(state.themeColor) : 'blue'),
+            customColor: state.customColor || null,
+            palette: Object.assign({}, state.palette),
+        };
+    }
+
+    function currentThemeState(settings) {
+        const nativeState = cloneThemeState(window.__voltThemeState);
+        if (nativeState) return nativeState;
+
+        const themeColor = normalizeThemeColor(settings);
+        const palette = window.__voltThemeCatalog && window.__voltThemeCatalog[themeColor];
+        return palette ? { themeColor, customColor: settings.customThemeColor || null, palette: Object.assign({}, palette) } : null;
+    }
+
+    function setThemeChooserValidation(valid, normalized, message) {
+        const input = document.getElementById('theme-custom-input');
+        const status = document.getElementById('theme-custom-status');
+        if (input) input.setAttribute('aria-invalid', valid ? 'false' : 'true');
+        if (status) {
+            status.classList.toggle('is-valid', !!valid);
+            status.textContent = message || (valid && normalized
+                ? tr('theme_picker_hex_valid', 'Normalizzato: {color}').replace('{color}', normalized)
+                : '');
+        }
+    }
+
+    function syncThemeChooserSelection() {
+        const selection = themeChooserState.selection || { themeColor: 'blue', customColor: null };
+        document.querySelectorAll('[data-theme-choice]').forEach(button => {
+            const selected = selection.themeColor !== 'custom'
+                && button.dataset.themeChoice === selection.themeColor;
+            button.setAttribute('aria-checked', selected ? 'true' : 'false');
+        });
+        const customPanel = document.getElementById('theme-custom-panel');
+        if (customPanel) customPanel.dataset.selected = selection.themeColor === 'custom' ? 'true' : 'false';
+        const customSwatch = document.getElementById('theme-custom-swatch');
+        if (customSwatch && selection.customColor) customSwatch.style.background = selection.customColor;
+        const apply = document.getElementById('theme-chooser-apply');
+        if (apply) apply.disabled = selection.themeColor === 'custom' && !selection.customColor;
+    }
+
+    function previewThemeSelection(selection) {
+        if (themeChooserState.saving) return;
+        themeChooserState.selection = selection;
+        syncThemeChooserSelection();
+        const requestId = ++themeChooserState.previewSequence;
+
+        if (selection.themeColor !== 'custom') {
+            const localPalette = window.__voltThemeCatalog && window.__voltThemeCatalog[selection.themeColor];
+            if (localPalette) setThemeUi(selection.themeColor, localPalette, null);
+        }
+
+        const payload = selection.themeColor === 'custom'
+            ? { themeColor: 'custom', customColor: selection.customColor }
+            : { themeColor: selection.themeColor };
+        Host.call('previewThemeColor', payload)
+            .then(data => {
+                if (!themeChooserState.open || requestId !== themeChooserState.previewSequence) return;
+                if (!data || !data.themeColor || !data.palette) return;
+                themeChooserState.selection = {
+                    themeColor: data.themeColor,
+                    customColor: data.customColor || null,
+                };
+                setThemeUi(data.themeColor, data.palette, data.customColor || null);
+                syncThemeChooserSelection();
+            })
+            .catch(error => {
+                if (!themeChooserState.open || requestId !== themeChooserState.previewSequence) return;
+                console.error('previewThemeColor failed', error);
+                if (selection.themeColor === 'custom') {
+                    setThemeChooserValidation(false, null, tr('theme_picker_preview_error', 'Impossibile mostrare l’anteprima.'));
+                }
+            });
+    }
+
+    function choosePresetTheme(themeColor) {
+        if (themeChooserState.saving) return;
+        const normalized = window.VoltTheme && VoltTheme.normalize
+            ? VoltTheme.normalize(themeColor)
+            : 'blue';
+        setThemeChooserValidation(true, null, '');
+        previewThemeSelection({ themeColor: normalized, customColor: null });
+    }
+
+    function handleCustomThemeInput() {
+        if (themeChooserState.saving) return;
+        const input = document.getElementById('theme-custom-input');
+        if (!input) return;
+        const normalized = window.VoltTheme && VoltTheme.normalizeCustomColor
+            ? VoltTheme.normalizeCustomColor(input.value)
+            : null;
+        themeChooserState.selection = { themeColor: 'custom', customColor: normalized };
+        syncThemeChooserSelection();
+        if (!normalized) {
+            themeChooserState.previewSequence++;
+            const original = themeChooserState.original;
+            if (original) setThemeUi(original.themeColor, original.palette, original.customColor);
+            setThemeChooserValidation(false, null, tr('theme_picker_hex_invalid', 'Usa #RGB, #RGBA o #RRGGBB.'));
+            return;
+        }
+
+        setThemeChooserValidation(true, normalized);
+        previewThemeSelection({ themeColor: 'custom', customColor: normalized });
+    }
+
+    function closeThemeChooser(restorePreview) {
+        const overlay = document.getElementById('theme-chooser-overlay');
+        if (!overlay || !themeChooserState.open) return;
+        if (restorePreview && themeChooserState.saving) return;
+        themeChooserState.open = false;
+        themeChooserState.previewSequence++;
+
+        if (restorePreview && themeChooserState.original) {
+            const original = themeChooserState.original;
+            setThemeUi(original.themeColor, original.palette, original.customColor);
+        }
+
+        overlay.classList.remove('is-open');
+        overlay.hidden = true;
+        const focusTarget = themeChooserState.lastFocused;
+        themeChooserState.original = null;
+        themeChooserState.selection = null;
+        themeChooserState.lastFocused = null;
+        if (focusTarget && typeof focusTarget.focus === 'function') focusTarget.focus();
+    }
+
+    function openThemeChooser(settings) {
+        const overlay = document.getElementById('theme-chooser-overlay');
+        if (!overlay || themeChooserState.open) return;
+        const state = currentThemeState(settings);
+        if (!state) return;
+
+        themeChooserState.open = true;
+        themeChooserState.original = cloneThemeState(state);
+        themeChooserState.selection = {
+            themeColor: state.themeColor,
+            customColor: state.customColor || null,
+        };
+        themeChooserState.lastFocused = document.activeElement;
+
+        const input = document.getElementById('theme-custom-input');
+        if (input) input.value = state.customColor || settings.customThemeColor || '';
+        setThemeChooserValidation(true, state.customColor || null, '');
+        syncThemeChooserSelection();
+        overlay.hidden = false;
+        requestAnimationFrame(() => overlay.classList.add('is-open'));
+
+        const focusTarget = state.themeColor === 'custom'
+            ? input
+            : overlay.querySelector('[data-theme-choice="' + state.themeColor + '"]');
+        requestAnimationFrame(() => (focusTarget || overlay.querySelector('.theme-chooser-close'))?.focus());
+    }
+
+    function applyThemeChooser(settings) {
+        if (themeChooserState.saving) return;
+        const selection = themeChooserState.selection;
+        if (!selection) return;
+        if (selection.themeColor === 'custom' && !selection.customColor) {
+            setThemeChooserValidation(false, null, tr('theme_picker_hex_invalid', 'Usa #RGB, #RGBA o #RRGGBB.'));
+            return;
+        }
+
+        const apply = document.getElementById('theme-chooser-apply');
+        themeChooserState.saving = true;
+        if (apply) apply.disabled = true;
+        const payload = selection.themeColor === 'custom'
+            ? { themeColor: 'custom', customColor: selection.customColor }
+            : { themeColor: selection.themeColor };
+        Host.call('setThemeColor', payload)
+            .then(data => {
+                if (!data || !data.themeColor || !data.palette) return;
+                window.__voltThemeState = data;
+                if (data.themeColor !== 'custom') {
+                    window.__voltThemeCatalog = window.__voltThemeCatalog || {};
+                    window.__voltThemeCatalog[data.themeColor] = data.palette;
+                }
+                settings.themeColor = data.themeColor;
+                settings.customThemeColor = data.customColor || null;
+                setThemeUi(data.themeColor, data.palette, data.customColor || null);
+                themeChooserState.saving = false;
+                closeThemeChooser(false);
+            })
+            .catch(error => {
+                console.error('setThemeColor failed', error);
+                setThemeChooserValidation(false, null, tr('theme_picker_apply_error', 'Impossibile applicare il tema.'));
+            })
+            .finally(() => {
+                themeChooserState.saving = false;
+                if (apply && themeChooserState.open) apply.disabled = false;
+            });
+    }
+
+    function trapThemeChooserFocus(event) {
+        if (!themeChooserState.open) return;
+        if (event.key === 'Escape') {
+            event.preventDefault();
+            closeThemeChooser(true);
+            return;
+        }
+        if (event.key !== 'Tab') return;
+        const overlay = document.getElementById('theme-chooser-overlay');
+        if (!overlay) return;
+        const focusable = Array.from(overlay.querySelectorAll(
+            'button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])'))
+            .filter(element => !element.hidden && element.getAttribute('aria-hidden') !== 'true');
+        if (!focusable.length) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (!overlay.contains(document.activeElement)) {
+            event.preventDefault();
+            (event.shiftKey ? last : first).focus();
+            return;
+        }
+        if (event.shiftKey && document.activeElement === first) {
+            event.preventDefault();
+            last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+            event.preventDefault();
+            first.focus();
+        }
+    }
+
+    function wireThemeChooser(settings) {
+        const trigger = document.getElementById('theme-chooser-open');
+        const overlay = document.getElementById('theme-chooser-overlay');
+        if (!trigger || !overlay) return;
+
+        const state = currentThemeState(settings);
+        if (state) setThemeUi(state.themeColor, state.palette, state.customColor);
+        if (trigger.dataset.wired === 'true') return;
+        trigger.dataset.wired = 'true';
+
+        trigger.addEventListener('click', () => openThemeChooser(settings));
+        overlay.querySelectorAll('[data-theme-cancel]').forEach(button =>
+            button.addEventListener('click', () => closeThemeChooser(true)));
+        overlay.querySelectorAll('[data-theme-choice]').forEach(button =>
+            button.addEventListener('click', () => choosePresetTheme(button.dataset.themeChoice)));
+        document.getElementById('theme-custom-input')?.addEventListener('input', handleCustomThemeInput);
+        document.getElementById('theme-chooser-apply')?.addEventListener('click', () => applyThemeChooser(settings));
+        overlay.addEventListener('click', event => {
+            if (event.target === overlay) closeThemeChooser(true);
+        });
+        overlay.addEventListener('keydown', trapThemeChooserFocus);
     }
 
     function setFontUi(font) {
@@ -1519,6 +1994,7 @@
         wireAutoUpdateUi();
 
         mountWidgetsUi();
+        mountWidgetAppearanceUi();
         mountLauncherManageUi();
         renderWidgetsState(normalizeWidgetsState(settings.widgets));
         Host.call('getWidgetsState').then(renderWidgetsState).catch(() => {});
@@ -1532,28 +2008,8 @@
             }
         }
 
-        const themeSelect = document.getElementById('theme-select');
-        if (themeSelect) {
-            setThemeUi(normalizeThemeColor(settings), window.__voltThemeState && window.__voltThemeState.palette);
-            if (themeSelect.dataset.wired !== 'true') {
-                themeSelect.dataset.wired = 'true';
-                themeSelect.addEventListener('change', (e) => {
-                    const next = window.VoltTheme && VoltTheme.normalize
-                        ? VoltTheme.normalize(e.target.value)
-                        : 'blue';
-                    settings.themeColor = next;
-                    setThemeUi(next);
-                    Host.call('setThemeColor', { themeColor: next })
-                        .then(data => {
-                            if (data && data.themeColor && data.palette) {
-                                window.__voltThemeState = data;
-                                setThemeUi(data.themeColor, data.palette);
-                            }
-                        })
-                        .catch(error => console.error('setThemeColor failed', error));
-                });
-            }
-        }
+        normalizeThemeColor(settings);
+        wireThemeChooser(settings);
 
         const fontSelect = document.getElementById('font-select');
         if (fontSelect) {
@@ -1586,10 +2042,13 @@
                     if (!data || !data.themeColor || !data.palette) return;
                     window.__voltThemeState = data;
                     window.__voltThemeCatalog = window.__voltThemeCatalog || {};
-                    window.__voltThemeCatalog[data.themeColor] = data.palette;
+                    if (data.themeColor !== 'custom') window.__voltThemeCatalog[data.themeColor] = data.palette;
                     const current = window.__voltSettings && (window.__voltSettings.get ? window.__voltSettings.get() : window.__voltSettings);
-                    if (current) current.themeColor = data.themeColor;
-                    setThemeUi(data.themeColor, data.palette);
+                    if (current) {
+                        current.themeColor = data.themeColor;
+                        current.customThemeColor = data.customColor || null;
+                    }
+                    setThemeUi(data.themeColor, data.palette, data.customColor || null);
                 });
             }
         }
@@ -1605,6 +2064,8 @@
             renderLauncherManage();
             const channel = normalizeAutoUpdates(settings).updateChannel;
             if (channel) setChannelUi(channel);
+            const state = currentThemeState(settings);
+            if (state) setThemeUi(state.themeColor, state.palette, state.customColor);
         }
         refreshAnimationLevelUi();
     });

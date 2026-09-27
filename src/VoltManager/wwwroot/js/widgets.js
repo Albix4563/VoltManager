@@ -1,6 +1,9 @@
 (function () {
     const TYPES = ['clock', 'calendar', 'usage', 'temps', 'power', 'plans', 'launcher', 'apps', 'actions', 'brightness', 'processes', 'memory'];
     const SIZES = ['mini', 'medium', 'large'];
+    const APPEARANCE_MATERIALS = ['solid', 'acrylic', 'transparent'];
+    const APPEARANCE_TINTS = ['theme', 'midnight', 'graphite', 'aurora', 'ember', 'neutral'];
+    const APPEARANCE_GRADIENTS = ['vertical', 'diagonal', 'radial', 'flat'];
     const MAX_CUSTOM_PER_CATEGORY = 10;
     const PLAN_ORDER = ['powerSaver', 'balanced', 'performance'];
     const params = new URLSearchParams(location.search);
@@ -36,6 +39,7 @@
     let resourceReducedEffects = false;
     let animationSetting = 'auto';
     let animationHardwareTier = null;
+    let widgetAppearance = normalizeAppearance(null);
     let locale = (window.I18n && I18n.getLocale ? I18n.getLocale() : 'it-IT');
     document.documentElement.dataset.size = size;
     if (isLauncherWidget) document.documentElement.dataset.layout = orientation;
@@ -59,6 +63,38 @@
         if (!window.I18n || !I18n.t) return fallback || key;
         const value = I18n.t(key);
         return value === key ? (fallback || key) : value;
+    }
+
+    function normalizeAppearance(value) {
+        value = value || {};
+        const intensity = Number(value.intensity);
+        return {
+            material: APPEARANCE_MATERIALS.includes(value.material) ? value.material : 'solid',
+            tint: APPEARANCE_TINTS.includes(value.tint) ? value.tint : 'theme',
+            gradient: APPEARANCE_GRADIENTS.includes(value.gradient) ? value.gradient : 'vertical',
+            intensity: Number.isFinite(intensity) ? Math.max(0, Math.min(100, Math.round(intensity))) : 60,
+        };
+    }
+
+    function applyWidgetAppearance(value) {
+        widgetAppearance = normalizeAppearance(value);
+        const level = widgetAppearance.intensity / 100;
+        const card = root.querySelector ? root.querySelector('.desktop-widget') : null;
+        [document.documentElement, root, card].filter(Boolean).forEach(el => {
+            el.dataset.material = widgetAppearance.material;
+            el.dataset.tint = widgetAppearance.tint;
+            el.dataset.gradient = widgetAppearance.gradient;
+            el.dataset.legacyDefault = widgetAppearance.material === 'solid'
+                && widgetAppearance.tint === 'theme'
+                && widgetAppearance.gradient === 'vertical'
+                && widgetAppearance.intensity === 60 ? 'true' : 'false';
+            if (el.style && typeof el.style.setProperty === 'function') {
+                el.style.setProperty('--vm-widget-intensity', String(level));
+                el.style.setProperty('--vm-widget-solid-alpha', String(0.70 + level * 0.25));
+                el.style.setProperty('--vm-widget-acrylic-alpha', String(0.18 + level * 0.37));
+                el.style.setProperty('--vm-widget-transparent-alpha', String(level * 0.20));
+            }
+        });
     }
 
     function shell(bodyHtml) {
@@ -85,6 +121,7 @@
             '</article>';
         if (window.I18n && I18n.apply) I18n.apply();
         wireChrome();
+        applyWidgetAppearance(widgetAppearance);
     }
 
     function wireChrome() {
@@ -1093,6 +1130,8 @@
         const item = res.settings.widgets && Array.isArray(res.settings.widgets.items)
             ? res.settings.widgets.items.find(i => i.type === type)
             : null;
+        const globalAppearance = res.settings.widgets && res.settings.widgets.appearance;
+        applyWidgetAppearance(item && item.appearance ? item.appearance : globalAppearance);
         pinned = !!(item && item.pinned);
         reflectPin();
     }
@@ -1111,6 +1150,7 @@
     Host.on('animationLevelChanged', (data) => {
         applyAnimationLevel(data && data.level);
     });
+    Host.on('widgetAppearanceChanged', applyWidgetAppearance);
     Host.on('widgetTopmostChanged', (data) => {
         pinned = !!(data && data.topmost);
         reflectPin();

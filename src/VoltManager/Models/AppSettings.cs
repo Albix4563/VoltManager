@@ -8,6 +8,7 @@ public class AppSettings
     [JsonPropertyName("themeColor")]
     [JsonConverter(typeof(AppThemeColorJsonConverter))]
     public AppThemeColor ThemeColor { get; set; } = AppThemeColor.Blue;
+    [JsonPropertyName("customThemeColor")] public string? CustomThemeColor { get; set; }
     [JsonPropertyName("masterAutomationEnabled")] public bool MasterAutomationEnabled { get; set; } = true;
     [JsonPropertyName("closeToTray")] public bool CloseToTray { get; set; } = true;
     [JsonPropertyName("animationLevel")] public string AnimationLevel { get; set; } = "auto";

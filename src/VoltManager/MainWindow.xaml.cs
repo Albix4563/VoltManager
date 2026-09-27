@@ -74,7 +74,7 @@ public partial class MainWindow : Window
         // DpiChanged also fires mid-drag across monitors: only refresh the minimum there,
         // bounds are clamped once the move ends (WM_EXITSIZEMOVE).
         DpiChanged += (_, _) => UpdateAdaptiveMinimumSize(clampBounds: false);
-        ApplyHostTheme(_app.Theme.CurrentTheme);
+        ApplyHostTheme();
         // Tray-only launch: keep Chromium unborn until the user opens the window.
         Loaded += async (_, _) =>
         {
@@ -97,14 +97,14 @@ public partial class MainWindow : Window
             TrayIcon.ToolTipText = "VoltManager – " + PlanDisplayName(p));
         _app.Settings.SettingsChanged += s => Dispatcher.BeginInvoke(() =>
         {
-            _app.Theme.SetTheme(s.ThemeColor);
+            _app.Theme.SetTheme(s.ThemeColor, s.CustomThemeColor);
             // Keep the main WebView font in sync with disk (import/other writers).
             _bridge?.PushEvent(BridgeEventNames.FontChanged, new { font = s.Font });
             BindGlobalHotkeys();
         });
-        _app.Theme.ThemeChanged += themeColor => Dispatcher.Invoke(() =>
+        _app.Theme.ThemeChanged += _ => Dispatcher.Invoke(() =>
         {
-            ApplyHostTheme(themeColor);
+            ApplyHostTheme();
             _bridge?.PushEvent(BridgeEventNames.ThemeChanged, _app.Theme.GetWebTheme());
         });
         _app.Loc.LanguageChanged += (code, culture) => Dispatcher.Invoke(() =>
@@ -553,9 +553,9 @@ public partial class MainWindow : Window
         }
     }
 
-    private void ApplyHostTheme(AppThemeColor themeColor)
+    private void ApplyHostTheme()
     {
-        var color = ThemeService.GetPalette(themeColor).Background;
+        var color = _app.Theme.CurrentPalette.Background;
         Background = new Media.SolidColorBrush(color);
         WebView.DefaultBackgroundColor = Drawing.Color.FromArgb(color.R, color.G, color.B);
     }

@@ -59,6 +59,38 @@ public class ThemeContrastTests
         Assert.Equal(palettes.Length, palettes.Select(p => p.SurfaceElevated).Distinct().Count());
     }
 
+    [Theory]
+    [InlineData("#abc", "#AABBCC")]
+    [InlineData(" #123456 ", "#123456")]
+    [InlineData("#F008", "#8D080F")]
+    public void Custom_theme_color_is_normalized_to_opaque_rrggbb(string input, string expected)
+    {
+        Assert.True(ThemeService.TryNormalizeCustomColor(input, out string normalized));
+        Assert.Equal(expected, normalized);
+    }
+
+    [Theory]
+    [InlineData("#12")]
+    [InlineData("#12345")]
+    [InlineData("#GGG")]
+    [InlineData("rgb(1,2,3)")]
+    public void Invalid_custom_theme_color_is_rejected(string input)
+    {
+        Assert.False(ThemeService.TryNormalizeCustomColor(input, out _));
+    }
+
+    [Theory]
+    [InlineData("#000000")]
+    [InlineData("#777777")]
+    [InlineData("#FFFFFF")]
+    [InlineData("#0F0")]
+    public void Custom_theme_accent_and_hover_keep_accessible_on_accent_text(string input)
+    {
+        var palette = ThemeService.GetPalette(AppThemeColor.Blue, input);
+        AssertContrast(AppThemeColor.Blue, "Custom Primary/OnPrimary", palette.Primary, palette.OnPrimary);
+        AssertContrast(AppThemeColor.Blue, "Custom Hover/OnPrimary", palette.Hover, palette.OnPrimary);
+    }
+
     [Fact]
     public void Web_theme_bridges_legacy_material_tokens_to_the_active_palette()
     {

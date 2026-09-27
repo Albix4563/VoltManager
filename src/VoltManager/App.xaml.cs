@@ -144,7 +144,7 @@ public partial class App : Application
         Loc = new LocalizationService();
         Loc.Initialize(Settings.Current);
         Theme = new ThemeService();
-        Theme.SetTheme(Settings.Current.ThemeColor);
+        Theme.SetTheme(Settings.Current.ThemeColor, Settings.Current.CustomThemeColor);
         Power = new PowerPlanService(Settings);
         Awake = new PowerAwakeService(Settings);
         HardwareAccess = new DeferredHardwareAccess(() =>

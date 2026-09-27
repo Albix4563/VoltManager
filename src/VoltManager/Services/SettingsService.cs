@@ -167,6 +167,9 @@ public class SettingsService
     private static void NormalizeThemeColor(AppSettings settings)
     {
         settings.ThemeColor = settings.ThemeColor.Normalize();
+        settings.CustomThemeColor = ThemeService.TryNormalizeCustomColor(settings.CustomThemeColor, out string normalized)
+            ? normalized
+            : null;
     }
 
     private static void NormalizeFont(AppSettings settings)

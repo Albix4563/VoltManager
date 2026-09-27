@@ -2,6 +2,7 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Interop;
+using System.Windows.Media;
 using Drawing = System.Drawing;
 using Microsoft.Web.WebView2.Core;
 using VoltManager.Bridge;
@@ -26,6 +27,11 @@ public partial class WidgetWindow : Window
     private const uint SwpNoActivate = 0x0010;
     private const uint SwpNoZOrder = 0x0004;
     private const int NativeBoundsTolerancePx = 2;
+    private const int DwmwaUseImmersiveDarkMode = 20;
+    private const int WcaAccentPolicy = 19;
+    private const int AccentDisabled = 0;
+    private const int AccentEnableBlurBehind = 3;
+    private const int AccentEnableAcrylicBlurBehind = 4;
 
     private readonly WidgetRuntimeContext _context;
     private readonly WidgetManager _manager;
@@ -34,6 +40,11 @@ public partial class WidgetWindow : Window
     private HostBridge? _bridge;
     private string _size;
     private string _orientation;
+    private WidgetAppearance _appearance = new();
+    private WidgetAppearance _requestedAppearance = new();
+    private IntPtr _requestedAppearanceHwnd;
+    private WidgetAppearance? _nativeAppearance;
+    private IntPtr _nativeAppearanceHwnd;
     private HwndSource? _hwndSource;
     private bool _applyingPlacement;
     private bool _nativeResizeInProgress;
@@ -78,6 +89,7 @@ public partial class WidgetWindow : Window
         IsVisibleChanged += (_, _) =>
         {
             _visible = IsVisible;
+            if (_visible) ApplyNativeAppearanceSafe();
             ApplyEffectiveWebViewVisibility();
             if (HasVisibleResourceSurface) _metricsPublisher.ResetCadence();
             _context.RefreshSamplingDemand(false);
@@ -88,6 +100,7 @@ public partial class WidgetWindow : Window
             HookWndProc();
             ApplyPlacement(placement, item.Size, item.Orientation);
             ApplyRoundedRegion();
+            ApplyNativeAppearanceSafe();
             _coverageHwnd = new WindowInteropHelper(this).Handle;
             _context.FullscreenCoverage.RegisterSurface(_coverageHwnd);
         };
@@ -112,7 +125,7 @@ public partial class WidgetWindow : Window
         _initializing = true;
         try
         {
-            WebView.DefaultBackgroundColor = Drawing.Color.FromArgb(255, 14, 26, 46);
+            SetWebViewBackgroundForAppearance();
             await WebView.EnsureCoreWebView2Async(await _envTask);
             if (_closed) return;
         }
@@ -166,6 +179,7 @@ public partial class WidgetWindow : Window
                 _bridge?.PushEvent(BridgeEventNames.ThemeChanged, _context.Theme.GetWebTheme());
                 _bridge?.PushEvent(BridgeEventNames.LanguageChanged, new { language = _context.Loc.CurrentLanguage, locale = _context.Loc.CurrentCulture.Name });
                 _bridge?.PushEvent(BridgeEventNames.FontChanged, new { font = _context.Settings.Current.Font });
+                PushAppearanceEvent();
                 PushResourceProfile(_context.ResourcePressureState());
                 // Navigation resumes WebView2 even when coverage was detected before initialization.
                 if (!HasVisibleResourceSurface) TrySuspendWebView();
@@ -223,6 +237,160 @@ public partial class WidgetWindow : Window
     }
 
     public void PushEvent(string name, object data) => _bridge?.PushEvent(name, data);
+
+    internal bool MatchesAppearance(WidgetAppearance appearance)
+        => _requestedAppearance.ValueEquals(appearance);
+
+    internal void ApplyAppearance(WidgetAppearance appearance)
+    {
+        if (_closed) return;
+        if (!Dispatcher.CheckAccess())
+        {
+            _ = Dispatcher.InvokeAsync(() => ApplyAppearance(appearance));
+            return;
+        }
+
+        var normalized = (appearance ?? new WidgetAppearance()).CloneNormalized();
+        var hwnd = (PresentationSource.FromVisual(this) as HwndSource)?.Handle ?? IntPtr.Zero;
+        if (_requestedAppearanceHwnd == hwnd && _requestedAppearance.ValueEquals(normalized)) return;
+        _requestedAppearance = normalized.CloneNormalized();
+        _requestedAppearanceHwnd = IntPtr.Zero;
+        _appearance = normalized;
+        SetPresentationBackgrounds();
+        ApplyNativeAppearanceSafe(pushFallbackToWeb: false);
+        PushAppearanceEvent();
+    }
+
+    private void PushAppearanceEvent()
+        => _bridge?.PushEvent(BridgeEventNames.WidgetAppearanceChanged, _appearance.CloneNormalized());
+
+    private void SetWebViewBackgroundForAppearance()
+    {
+        WebView.DefaultBackgroundColor = string.Equals(_appearance.Material, "solid", StringComparison.OrdinalIgnoreCase)
+            ? Drawing.Color.FromArgb(255, 14, 26, 46)
+            : Drawing.Color.Transparent;
+    }
+
+    private void SetPresentationBackgrounds()
+    {
+        bool solid = string.Equals(_appearance.Material, "solid", StringComparison.OrdinalIgnoreCase);
+        if (solid)
+        {
+            SetResourceReference(BackgroundProperty, "ThemeBackgroundBrush");
+            RootGrid.SetResourceReference(System.Windows.Controls.Panel.BackgroundProperty, "ThemeBackgroundBrush");
+        }
+        else
+        {
+            Background = Brushes.Transparent;
+            RootGrid.Background = Brushes.Transparent;
+        }
+        SetWebViewBackgroundForAppearance();
+    }
+
+    private void ApplyNativeAppearanceSafe(bool pushFallbackToWeb = true)
+    {
+        if (PresentationSource.FromVisual(this) is not HwndSource source || source.Handle == IntPtr.Zero)
+            return;
+        if (_requestedAppearanceHwnd == source.Handle)
+            return;
+
+        var requested = _requestedAppearance.CloneNormalized();
+        _requestedAppearanceHwnd = source.Handle;
+        if (!_appearance.ValueEquals(requested))
+        {
+            _appearance = requested.CloneNormalized();
+            SetPresentationBackgrounds();
+        }
+
+        try
+        {
+            if (!TryApplyNativeAppearance(source, requested.Material))
+                throw new InvalidOperationException("Native material API returned failure.");
+            _nativeAppearanceHwnd = source.Handle;
+            _nativeAppearance = requested.CloneNormalized();
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn($"Widget '{_type}' appearance '{requested.Material}' failed; using solid: {ex.Message}");
+            _appearance = new WidgetAppearance
+            {
+                Material = "solid",
+                Tint = requested.Tint,
+                Gradient = requested.Gradient,
+                Intensity = requested.Intensity,
+            };
+            SetPresentationBackgrounds();
+            try
+            {
+                if (TryApplyNativeAppearance(source, "solid"))
+                {
+                    _nativeAppearanceHwnd = source.Handle;
+                    _nativeAppearance = _appearance.CloneNormalized();
+                }
+            }
+            catch (Exception resetEx) { Logger.Warn($"Widget '{_type}' native appearance reset failed: {resetEx.Message}"); }
+            if (pushFallbackToWeb) PushAppearanceEvent();
+        }
+    }
+
+    private bool TryApplyNativeAppearance(HwndSource source, string material)
+    {
+        IntPtr hwnd = source.Handle;
+        if (!TryClearNativeEffects(hwnd)) return false;
+
+        if (string.Equals(material, "solid", StringComparison.OrdinalIgnoreCase))
+        {
+            source.CompositionTarget.BackgroundColor = Color.FromRgb(14, 26, 46);
+            var opaqueMargins = new MARGINS();
+            return DwmExtendFrameIntoClientArea(hwnd, ref opaqueMargins) == 0;
+        }
+
+        source.CompositionTarget.BackgroundColor = Colors.Transparent;
+        var glassMargins = new MARGINS { Left = -1, Right = -1, Top = -1, Bottom = -1 };
+        if (DwmExtendFrameIntoClientArea(hwnd, ref glassMargins) != 0) return false;
+
+        if (string.Equals(material, "transparent", StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        if (!string.Equals(material, "acrylic", StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        int dark = 1;
+        _ = DwmSetWindowAttribute(hwnd, DwmwaUseImmersiveDarkMode, ref dark, sizeof(int));
+        if (TrySetAccent(hwnd, AccentEnableAcrylicBlurBehind, 0x352E1A0E)) return true;
+        return TrySetAccent(hwnd, AccentEnableBlurBehind, 0);
+    }
+
+    private static bool TryClearNativeEffects(IntPtr hwnd)
+    {
+        return TrySetAccent(hwnd, AccentDisabled, 0);
+    }
+
+    private static bool TrySetAccent(IntPtr hwnd, int state, uint gradientColor)
+    {
+        var policy = new ACCENT_POLICY
+        {
+            AccentState = state,
+            AccentFlags = 2,
+            GradientColor = gradientColor,
+        };
+        IntPtr dataPtr = Marshal.AllocHGlobal(Marshal.SizeOf<ACCENT_POLICY>());
+        try
+        {
+            Marshal.StructureToPtr(policy, dataPtr, false);
+            var data = new WINDOWCOMPOSITIONATTRIBDATA
+            {
+                Attribute = WcaAccentPolicy,
+                Data = dataPtr,
+                SizeOfData = new IntPtr(Marshal.SizeOf<ACCENT_POLICY>()),
+            };
+            return SetWindowCompositionAttribute(hwnd, ref data);
+        }
+        finally
+        {
+            Marshal.FreeHGlobal(dataPtr);
+        }
+    }
 
     public void ApplyPlacement(WidgetPlacement placement, string sizeKey, string? orientation)
     {
@@ -535,9 +703,8 @@ public partial class WidgetWindow : Window
         return IntPtr.Zero;
     }
 
-    // Rounded window corners without per-pixel transparency: WebView2 renders black
-    // under a layered (AllowsTransparency) window, so we keep the window opaque and
-    // clip it to a rounded region that matches the card's 18px CSS border-radius.
+    // WebView2 stays in a non-layered HWND. The region clips both opaque and native
+    // backdrop materials to the card's 18px CSS border-radius.
     private void ApplyRoundedRegion()
     {
         if (PresentationSource.FromVisual(this) is not HwndSource source || source.Handle == IntPtr.Zero)
@@ -608,9 +775,42 @@ public partial class WidgetWindow : Window
     [DllImport("user32.dll", SetLastError = true)]
     private static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
 
+    [DllImport("dwmapi.dll")]
+    private static extern int DwmExtendFrameIntoClientArea(IntPtr hWnd, ref MARGINS pMarInset);
+
+    [DllImport("dwmapi.dll")]
+    private static extern int DwmSetWindowAttribute(IntPtr hWnd, int dwAttribute, ref int pvAttribute, int cbAttribute);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool SetWindowCompositionAttribute(IntPtr hwnd, ref WINDOWCOMPOSITIONATTRIBDATA data);
+
     [StructLayout(LayoutKind.Sequential)]
     private struct RECT
     {
         public int Left, Top, Right, Bottom;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct MARGINS
+    {
+        public int Left, Right, Top, Bottom;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct ACCENT_POLICY
+    {
+        public int AccentState;
+        public int AccentFlags;
+        public uint GradientColor;
+        public int AnimationId;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct WINDOWCOMPOSITIONATTRIBDATA
+    {
+        public int Attribute;
+        public IntPtr Data;
+        public IntPtr SizeOfData;
     }
 }

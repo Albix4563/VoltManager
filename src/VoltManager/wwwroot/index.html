@@ -4,15 +4,15 @@
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <title>VOLT MANAGER</title>
-<link href="css/app.css?v=bars1" rel="stylesheet"/>
+<link href="css/app.css?v=widgetappearance1" rel="stylesheet"/>
 <link href="css/motion.css?v=anim1" rel="stylesheet"/>
 <link href="css/redesign.css?v=anim1" rel="stylesheet"/>
 <link href="css/polish.css?v=batteryhistory1" rel="stylesheet"/>
 <link href="css/effects.css?v=motion2" rel="stylesheet"/>
-<link href="css/theme-colors.css?v=color2" rel="stylesheet"/>
+<link href="css/theme-colors.css?v=color3" rel="stylesheet"/>
 <link href="css/power-features.css?v=brightness1" rel="stylesheet"/>
 <link href="css/lan-remote-control.css?v=1" rel="stylesheet"/>
-<script src="js/theme.js?v=color1"></script>
+<script src="js/theme.js?v=color2"></script>
 <style>
 @keyframes slideInRight{from{transform:translateX(110%);opacity:0}to{transform:translateX(0);opacity:1}}
 .welcome-step{animation:slideInRight .4s var(--vm-ease-emphasized)}
@@ -804,18 +804,16 @@
             <div class="space-y-md">
               <div class="flex items-center justify-between group" id="pref-theme">
                 <div>
-                  <label class="text-body-md text-on-surface group-hover:text-secondary-fixed transition-colors" for="theme-select" data-i18n="set_pref_theme">Colore tema</label>
+                  <p class="text-body-md text-on-surface group-hover:text-secondary-fixed transition-colors" data-i18n="set_pref_theme">Colore tema</p>
                   <p class="text-label-sm text-on-surface-variant" data-i18n="set_pref_theme_sub">Colore principale dell'interfaccia</p>
                 </div>
-                <select id="theme-select" aria-label="Colore tema" data-i18n-aria-label="set_pref_theme" class="bg-surface-container-low/50 text-secondary-container font-medium border border-white/10 rounded-lg py-2 px-4 pr-10 text-body-md focus:outline-none focus:border-secondary-container transition-all duration-300 cursor-pointer hover:bg-white/10 shadow-lg backdrop-blur-md">
-                  <option value="blue" data-i18n="set_theme_blue">Blu</option>
-                  <option value="red" data-i18n="set_theme_red">Rosso</option>
-                  <option value="green" data-i18n="set_theme_green">Verde</option>
-                  <option value="orange" data-i18n="set_theme_orange">Arancione</option>
-                  <option value="purple" data-i18n="set_theme_purple">Viola</option>
-                  <option value="pink" data-i18n="set_theme_pink">Rosa</option>
-                  <option value="gray" data-i18n="set_theme_gray">Grigio</option>
-                </select>
+                <button id="theme-chooser-open" type="button" class="theme-picker-trigger"
+                        aria-haspopup="dialog" aria-controls="theme-chooser-overlay"
+                        data-i18n-aria-label="theme_picker_open">
+                  <span id="theme-current-swatch" class="theme-picker-trigger__swatch" aria-hidden="true"></span>
+                  <span id="theme-current-label" class="theme-picker-trigger__label">Blu</span>
+                  <span class="material-symbols-outlined theme-picker-trigger__icon" aria-hidden="true">palette</span>
+                </button>
               </div>
               <div class="flex items-center justify-between group mt-md" id="pref-lang">
                 <div>
@@ -950,6 +948,73 @@
           </section>
         </div>
         <div class="space-y-sm hidden" id="widgets-list" aria-hidden="true"></div>
+      </div>
+      <div class="glass-panel rounded-xl p-lg mt-lg widget-appearance-panel" id="widget-appearance-card">
+        <div class="mb-lg">
+          <h3 class="text-title-lg text-on-surface flex items-center gap-xs">
+            <span class="material-symbols-outlined text-secondary-container">palette</span>
+            <span data-i18n="widget_appearance_title">Aspetto dei widget</span>
+          </h3>
+          <p class="text-body-md text-on-surface-variant mt-1" data-i18n="widget_appearance_sub">Scegli materiale, tinta, sfumatura e intensità per tutti i widget desktop.</p>
+        </div>
+
+        <div class="widget-appearance-layout">
+          <div class="widget-appearance-controls">
+            <div class="widget-appearance-field">
+              <span class="text-label-md text-on-surface" data-i18n="widget_appearance_material">Materiale</span>
+              <div class="widget-material-selector" role="radiogroup" data-i18n-aria-label="widget_appearance_material" aria-label="Materiale">
+                <button class="widget-material-option" type="button" role="radio" aria-checked="true" data-widget-material="solid">
+                  <span class="widget-material-swatch" data-material-preview="solid" aria-hidden="true"></span>
+                  <span data-i18n="widget_material_solid">Monocromatico</span>
+                </button>
+                <button class="widget-material-option" type="button" role="radio" aria-checked="false" data-widget-material="acrylic">
+                  <span class="widget-material-swatch" data-material-preview="acrylic" aria-hidden="true"></span>
+                  <span data-i18n="widget_material_acrylic">Acrilico</span>
+                </button>
+                <button class="widget-material-option" type="button" role="radio" aria-checked="false" data-widget-material="transparent">
+                  <span class="widget-material-swatch" data-material-preview="transparent" aria-hidden="true"></span>
+                  <span data-i18n="widget_material_transparent">Trasparente</span>
+                </button>
+              </div>
+              <p class="text-label-sm text-on-surface-variant" id="widget-material-hint"></p>
+            </div>
+
+            <div class="widget-appearance-field">
+              <span class="text-label-md text-on-surface" data-i18n="widget_appearance_tint">Tinta</span>
+              <div class="widget-tint-selector" role="radiogroup" data-i18n-aria-label="widget_appearance_tint" aria-label="Tinta">
+                <button class="widget-tint-option" type="button" role="radio" aria-checked="true" data-widget-tint="theme" data-i18n-aria-label="widget_tint_theme" aria-label="Tema"><span></span></button>
+                <button class="widget-tint-option" type="button" role="radio" aria-checked="false" data-widget-tint="midnight" data-i18n-aria-label="widget_tint_midnight" aria-label="Midnight"><span></span></button>
+                <button class="widget-tint-option" type="button" role="radio" aria-checked="false" data-widget-tint="graphite" data-i18n-aria-label="widget_tint_graphite" aria-label="Graphite"><span></span></button>
+                <button class="widget-tint-option" type="button" role="radio" aria-checked="false" data-widget-tint="aurora" data-i18n-aria-label="widget_tint_aurora" aria-label="Aurora"><span></span></button>
+                <button class="widget-tint-option" type="button" role="radio" aria-checked="false" data-widget-tint="ember" data-i18n-aria-label="widget_tint_ember" aria-label="Ember"><span></span></button>
+                <button class="widget-tint-option" type="button" role="radio" aria-checked="false" data-widget-tint="neutral" data-i18n-aria-label="widget_tint_neutral" aria-label="Neutral"><span></span></button>
+              </div>
+            </div>
+
+            <div class="widget-appearance-field">
+              <span class="text-label-md text-on-surface" data-i18n="widget_appearance_gradient">Sfumatura</span>
+              <div class="widget-gradient-selector" role="radiogroup" data-i18n-aria-label="widget_appearance_gradient" aria-label="Sfumatura">
+                <button class="widget-gradient-option" type="button" role="radio" aria-checked="true" data-widget-gradient="vertical" data-i18n="widget_gradient_vertical">Verticale</button>
+                <button class="widget-gradient-option" type="button" role="radio" aria-checked="false" data-widget-gradient="diagonal" data-i18n="widget_gradient_diagonal">Diagonale</button>
+                <button class="widget-gradient-option" type="button" role="radio" aria-checked="false" data-widget-gradient="radial" data-i18n="widget_gradient_radial">Radiale</button>
+                <button class="widget-gradient-option" type="button" role="radio" aria-checked="false" data-widget-gradient="flat" data-i18n="widget_gradient_flat">Piatto</button>
+              </div>
+            </div>
+
+            <label class="widget-appearance-field" for="widget-appearance-intensity">
+              <span class="widget-intensity-label"><span class="text-label-md text-on-surface" data-i18n="widget_appearance_intensity">Intensità</span><output id="widget-appearance-intensity-value">60%</output></span>
+              <input id="widget-appearance-intensity" class="widget-appearance-range" type="range" min="0" max="100" step="1" value="60" />
+            </label>
+          </div>
+
+          <div class="widget-appearance-preview-stage" aria-hidden="true">
+            <div class="widget-appearance-preview" id="widget-appearance-preview" data-material="solid" data-tint="theme" data-gradient="vertical">
+              <div class="widget-appearance-preview-head"><span class="material-symbols-outlined">monitor_heart</span><span data-i18n="widget_preview_title">UTILIZZO SISTEMA</span></div>
+              <strong>42%</strong>
+              <span data-i18n="widget_preview_caption">CPU in tempo reale</span>
+            </div>
+          </div>
+        </div>
       </div>
       <div class="glass-panel rounded-xl p-lg mt-lg" id="launcher-apps-card">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-md mb-md">
@@ -1403,9 +1468,84 @@
   </div>
 </div>
 
+<div id="theme-chooser-overlay" class="theme-chooser-overlay" hidden>
+  <section class="theme-chooser-dialog" role="dialog" aria-modal="true"
+           aria-labelledby="theme-chooser-title" aria-describedby="theme-chooser-subtitle">
+    <header class="theme-chooser-header">
+      <div>
+        <p class="theme-chooser-eyebrow" data-i18n="set_pref_theme">Colore tema</p>
+        <h2 id="theme-chooser-title" data-i18n="theme_picker_title">Scegli il tuo tema</h2>
+        <p id="theme-chooser-subtitle" data-i18n="theme_picker_subtitle">Anteprima immediata su sfondo, superfici e accento.</p>
+      </div>
+      <button type="button" class="theme-chooser-close" data-theme-cancel
+              data-i18n-aria-label="theme_picker_close" aria-label="Chiudi">
+        <span class="material-symbols-outlined" aria-hidden="true">close</span>
+      </button>
+    </header>
+
+    <div class="theme-chooser-content">
+      <div class="theme-chooser-section">
+        <div class="theme-chooser-section__heading">
+          <h3 data-i18n="theme_picker_presets">Colori predefiniti</h3>
+          <p data-i18n="theme_picker_presets_sub">Scegli una palette ottimizzata per l'interfaccia scura.</p>
+        </div>
+        <div class="theme-choice-grid" role="radiogroup" data-i18n-aria-label="theme_picker_presets">
+          <button type="button" class="theme-choice" data-theme-choice="blue" role="radio" aria-checked="false" style="--theme-choice-color:#3B82F6">
+            <span class="theme-choice__swatch" aria-hidden="true"></span><span data-i18n="set_theme_blue">Blu</span><span class="material-symbols-outlined theme-choice__check" aria-hidden="true">check</span>
+          </button>
+          <button type="button" class="theme-choice" data-theme-choice="red" role="radio" aria-checked="false" style="--theme-choice-color:#EF4444">
+            <span class="theme-choice__swatch" aria-hidden="true"></span><span data-i18n="set_theme_red">Rosso</span><span class="material-symbols-outlined theme-choice__check" aria-hidden="true">check</span>
+          </button>
+          <button type="button" class="theme-choice" data-theme-choice="green" role="radio" aria-checked="false" style="--theme-choice-color:#22C55E">
+            <span class="theme-choice__swatch" aria-hidden="true"></span><span data-i18n="set_theme_green">Verde</span><span class="material-symbols-outlined theme-choice__check" aria-hidden="true">check</span>
+          </button>
+          <button type="button" class="theme-choice" data-theme-choice="orange" role="radio" aria-checked="false" style="--theme-choice-color:#F97316">
+            <span class="theme-choice__swatch" aria-hidden="true"></span><span data-i18n="set_theme_orange">Arancione</span><span class="material-symbols-outlined theme-choice__check" aria-hidden="true">check</span>
+          </button>
+          <button type="button" class="theme-choice" data-theme-choice="purple" role="radio" aria-checked="false" style="--theme-choice-color:#A855F7">
+            <span class="theme-choice__swatch" aria-hidden="true"></span><span data-i18n="set_theme_purple">Viola</span><span class="material-symbols-outlined theme-choice__check" aria-hidden="true">check</span>
+          </button>
+          <button type="button" class="theme-choice" data-theme-choice="pink" role="radio" aria-checked="false" style="--theme-choice-color:#EC4899">
+            <span class="theme-choice__swatch" aria-hidden="true"></span><span data-i18n="set_theme_pink">Rosa</span><span class="material-symbols-outlined theme-choice__check" aria-hidden="true">check</span>
+          </button>
+          <button type="button" class="theme-choice" data-theme-choice="gray" role="radio" aria-checked="false" style="--theme-choice-color:#94A3B8">
+            <span class="theme-choice__swatch" aria-hidden="true"></span><span data-i18n="set_theme_gray">Grigio</span><span class="material-symbols-outlined theme-choice__check" aria-hidden="true">check</span>
+          </button>
+        </div>
+      </div>
+
+      <div id="theme-custom-panel" class="theme-custom-panel" data-selected="false">
+        <div class="theme-custom-panel__copy">
+          <div class="theme-custom-panel__title-row">
+            <span class="material-symbols-outlined" aria-hidden="true">colorize</span>
+            <h3 data-i18n="set_theme_custom">Personalizzato</h3>
+          </div>
+          <p data-i18n="theme_picker_custom_sub">Inserisci un colore CSS esadecimale. I valori con alpha vengono composti sulla base scura del tema.</p>
+        </div>
+        <div class="theme-custom-field">
+          <label for="theme-custom-input" data-i18n="theme_picker_hex_label">Colore esadecimale</label>
+          <div class="theme-custom-input-wrap">
+            <span id="theme-custom-swatch" class="theme-custom-swatch" aria-hidden="true"></span>
+            <input id="theme-custom-input" type="text" autocomplete="off" spellcheck="false"
+                   maxlength="7" placeholder="#3B82F6"
+                   aria-describedby="theme-custom-help theme-custom-status">
+          </div>
+          <p id="theme-custom-help" class="theme-custom-help" data-i18n="theme_picker_hex_help">Formati supportati: #RGB, #RGBA, #RRGGBB.</p>
+          <p id="theme-custom-status" class="theme-custom-status" aria-live="polite"></p>
+        </div>
+      </div>
+    </div>
+
+    <footer class="theme-chooser-footer">
+      <button type="button" class="theme-chooser-button theme-chooser-button--ghost" data-theme-cancel data-i18n="theme_picker_cancel">Annulla</button>
+      <button type="button" id="theme-chooser-apply" class="theme-chooser-button theme-chooser-button--primary" data-i18n="theme_picker_apply">Applica</button>
+    </footer>
+  </section>
+</div>
+
 <script src="js/bridge.js?v=errlog1"></script>
 <script src="js/font.js?v=font18"></script>
-<script src="js/i18n.catalogs.js?v=bars1"></script>
+<script src="js/i18n.catalogs.js?v=widgetappearance1-themechooser1"></script>
 <script src="js/i18n.js?v=catalog1"></script>
 <script src="js/view-lifecycle.js?v=mod1"></script>
 <script src="js/app.js?v=fix1"></script>
@@ -1415,7 +1555,7 @@
 <script src="js/battery-history-request.js?v=1"></script>
 <script src="js/dashboard.js?v=anim1"></script>
 <script src="js/brightness.js?v=brightness1"></script>
-<script src="js/settings.js?v=bars1"></script>
+<script src="js/settings.js?v=widgetappearance1-themechooser1"></script>
 <script src="js/settings-preferences-tools.js?v=mod1"></script>
 <script src="js/lan-remote-control.js?v=1"></script>
 <script src="js/welcome.js?v=silentupdate1"></script>

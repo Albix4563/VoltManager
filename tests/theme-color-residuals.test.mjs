@@ -82,3 +82,43 @@ test('applying a theme updates the document state and live CSS variables', () =>
   assert.equal(properties.get('--md-sys-color-secondary-container'), '#ff0000');
   assert.equal(properties.get('--vm-accent-rgb'), '255 0 0');
 });
+
+test('custom CSS hex colors normalize like the native theme service', () => {
+  const document = {
+    documentElement: {
+      dataset: { themeColor: 'blue' },
+      style: { setProperty() {} },
+    },
+  };
+  const window = {};
+  vm.runInContext(themeScript, vm.createContext({ window, document }));
+
+  assert.equal(window.VoltTheme.normalizeCustomColor('#abc'), '#AABBCC');
+  assert.equal(window.VoltTheme.normalizeCustomColor(' #123456 '), '#123456');
+  assert.equal(window.VoltTheme.normalizeCustomColor('#F008'), '#8D080F');
+  assert.equal(window.VoltTheme.normalizeCustomColor('#12'), null);
+  assert.equal(window.VoltTheme.normalizeCustomColor('#GGG'), null);
+});
+
+test('custom palette application rejects unsafe CSS values', () => {
+  const properties = new Map();
+  const document = {
+    documentElement: {
+      dataset: { themeColor: 'blue' },
+      style: { setProperty: (name, value) => properties.set(name, value) },
+    },
+  };
+  const window = {};
+  vm.runInContext(themeScript, vm.createContext({ window, document }));
+
+  const unsafe = {
+    background: '#101010', surface: '#202020', surfaceElevated: '#303030', border: '#404040',
+    text: '#ffffff', mutedText: '#aaaaaa', primary: 'url(javascript:bad)', secondary: '#cc0000',
+    hover: '#ee0000', onPrimary: '#000000',
+  };
+  const applied = window.VoltTheme.apply('custom', unsafe);
+
+  assert.equal(applied, 'blue');
+  assert.equal(properties.size, 0);
+  assert.equal(document.documentElement.dataset.themeColor, 'blue');
+});

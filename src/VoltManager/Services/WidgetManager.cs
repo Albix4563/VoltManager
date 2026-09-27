@@ -27,11 +27,14 @@ public sealed record WidgetItemState(
     string EffectiveMonitorId,
     string EffectiveAnchor,
     bool UsesFallbackDisplay,
+    WidgetAppearance? Appearance,
+    WidgetAppearance EffectiveAppearance,
     double? X,
     double? Y);
 
 public sealed record WidgetStateSnapshot(
     bool Enabled,
+    WidgetAppearance Appearance,
     IReadOnlyList<WidgetItemState> Items,
     IReadOnlyList<WidgetDisplayState> Monitors);
 
@@ -77,6 +80,7 @@ public sealed class WidgetManager : IDisposable
             PushTheme();
             PushFont();
             PushAnimationLevel();
+            PushAppearance();
         };
         _theme.ThemeChanged += _ => PushTheme();
     }
@@ -178,6 +182,40 @@ public sealed class WidgetManager : IDisposable
             item.Height = null;
         });
         return Relayout(save: false);
+    }
+
+    public WidgetStateSnapshot SetAppearance(WidgetAppearance appearance)
+    {
+        if (_disposing) return GetSnapshot();
+        appearance ??= new WidgetAppearance();
+        appearance.Normalize();
+        _settings.Update(state =>
+        {
+            state.Widgets.Appearance = appearance.CloneNormalized();
+            foreach (var item in state.Widgets.Items.Where(item => item.Appearance != null))
+            {
+                item.Appearance!.Tint = appearance.Tint;
+                item.Appearance.Gradient = appearance.Gradient;
+                item.Appearance.Intensity = appearance.Intensity;
+                item.Appearance.Normalize();
+            }
+        });
+
+        var snapshot = BuildSnapshotFromCurrent();
+        StateChanged?.Invoke(snapshot);
+        return snapshot;
+    }
+
+    public WidgetStateSnapshot SetAppearanceOverride(string type, WidgetAppearance? appearance)
+    {
+        if (_disposing || !WidgetSettings.IsKnownType(type)) return GetSnapshot();
+        appearance?.Normalize();
+        _settings.Update(state =>
+            state.Widgets.GetOrAdd(type).Appearance = appearance?.CloneNormalized());
+
+        var snapshot = BuildSnapshotFromCurrent();
+        StateChanged?.Invoke(snapshot);
+        return snapshot;
     }
 
     public WidgetStateSnapshot ResetPosition(string type)
@@ -324,6 +362,22 @@ public sealed class WidgetManager : IDisposable
         var data = new { level = _settings.Current.AnimationLevel };
         foreach (var window in _windows.Values.ToList())
             window.PushEvent(BridgeEventNames.AnimationLevelChanged, data);
+    }
+
+    internal void PushAppearance()
+    {
+        var widgets = GetSettings();
+        foreach (var pair in _windows.ToList())
+        {
+            var item = widgets.Items.FirstOrDefault(i =>
+                string.Equals(i.Type, pair.Key, StringComparison.OrdinalIgnoreCase));
+            if (item != null)
+            {
+                var appearance = widgets.ResolveAppearance(item);
+                if (!pair.Value.MatchesAppearance(appearance))
+                    pair.Value.ApplyAppearance(appearance);
+            }
+        }
     }
 
     internal void PushResourceProfile(ResourcePressureState state)
@@ -569,12 +623,16 @@ public sealed class WidgetManager : IDisposable
         if (_windows.TryGetValue(item.Type, out var existing))
         {
             existing.Topmost = item.Pinned;
+            var appearance = GetSettings().ResolveAppearance(item);
+            if (!existing.MatchesAppearance(appearance))
+                existing.ApplyAppearance(appearance);
             existing.ApplyPlacement(placement, item.Size, item.Orientation);
             if (!existing.IsVisible) existing.Show();
             return;
         }
 
         var window = _windowFactory(this, item, EnvTask(), PlacementSizeDip(placement), placement);
+        window.ApplyAppearance(GetSettings().ResolveAppearance(item));
         _windows[item.Type] = window;
         window.Closed += (_, _) => ForgetWindow(item.Type);
         window.Show();
@@ -641,6 +699,8 @@ public sealed class WidgetManager : IDisposable
                 p?.EffectiveDisplay.Id ?? item.MonitorId ?? _snapshot.Primary.Id,
                 p?.EffectiveAnchor ?? item.Anchor ?? "topRight",
                 p?.UsesFallbackDisplay ?? false,
+                item.Appearance?.CloneNormalized(),
+                widgets.ResolveAppearance(item),
                 item.X,
                 item.Y);
         }).ToList();
@@ -649,7 +709,7 @@ public sealed class WidgetManager : IDisposable
             .Select(d => new WidgetDisplayState(d.Id, d.Number, d.Name, d.IsPrimary))
             .ToList();
 
-        return new WidgetStateSnapshot(widgets.Enabled, items, monitors);
+        return new WidgetStateSnapshot(widgets.Enabled, widgets.Appearance.CloneNormalized(), items, monitors);
     }
 
     private Size GetWidgetSizeForDisplay(WidgetItem item)

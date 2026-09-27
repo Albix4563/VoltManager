@@ -1,5 +1,6 @@
 using System.Text.Json;
 using VoltManager.Bridge.Rpc;
+using VoltManager.Models;
 
 namespace VoltManager.Bridge.Handlers;
 
@@ -11,6 +12,8 @@ public sealed record WidgetRpcActions(
     Func<string, string, object> SetSize,
     Func<string, string, object> SetOrientation,
     Func<string, string, string, object> SetPlacement,
+    Func<WidgetAppearance, object> SetAppearance,
+    Func<string, WidgetAppearance?, object> SetAppearanceOverride,
     Func<string, object> ResetPosition,
     Action BeginDrag,
     Action BeginResize,
@@ -24,6 +27,7 @@ public sealed class WidgetRpcHandler : IBridgeRpcHandler
         "beginWidgetDrag", "beginWidgetResize", "setWidgetTopmost", "closeWidget",
         "getWidgetsState", "setWidgetEnabled", "setWidgetsMaster",
         "setWidgetPinned", "setWidgetSize", "setWidgetOrientation", "setWidgetPlacement",
+        "setWidgetAppearance", "setWidgetAppearanceOverride",
         "resetWidgetPosition",
     ];
 
@@ -62,6 +66,11 @@ public sealed class WidgetRpcHandler : IBridgeRpcHandler
                 BridgePayload.RequiredString(payload, "type", "Missing widget type"),
                 BridgePayload.RequiredString(payload, "monitorId", "Missing monitor id"),
                 BridgePayload.RequiredString(payload, "anchor", "Missing anchor")),
+            "setWidgetAppearance" => _actions.SetAppearance(
+                BridgePayload.Deserialize<WidgetAppearance>(payload, "Invalid widget appearance")),
+            "setWidgetAppearanceOverride" => _actions.SetAppearanceOverride(
+                BridgePayload.RequiredString(payload, "type", "Missing widget type"),
+                ReadAppearanceOverride(payload)),
             "resetWidgetPosition" => _actions.ResetPosition(
                 BridgePayload.RequiredString(payload, "type", "Missing widget type")),
             _ => throw new ArgumentException($"Handler cannot process RPC method '{method}'."),
@@ -91,5 +100,14 @@ public sealed class WidgetRpcHandler : IBridgeRpcHandler
         if (value.ValueKind != JsonValueKind.String)
             throw new ArgumentException($"Invalid {name}");
         return value.GetString() ?? defaultValue;
+    }
+
+    private static WidgetAppearance? ReadAppearanceOverride(JsonElement payload)
+    {
+        if (payload.ValueKind != JsonValueKind.Object
+            || !payload.TryGetProperty("appearance", out JsonElement value))
+            throw new ArgumentException("Missing widget appearance override");
+        if (value.ValueKind == JsonValueKind.Null) return null;
+        return BridgePayload.Deserialize<WidgetAppearance>(value, "Invalid widget appearance override");
     }
 }
