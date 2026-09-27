@@ -199,8 +199,8 @@
         window.__voltUiReorganizationLoading = true;
         addStyle();
         try {
-            await loadScript('js/ui-reorganization.layout.js?v=brightness1');
-            await loadScript('js/ui-reorganization.js?v=brightness1');
+            await loadScript('js/ui-reorganization.layout.js?v=widgetstyle1');
+            await loadScript('js/ui-reorganization.js?v=widgetstyle1');
             await loadScript('js/ui-reorganization.status.js?v=nav-reorg1');
             await loadScript('js/global-search.js?v=brightness1');
         } catch (error) {

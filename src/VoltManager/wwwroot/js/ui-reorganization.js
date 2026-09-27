@@ -178,7 +178,10 @@
         const startupButton = $('btn-refresh-startup-apps');
         move(startupButton && startupButton.closest('.glass-panel'), $('vm-system-startup'));
 
+        // Every card of the legacy widgets view must be relocated: the legacy view stays hidden.
+        move($('widget-appearance-card'), $('vm-widgets-appearance'));
         move($('widgets-card'), $('vm-widgets-content'));
+        move($('launcher-apps-card'), $('vm-widgets-launcher'));
 
         const updateButton = $('btn-check-updates');
         move(updateButton && updateButton.closest('.glass-panel'), $('vm-settings-updates'));

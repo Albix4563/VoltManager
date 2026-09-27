@@ -227,11 +227,13 @@
 
     function widgets() {
         return view('widgets', 'widgets_title', 'widgets_subtitle', `
+            <section class="vm-ui-panel vm-section-card"><div id="vm-widgets-appearance" class="vm-ui-group"></div></section>
             <div class="vm-widget-filters" role="tablist">
                 <button type="button" class="vm-widget-filter active" data-widget-filter="all" aria-selected="true"><span data-vm-i18n="filter_all"></span></button>
                 <button type="button" class="vm-widget-filter" data-widget-filter="active" aria-selected="false"><span data-vm-i18n="filter_active"></span></button>
                 <button type="button" class="vm-widget-filter" data-widget-filter="disabled" aria-selected="false"><span data-vm-i18n="filter_disabled"></span></button>
-            </div><section class="vm-ui-panel vm-section-card"><div id="vm-widgets-content" class="vm-ui-group"></div></section>`);
+            </div><section class="vm-ui-panel vm-section-card"><div id="vm-widgets-content" class="vm-ui-group"></div></section>
+            <section class="vm-ui-panel vm-section-card"><div id="vm-widgets-launcher" class="vm-ui-group"></div></section>`);
     }
 
     function remoteControl() {

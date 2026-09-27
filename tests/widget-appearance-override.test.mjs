@@ -88,3 +88,25 @@ test('reset all clears overridden widgets sequentially and refetches after a fai
   assert.deepEqual(failedCalls, ['clock', 'usage', 'refetch']);
   assert.deepEqual(recovered, { refetched: true });
 });
+
+test('every card of the legacy widgets view is relocated into the visible reorganized view', () => {
+  const read = rel => fs.readFileSync(path.join(root, rel), 'utf8');
+  const html = read('src/VoltManager/wwwroot/index.html');
+  const reorg = read('src/VoltManager/wwwroot/js/ui-reorganization.js');
+  const layout = read('src/VoltManager/wwwroot/js/ui-reorganization.layout.js');
+  const start = html.indexOf('id="view-widgets"');
+  assert.ok(start > 0);
+  const end = html.indexOf('<!-- ============ VIEW', start);
+  const legacyView = html.slice(start, end > 0 ? end : undefined);
+  const cardIds = Array.from(legacyView.matchAll(/<div class="glass-panel[^"]*" id="([^"]+)"/g), m => m[1]);
+  assert.deepEqual(cardIds.sort(), ['launcher-apps-card', 'widget-appearance-card', 'widgets-card']);
+  for (const id of cardIds) {
+    const call = `move($('${id}'), $('`;
+    const at = reorg.indexOf(call);
+    const moved = at >= 0 ? [null, reorg.slice(at + call.length, reorg.indexOf("'", at + call.length))] : null;
+    assert.ok(moved, `${id} must be moved out of the hidden legacy view`);
+    assert.match(layout, new RegExp(`id="${moved[1]}"`), `${moved[1]} target must exist in the widgets layout`);
+  }
+  assert.ok(reorg.indexOf("move($('widget-appearance-card')") < reorg.indexOf("move($('widgets-card')"),
+    'the global style card comes before the widget list');
+});
