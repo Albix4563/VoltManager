@@ -46,7 +46,7 @@ internal sealed class LauncherDiscoveryService
     private readonly Func<string, string?> _iconLoader;
     private readonly Action<string, string?> _launcher;
     private readonly IReadOnlyList<LauncherDefinition> _catalog;
-    private readonly ConcurrentDictionary<string, string?> _icons = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, string> _icons = new(StringComparer.OrdinalIgnoreCase);
     private readonly SemaphoreSlim _detectGate = new(1, 1);
     private IReadOnlyList<(LauncherDefinition Definition, string Path)>? _detected;
 
@@ -288,11 +288,21 @@ internal sealed class LauncherDiscoveryService
         => hiddenIds.Any(h => string.Equals(h, id, StringComparison.OrdinalIgnoreCase));
 
     private string? GetIcon(string path)
-        => _icons.GetOrAdd(path, p =>
-        {
-            try { return _iconLoader(p); }
-            catch { return null; }
-        });
+    {
+        if (_icons.TryGetValue(path, out string? cached))
+            return cached;
+
+        string? icon;
+        try { icon = _iconLoader(path); }
+        catch { return null; }
+
+        // Shell icon extraction can fail transiently during Windows/app startup.
+        // Never cache that failure: a later widget refresh must be able to retry.
+        if (string.IsNullOrWhiteSpace(icon))
+            return null;
+
+        return _icons.GetOrAdd(path, icon);
+    }
 
     private void RaiseChanged()
     {

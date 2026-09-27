@@ -43,6 +43,28 @@ public sealed class LauncherDiscoveryServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Transient_icon_failure_is_retried_on_next_load()
+    {
+        const string steam = @"C:\Steam\steam.exe";
+        _env.Registry[(RegistryHive.CurrentUser, @"Software\Valve\Steam", "SteamExe")] = steam;
+        _env.Files.Add(steam);
+        int attempts = 0;
+        var service = new LauncherDiscoveryService(
+            new SettingsService(_settingsPath),
+            _env,
+            _ => ++attempts == 1 ? null : "data:image/png;base64,AA==",
+            (path, args) => _launched.Add((path, args)),
+            LauncherDiscoveryService.DefaultCatalog);
+
+        var first = Assert.Single(await service.GetLaunchersAsync(refresh: false));
+        var second = Assert.Single(await service.GetLaunchersAsync(refresh: false));
+
+        Assert.Null(first.IconDataUrl);
+        Assert.Equal("data:image/png;base64,AA==", second.IconDataUrl);
+        Assert.Equal(2, attempts);
+    }
+
+    [Fact]
     public async Task Registry_path_that_no_longer_exists_is_skipped()
     {
         _env.Registry[(RegistryHive.CurrentUser, @"Software\Valve\Steam", "SteamExe")] = @"D:\Old\steam.exe";

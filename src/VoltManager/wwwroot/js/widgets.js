@@ -5,6 +5,7 @@
     const APPEARANCE_TINTS = ['theme', 'midnight', 'graphite', 'aurora', 'ember', 'neutral'];
     const APPEARANCE_GRADIENTS = ['vertical', 'diagonal', 'radial', 'flat'];
     const MAX_CUSTOM_PER_CATEGORY = 10;
+    const LAUNCHER_ICON_RETRY_DELAYS = [300, 900, 1800, 4000, 8000, 16000];
     const PLAN_ORDER = ['powerSaver', 'balanced', 'performance'];
     const params = new URLSearchParams(location.search);
     const type = TYPES.includes(params.get('w')) ? params.get('w') : 'clock';
@@ -28,6 +29,8 @@
     let launcherLoaded = false;
     let launcherLoading = false;
     let launcherReloadPending = false;
+    let launcherIconRetryAttempt = 0;
+    let launcherIconRetryTimer = null;
     let gamingActive = false;
     let settingGaming = false;
     let scheduleState = null;
@@ -720,15 +723,39 @@
             launcherLoaded = true;
         }
         renderLaunchers();
+        scheduleLauncherIconRetry();
         if (launcherReloadPending) {
             launcherReloadPending = false;
             loadLaunchers();
         }
     }
 
-    function launcherIcon(item) {
-        const url = typeof item.iconDataUrl === 'string' && item.iconDataUrl.startsWith('data:image/png;base64,')
+    function launcherIconDataUrl(item) {
+        return typeof item?.iconDataUrl === 'string' && item.iconDataUrl.startsWith('data:image/png;base64,')
             ? item.iconDataUrl : '';
+    }
+
+    function scheduleLauncherIconRetry() {
+        if (launcherIconRetryTimer != null) {
+            clearTimeout(launcherIconRetryTimer);
+            launcherIconRetryTimer = null;
+        }
+        const missingIcon = launcherItems.some(item => item && item.available !== false && !launcherIconDataUrl(item));
+        if (!missingIcon) {
+            launcherIconRetryAttempt = 0;
+            return;
+        }
+        if (launcherIconRetryAttempt >= LAUNCHER_ICON_RETRY_DELAYS.length) return;
+
+        const delay = LAUNCHER_ICON_RETRY_DELAYS[launcherIconRetryAttempt++];
+        launcherIconRetryTimer = setTimeout(() => {
+            launcherIconRetryTimer = null;
+            loadLaunchers();
+        }, delay);
+    }
+
+    function launcherIcon(item) {
+        const url = launcherIconDataUrl(item);
         if (url) return '<img src="' + esc(url) + '" alt="" draggable="false">';
         return '<span class="material-symbols-outlined">' + (item.source === 'custom' ? 'apps' : 'sports_esports') + '</span>';
     }
@@ -1172,7 +1199,14 @@
 
     if (type === 'plans') Host.on('activePlanChanged', data => reflectPlanSelector(data && data.plan));
     if (isLauncherWidget) {
-        Host.on('launchersChanged', () => loadLaunchers());
+        Host.on('launchersChanged', () => {
+            launcherIconRetryAttempt = 0;
+            if (launcherIconRetryTimer != null) {
+                clearTimeout(launcherIconRetryTimer);
+                launcherIconRetryTimer = null;
+            }
+            loadLaunchers();
+        });
         Host.on('launcherDropResult', result => showLauncherToast(result));
     }
     if (type === 'actions') {
