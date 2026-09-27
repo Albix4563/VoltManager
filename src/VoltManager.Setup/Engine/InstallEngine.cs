@@ -358,25 +358,31 @@ namespace VoltManager.Setup.Engine
 
         /// <summary>
         /// Reads the payload.zip embedded resource out of the downloaded Preview
-        /// setup exe without executing it. Byte-loading avoids locking the temp
-        /// file so it stays deletable.
+        /// setup exe in a temporary AppDomain so the downloaded VoltManagerSetup
+        /// assembly never enters the WPF application's AppDomain.
         /// </summary>
         private static string ExtractPreviewPayloadZip(string previewSetupExe, CancellationToken ct)
         {
             string? tempDir = null;
+            AppDomain? extractionDomain = null;
             try
             {
-                var asm = Assembly.Load(File.ReadAllBytes(previewSetupExe));
-                string? resName = Array.Find(asm.GetManifestResourceNames(),
-                    n => n.EndsWith("payload.zip", StringComparison.OrdinalIgnoreCase));
-                if (resName == null)
-                    throw new InvalidOperationException(I18n.T("err_preview_payload"));
-
+                ct.ThrowIfCancellationRequested();
                 tempDir = CreateUniqueTempDirectory();
                 string zipPath = Path.Combine(tempDir, "VoltManagerPreviewPayload.zip");
-                using (var src = asm.GetManifestResourceStream(resName)!)
-                using (var dst = File.Create(zipPath))
-                    src.CopyToAsync(dst, 81920, ct).GetAwaiter().GetResult();
+
+                extractionDomain = AppDomain.CreateDomain(
+                    "VoltManagerPreviewPayload-" + Guid.NewGuid().ToString("N"),
+                    null,
+                    new AppDomainSetup { ApplicationBase = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) });
+                var extractor = (PreviewPayloadExtractor)extractionDomain.CreateInstanceFromAndUnwrap(
+                    Assembly.GetExecutingAssembly().Location,
+                    typeof(PreviewPayloadExtractor).FullName);
+
+                if (!extractor.CopyEmbeddedPayload(previewSetupExe, zipPath))
+                    throw new InvalidOperationException(I18n.T("err_preview_payload"));
+
+                ct.ThrowIfCancellationRequested();
                 return zipPath;
             }
             catch (OperationCanceledException)
@@ -394,6 +400,29 @@ namespace VoltManager.Setup.Engine
                 TryDeleteTempDirectory(tempDir);
                 throw new InvalidOperationException(
                     I18n.T("err_preview_payload") + " " + ex.Message, ex);
+            }
+            finally
+            {
+                if (extractionDomain != null)
+                    AppDomain.Unload(extractionDomain);
+            }
+        }
+
+        public sealed class PreviewPayloadExtractor : MarshalByRefObject
+        {
+            public bool CopyEmbeddedPayload(string previewSetupExe, string zipPath)
+            {
+                var asm = Assembly.Load(File.ReadAllBytes(previewSetupExe));
+                string? resName = Array.Find(asm.GetManifestResourceNames(),
+                    n => n.EndsWith("payload.zip", StringComparison.OrdinalIgnoreCase));
+                if (resName == null)
+                    return false;
+
+                using (var src = asm.GetManifestResourceStream(resName)!)
+                using (var dst = File.Create(zipPath))
+                    src.CopyTo(dst, 81920);
+
+                return true;
             }
         }
 

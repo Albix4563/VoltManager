@@ -22,6 +22,14 @@ test('welcome onboarding has a fifth LAN remote step wired through dedicated RPC
   assert.equal((html.match(/class="welcome-dot"/g) || []).length, 5);
 });
 
+test('welcome LAN remote switch is contained so it cannot cover permissions or Start', () => {
+  const html = read('src/VoltManager/wwwroot/index.html');
+  const step = html.match(/<section class="welcome-step hidden flex-col gap-lg" data-step="4">([\s\S]*?)<\/section>/)?.[1];
+  assert.ok(step);
+  assert.match(step, /<div class="relative[^\"]*">\s*<input class="toggle-large" id="welcome-remote-enabled" type="checkbox"\/>\s*<label class="toggle-label-large[^\"]*" for="welcome-remote-enabled">/);
+  assert.match(html, /id="welcome-btn-start"/);
+});
+
 test('remote web client is a self-contained local bundle with no external resources', () => {
   const htmlPath = new URL('src/VoltManager/wwwroot/remote/index.html', root);
   const cssPath = new URL('src/VoltManager/wwwroot/remote/remote.css', root);

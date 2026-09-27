@@ -6,6 +6,86 @@ namespace VoltManager.Setup.Tests;
 public sealed class InstallEngineRegressionTests
 {
     [Fact]
+    public void Preview_payload_helper_can_be_created_from_versioned_setup_path()
+    {
+        Assembly setupAssembly = typeof(InstallEngine).Assembly;
+        string root = Path.Combine(Path.GetTempPath(), "VoltManagerSetupTests", Guid.NewGuid().ToString("N"));
+        string versionedSetup = Path.Combine(root, $"VoltManagerSetup-{setupAssembly.GetName().Version}.exe");
+        AppDomain? domain = null;
+        Directory.CreateDirectory(root);
+        File.Copy(setupAssembly.Location, versionedSetup);
+
+        try
+        {
+            domain = AppDomain.CreateDomain(
+                "VoltManagerSetupVersionedPath-" + Guid.NewGuid().ToString("N"),
+                null,
+                new AppDomainSetup { ApplicationBase = root });
+
+            var helper = (InstallEngine.PreviewPayloadExtractor)domain.CreateInstanceFromAndUnwrap(
+                versionedSetup,
+                typeof(InstallEngine.PreviewPayloadExtractor).FullName);
+
+            Assert.NotNull(helper);
+        }
+        finally
+        {
+            if (domain != null)
+                AppDomain.Unload(domain);
+            try { Directory.Delete(root, true); } catch { }
+        }
+    }
+
+    [Fact]
+    public void Preview_payload_extraction_does_not_load_downloaded_setup_into_current_appdomain()
+    {
+        Assembly setupAssembly = typeof(InstallEngine).Assembly;
+        string assemblyName = setupAssembly.GetName().Name!;
+        int loadedBefore = AppDomain.CurrentDomain.GetAssemblies()
+            .Count(a => string.Equals(a.GetName().Name, assemblyName, StringComparison.OrdinalIgnoreCase));
+        string root = Path.Combine(Path.GetTempPath(), "VoltManagerSetupTests", Guid.NewGuid().ToString("N"));
+        string previewSetup = Path.Combine(root, "VoltManagerSetup-preview.exe");
+        string? extractedZip = null;
+        Directory.CreateDirectory(root);
+        File.Copy(setupAssembly.Location, previewSetup);
+
+        try
+        {
+            MethodInfo method = typeof(InstallEngine).GetMethod(
+                "ExtractPreviewPayloadZip", BindingFlags.NonPublic | BindingFlags.Static)!;
+            bool hasPayload = setupAssembly.GetManifestResourceNames()
+                .Any(n => n.EndsWith("payload.zip", StringComparison.OrdinalIgnoreCase));
+
+            Exception? error = Record.Exception(() =>
+                extractedZip = (string)method.Invoke(null, new object?[] { previewSetup, CancellationToken.None })!);
+
+            if (hasPayload)
+            {
+                Assert.Null(error);
+                Assert.NotNull(extractedZip);
+                Assert.True(File.Exists(extractedZip));
+            }
+            else
+            {
+                var invocationError = Assert.IsType<TargetInvocationException>(error);
+                Assert.IsType<InvalidOperationException>(invocationError.InnerException);
+            }
+
+            int loadedAfter = AppDomain.CurrentDomain.GetAssemblies()
+                .Count(a => string.Equals(a.GetName().Name, assemblyName, StringComparison.OrdinalIgnoreCase));
+            Assert.Equal(loadedBefore, loadedAfter);
+        }
+        finally
+        {
+            if (extractedZip != null)
+            {
+                try { Directory.Delete(Path.GetDirectoryName(extractedZip)!, true); } catch { }
+            }
+            try { Directory.Delete(root, true); } catch { }
+        }
+    }
+
+    [Fact]
     public async Task Corrupt_payload_does_not_destroy_existing_installation()
     {
         string root = Path.Combine(Path.GetTempPath(), "VoltManagerSetupTests", Guid.NewGuid().ToString("N"));

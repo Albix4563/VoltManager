@@ -1324,10 +1324,13 @@
           <h2 class="text-headline-sm text-on-surface mt-sm" data-i18n="welcome_remote_title">Controllo remoto LAN</h2>
           <p class="text-body-md text-on-surface-variant mt-sm" data-i18n="welcome_remote_sub">Solo rete locale, nessun cloud. Decidi tu quali azioni consentire.</p>
         </div>
-        <label class="flex items-center justify-between gap-md">
+        <div class="flex items-center justify-between gap-md">
           <span><strong class="text-body-md text-on-surface" data-i18n="welcome_remote_enable">Attiva controllo remoto</strong></span>
-          <input class="toggle-large" id="welcome-remote-enabled" type="checkbox"/>
-        </label>
+          <div class="relative inline-block w-16 h-8 align-middle select-none transition duration-200 ease-in flex-shrink-0">
+            <input class="toggle-large" id="welcome-remote-enabled" type="checkbox"/>
+            <label class="toggle-label-large cursor-pointer" for="welcome-remote-enabled"><span class="sr-only" data-i18n="welcome_remote_enable">Attiva controllo remoto</span></label>
+          </div>
+        </div>
         <div class="flex flex-col gap-md">
           <label class="flex items-center justify-between gap-md"><span data-i18n="welcome_remote_plan">Cambio piano energetico</span><input id="welcome-remote-plan" type="checkbox"/></label>
           <label class="flex items-center justify-between gap-md"><span data-i18n="welcome_remote_shutdown">Spegnimento PC</span><input id="welcome-remote-shutdown" type="checkbox"/></label>
