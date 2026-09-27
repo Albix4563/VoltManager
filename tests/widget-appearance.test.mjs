@@ -21,6 +21,24 @@ test('widget frontend supports solid, acrylic and transparent appearances', () =
   assert.match(css, /data-gradient="diagonal"/);
   assert.match(css, /data-gradient="radial"/);
   assert.match(css, /data-gradient="flat"/);
+  assert.match(css, /--widget-tint:\s*color-mix\(in srgb, var\(--vm-accent[^;]*26%[^;]*var\(--vm-surface-high/);
+  assert.match(css, /--widget-tint-2:\s*var\(--vm-bg/);
+  assert.match(css, /rgb\(from var\(--widget-tint\) r g b \/ var\(--vm-widget-solid-alpha\)\)/);
+  assert.doesNotMatch(css, /--widget-tint(?:-2)?-rgb/);
+  assert.doesNotMatch(css, /rgba\(34\s*,\s*50\s*,\s*86/);
+  assert.match(js, /--vm-widget-acrylic-alpha',\s*String\(0\.06 \+ level \* 0\.40\)/);
+  assert.match(js, /Host\.on\('themeChanged',[\s\S]*?VoltTheme\.apply\(data\.themeColor, data\.palette\)/);
+});
+
+test('widget appearance preview mirrors theme tint and acrylic opacity', () => {
+  const css = read('src/VoltManager/wwwroot/css/app.css');
+  const js = read('src/VoltManager/wwwroot/js/settings.js');
+
+  assert.match(css, /--preview-tint:color-mix\(in srgb,var\(--vm-accent\) 26%,var\(--vm-surface-high\)\)/);
+  assert.match(css, /--preview-tint-2:var\(--vm-bg\)/);
+  assert.match(css, /--vm-widget-acrylic-alpha:\.30/);
+  assert.match(css, /rgb\(from var\(--preview-tint\) r g b\/var\(--vm-widget-acrylic-alpha\)\)/);
+  assert.match(js, /--vm-widget-acrylic-alpha',\s*String\(0\.06 \+ level \* 0\.40\)/);
 });
 
 test('widget appearance persistence ignores stale responses and sends latest local state', () => {

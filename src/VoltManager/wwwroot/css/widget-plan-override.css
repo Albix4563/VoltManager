@@ -31,7 +31,7 @@
 }
 
 .desktop-widget[data-material="acrylic"] .widget-override-dialog {
-  background: rgb(var(--widget-tint-rgb) / .34);
+  background: rgb(from var(--widget-tint) r g b / .22);
   border-color: rgba(255, 255, 255, .16);
 }
 

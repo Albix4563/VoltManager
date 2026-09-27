@@ -287,14 +287,9 @@ html[data-perf-tier="balanced"] .vm-scrim {
     background: color-mix(in srgb, var(--vm-bg) 84%, transparent) !important;
 }
 
-/* Desktop widgets are separate WebView pages but receive the same palette.
-   Their old fixed navy shell otherwise remains blue under every theme. */
+/* Desktop widget material backgrounds live in widgets.css. Keep only the
+   semantic border here so acrylic/transparent cards cannot inherit an opaque shell. */
 .desktop-widget {
-    background:
-        linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,0) 42%),
-        linear-gradient(165deg,
-            color-mix(in srgb, var(--vm-surface-high) 92%, transparent),
-            color-mix(in srgb, var(--vm-bg) 88%, transparent)) !important;
     border-color: color-mix(in srgb, var(--vm-border) 78%, transparent) !important;
 }
 

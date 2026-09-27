@@ -705,7 +705,7 @@
         el.dataset.gradient = normalized.gradient;
         el.style.setProperty('--vm-widget-intensity', String(level));
         el.style.setProperty('--vm-widget-solid-alpha', String(0.70 + level * 0.25));
-        el.style.setProperty('--vm-widget-acrylic-alpha', String(0.18 + level * 0.37));
+        el.style.setProperty('--vm-widget-acrylic-alpha', String(0.06 + level * 0.40));
         el.style.setProperty('--vm-widget-transparent-alpha', String(level * 0.20));
     }
 

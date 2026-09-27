@@ -348,6 +348,10 @@ public partial class WidgetWindow : Window
         source.CompositionTarget.BackgroundColor = Colors.Transparent;
         var glassMargins = new MARGINS { Left = -1, Right = -1, Top = -1, Bottom = -1 };
         if (DwmExtendFrameIntoClientArea(hwnd, ref glassMargins) != 0) return false;
+        // A borderless popup only gets per-pixel alpha from DWM once blur-behind is enabled;
+        // an empty blur region keeps it see-through without blurring (same trick as winit/Tauri).
+        // Without it transparent pixels (and the rounded corners) are composed as black.
+        if (!TrySetBlurBehind(hwnd, enable: true)) return false;
 
         if (string.Equals(material, "transparent", StringComparison.OrdinalIgnoreCase))
             return true;
@@ -357,13 +361,37 @@ public partial class WidgetWindow : Window
 
         int dark = 1;
         _ = DwmSetWindowAttribute(hwnd, DwmwaUseImmersiveDarkMode, ref dark, sizeof(int));
-        if (TrySetAccent(hwnd, AccentEnableAcrylicBlurBehind, 0x352E1A0E)) return true;
+        // Near-zero native tint: the user-selected tint/gradient is painted by the page CSS.
+        // Alpha must stay > 0, Windows 10 acrylic glitches with a fully transparent gradient.
+        if (TrySetAccent(hwnd, AccentEnableAcrylicBlurBehind, 0x01000000)) return true;
         return TrySetAccent(hwnd, AccentEnableBlurBehind, 0);
     }
 
     private static bool TryClearNativeEffects(IntPtr hwnd)
     {
-        return TrySetAccent(hwnd, AccentDisabled, 0);
+        bool accentCleared = TrySetAccent(hwnd, AccentDisabled, 0);
+        return TrySetBlurBehind(hwnd, enable: false) && accentCleared;
+    }
+
+    private static bool TrySetBlurBehind(IntPtr hwnd, bool enable)
+    {
+        const int DwmBbEnable = 0x1;
+        const int DwmBbBlurRegion = 0x2;
+        IntPtr region = enable ? CreateRectRgn(0, 0, -1, -1) : IntPtr.Zero;
+        try
+        {
+            var blur = new DWM_BLURBEHIND
+            {
+                dwFlags = enable ? DwmBbEnable | DwmBbBlurRegion : DwmBbEnable,
+                fEnable = enable,
+                hRgnBlur = region,
+            };
+            return DwmEnableBlurBehindWindow(hwnd, ref blur) == 0;
+        }
+        finally
+        {
+            if (region != IntPtr.Zero) DeleteObject(region);
+        }
     }
 
     private static bool TrySetAccent(IntPtr hwnd, int state, uint gradientColor)
@@ -779,6 +807,15 @@ public partial class WidgetWindow : Window
     private static extern int DwmExtendFrameIntoClientArea(IntPtr hWnd, ref MARGINS pMarInset);
 
     [DllImport("dwmapi.dll")]
+    private static extern int DwmEnableBlurBehindWindow(IntPtr hWnd, ref DWM_BLURBEHIND pBlurBehind);
+
+    [DllImport("gdi32.dll")]
+    private static extern IntPtr CreateRectRgn(int x1, int y1, int x2, int y2);
+
+    [DllImport("gdi32.dll")]
+    private static extern bool DeleteObject(IntPtr hObject);
+
+    [DllImport("dwmapi.dll")]
     private static extern int DwmSetWindowAttribute(IntPtr hWnd, int dwAttribute, ref int pvAttribute, int cbAttribute);
 
     [DllImport("user32.dll")]
@@ -795,6 +832,15 @@ public partial class WidgetWindow : Window
     private struct MARGINS
     {
         public int Left, Right, Top, Bottom;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct DWM_BLURBEHIND
+    {
+        public int dwFlags;
+        [MarshalAs(UnmanagedType.Bool)] public bool fEnable;
+        public IntPtr hRgnBlur;
+        [MarshalAs(UnmanagedType.Bool)] public bool fTransitionOnMaximized;
     }
 
     [StructLayout(LayoutKind.Sequential)]

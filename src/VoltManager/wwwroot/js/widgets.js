@@ -84,14 +84,10 @@
             el.dataset.material = widgetAppearance.material;
             el.dataset.tint = widgetAppearance.tint;
             el.dataset.gradient = widgetAppearance.gradient;
-            el.dataset.legacyDefault = widgetAppearance.material === 'solid'
-                && widgetAppearance.tint === 'theme'
-                && widgetAppearance.gradient === 'vertical'
-                && widgetAppearance.intensity === 60 ? 'true' : 'false';
             if (el.style && typeof el.style.setProperty === 'function') {
                 el.style.setProperty('--vm-widget-intensity', String(level));
                 el.style.setProperty('--vm-widget-solid-alpha', String(0.70 + level * 0.25));
-                el.style.setProperty('--vm-widget-acrylic-alpha', String(0.18 + level * 0.37));
+                el.style.setProperty('--vm-widget-acrylic-alpha', String(0.06 + level * 0.40));
                 el.style.setProperty('--vm-widget-transparent-alpha', String(level * 0.20));
             }
         });
