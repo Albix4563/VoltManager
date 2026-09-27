@@ -65,6 +65,30 @@ public sealed class LauncherDiscoveryServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Initial_icon_extraction_runs_on_sta_dispatcher()
+    {
+        const string steam = @"C:\Steam\steam.exe";
+        _env.Registry[(RegistryHive.CurrentUser, @"Software\Valve\Steam", "SteamExe")] = steam;
+        _env.Files.Add(steam);
+        ApartmentState apartment = ApartmentState.Unknown;
+        var service = new LauncherDiscoveryService(
+            new SettingsService(_settingsPath),
+            _env,
+            _ =>
+            {
+                apartment = Thread.CurrentThread.GetApartmentState();
+                return "data:image/png;base64,AA==";
+            },
+            (path, args) => _launched.Add((path, args)),
+            LauncherDiscoveryService.DefaultCatalog);
+
+        var entry = Assert.Single(await service.GetLaunchersAsync(refresh: false));
+
+        Assert.Equal(ApartmentState.STA, apartment);
+        Assert.NotNull(entry.IconDataUrl);
+    }
+
+    [Fact]
     public async Task Registry_path_that_no_longer_exists_is_skipped()
     {
         _env.Registry[(RegistryHive.CurrentUser, @"Software\Valve\Steam", "SteamExe")] = @"D:\Old\steam.exe";
@@ -266,7 +290,8 @@ public sealed class LauncherDiscoveryServiceTests : IDisposable
             _ => Task.FromResult<string?>(null),
             (path, category) => new LauncherEntry("custom:1", "x", path, null, null, "custom", true, false, category),
             _ => true,
-            (_, _) => true));
+            (_, _) => true,
+            (_, _) => Task.FromResult(true)));
 
         var result = await handler.HandleAsync("launchApp", Payload(new { id = "steam" }), CancellationToken.None);
         await Assert.ThrowsAsync<ArgumentException>(() =>
@@ -287,7 +312,8 @@ public sealed class LauncherDiscoveryServiceTests : IDisposable
             _ => Task.FromResult(pickedPath),
             (path, category) => { addedPath = path; return new LauncherEntry("custom:1", "Tool", path, null, null, "custom", true, false, category); },
             _ => true,
-            (_, _) => true));
+            (_, _) => true,
+            (_, _) => Task.FromResult(true)));
 
         string cancelled = JsonSerializer.Serialize(await handler.HandleAsync(
             "addCustomLauncher", Payload(new { path = @"\\evil\share\x.exe", category = "apps" }), CancellationToken.None), BridgeRpc.JsonOpts);
@@ -300,6 +326,47 @@ public sealed class LauncherDiscoveryServiceTests : IDisposable
         Assert.Equal(@"D:\Tools\tool.exe", addedPath);
         Assert.Contains("\"added\":true", added);
         Assert.Contains("\"category\":\"apps\"", added);
+    }
+
+    [Fact]
+    public async Task RpcHandler_native_confirmation_cancels_and_routes_custom_remove_or_detected_hide()
+    {
+        var entries = new LauncherEntry[]
+        {
+            new("custom:1", "Tool", @"D:\Tools\tool.exe", null, null, "custom", true, false, "apps"),
+            new("steam", "Steam", @"C:\Steam\steam.exe", null, null, "detected", true, false, "games"),
+        };
+        bool allow = false;
+        string? removed = null;
+        (string Id, bool Hidden)? hidden = null;
+        string? prompt = null;
+        var handler = new LauncherRpcHandler(new LauncherRpcActions(
+            (_, _) => Task.FromResult<IReadOnlyList<LauncherEntry>>(entries),
+            (_, _) => Task.FromResult(new LaunchResult(true, null)),
+            _ => Task.FromResult<string?>(null),
+            (path, category) => entries[0],
+            id => { removed = id; return true; },
+            (id, value) => { hidden = (id, value); return true; },
+            (message, _) => { prompt = message; return Task.FromResult(allow); }));
+
+        string cancelled = JsonSerializer.Serialize(await handler.HandleAsync(
+            "confirmLauncherRemoval", Payload(new { id = "custom:1", message = "Remove Tool?" }), CancellationToken.None), BridgeRpc.JsonOpts);
+        Assert.Contains("\"confirmed\":false", cancelled);
+        Assert.Null(removed);
+        Assert.Null(hidden);
+        Assert.Equal("Remove Tool?", prompt);
+
+        allow = true;
+        await handler.HandleAsync(
+            "confirmLauncherRemoval", Payload(new { id = "custom:1", message = "Remove Tool?" }), CancellationToken.None);
+        Assert.Equal("custom:1", removed);
+        Assert.Null(hidden);
+
+        removed = null;
+        await handler.HandleAsync(
+            "confirmLauncherRemoval", Payload(new { id = "steam", message = "Hide Steam?" }), CancellationToken.None);
+        Assert.Null(removed);
+        Assert.Equal(("steam", true), hidden);
     }
 
     private static JsonElement Payload(object value)

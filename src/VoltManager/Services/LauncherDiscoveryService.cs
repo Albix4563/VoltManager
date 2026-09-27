@@ -6,6 +6,7 @@ using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Windows.Interop;
 using System.Windows.Media.Imaging;
+using System.Windows.Threading;
 using Microsoft.Win32;
 using VoltManager.Models;
 
@@ -74,7 +75,7 @@ internal sealed class LauncherDiscoveryService
     public async Task<IReadOnlyList<LauncherEntry>> GetLaunchersAsync(bool refresh, CancellationToken ct = default)
     {
         var detected = await EnsureDetectedAsync(refresh, ct).ConfigureAwait(false);
-        return await Task.Run(() => BuildEntries(detected), ct).ConfigureAwait(false);
+        return await BuildEntriesAsync(detected, ct).ConfigureAwait(false);
     }
 
     public async Task<LaunchResult> LaunchAsync(string id, CancellationToken ct = default)
@@ -245,18 +246,21 @@ internal sealed class LauncherDiscoveryService
         return found;
     }
 
-    private IReadOnlyList<LauncherEntry> BuildEntries(IReadOnlyList<(LauncherDefinition Definition, string Path)> detected)
+    private async Task<IReadOnlyList<LauncherEntry>> BuildEntriesAsync(
+        IReadOnlyList<(LauncherDefinition Definition, string Path)> detected,
+        CancellationToken ct)
     {
         var launcher = _settings.Current.Launcher;
         var entries = new List<LauncherEntry>();
         foreach (var (definition, path) in detected)
         {
+            ct.ThrowIfCancellationRequested();
             entries.Add(new LauncherEntry(
                 definition.Id,
                 definition.Name,
                 path,
                 null,
-                GetIcon(path),
+                await GetIconAsync(path, ct).ConfigureAwait(false),
                 "detected",
                 true,
                 IsHidden(launcher.HiddenIds, definition.Id),
@@ -264,7 +268,20 @@ internal sealed class LauncherDiscoveryService
         }
 
         foreach (var app in launcher.CustomApps)
-            entries.Add(ToEntry(app, launcher.HiddenIds));
+        {
+            ct.ThrowIfCancellationRequested();
+            bool available = _environment.FileExists(app.Path);
+            entries.Add(new LauncherEntry(
+                app.Id,
+                app.Name,
+                app.Path,
+                null,
+                available ? await GetIconAsync(app.Path, ct).ConfigureAwait(false) : null,
+                "custom",
+                available,
+                IsHidden(launcher.HiddenIds, app.Id),
+                LauncherSettings.NormalizeCategory(app.Category)));
+        }
 
         return entries;
     }
@@ -302,6 +319,14 @@ internal sealed class LauncherDiscoveryService
             return null;
 
         return _icons.GetOrAdd(path, icon);
+    }
+
+    private async Task<string?> GetIconAsync(string path, CancellationToken ct)
+    {
+        if (_icons.TryGetValue(path, out string? cached))
+            return cached;
+
+        return await LauncherIconStaDispatcher.InvokeAsync(() => GetIcon(path), ct).ConfigureAwait(false);
     }
 
     private void RaiseChanged()
@@ -466,6 +491,43 @@ internal sealed class LauncherDiscoveryService
         {
             return [];
         }
+    }
+}
+
+/// <summary>
+/// Shell icon handlers and WPF bitmap creation are run on one background STA dispatcher.
+/// This keeps launcher discovery off the UI thread while preserving the apartment/message-pump
+/// environment used by the working interactive add path.
+/// </summary>
+internal static class LauncherIconStaDispatcher
+{
+    private static readonly Lazy<Dispatcher> StaDispatcher = new(CreateDispatcher, LazyThreadSafetyMode.ExecutionAndPublication);
+
+    public static async Task<T> InvokeAsync<T>(Func<T> action, CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        DispatcherOperation<T> operation = StaDispatcher.Value.InvokeAsync(action, DispatcherPriority.Background, ct);
+        T result = await operation.Task.ConfigureAwait(false);
+        ct.ThrowIfCancellationRequested();
+        return result;
+    }
+
+    private static Dispatcher CreateDispatcher()
+    {
+        var ready = new TaskCompletionSource<Dispatcher>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var thread = new Thread(() =>
+        {
+            Dispatcher dispatcher = Dispatcher.CurrentDispatcher;
+            ready.TrySetResult(dispatcher);
+            Dispatcher.Run();
+        })
+        {
+            IsBackground = true,
+            Name = "VoltManager.LauncherIcons.STA",
+        };
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        return ready.Task.GetAwaiter().GetResult();
     }
 }
 

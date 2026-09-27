@@ -69,6 +69,10 @@ public class HostBridge : IDisposable
                 app,
                 _loc,
                 dialogs,
+                (message, cancellationToken) => dialogs.ConfirmAsync(
+                    message,
+                    _loc.T("Dialog_VoltManagerTitle"),
+                    cancellationToken),
                 () => GamingModeStateRequested?.Invoke() ?? _app.GetGamingModeState(),
                 HandleGamingModeRequestedAsync,
                 () => ExitRequested?.Invoke(),

@@ -37,7 +37,7 @@ public sealed class BridgeContractInventoryTests
             "getLanRemoteControlState", "setLanRemoteControlEnabled", "setLanRemoteControlPermissions",
             "generateLanRemoteControlPin", "setLanRemoteControlPin", "showMainWindow",
             "getLaunchers", "refreshLaunchers", "launchApp",
-            "addCustomLauncher", "removeCustomLauncher", "setLauncherHidden",
+            "addCustomLauncher", "removeCustomLauncher", "setLauncherHidden", "confirmLauncherRemoval",
         ];
 
         string[] actual =
@@ -52,7 +52,7 @@ public sealed class BridgeContractInventoryTests
             .. LauncherRpcHandler.MethodNames,
         ];
 
-        Assert.Equal(103, actual.Length);
+        Assert.Equal(104, actual.Length);
         Assert.Equal(actual.Length, actual.Distinct(StringComparer.Ordinal).Count());
         Assert.Equal(expected.Order(StringComparer.Ordinal), actual.Order(StringComparer.Ordinal));
     }

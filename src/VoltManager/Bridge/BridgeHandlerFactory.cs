@@ -20,6 +20,7 @@ internal static class BridgeHandlerFactory
         App app,
         LocalizationService loc,
         IBridgeFileDialogService dialogs,
+        Func<string, CancellationToken, Task<bool>> confirmLauncherAction,
         Func<object> getGamingMode,
         Func<bool, Task<object?>> setGamingMode,
         Action requestExit,
@@ -194,7 +195,8 @@ internal static class BridgeHandlerFactory
                 }
             },
             app.Launchers.RemoveCustom,
-            app.Launchers.SetHidden));
+            app.Launchers.SetHidden,
+            confirmLauncherAction));
 
         var lanRemoteHandler = new LanRemoteControlRpcHandler(new LanRemoteControlRpcActions(
             app.LanRemoteControl.GetState,

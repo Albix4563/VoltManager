@@ -10,14 +10,15 @@ public sealed record LauncherRpcActions(
     Func<CancellationToken, Task<string?>> PickExecutable,
     Func<string, string, LauncherEntry> AddCustom,
     Func<string, bool> RemoveCustom,
-    Func<string, bool, bool> SetHidden);
+    Func<string, bool, bool> SetHidden,
+    Func<string, CancellationToken, Task<bool>> ConfirmRemoval);
 
 public sealed class LauncherRpcHandler : IBridgeRpcHandler
 {
     private static readonly string[] RegisteredMethods =
     [
         "getLaunchers", "refreshLaunchers", "launchApp",
-        "addCustomLauncher", "removeCustomLauncher", "setLauncherHidden",
+        "addCustomLauncher", "removeCustomLauncher", "setLauncherHidden", "confirmLauncherRemoval",
     ];
 
     private readonly LauncherRpcActions _actions;
@@ -48,8 +49,33 @@ public sealed class LauncherRpcHandler : IBridgeRpcHandler
                     BridgePayload.RequiredString(payload, "id", "Missing launcher id"),
                     BridgePayload.RequiredBoolean(payload, "hidden", "Missing hidden")),
             },
+            "confirmLauncherRemoval" => await ConfirmRemovalAsync(payload, cancellationToken),
             _ => throw new ArgumentException($"Handler cannot process RPC method '{method}'."),
         };
+    }
+
+    private async Task<object> ConfirmRemovalAsync(JsonElement payload, CancellationToken cancellationToken)
+    {
+        string id = BridgePayload.RequiredString(payload, "id", "Missing launcher id");
+        string message = BridgePayload.RequiredString(payload, "message", "Missing confirmation message");
+        if (message.Length > 512)
+            throw new ArgumentException("Confirmation message is too long.");
+
+        IReadOnlyList<LauncherEntry> launchers = await _actions.GetLaunchers(false, cancellationToken);
+        LauncherEntry? entry = launchers.FirstOrDefault(item =>
+            string.Equals(item.Id, id, StringComparison.OrdinalIgnoreCase) && !item.Hidden);
+        if (entry == null || entry.Source is not ("custom" or "detected"))
+            return new { confirmed = false, success = false };
+
+        bool confirmed = await _actions.ConfirmRemoval(message, cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!confirmed)
+            return new { confirmed = false, success = false };
+
+        bool success = string.Equals(entry.Source, "custom", StringComparison.Ordinal)
+            ? _actions.RemoveCustom(id)
+            : _actions.SetHidden(id, true);
+        return new { confirmed = true, success };
     }
 
     // The path always comes from the host file dialog, never from the page.

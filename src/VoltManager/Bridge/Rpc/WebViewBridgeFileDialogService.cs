@@ -1,10 +1,26 @@
 using Microsoft.Win32;
 using Microsoft.Web.WebView2.Wpf;
+using System.Windows;
 
 namespace VoltManager.Bridge.Rpc;
 
 public sealed class WebViewBridgeFileDialogService(WebView2 webView) : IBridgeFileDialogService
 {
+    public async Task<bool> ConfirmAsync(string message, string title, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        bool confirmed = await webView.Dispatcher.InvokeAsync(() =>
+        {
+            Window? owner = Window.GetWindow(webView);
+            MessageBoxResult result = owner != null
+                ? MessageBox.Show(owner, message, title, MessageBoxButton.YesNo, MessageBoxImage.Question)
+                : MessageBox.Show(message, title, MessageBoxButton.YesNo, MessageBoxImage.Question);
+            return result == MessageBoxResult.Yes;
+        });
+        cancellationToken.ThrowIfCancellationRequested();
+        return confirmed;
+    }
+
     public async Task<string?> SaveFileAsync(BridgeSaveFileRequest request, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();

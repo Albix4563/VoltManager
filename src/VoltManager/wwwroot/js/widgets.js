@@ -683,13 +683,10 @@
             if (!item) return;
             e.preventDefault();
             const name = item.name || '';
-            if (item.source === 'custom') {
-                if (!window.confirm(t('widget_launcher_remove_confirm', 'Remove {name}?').replace('{name}', name))) return;
-                await Host.call('removeCustomLauncher', { id: item.id }).catch(() => {});
-            } else {
-                if (!window.confirm(t('widget_launcher_hide_confirm', 'Hide {name} from this widget?').replace('{name}', name))) return;
-                await Host.call('setLauncherHidden', { id: item.id, hidden: true }).catch(() => {});
-            }
+            const message = item.source === 'custom'
+                ? t('widget_launcher_remove_confirm', 'Remove {name}?').replace('{name}', name)
+                : t('widget_launcher_hide_confirm', 'Hide {name} from this widget?').replace('{name}', name);
+            await Host.call('confirmLauncherRemoval', { id: item.id, message }).catch(() => {});
         });
         if (orientation === 'horizontal') {
             launcherGrid.addEventListener('wheel', (e) => {
