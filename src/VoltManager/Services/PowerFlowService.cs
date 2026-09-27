@@ -1,5 +1,4 @@
 using System;
-using System.Management;
 using VoltManager.Models;
 
 namespace VoltManager.Services;
@@ -95,25 +94,21 @@ public sealed class PowerFlowService
     {
         try
         {
-            using var searcher = new ManagementObjectSearcher(@"root\WMI", "SELECT * FROM BatteryStatus");
-            foreach (var obj in searcher.Get())
-            {
-                using (obj)
+            int? fullChargedCapacity = ReadFullChargedCapacity();
+            return WmiQuery.Read(
+                @"root\WMI",
+                "SELECT * FROM BatteryStatus",
+                obj => new BatteryPowerSnapshot
                 {
-                    return new BatteryPowerSnapshot
-                    {
-                        PowerOnline = ToBool(obj["PowerOnline"]),
-                        Charging = ToBool(obj["Charging"]),
-                        Discharging = ToBool(obj["Discharging"]),
-                        ChargeRateMw = ToInt(obj["ChargeRate"]),
-                        DischargeRateMw = ToInt(obj["DischargeRate"]),
-                        RemainingCapacityMwh = ToInt(obj["RemainingCapacity"]),
-                        VoltageMv = ToInt(obj["Voltage"]),
-                        FullChargedCapacityMwh = ReadFullChargedCapacity(),
-                    };
-                }
-            }
-            return null;
+                    PowerOnline = ToBool(obj["PowerOnline"]),
+                    Charging = ToBool(obj["Charging"]),
+                    Discharging = ToBool(obj["Discharging"]),
+                    ChargeRateMw = ToInt(obj["ChargeRate"]),
+                    DischargeRateMw = ToInt(obj["DischargeRate"]),
+                    RemainingCapacityMwh = ToInt(obj["RemainingCapacity"]),
+                    VoltageMv = ToInt(obj["Voltage"]),
+                    FullChargedCapacityMwh = fullChargedCapacity,
+                }).FirstOrDefault();
         }
         catch
         {
@@ -126,16 +121,14 @@ public sealed class PowerFlowService
     {
         try
         {
-            using var searcher = new ManagementObjectSearcher(@"root\WMI",
-                "SELECT FullChargedCapacity FROM BatteryFullChargedCapacity");
-            foreach (var obj in searcher.Get())
-            {
-                using (obj)
+            return WmiQuery.Read(
+                @"root\WMI",
+                "SELECT FullChargedCapacity FROM BatteryFullChargedCapacity",
+                obj =>
                 {
                     int? value = ToInt(obj["FullChargedCapacity"]);
-                    if (value is > 0) return value;
-                }
-            }
+                    return value is > 0 ? value : null;
+                }).FirstOrDefault(value => value.HasValue);
         }
         catch
         {

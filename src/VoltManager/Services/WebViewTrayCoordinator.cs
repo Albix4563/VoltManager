@@ -20,25 +20,40 @@ internal interface IDashboardSurface
 internal enum WebViewFailureKind
 {
     Renderer,
+    RendererUnresponsive,
     BrowserProcessExited,
 }
 
 internal sealed class WebViewTrayCoordinator : IDisposable
 {
-    private const int RendererRetryLimit = 5;
+    private static readonly TimeSpan[] BrowserRecoveryDelays =
+    [
+        TimeSpan.Zero,
+        TimeSpan.FromMilliseconds(250),
+        TimeSpan.FromSeconds(1),
+    ];
     private readonly object _gate = new();
     private readonly IDashboardSurface _surface;
+    private readonly Func<TimeSpan, CancellationToken, Task> _recoveryDelay;
     private readonly RestartableLifecycle _lifecycle = new();
     private Task? _recoveryTask;
     private Task? _showTask;
     private Task? _suspendTask;
-    private int _rendererReloadCount;
+    // Crash-reload loops stay bounded even when each reload navigates successfully.
+    private readonly WebViewFailureBudget _rendererBudget = new();
+    private int _rendererBudgetExhausted;
+    private int _unresponsiveReloadUsed;
     private bool _activateWindowAfterRestore;
     private bool _visible;
     private bool _disposed;
 
-    public WebViewTrayCoordinator(IDashboardSurface surface)
-        => _surface = surface;
+    public WebViewTrayCoordinator(
+        IDashboardSurface surface,
+        Func<TimeSpan, CancellationToken, Task>? recoveryDelay = null)
+    {
+        _surface = surface;
+        _recoveryDelay = recoveryDelay ?? ((delay, cancellationToken) => Task.Delay(delay, cancellationToken));
+    }
 
     public void Start(bool initiallyVisible)
     {
@@ -117,16 +132,25 @@ internal sealed class WebViewTrayCoordinator : IDisposable
         if (!TryCurrentEpoch(out CancellationToken epoch))
             return Task.CompletedTask;
 
-        if (kind == WebViewFailureKind.Renderer)
+        if (kind is WebViewFailureKind.Renderer or WebViewFailureKind.RendererUnresponsive)
         {
-            if (Interlocked.Increment(ref _rendererReloadCount) <= RendererRetryLimit && _lifecycle.IsCurrent(epoch))
+            if (kind == WebViewFailureKind.RendererUnresponsive &&
+                Interlocked.Exchange(ref _unresponsiveReloadUsed, 1) != 0)
+                return Task.CompletedTask;
+
+            if (_rendererBudget.TryTakeRendererReload())
             {
-                _surface.ShowLoading();
-                _surface.Reload();
+                if (_lifecycle.IsCurrent(epoch))
+                {
+                    _surface.ShowLoading();
+                    _surface.Reload();
+                }
             }
-            else if (_lifecycle.IsCurrent(epoch))
+            else
             {
-                _surface.ShowLoadError();
+                Volatile.Write(ref _rendererBudgetExhausted, 1);
+                if (_lifecycle.IsCurrent(epoch))
+                    _surface.ShowLoadError();
             }
             return Task.CompletedTask;
         }
@@ -141,8 +165,15 @@ internal sealed class WebViewTrayCoordinator : IDisposable
         }
     }
 
+    /// <summary>
+    /// A successful navigation after the budget ran out is a manual retry from the error
+    /// page: grant a fresh budget. Automatic reloads never refill it.
+    /// </summary>
     public void NotifyNavigationSucceeded()
-        => Interlocked.Exchange(ref _rendererReloadCount, 0);
+    {
+        if (Interlocked.Exchange(ref _rendererBudgetExhausted, 0) != 0)
+            _rendererBudget.ResetRendererReloadBudget();
+    }
 
     public void Stop()
     {
@@ -278,7 +309,31 @@ internal sealed class WebViewTrayCoordinator : IDisposable
     {
         try
         {
-            await _surface.RecoverBrowserAsync(epoch).ConfigureAwait(false);
+            Exception? lastFailure = null;
+            for (int attempt = 0; attempt < BrowserRecoveryDelays.Length; attempt++)
+            {
+                try
+                {
+                    TimeSpan delay = BrowserRecoveryDelays[attempt];
+                    if (delay > TimeSpan.Zero)
+                        await _recoveryDelay(delay, epoch).ConfigureAwait(false);
+                    epoch.ThrowIfCancellationRequested();
+                    await _surface.RecoverBrowserAsync(epoch).ConfigureAwait(false);
+                    return;
+                }
+                catch (OperationCanceledException) when (epoch.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    lastFailure = ex;
+                    if (attempt + 1 < BrowserRecoveryDelays.Length)
+                        Logger.Warn($"WebView browser recovery attempt {attempt + 1} failed: {ex.Message}");
+                }
+            }
+
+            throw new InvalidOperationException("WebView browser recovery retry limit reached.", lastFailure);
         }
         catch (OperationCanceledException) when (epoch.IsCancellationRequested)
         {

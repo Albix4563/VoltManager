@@ -1,4 +1,3 @@
-using System.Management;
 using VoltManager.Models;
 
 namespace VoltManager.Services;
@@ -50,37 +49,31 @@ internal sealed class BrightnessService
 
     private static DisplayBrightnessState ReadFromWmi()
     {
-        using var searcher = new ManagementObjectSearcher(
+        IReadOnlyList<DisplayBrightnessState> values = WmiQuery.Read(
             @"root\WMI",
-            "SELECT Active, CurrentBrightness FROM WmiMonitorBrightness WHERE Active = TRUE");
-        using var results = searcher.Get();
-        foreach (ManagementObject obj in results)
-        {
-            using (obj)
+            "SELECT Active, CurrentBrightness FROM WmiMonitorBrightness WHERE Active = TRUE",
+            obj =>
             {
                 int? percent = null;
                 object? value = obj["CurrentBrightness"];
                 if (value != null)
                     percent = Math.Clamp(Convert.ToInt32(value), 0, 100);
-
                 return new DisplayBrightnessState { Supported = true, Percent = percent };
-            }
-        }
-
-        return Unsupported();
+            });
+        return values.FirstOrDefault() ?? Unsupported();
     }
 
     private static void WriteToWmi(byte percent)
     {
-        using var searcher = new ManagementObjectSearcher(
+        // Failures must reach SetBrightness so it reports Unsupported instead of a silent no-op.
+        _ = WmiQuery.ReadOrThrow(
             @"root\WMI",
-            "SELECT * FROM WmiMonitorBrightnessMethods WHERE Active = TRUE");
-        using var results = searcher.Get();
-        foreach (ManagementObject obj in results)
-        {
-            using (obj)
+            "SELECT * FROM WmiMonitorBrightnessMethods WHERE Active = TRUE",
+            obj =>
+            {
                 obj.InvokeMethod("WmiSetBrightness", new object[] { 1u, percent });
-        }
+                return true;
+            });
     }
 
     private static DisplayBrightnessState Unsupported()

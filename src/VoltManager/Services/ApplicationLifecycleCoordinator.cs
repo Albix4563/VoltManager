@@ -7,7 +7,8 @@ internal sealed record ApplicationLifecycleActions(
     Action StopServices,
     Func<CancellationToken, IDisposable> CreatePlanPollTimer,
     Func<CancellationToken, IDisposable> CreateBatteryHistoryTimer,
-    Func<CancellationToken, IDisposable>? CreateResumeRecovery = null);
+    Func<CancellationToken, IDisposable>? CreateResumeRecovery = null,
+    Func<CancellationToken, IDisposable>? CreateResourceSelfMonitor = null);
 
 public sealed class ApplicationLifecycleCoordinator : IDisposable
 {
@@ -17,6 +18,7 @@ public sealed class ApplicationLifecycleCoordinator : IDisposable
     private IDisposable? _planPollTimer;
     private IDisposable? _batteryHistoryTimer;
     private IDisposable? _resumeRecovery;
+    private IDisposable? _resourceSelfMonitor;
     private bool _started;
     private bool _disposed;
 
@@ -45,6 +47,7 @@ public sealed class ApplicationLifecycleCoordinator : IDisposable
             _actions.StartServices();
 
             IDisposable? resume = _actions.CreateResumeRecovery?.Invoke(epoch);
+            IDisposable? resourceMonitor = _actions.CreateResourceSelfMonitor?.Invoke(epoch);
             IDisposable plan = _actions.CreatePlanPollTimer(epoch);
             IDisposable battery = _actions.CreateBatteryHistoryTimer(epoch);
             lock (_gate)
@@ -52,11 +55,13 @@ public sealed class ApplicationLifecycleCoordinator : IDisposable
                 if (!_started || !_lifecycle.IsCurrent(epoch))
                 {
                     SafeDispose(resume);
+                    SafeDispose(resourceMonitor);
                     SafeDispose(plan);
                     SafeDispose(battery);
                     return;
                 }
                 _resumeRecovery = resume;
+                _resourceSelfMonitor = resourceMonitor;
                 _planPollTimer = plan;
                 _batteryHistoryTimer = battery;
             }
@@ -73,6 +78,7 @@ public sealed class ApplicationLifecycleCoordinator : IDisposable
         IDisposable? plan;
         IDisposable? battery;
         IDisposable? resume;
+        IDisposable? resourceMonitor;
         lock (_gate)
         {
             if (!_started)
@@ -81,13 +87,16 @@ public sealed class ApplicationLifecycleCoordinator : IDisposable
             plan = _planPollTimer;
             battery = _batteryHistoryTimer;
             resume = _resumeRecovery;
+            resourceMonitor = _resourceSelfMonitor;
             _planPollTimer = null;
             _batteryHistoryTimer = null;
             _resumeRecovery = null;
+            _resourceSelfMonitor = null;
         }
 
         _lifecycle.Stop();
         SafeDispose(resume);
+        SafeDispose(resourceMonitor);
         SafeDispose(plan);
         SafeDispose(battery);
         SafeInvoke(_actions.Detach, "application lifecycle detach");

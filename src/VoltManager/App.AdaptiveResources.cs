@@ -47,7 +47,8 @@ public partial class App
 
         bool mainVisible = _mainWindow?.HasVisibleResourceSurface == true;
         bool widgetsVisible = Widgets?.HasVisibleResourceConsumers == true;
-        bool visualDetails = mainVisible || widgetsVisible;
+        bool sessionActive = _sessionStateCoordinator?.IsInactive != true;
+        bool visualDetails = sessionActive && (mainVisible || widgetsVisible);
         bool thermalProtection = Settings.Current.ThermalGuard?.Enabled == true;
         bool gpuProcessDetection = Settings.Current.HeavyAppDetection?.Enabled == true;
 

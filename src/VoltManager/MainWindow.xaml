@@ -8,7 +8,7 @@
         WindowStartupLocation="CenterScreen"
         Icon="pack://application:,,,/Assets/voltmanager.ico"
         Background="{DynamicResource ThemeBackgroundBrush}">
-    <Grid Background="{DynamicResource ThemeBackgroundBrush}">
+    <Grid x:Name="RootGrid" Background="{DynamicResource ThemeBackgroundBrush}">
         <wv2:WebView2 x:Name="WebView" DefaultBackgroundColor="#0B1120" />
         <Grid x:Name="DashboardStatusPanel"
               Panel.ZIndex="10"

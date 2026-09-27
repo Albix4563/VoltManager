@@ -7,6 +7,7 @@ using System.Windows;
 using System.Windows.Interop;
 using Drawing = System.Drawing;
 using Microsoft.Web.WebView2.Core;
+using Microsoft.Web.WebView2.Wpf;
 using VoltManager.Bridge;
 using VoltManager.Localization;
 using VoltManager.Models;
@@ -39,6 +40,7 @@ public partial class MainWindow : Window
     private readonly DashboardNavigationGuard _dashboardNavigationGuard = new();
     private readonly WebViewTrayCoordinator _webViewTray;
     private readonly WebViewLifecycleBinding<CoreWebView2> _webViewLifecycleBinding;
+    private readonly SlidingFailureWindow _gpuFailureWindow = new(3, TimeSpan.FromMinutes(10));
     private bool _startupToastDone;
     private int _runtimeStopped;
     // Stable document version for HTTP/V8 code cache across tray reopens (not wall-clock).
@@ -285,6 +287,7 @@ public partial class MainWindow : Window
         _bridge.MinimizeToTrayRequested += () => Dispatcher.Invoke(HideToTray);
         _bridge.GamingModeRequested += SetGamingModeFromBridgeAsync;
         _bridge.GamingModeStateRequested += GetGamingModeState;
+        _bridge.FreshStateRequested += PublishFreshAdaptiveStateAfterResume;
 
         if (firstBoot)
         {
@@ -401,22 +404,84 @@ public partial class MainWindow : Window
     private void OnWebViewProcessFailed(object? sender, CoreWebView2ProcessFailedEventArgs e)
     {
         Logger.Warn($"WebView2 process failed: {e.ProcessFailedKind} (reason: {e.Reason})");
-        WebViewFailureKind kind = e.ProcessFailedKind == CoreWebView2ProcessFailedKind.BrowserProcessExited
-            ? WebViewFailureKind.BrowserProcessExited
-            : WebViewFailureKind.Renderer;
-        _ = _webViewTray.HandleProcessFailureAsync(kind);
+        WebViewProcessFailureAction action = WebViewProcessFailureClassifier.Classify(e.ProcessFailedKind, e.Reason);
+        switch (action)
+        {
+            case WebViewProcessFailureAction.RecoverBrowser:
+                _ = _webViewTray.HandleProcessFailureAsync(WebViewFailureKind.BrowserProcessExited);
+                break;
+            case WebViewProcessFailureAction.ReloadRenderer:
+                _ = _webViewTray.HandleProcessFailureAsync(WebViewFailureKind.Renderer);
+                break;
+            case WebViewProcessFailureAction.ReloadRendererOnce:
+                _ = _webViewTray.HandleProcessFailureAsync(WebViewFailureKind.RendererUnresponsive);
+                break;
+            case WebViewProcessFailureAction.LogOnly:
+                if (e.ProcessFailedKind == CoreWebView2ProcessFailedKind.GpuProcessExited)
+                {
+                    FailureWindowObservation observation = _gpuFailureWindow.Record();
+                    if (observation.ThresholdReachedNow)
+                    {
+                        WebViewSoftwareRendererFallback.Request();
+                        Logger.Error(
+                            $"WebView2 GPU process exited {observation.Count} times within 10 minutes; " +
+                            "SwiftShader fallback will be used on the next browser environment creation.");
+                    }
+                }
+                break;
+        }
     }
 
     private async Task RecoverWebViewBrowserAsync(CancellationToken cancellationToken)
     {
         Logger.Info("Re-initializing WebView2 after browser process exit…");
         _webViewReady = false;
-        _webViewEnvironment ??= _app.WebViewEnvironment;
+        Task<CoreWebView2Environment> failedEnvironment = _webViewEnvironment ?? _app.WebViewEnvironment;
+        // Keep reporting the crashed environment until recovery succeeds, so a retry after a
+        // failed attempt reuses the shared replacement instead of creating another one.
+        Task<CoreWebView2Environment> replacementEnvironment = _app.RecoverWebViewEnvironment(failedEnvironment);
         cancellationToken.ThrowIfCancellationRequested();
-        await WebView.EnsureCoreWebView2Async(await _webViewEnvironment);
+        CoreWebView2Environment environment = await replacementEnvironment.WaitAsync(cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
-        WireWebViewCore(firstBoot: false);
-        _webViewReady = true;
+
+        WebView2 previous = WebView;
+        Drawing.Color background = previous.DefaultBackgroundColor;
+        previous.Visibility = Visibility.Hidden;
+        _bridge?.Dispose();
+        _bridge = null;
+
+        var replacement = new WebView2
+        {
+            DefaultBackgroundColor = background,
+            Visibility = Visibility.Hidden,
+        };
+        RootGrid.Children.Insert(0, replacement);
+        WebView = replacement;
+        // Theme bootstrap and adaptive wiring hook the control, not the core: move them over.
+        previous.CoreWebView2InitializationCompleted -= OnThemeBootstrapCoreInitialized;
+        previous.CoreWebView2InitializationCompleted -= OnAdaptiveCoreWebViewInitialized;
+        replacement.CoreWebView2InitializationCompleted += OnThemeBootstrapCoreInitialized;
+        replacement.CoreWebView2InitializationCompleted += OnAdaptiveCoreWebViewInitialized;
+
+        try
+        {
+            await replacement.EnsureCoreWebView2Async(environment);
+            cancellationToken.ThrowIfCancellationRequested();
+            WireWebViewCore(firstBoot: false);
+            _webViewEnvironment = replacementEnvironment;
+            _webViewReady = true;
+            replacement.Visibility = _webViewVisible ? Visibility.Visible : Visibility.Hidden;
+            RootGrid.Children.Remove(previous);
+            try { previous.Dispose(); }
+            catch (Exception ex) { Logger.Warn("Old dashboard WebView disposal failed: " + ex.Message); }
+        }
+        catch
+        {
+            RootGrid.Children.Remove(replacement);
+            try { replacement.Dispose(); } catch { }
+            WebView = previous;
+            throw;
+        }
     }
 
     private void UpdateWebViewVisibility()

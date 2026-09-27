@@ -1,4 +1,3 @@
-using System.Management;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using Microsoft.Win32;
@@ -78,20 +77,22 @@ public class HardwareInfoService
     {
         try
         {
-            using var searcher = new ManagementObjectSearcher(
-                "SELECT Name, AdapterRAM, PNPDeviceID FROM Win32_VideoController");
+            IReadOnlyList<GpuWmiRow> rows = WmiQuery.Read(
+                @"root\cimv2",
+                "SELECT Name, AdapterRAM, PNPDeviceID FROM Win32_VideoController",
+                mo => new GpuWmiRow(
+                    mo["Name"]?.ToString(),
+                    NormalizeAdapterRam(mo["AdapterRAM"]),
+                    mo["PNPDeviceID"]?.ToString()));
             string? best = null;
             int bestScore = int.MinValue;
-            foreach (var mo in searcher.Get())
+            foreach (GpuWmiRow row in rows)
             {
-                string? name = mo["Name"]?.ToString();
-                string? pnp = mo["PNPDeviceID"]?.ToString();
-                long ram = NormalizeAdapterRam(mo["AdapterRAM"]);
-                int score = ScoreGpu(name, ram, pnp);
+                int score = ScoreGpu(row.Name, row.AdapterRamBytes, row.PnpDeviceId);
                 if (score > bestScore)
                 {
                     bestScore = score;
-                    best = name;
+                    best = row.Name;
                 }
             }
             if (best != null && bestScore > -500) return best.Trim();
@@ -218,13 +219,16 @@ public class HardwareInfoService
     {
         try
         {
-            using var searcher = new ManagementObjectSearcher($"SELECT {prop} FROM {cls}");
-            foreach (var mo in searcher.Get())
-                return mo[prop]?.ToString();
+            return WmiQuery.Read(
+                @"root\cimv2",
+                $"SELECT {prop} FROM {cls}",
+                mo => mo[prop]?.ToString()).FirstOrDefault(value => value != null);
         }
         catch (Exception ex) { Logger.Warn($"WMI query {cls}.{prop} failed: " + ex.Message); }
         return null;
     }
+
+    private readonly record struct GpuWmiRow(string? Name, long AdapterRamBytes, string? PnpDeviceId);
 
     [DllImport("kernel32.dll", SetLastError = true)]
     private static extern bool GetSystemPowerStatus(out SystemPowerStatus status);

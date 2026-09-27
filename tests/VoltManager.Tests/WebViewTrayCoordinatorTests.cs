@@ -208,7 +208,15 @@ public sealed class WebViewTrayCoordinatorTests
         using var coordinator = new WebViewTrayCoordinator(surface);
         coordinator.Start(initiallyVisible: true);
         for (int i = 0; i < 5; i++)
+        {
             await coordinator.HandleProcessFailureAsync(WebViewFailureKind.Renderer);
+            coordinator.NotifyNavigationSucceeded();
+        }
+        await coordinator.HandleProcessFailureAsync(WebViewFailureKind.Renderer);
+        Assert.Equal(5, surface.ReloadCalls);
+        Assert.Equal(1, surface.ErrorCalls);
+
+        // Manual retry from the error page navigates successfully and refills the budget.
         coordinator.NotifyNavigationSucceeded();
         await coordinator.HandleProcessFailureAsync(WebViewFailureKind.Renderer);
         Assert.Equal(6, surface.ReloadCalls);

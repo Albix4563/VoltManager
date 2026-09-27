@@ -1,5 +1,4 @@
 using System;
-using System.Management;
 using VoltManager.Models;
 
 namespace VoltManager.Services;
@@ -93,16 +92,15 @@ public sealed class BatteryHealthService
 
     private static int? QueryFirst(string query, string property)
     {
-        using var searcher = new ManagementObjectSearcher(@"root\WMI", query);
-        foreach (var obj in searcher.Get())
-        {
-            using (obj)
+        return WmiQuery.Read(
+            @"root\WMI",
+            query,
+            obj =>
             {
                 var value = obj[property];
                 if (value != null && uint.TryParse(value.ToString(), out var parsed) && parsed > 0)
                     return (int)Math.Min(parsed, int.MaxValue);
-            }
-        }
-        return null;
+                return (int?)null;
+            }).FirstOrDefault(value => value.HasValue);
     }
 }

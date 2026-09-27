@@ -94,8 +94,7 @@ internal static class AppBenchmarkRunner
             {
                 int logOffset = ReadTextLength(appLogPath);
                 var sw = Stopwatch.StartNew();
-                using var show = EventWaitHandle.OpenExisting(ValidationEnvironment.NamedObject("VoltManager_ShowWindow_Event"));
-                show.Set();
+                SignalShowWindow();
                 IntPtr restored = WaitForMainWindow(app, TimeSpan.FromSeconds(10));
                 WaitForResponsive(restored, TimeSpan.FromSeconds(10));
                 restoreMs = sw.Elapsed.TotalMilliseconds;
@@ -149,7 +148,7 @@ internal static class AppBenchmarkRunner
         }
     }
 
-    private static void WriteBenchmarkSettings(string validationRoot, HarnessOptions options, string harnessExe)
+    internal static void WriteBenchmarkSettings(string validationRoot, HarnessOptions options, string harnessExe)
     {
         var settings = new AppSettings
         {
@@ -178,7 +177,7 @@ internal static class AppBenchmarkRunner
         File.WriteAllText(Path.Combine(directory, "settings.json"), JsonSerializer.Serialize(settings, JsonOptions));
     }
 
-    private static Process StartVoltManager(
+    internal static Process StartVoltManager(
         string appPath,
         string appDir,
         string root,
@@ -218,7 +217,7 @@ internal static class AppBenchmarkRunner
         return Process.Start(psi) ?? throw new InvalidOperationException("Failed to launch VoltManager benchmark process.");
     }
 
-    private static string ResolveSupervisorPath(string appDir, HarnessOptions options, string harnessExe)
+    internal static string ResolveSupervisorPath(string appDir, HarnessOptions options, string harnessExe)
     {
         string requested = !string.IsNullOrWhiteSpace(options.SupervisorPath)
             ? Path.GetFullPath(options.SupervisorPath)
@@ -226,7 +225,7 @@ internal static class AppBenchmarkRunner
         return File.Exists(requested) ? requested : harnessExe;
     }
 
-    private static Process WaitForAppProcess(string proxyState, Process root, TimeSpan timeout)
+    internal static Process WaitForAppProcess(string proxyState, Process root, TimeSpan timeout)
     {
         var sw = Stopwatch.StartNew();
         while (sw.Elapsed < timeout)
@@ -252,7 +251,7 @@ internal static class AppBenchmarkRunner
         throw new TimeoutException("VoltManager proxy did not publish a live app process.");
     }
 
-    private static IntPtr WaitForMainWindow(Process process, TimeSpan timeout)
+    internal static IntPtr WaitForMainWindow(Process process, TimeSpan timeout)
     {
         var sw = Stopwatch.StartNew();
         while (sw.Elapsed < timeout)
@@ -268,7 +267,7 @@ internal static class AppBenchmarkRunner
         throw new TimeoutException("Expected benchmark window did not become available.");
     }
 
-    private static void WaitForResponsive(IntPtr hwnd, TimeSpan timeout)
+    internal static void WaitForResponsive(IntPtr hwnd, TimeSpan timeout)
     {
         var sw = Stopwatch.StartNew();
         while (sw.Elapsed < timeout)
@@ -545,7 +544,28 @@ internal static class AppBenchmarkRunner
     private static string Provider(BenchmarkRun run, string name)
         => run.ProviderActivity.TryGetValue(name, out long value) ? value.ToString() : "0";
 
-    private static void TrySignalShutdown()
+    internal static void SignalShowWindow(TimeSpan? timeout = null)
+    {
+        TimeSpan wait = timeout ?? TimeSpan.FromSeconds(10);
+        var sw = Stopwatch.StartNew();
+        while (sw.Elapsed < wait)
+        {
+            try
+            {
+                using EventWaitHandle show = EventWaitHandle.OpenExisting(
+                    ValidationEnvironment.NamedObject("VoltManager_ShowWindow_Event"));
+                show.Set();
+                return;
+            }
+            catch (WaitHandleCannotBeOpenedException)
+            {
+                Thread.Sleep(50);
+            }
+        }
+        throw new TimeoutException("VoltManager show-window event did not become available.");
+    }
+
+    internal static void TrySignalShutdown()
     {
         try
         {
@@ -555,7 +575,7 @@ internal static class AppBenchmarkRunner
         catch { }
     }
 
-    private static void TryKill(Process process)
+    internal static void TryKill(Process process)
     {
         try { if (!process.HasExited) process.Kill(entireProcessTree: true); } catch { }
     }

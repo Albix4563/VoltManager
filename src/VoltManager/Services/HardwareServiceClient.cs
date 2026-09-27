@@ -11,6 +11,7 @@ public sealed class HardwareServiceClient : IHardwareAccess
 {
     private static readonly TimeSpan RpcTimeout = TimeSpan.FromSeconds(8);
     private static readonly TimeSpan InitializationTimeout = TimeSpan.FromSeconds(45);
+    private static readonly TimeSpan ShutdownWriteTimeout = TimeSpan.FromSeconds(1);
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -204,8 +205,8 @@ public sealed class HardwareServiceClient : IHardwareAccess
                         ? JsonSerializer.SerializeToElement(new { }, JsonOptions)
                         : JsonSerializer.SerializeToElement(payload, JsonOptions),
                 }, JsonOptions);
-                _writer.WriteLine(request);
                 using var timeout = new CancellationTokenSource(RpcTimeout);
+                _writer.WriteLineAsync(request.AsMemory(), timeout.Token).GetAwaiter().GetResult();
                 HardwareServiceResponse? response;
                 while (true)
                 {
@@ -249,7 +250,12 @@ public sealed class HardwareServiceClient : IHardwareAccess
             try { _writer.Dispose(); } catch { }
             try { _reader.Dispose(); } catch { }
             try { _pipe.Dispose(); } catch { }
-            try { if (!_process.HasExited) _process.WaitForExit(1000); } catch { }
+            try
+            {
+                if (!_process.HasExited && !_process.WaitForExit(1000))
+                    _process.Kill(entireProcessTree: true);
+            }
+            catch { }
             try { _process.Dispose(); } catch { }
             try { _fallback?.Dispose(); } catch { }
         }
@@ -313,12 +319,14 @@ public sealed class HardwareServiceClient : IHardwareAccess
         {
             if (!_pipe.IsConnected) return;
             string id = Interlocked.Increment(ref _nextId).ToString(System.Globalization.CultureInfo.InvariantCulture);
-            _writer.WriteLine(JsonSerializer.Serialize(new HardwareServiceRequest
+            string request = JsonSerializer.Serialize(new HardwareServiceRequest
             {
                 Id = id,
                 Method = "shutdown",
                 Payload = JsonSerializer.SerializeToElement(new { }, JsonOptions),
-            }, JsonOptions));
+            }, JsonOptions);
+            using var timeout = new CancellationTokenSource(ShutdownWriteTimeout);
+            _writer.WriteLineAsync(request.AsMemory(), timeout.Token).GetAwaiter().GetResult();
         }
         catch { }
     }

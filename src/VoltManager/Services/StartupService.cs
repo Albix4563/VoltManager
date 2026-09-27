@@ -109,9 +109,16 @@ public class StartupService
                 RedirectStandardError = true,
                 CreateNoWindow = true,
             };
-            using var p = Process.Start(psi)!;
-            p.WaitForExit(10000);
-            return p.ExitCode;
+            ExternalProcessResult result = ExternalProcessRunner.Run(psi, TimeSpan.FromSeconds(10));
+            if (!result.Started || result.TimedOut || result.Error != null)
+            {
+                if (result.TimedOut)
+                    Logger.Warn("schtasks timed out after 10s and was terminated.");
+                else if (result.Error != null)
+                    Logger.Warn("schtasks failed: " + result.Error.Message);
+                return -1;
+            }
+            return result.ExitCode ?? -1;
         }
         catch
         {

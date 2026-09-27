@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Management;
 using System.Runtime.InteropServices;
 using VoltManager.Models;
 using VoltManager.Performance;
@@ -413,21 +412,19 @@ public class MonitorService : IDisposable
                 return _cachedCpuClock;
             }
 
-            using var searcher = new ManagementObjectSearcher(
-                "SELECT CurrentClockSpeed, MaxClockSpeed FROM Win32_Processor");
-            using var results = searcher.Get();
-            foreach (ManagementObject mo in results)
+            IReadOnlyList<(double Current, double Max)> values = WmiQuery.Read(
+                @"root\cimv2",
+                "SELECT CurrentClockSpeed, MaxClockSpeed FROM Win32_Processor",
+                mo => (
+                    mo["CurrentClockSpeed"] != null ? Convert.ToDouble(mo["CurrentClockSpeed"]) : 0,
+                    mo["MaxClockSpeed"] != null ? Convert.ToDouble(mo["MaxClockSpeed"]) : 0));
+            foreach ((double current, double max) in values)
             {
-                using (mo)
-                {
-                    double current = mo["CurrentClockSpeed"] != null ? Convert.ToDouble(mo["CurrentClockSpeed"]) : 0;
-                    double max = mo["MaxClockSpeed"] != null ? Convert.ToDouble(mo["MaxClockSpeed"]) : 0;
-                    double pick = current > 0 ? current : max;
-                    if (pick <= 0) continue;
-                    _clockFaulted = false;
-                    _cachedCpuClock = pick;
-                    return _cachedCpuClock;
-                }
+                double pick = current > 0 ? current : max;
+                if (pick <= 0) continue;
+                _clockFaulted = false;
+                _cachedCpuClock = pick;
+                return _cachedCpuClock;
             }
         }
         catch (Exception ex) { _clockFaulted = Logger.WarnOnce(_clockFaulted, "CPU-clock fallback failed", ex); }
@@ -465,20 +462,17 @@ public class MonitorService : IDisposable
         try
         {
             // ConfiguredClockSpeed = running MT/s; Speed = rated. Prefer configured.
-            using var searcher = new ManagementObjectSearcher(
-                "SELECT ConfiguredClockSpeed, Speed FROM Win32_PhysicalMemory");
-            using var results = searcher.Get();
+            IReadOnlyList<(double Configured, double Rated)> values = WmiQuery.Read(
+                @"root\cimv2",
+                "SELECT ConfiguredClockSpeed, Speed FROM Win32_PhysicalMemory",
+                mo => (
+                    mo["ConfiguredClockSpeed"] != null ? Convert.ToDouble(mo["ConfiguredClockSpeed"]) : 0,
+                    mo["Speed"] != null ? Convert.ToDouble(mo["Speed"]) : 0));
             double best = 0;
-            foreach (ManagementObject mo in results)
+            foreach ((double configured, double rated) in values)
             {
-                using (mo)
-                {
-                    double configured = mo["ConfiguredClockSpeed"] != null
-                        ? Convert.ToDouble(mo["ConfiguredClockSpeed"]) : 0;
-                    double rated = mo["Speed"] != null ? Convert.ToDouble(mo["Speed"]) : 0;
-                    double pick = configured > 0 ? configured : rated;
-                    if (pick > best) best = pick;
-                }
+                double pick = configured > 0 ? configured : rated;
+                if (pick > best) best = pick;
             }
             if (best > 0)
             {

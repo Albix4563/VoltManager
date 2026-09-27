@@ -23,6 +23,7 @@ public partial class App
         // Do not also register a keep-alive MessageBox handler for the same event.
         DispatcherUnhandledException += OnReliabilityDispatcherUnhandledException;
         Exit += OnReliabilityExit;
+        SessionEnding += OnReliabilitySessionEnding;
         AppDomain.CurrentDomain.UnhandledException += OnReliabilityDomainUnhandledException;
 
         // App.OnStartup owns startup directly rather than relying on the Startup event.
@@ -63,6 +64,18 @@ public partial class App
     {
         if (e.ApplicationExitCode != AppExitCodes.Success)
             CaptureCrashOnce("abnormal_application_exit", null, e.ApplicationExitCode);
+    }
+
+    private void OnReliabilitySessionEnding(object sender, SessionEndingCancelEventArgs e)
+    {
+        if (Settings == null) return;
+        IReadOnlyList<CleanupStepResult> results = BoundedCleanup.Run(
+            [new CleanupStep("settings persistence", Settings.Save)],
+            totalTimeout: TimeSpan.FromSeconds(1),
+            maximumPerStep: TimeSpan.FromSeconds(1));
+        CleanupStepResult result = results[0];
+        if (result.Outcome != CleanupOutcome.Completed)
+            Logger.Warn($"Session-ending settings persistence {result.Outcome} ({result.ExceptionType ?? "no exception"}).");
     }
 
     private void CaptureCrashOnce(string category, Exception? exception, int exitCode)

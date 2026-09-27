@@ -28,7 +28,8 @@ internal static class BridgeHandlerFactory
         Action beginWidgetDrag,
         Action beginWidgetResize,
         Action<bool> setWidgetTopmost,
-        Action closeWidget)
+        Action closeWidget,
+        Action requestFreshState)
     {
         var startupApps = new StartupAppsService();
         var planParams = new PowerPlanParameterService(power);
@@ -207,6 +208,7 @@ internal static class BridgeHandlerFactory
 
         return
         [
+            new BridgeHealthRpcHandler(requestFreshState),
             settingsHandler,
             widgetHandler,
             energyHandler,

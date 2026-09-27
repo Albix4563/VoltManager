@@ -26,6 +26,7 @@ public partial class App : Application
     private RemoteCommandService? _remoteCommands;
     private ApplicationLifecycleCoordinator? _applicationLifecycle;
     private ResumeRecoveryCoordinator? _resumeRecovery;
+    private SessionStateCoordinator? _sessionStateCoordinator;
     public AppServiceGraph Services { get; private set; } = null!;
     private static readonly TimeSpan ExitWatchdogTimeout = TimeSpan.FromSeconds(10);
     private int _exitStarted;
@@ -58,10 +59,15 @@ public partial class App : Application
     internal LauncherDiscoveryService Launchers { get; private set; } = null!;
     /// <summary>Raised with the gaming-mode state after every change, so widget bridges can mirror it.</summary>
     public event Action<object>? GamingModeStateChanged;
-    private Task<CoreWebView2Environment>? _webViewEnvironment;
+    private readonly SharedAsyncResourceProvider<CoreWebView2Environment> _webViewEnvironmentProvider =
+        new(CreateWebViewEnvironmentAsync);
     // Lazy: tray-only sessions never spin up Chromium until the UI or a widget needs it.
     public Task<CoreWebView2Environment> WebViewEnvironment
-        => _webViewEnvironment ??= CreateWebViewEnvironmentAsync();
+        => _webViewEnvironmentProvider.GetCurrent();
+
+    internal Task<CoreWebView2Environment> RecoverWebViewEnvironment(
+        Task<CoreWebView2Environment> failedEnvironment)
+        => _webViewEnvironmentProvider.ReplaceAfterFailure(failedEnvironment);
 
     private PowerFlowService _powerFlow = null!;
     private MainWindow? _mainWindow;
@@ -149,7 +155,8 @@ public partial class App : Application
         Power = new PowerPlanService(Settings);
         Awake = new PowerAwakeService(Settings);
         HardwareAccess = new DeferredHardwareAccess(() =>
-            (IHardwareAccess?)HardwareServiceClient.TryStart() ?? new HardwareAccessCoordinator());
+            new BoundedHardwareAccess(
+                (IHardwareAccess?)HardwareServiceClient.TryStart() ?? new HardwareAccessCoordinator()));
         Monitor = new MonitorService(HardwareAccess);
         Mark("MonitorService");
         Updates = new UpdateService(Settings);
@@ -228,6 +235,10 @@ public partial class App : Application
             Automation, HeavyApps, FullscreenCoverage, AppProfiles, PowerSourcePlans,
             ThermalGuard, IdlePowerGuard, StandbyAutoCleaner, _powerFlow, BatteryHistory,
             ScheduledPowerActions, LanRemoteControl, _remoteCommands, PowerRequests, Widgets);
+        _sessionStateCoordinator = new SessionStateCoordinator(
+            new SystemSessionSwitchEventSource(),
+            OnSessionSamplingStateChanged,
+            OnSessionBecameActive);
         _applicationLifecycle = CreateApplicationLifecycleCoordinator();
         _applicationLifecycle.Start();
         Mark("ApplicationLifecycle.Start");
@@ -302,7 +313,12 @@ public partial class App : Application
         // The remaining switches turn off browser subsystems this app never uses
         // (component updater, phishing model, telemetry pings): all of them are pure
         // resident cost here because the WebView only ever loads local content.
-        string arguments = WebViewRuntimeOptions.BrowserArguments(ValidationEnvironment.RendererVariant);
+        WebViewRendererVariant renderer = WebViewSoftwareRendererFallback.IsRequested
+            ? WebViewRendererVariant.SwiftShader
+            : ValidationEnvironment.RendererVariant;
+        string arguments = WebViewRuntimeOptions.BrowserArguments(renderer);
+        if (WebViewSoftwareRendererFallback.IsRequested)
+            Logger.Warn("WebView2 software-rendering fallback is active after repeated GPU process exits.");
         Logger.Info("WebView2 browser arguments: " + arguments);
         var opts = new CoreWebView2EnvironmentOptions(arguments);
         return CoreWebView2Environment.CreateAsync(null, userDataFolder, opts);
@@ -446,6 +462,8 @@ public partial class App : Application
                 Monitor.MetricsUpdated += OnMetricsSampled;
                 Settings.SettingsChanged += OnLifecycleSettingsChanged;
                 SystemEvents.PowerModeChanged += OnSystemPowerModeChanged;
+                _sessionStateCoordinator?.Start();
+                Activated += OnApplicationWindowActivated;
                 if (_remoteCommands != null)
                     _remoteCommands.CommandReceived += ApplyRemoteCommand;
             },
@@ -454,6 +472,8 @@ public partial class App : Application
                 Monitor.MetricsUpdated -= OnMetricsSampled;
                 Settings.SettingsChanged -= OnLifecycleSettingsChanged;
                 SystemEvents.PowerModeChanged -= OnSystemPowerModeChanged;
+                _sessionStateCoordinator?.Stop();
+                Activated -= OnApplicationWindowActivated;
                 if (_remoteCommands != null)
                     _remoteCommands.CommandReceived -= ApplyRemoteCommand;
             },
@@ -461,7 +481,8 @@ public partial class App : Application
             StopServices: StopRuntimeServices,
             CreatePlanPollTimer: CreatePlanPollTimer,
             CreateBatteryHistoryTimer: CreateBatteryHistoryTimer,
-            CreateResumeRecovery: CreateResumeRecovery));
+            CreateResumeRecovery: CreateResumeRecovery,
+            CreateResourceSelfMonitor: CreateResourceSelfMonitor));
 
     private void OnLifecycleSettingsChanged(AppSettings _)
     {
@@ -547,6 +568,57 @@ public partial class App : Application
         ]);
         _resumeRecovery = coordinator;
         return coordinator;
+    }
+
+    private IDisposable CreateResourceSelfMonitor(CancellationToken epoch)
+        => new ResourceSelfMonitor(() =>
+        {
+            if (_applicationLifecycle?.IsCurrent(epoch) != true)
+                throw new OperationCanceledException("Application lifecycle epoch ended.");
+            return ResourceSelfMonitor.CaptureProcessResources(GetWebViewProcessIds);
+        });
+
+    private IReadOnlyList<int> GetWebViewProcessIds()
+    {
+        Task<CoreWebView2Environment>? environmentTask = _webViewEnvironmentProvider.PeekCurrent();
+        if (environmentTask?.IsCompletedSuccessfully != true)
+            return Array.Empty<int>();
+
+        CoreWebView2Environment environment = environmentTask.Result;
+        int[] ReadIds() => environment.GetProcessInfos().Select(info => info.ProcessId).ToArray();
+        if (Dispatcher.CheckAccess()) return ReadIds();
+
+        DispatcherOperation<int[]> operation = Dispatcher.InvokeAsync(ReadIds, DispatcherPriority.Background);
+        try
+        {
+            if (operation.Task.Wait(TimeSpan.FromSeconds(1)))
+                return operation.Task.GetAwaiter().GetResult();
+        }
+        catch
+        {
+            // The sampler treats WebView process data as optional.
+        }
+        operation.Abort();
+        return Array.Empty<int>();
+    }
+
+    private void OnSessionSamplingStateChanged(bool inactive)
+    {
+        void Apply() => RefreshHardwareSamplingDemand(requestFresh: !inactive);
+        if (Dispatcher.CheckAccess()) Apply();
+        else if (!Dispatcher.HasShutdownStarted) Dispatcher.BeginInvoke((Action)Apply);
+    }
+
+    private void OnApplicationWindowActivated(object? sender, EventArgs e)
+    {
+        try { _sessionStateCoordinator?.MarkInteractive(); }
+        catch (Exception ex) { Logger.Warn("Session activity update failed: " + ex.Message); }
+    }
+
+    private void OnSessionBecameActive()
+    {
+        try { _resumeRecovery?.SignalResume(); }
+        catch (Exception ex) { Logger.Warn("Session recovery scheduling failed: " + ex.Message); }
     }
 
     private void OnMetricsSampled(MetricsSnapshot metrics)

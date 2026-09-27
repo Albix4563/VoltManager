@@ -5,6 +5,7 @@ using System.Windows.Interop;
 using System.Windows.Media;
 using Drawing = System.Drawing;
 using Microsoft.Web.WebView2.Core;
+using Microsoft.Web.WebView2.Wpf;
 using VoltManager.Bridge;
 using VoltManager.Models;
 using VoltManager.Performance;
@@ -35,7 +36,7 @@ public partial class WidgetWindow : Window
 
     private readonly WidgetRuntimeContext _context;
     private readonly WidgetManager _manager;
-    private readonly Task<CoreWebView2Environment> _envTask;
+    private Task<CoreWebView2Environment> _envTask;
     private readonly string _type;
     private HostBridge? _bridge;
     private string _size;
@@ -49,9 +50,10 @@ public partial class WidgetWindow : Window
     private bool _applyingPlacement;
     private bool _nativeResizeInProgress;
     private bool _relayoutPendingDuringNativeResize;
-    private int _rendererReloadCount;
-    private long _lastRendererFailureTicks = long.MinValue / 2;
-    private const long RendererFailureWindowMs = 2 * 60 * 1000;
+    private readonly WebViewFailureBudget _failureBudget = new();
+    private readonly CancellationTokenSource _webViewLifetime = new();
+    private Task? _browserRecoveryTask;
+    private bool _hostEventsWired;
     private bool _initializing;
     private volatile bool _closed;
     private volatile bool _visible;
@@ -125,73 +127,101 @@ public partial class WidgetWindow : Window
         _initializing = true;
         try
         {
-            SetWebViewBackgroundForAppearance();
-            await WebView.EnsureCoreWebView2Async(await _envTask);
-            if (_closed) return;
+            await InitializeWebViewControlAsync(WebView, _envTask, CancellationToken.None);
         }
         catch (Exception ex)
         {
             Logger.Error("Widget WebView2 initialization failed", ex);
             if (!_closed) Close();
-            return;
         }
+    }
 
-        try
+    private async Task InitializeWebViewControlAsync(
+        WebView2 webView,
+        Task<CoreWebView2Environment> environmentTask,
+        CancellationToken cancellationToken)
+    {
+        SetWebViewBackgroundForAppearance();
+        CoreWebView2Environment environment = await environmentTask.WaitAsync(cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+        await webView.EnsureCoreWebView2Async(environment);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (_closed) return;
+
+        var core = webView.CoreWebView2
+            ?? throw new InvalidOperationException("Widget CoreWebView2 not ready.");
+        string wwwroot = Path.Combine(AppContext.BaseDirectory, "wwwroot");
+        core.SetVirtualHostNameToFolderMapping("app.local", wwwroot,
+            CoreWebView2HostResourceAccessKind.Allow);
+
+        core.Settings.AreDefaultContextMenusEnabled = false;
+        core.Settings.IsZoomControlEnabled = false;
+        core.Settings.AreBrowserAcceleratorKeysEnabled = false;
+        core.Settings.IsStatusBarEnabled = false;
+        webView.AllowExternalDrop = true;
+        // Widgets are tiny surfaces — keep the renderer on a low memory target.
+        try { core.MemoryUsageTargetLevel = CoreWebView2MemoryUsageTargetLevel.Low; } catch { }
+
+        _bridge?.Dispose();
+        _bridge = _context.CreateBridge(webView, false, _type);
+        _bridge.Attach();
+        _bridge.WidgetDragRequested += BeginNativeDrag;
+        _bridge.WidgetResizeRequested += BeginNativeResize;
+        _bridge.WidgetTopmostRequested += SetTopmostFromWidget;
+        _bridge.WidgetCloseRequested += () => _manager.SetEnabled(_type, false);
+        _bridge.FreshStateRequested += PublishWidgetFreshState;
+
+        if (!_hostEventsWired)
         {
-            var core = WebView.CoreWebView2;
-            string wwwroot = Path.Combine(AppContext.BaseDirectory, "wwwroot");
-            core.SetVirtualHostNameToFolderMapping("app.local", wwwroot,
-                CoreWebView2HostResourceAccessKind.Allow);
-
-            core.Settings.AreDefaultContextMenusEnabled = false;
-            core.Settings.IsZoomControlEnabled = false;
-            core.Settings.AreBrowserAcceleratorKeysEnabled = false;
-            core.Settings.IsStatusBarEnabled = false;
-            WebView.AllowExternalDrop = true;
-            // Widgets are tiny surfaces — keep the renderer on a low memory target.
-            try { core.MemoryUsageTargetLevel = CoreWebView2MemoryUsageTargetLevel.Low; } catch { }
-
-            _bridge = _context.CreateBridge(WebView, false, _type);
-            _bridge.Attach();
-            _bridge.WidgetDragRequested += BeginNativeDrag;
-            _bridge.WidgetResizeRequested += BeginNativeResize;
-            _bridge.WidgetTopmostRequested += SetTopmostFromWidget;
-            _bridge.WidgetCloseRequested += () => _manager.SetEnabled(_type, false);
-
             if (_type is "usage" or "temps") _context.Monitor.MetricsUpdated += OnMetricsUpdated;
             if (_type is "power" or "plans") _context.PowerRequests.ActivePlanChanged += OnActivePlanChanged;
             if (_type == "power") _context.PowerRequests.CpuAutomationStateChanged += OnCpuAutomationStateChanged;
             if (_type is "plans" or "actions") _context.Awake.StateChanged += OnKeepAwakeStateChanged;
-
-            core.ProcessFailed += OnWidgetProcessFailed;
-            core.NavigationStarting += OnWidgetNavigationStarting;
-            core.NewWindowRequested += OnWidgetNewWindowRequested;
-
-            core.NavigationCompleted += (_, args) =>
-            {
-                if (!args.IsSuccess) return;
-                _metricsPublisher.ResetCadence();
-                OnMetricsUpdated(_context.Monitor.Latest);
-                if (_type is "power" or "plans") OnActivePlanChanged(_context.PowerRequests.ActivePlan);
-                if (_type == "power") OnCpuAutomationStateChanged(_context.PowerRequests.CpuAutomationState);
-                if (_type is "plans" or "actions") OnKeepAwakeStateChanged(_context.Awake.GetState());
-                // Initialize this document only: broadcasting on every widget load was O(n²).
-                _bridge?.PushEvent(BridgeEventNames.ThemeChanged, _context.Theme.GetWebTheme());
-                _bridge?.PushEvent(BridgeEventNames.LanguageChanged, new { language = _context.Loc.CurrentLanguage, locale = _context.Loc.CurrentCulture.Name });
-                _bridge?.PushEvent(BridgeEventNames.FontChanged, new { font = _context.Settings.Current.Font });
-                PushAppearanceEvent();
-                PushResourceProfile(_context.ResourcePressureState());
-                // Navigation resumes WebView2 even when coverage was detected before initialization.
-                if (!HasVisibleResourceSurface) TrySuspendWebView();
-            };
-
-            core.Navigate(WidgetUrl());
+            _hostEventsWired = true;
         }
-        catch (Exception ex)
-        {
-            Logger.Error("Widget WebView setup failed", ex);
-            if (!_closed) Close();
-        }
+
+        AttachWidgetCore(core);
+        core.Navigate(WidgetUrl());
+    }
+
+    private void AttachWidgetCore(CoreWebView2 core)
+    {
+        core.ProcessFailed += OnWidgetProcessFailed;
+        core.NavigationStarting += OnWidgetNavigationStarting;
+        core.NewWindowRequested += OnWidgetNewWindowRequested;
+        core.NavigationCompleted += OnWidgetNavigationCompleted;
+    }
+
+    private void DetachWidgetCore(CoreWebView2? core)
+    {
+        if (core == null) return;
+        try { core.ProcessFailed -= OnWidgetProcessFailed; } catch { }
+        try { core.NavigationStarting -= OnWidgetNavigationStarting; } catch { }
+        try { core.NewWindowRequested -= OnWidgetNewWindowRequested; } catch { }
+        try { core.NavigationCompleted -= OnWidgetNavigationCompleted; } catch { }
+    }
+
+    private void OnWidgetNavigationCompleted(object? sender, CoreWebView2NavigationCompletedEventArgs args)
+    {
+        if (!args.IsSuccess) return;
+        _metricsPublisher.ResetCadence();
+        PublishWidgetFreshState();
+        // Navigation resumes WebView2 even when coverage was detected before initialization.
+        if (!HasVisibleResourceSurface) TrySuspendWebView();
+    }
+
+    private void PublishWidgetFreshState()
+    {
+        OnMetricsUpdated(_context.Monitor.Latest);
+        if (_type is "power" or "plans") OnActivePlanChanged(_context.PowerRequests.ActivePlan);
+        if (_type == "power") OnCpuAutomationStateChanged(_context.PowerRequests.CpuAutomationState);
+        if (_type is "plans" or "actions") OnKeepAwakeStateChanged(_context.Awake.GetState());
+        // Initialize this document only: broadcasting on every widget load was O(n²).
+        _bridge?.PushEvent(BridgeEventNames.ThemeChanged, _context.Theme.GetWebTheme());
+        _bridge?.PushEvent(BridgeEventNames.LanguageChanged, new { language = _context.Loc.CurrentLanguage, locale = _context.Loc.CurrentCulture.Name });
+        _bridge?.PushEvent(BridgeEventNames.FontChanged, new { font = _context.Settings.Current.Font });
+        PushAppearanceEvent();
+        PushResourceProfile(_context.ResourcePressureState());
     }
 
     /// <summary>
@@ -202,22 +232,109 @@ public partial class WidgetWindow : Window
     private void OnWidgetProcessFailed(object? sender, CoreWebView2ProcessFailedEventArgs e)
     {
         Logger.Warn($"Widget '{_type}' WebView2 process failed: {e.ProcessFailedKind} (reason: {e.Reason})");
-        // Count failures inside a time window: a renderer that crashes right after every
-        // reload must still hit the cap, while an occasional crash hours apart must not.
-        long now = Environment.TickCount64;
-        if (now - Interlocked.Exchange(ref _lastRendererFailureTicks, now) > RendererFailureWindowMs)
-            Interlocked.Exchange(ref _rendererReloadCount, 0);
-        if (Interlocked.Increment(ref _rendererReloadCount) > 5)
+        WebViewProcessFailureAction action = WebViewProcessFailureClassifier.Classify(e.ProcessFailedKind, e.Reason);
+        switch (action)
+        {
+            case WebViewProcessFailureAction.RecoverBrowser:
+                StartWidgetBrowserRecovery();
+                break;
+            case WebViewProcessFailureAction.ReloadRenderer:
+                ReloadWidgetAfterRendererFailure(requireUnresponsiveBudget: false);
+                break;
+            case WebViewProcessFailureAction.ReloadRendererOnce:
+                ReloadWidgetAfterRendererFailure(requireUnresponsiveBudget: true);
+                break;
+            case WebViewProcessFailureAction.LogOnly:
+                break;
+        }
+    }
+
+    private void ReloadWidgetAfterRendererFailure(bool requireUnresponsiveBudget)
+    {
+        if (requireUnresponsiveBudget && !_failureBudget.TryTakeUnresponsiveReload())
+            return;
+        if (!_failureBudget.TryTakeRendererReload())
         {
             Logger.Error($"Widget '{_type}' renderer kept failing; giving up auto-reload.");
             return;
         }
-
         _ = Dispatcher.InvokeAsync(() =>
         {
             try { WebView.CoreWebView2?.Navigate(WidgetUrl()); }
             catch (Exception ex) { Logger.Warn("Widget reload after process failure failed: " + ex.Message); }
         });
+    }
+
+    private void StartWidgetBrowserRecovery()
+    {
+        if (_closed || _browserRecoveryTask is { IsCompleted: false }) return;
+        _browserRecoveryTask = RecoverWidgetBrowserAsync(_webViewLifetime.Token);
+    }
+
+    private async Task RecoverWidgetBrowserAsync(CancellationToken cancellationToken)
+    {
+        TimeSpan[] delays = [TimeSpan.Zero, TimeSpan.FromMilliseconds(250), TimeSpan.FromSeconds(1)];
+        Exception? lastFailure = null;
+        for (int attempt = 0; attempt < delays.Length; attempt++)
+        {
+            try
+            {
+                if (delays[attempt] > TimeSpan.Zero)
+                    await Task.Delay(delays[attempt], cancellationToken);
+                cancellationToken.ThrowIfCancellationRequested();
+                if (!Dispatcher.CheckAccess())
+                {
+                    await Dispatcher.InvokeAsync(() => ReplaceWidgetWebViewAsync(cancellationToken)).Task.Unwrap();
+                }
+                else
+                {
+                    await ReplaceWidgetWebViewAsync(cancellationToken);
+                }
+                return;
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                return;
+            }
+            catch (Exception ex)
+            {
+                lastFailure = ex;
+                if (attempt + 1 < delays.Length)
+                    Logger.Warn($"Widget '{_type}' browser recovery attempt {attempt + 1} failed: {ex.Message}");
+            }
+        }
+
+        if (lastFailure != null)
+            Logger.Error($"Widget '{_type}' browser recovery retry limit reached.", lastFailure);
+    }
+
+    private async Task ReplaceWidgetWebViewAsync(CancellationToken cancellationToken)
+    {
+        if (_closed) return;
+        App app = Application.Current as App
+            ?? throw new InvalidOperationException("VoltManager application is unavailable.");
+        // _envTask keeps the crashed environment until recovery succeeds: retries reuse the
+        // shared replacement instead of creating one environment per attempt.
+        Task<CoreWebView2Environment> replacementEnvironment = app.RecoverWebViewEnvironment(_envTask);
+        await replacementEnvironment.WaitAsync(cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        WebView2 previous = WebView;
+        DetachWidgetCore(previous.CoreWebView2);
+        _bridge?.Dispose();
+        _bridge = null;
+        RootGrid.Children.Remove(previous);
+        try { previous.Dispose(); }
+        catch (Exception ex) { Logger.Warn($"Widget '{_type}' old WebView disposal failed: {ex.Message}"); }
+
+        var replacement = new WebView2
+        {
+            Visibility = HasVisibleResourceSurface ? Visibility.Visible : Visibility.Hidden,
+        };
+        RootGrid.Children.Add(replacement);
+        WebView = replacement;
+        await InitializeWebViewControlAsync(replacement, replacementEnvironment, cancellationToken);
+        _envTask = replacementEnvironment;
     }
 
     private void OnWidgetNavigationStarting(object? sender, CoreWebView2NavigationStartingEventArgs e)
@@ -759,6 +876,7 @@ public partial class WidgetWindow : Window
     {
         _closed = true;
         _visible = false;
+        _webViewLifetime.Cancel();
         try { _context.FullscreenCoverage.CoverageChanged -= OnFullscreenCoverageChanged; } catch { }
         try { _context.FullscreenCoverage.UnregisterSurface(_coverageHwnd); } catch { }
         _hwndSource?.RemoveHook(WndProc);
@@ -769,8 +887,10 @@ public partial class WidgetWindow : Window
         _context.Awake.StateChanged -= OnKeepAwakeStateChanged;
         _bridge?.Dispose();
         _bridge = null;
+        DetachWidgetCore(WebView.CoreWebView2);
         try { WebView.Dispose(); }
         catch (Exception ex) { Logger.Warn("Widget WebView disposal failed: " + ex.Message); }
+        _webViewLifetime.Dispose();
         base.OnClosed(e);
     }
 

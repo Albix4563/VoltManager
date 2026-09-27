@@ -122,6 +122,7 @@ public static class CrashDiagnostics
                 processUptimeMs = (long)(DateTime.UtcNow - Process.GetCurrentProcess().StartTime.ToUniversalTime()).TotalMilliseconds,
                 applicationVersion = Assembly.GetEntryAssembly()?.GetName().Version?.ToString(),
                 osVersion = Environment.OSVersion.VersionString,
+                resourceSample = ResourceSelfMonitor.LatestForDiagnostics,
                 exceptionType = exception?.GetType().FullName,
                 exceptionHResult = exception?.HResult,
                 exceptionSource = exception?.Source,

@@ -36,6 +36,7 @@ public class HostBridge : IDisposable
     public event Action? WidgetResizeRequested;
     public event Action<bool>? WidgetTopmostRequested;
     public event Action? WidgetCloseRequested;
+    public event Action? FreshStateRequested;
 
     public HostBridge(
         WebView2 webView,
@@ -80,7 +81,8 @@ public class HostBridge : IDisposable
                 () => WidgetDragRequested?.Invoke(),
                 () => WidgetResizeRequested?.Invoke(),
                 topmost => WidgetTopmostRequested?.Invoke(topmost),
-                () => WidgetCloseRequested?.Invoke()),
+                () => WidgetCloseRequested?.Invoke(),
+                () => FreshStateRequested?.Invoke()),
             method => _loc.T("Error_UnknownMethod", method));
     }
 
@@ -362,13 +364,30 @@ public class HostBridge : IDisposable
         if (IsStopped)
             return;
 
-        _webView.Dispatcher.Invoke(() =>
+        void Post()
         {
             if (IsStopped)
                 return;
             try { _webView.CoreWebView2?.PostWebMessageAsJson(message); }
             catch { }
-        });
+        }
+
+        try
+        {
+            DispatchReply(
+                _webView.Dispatcher.CheckAccess(),
+                Post,
+                action => _webView.Dispatcher.BeginInvoke(action));
+        }
+        catch { }
+    }
+
+    internal static void DispatchReply(bool hasDispatcherAccess, Action post, Action<Action> enqueue)
+    {
+        if (hasDispatcherAccess)
+            post();
+        else
+            enqueue(post);
     }
 
     private async Task<object?> HandleGamingModeRequestedAsync(bool enabled)

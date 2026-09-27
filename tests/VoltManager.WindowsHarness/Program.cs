@@ -27,6 +27,8 @@ internal static class Program
             return RunGraphicsBenchmark(options);
         if (options.Mode == "app-benchmark")
             return AppBenchmarkRunner.Run(options);
+        if (options.Mode == "soak")
+            return SoakRunner.Run(options);
 
         var results = new HarnessReport
         {
@@ -68,6 +70,8 @@ internal static class Program
             && PowerPlanService.IsMutatingPowercfg("/setactive 381b4222-f694-41f0-9685-ff5bb260df2e")
             && !PowerPlanService.IsMutatingPowercfg("/getactivescheme"),
             "mutating powercfg calls are classified while read-only calls remain allowed");
+
+        SoakAnalyzerChecks.Add(report);
 
         string swift = WebViewRuntimeOptions.BrowserArguments(WebViewRendererVariant.SwiftShader);
         string hardware = WebViewRuntimeOptions.BrowserArguments(WebViewRendererVariant.HardwareDefault);
@@ -368,6 +372,8 @@ internal static class Program
         _ = await second.ExecuteAsync("'still-alive'");
         report.Checks.Add(new HarnessCheck("suspended_surface_isolation", "passed",
             "second WebView in the shared environment remained script-responsive"));
+
+        await WebViewRecoveryChecks.RunAsync(report, options, variant);
     }
 
     private static void RunSyntheticFullscreenCoverageCheck(
@@ -833,7 +839,7 @@ internal static class Program
         catch (Exception ex) { report.Checks.Add(new HarnessCheck(name, "failed", ex.Message)); }
     }
 
-    private static void WriteReport(HarnessReport report, string output)
+    internal static void WriteReport(HarnessReport report, string output)
     {
         File.WriteAllText(Path.Combine(output, "windows-harness.json"), JsonSerializer.Serialize(report, JsonOptions));
         var markdown = new List<string>
@@ -852,7 +858,7 @@ internal static class Program
         File.WriteAllLines(Path.Combine(output, "windows-harness.md"), markdown);
     }
 
-    private static string TryGitCommit()
+    internal static string TryGitCommit()
     {
         try
         {
@@ -1033,6 +1039,11 @@ internal sealed record HarnessOptions(
     TimeSpan MeasureDuration,
     string? SupervisorPath)
 {
+    public TimeSpan SoakDuration { get; init; } = TimeSpan.FromMinutes(10);
+    public TimeSpan SoakSampleInterval { get; init; } = TimeSpan.FromSeconds(15);
+    public TimeSpan SoakWarmup { get; init; } = TimeSpan.FromMinutes(2);
+    public SoakThresholds SoakThresholds { get; init; } = SoakThresholds.Default;
+
     public static HarnessOptions Parse(string[] args)
     {
         string mode = Value(args, "--mode") ?? "deterministic";
@@ -1046,6 +1057,19 @@ internal sealed record HarnessOptions(
         double measureSeconds = double.TryParse(Value(args, "--measure-seconds"), System.Globalization.NumberStyles.Float,
             System.Globalization.CultureInfo.InvariantCulture, out double parsedMeasure) ? Math.Max(1, parsedMeasure) : 120;
         int iteration = int.TryParse(Value(args, "--iteration"), out int parsedIteration) ? Math.Max(1, parsedIteration) : 1;
+        double soakMinutes = NumberValue(args, "--duration-minutes", 10, 0.01);
+        double soakSampleSeconds = NumberValue(args, "--sample-seconds", 15, 1);
+        double soakWarmupMinutes = NumberValue(args, "--warmup-minutes", 2, 0);
+        var soakThresholds = new SoakThresholds(
+            NumberValue(args, "--host-private-mib-per-hour", 30, 0) * 1024 * 1024,
+            NumberValue(args, "--group-private-mib-per-hour", 60, 0) * 1024 * 1024,
+            NumberValue(args, "--handles-per-hour", 200, 0),
+            NumberValue(args, "--gui-objects-per-hour", 100, 0),
+            NumberValue(args, "--threads-per-hour", 20, 0),
+            (int)NumberValue(args, "--process-count-growth", 2, 0),
+            (int)NumberValue(args, "--gui-object-limit", 8000, 1),
+            (int)NumberValue(args, "--max-consecutive-hung-samples", 2, 0),
+            (int)NumberValue(args, "--minimum-samples", 4, 2));
         return new HarnessOptions(
             mode,
             output,
@@ -1058,12 +1082,30 @@ internal sealed record HarnessOptions(
             iteration,
             TimeSpan.FromSeconds(settleSeconds),
             TimeSpan.FromSeconds(measureSeconds),
-            Value(args, "--supervisor"));
+            Value(args, "--supervisor"))
+        {
+            SoakDuration = TimeSpan.FromMinutes(soakMinutes),
+            SoakSampleInterval = TimeSpan.FromSeconds(soakSampleSeconds),
+            SoakWarmup = TimeSpan.FromMinutes(soakWarmupMinutes),
+            SoakThresholds = soakThresholds,
+        };
     }
 
     private static string? Value(string[] args, string key)
     {
         int index = Array.FindIndex(args, arg => string.Equals(arg, key, StringComparison.OrdinalIgnoreCase));
         return index >= 0 && index + 1 < args.Length ? args[index + 1] : null;
+    }
+
+    private static double NumberValue(string[] args, string key, double fallback, double minimum)
+    {
+        string? value = Value(args, key);
+        return double.TryParse(
+            value,
+            System.Globalization.NumberStyles.Float,
+            System.Globalization.CultureInfo.InvariantCulture,
+            out double parsed)
+            ? Math.Max(minimum, parsed)
+            : fallback;
     }
 }

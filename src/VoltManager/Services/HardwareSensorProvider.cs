@@ -18,7 +18,7 @@ public sealed class HardwareSensorProvider : IDisposable
     public HardwareSensorProvider(IHardwareAccess? access = null)
     {
         _ownsAccess = access == null;
-        _access = access ?? new HardwareAccessCoordinator();
+        _access = access ?? new BoundedHardwareAccess(new HardwareAccessCoordinator());
     }
 
     public SensorReport Read() => _access.Read();
