@@ -207,6 +207,26 @@ public sealed class SettingsServiceContractTests
     }
 
     [Fact]
+    public void Empty_automation_rules_remain_empty_after_load()
+    {
+        string root = Path.Combine(Path.GetTempPath(), "VoltManager.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        string path = Path.Combine(root, "settings.json");
+        try
+        {
+            File.WriteAllText(path, "{\"rules\":[]}");
+
+            var loaded = new SettingsService(path).Current;
+
+            Assert.Empty(loaded.Rules);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
     public void CorruptFixture_IsBackedUpAndDefaultsAreRecovered()
     {
         string path = CopyFixtureToIsolatedSettings("corrupt-settings.json");

@@ -5,6 +5,15 @@ using VoltManager.Services;
 
 namespace VoltManager;
 
+internal enum ScheduleDelayError
+{
+    None,
+    InvalidHours,
+    InvalidMinutes,
+    MinDelay,
+    MaxDelay,
+}
+
 public partial class SchedulePowerActionWindow : Window
 {
     private readonly LocalizationService _loc;
@@ -43,29 +52,18 @@ public partial class SchedulePowerActionWindow : Window
         ErrorLabel.Visibility = Visibility.Collapsed;
         ConfirmButton.IsEnabled = true;
 
-        if (!int.TryParse(HoursTextBox.Text, out int hours) || hours < 0)
+        if (!TryBuildDelay(HoursTextBox.Text, MinutesTextBox.Text, out TimeSpan delay, out ScheduleDelayError error))
         {
-            ShowError(_loc.T("Schedule_InvalidHours"));
-            return;
-        }
-
-        if (!int.TryParse(MinutesTextBox.Text, out int minutes) || minutes < 0 || minutes > 59)
-        {
-            ShowError(_loc.T("Schedule_InvalidMinutes"));
-            return;
-        }
-
-        var delay = TimeSpan.FromHours(hours) + TimeSpan.FromMinutes(minutes);
-
-        if (delay < ScheduledPowerActionService.MinDelay)
-        {
-            ShowError(_loc.T("Schedule_MinDelay", $"{(int)ScheduledPowerActionService.MinDelay.TotalMinutes}"));
-            return;
-        }
-
-        if (delay > ScheduledPowerActionService.MaxDelay)
-        {
-            ShowError(_loc.T("Schedule_MaxDelay", $"{(int)ScheduledPowerActionService.MaxDelay.TotalDays}"));
+            ShowError(error switch
+            {
+                ScheduleDelayError.InvalidHours => _loc.T("Schedule_InvalidHours"),
+                ScheduleDelayError.InvalidMinutes => _loc.T("Schedule_InvalidMinutes"),
+                ScheduleDelayError.MinDelay => _loc.T(
+                    "Schedule_MinDelay", $"{(int)ScheduledPowerActionService.MinDelay.TotalMinutes}"),
+                ScheduleDelayError.MaxDelay => _loc.T(
+                    "Schedule_MaxDelay", $"{(int)ScheduledPowerActionService.MaxDelay.TotalDays}"),
+                _ => _loc.T("Schedule_InvalidHours"),
+            });
             return;
         }
 
@@ -81,6 +79,50 @@ public partial class SchedulePowerActionWindow : Window
             : _loc.T("Schedule_Sleep");
 
         SummaryLabel.Text = $"{actionName} {_loc.T("Schedule_ScheduledAt")} {executeAt:HH:mm}";
+    }
+
+    internal static bool TryBuildDelay(
+        string hoursText,
+        string minutesText,
+        out TimeSpan delay,
+        out ScheduleDelayError error)
+    {
+        delay = default;
+        error = ScheduleDelayError.None;
+
+        if (!int.TryParse(hoursText, out int hours) || hours < 0)
+        {
+            error = ScheduleDelayError.InvalidHours;
+            return false;
+        }
+
+        if (hours > ScheduledPowerActionService.MaxDelay.TotalHours)
+        {
+            error = ScheduleDelayError.MaxDelay;
+            return false;
+        }
+
+        if (!int.TryParse(minutesText, out int minutes) || minutes < 0 || minutes > 59)
+        {
+            error = ScheduleDelayError.InvalidMinutes;
+            return false;
+        }
+
+        delay = TimeSpan.FromHours(hours) + TimeSpan.FromMinutes(minutes);
+
+        if (delay < ScheduledPowerActionService.MinDelay)
+        {
+            error = ScheduleDelayError.MinDelay;
+            return false;
+        }
+
+        if (delay > ScheduledPowerActionService.MaxDelay)
+        {
+            error = ScheduleDelayError.MaxDelay;
+            return false;
+        }
+
+        return true;
     }
 
     private void ShowError(string message)

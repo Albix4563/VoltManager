@@ -156,7 +156,8 @@ public sealed class HeavyAppDetectionService : IDisposable
         List<DetectedHeavyApp> detected = _tracker.Merge(
             classification.Detected,
             classification.Observed,
-            config.MinWorkingSetMb);
+            config.MinWorkingSetMb,
+            path => MatchesUserPath(path, config.NeverGamePaths));
 
         var unique = detected
             .GroupBy(p => p.Path, StringComparer.OrdinalIgnoreCase)
@@ -302,9 +303,13 @@ public sealed class HeavyAppDetectionService : IDisposable
 
     public static List<DetectedHeavyApp> MergeStickyDetections(IDictionary<int, DetectedHeavyApp> sticky,
         IEnumerable<DetectedHeavyApp> detected, IEnumerable<ObservedHeavyProcess> observed,
-        int minWorkingSetMb = 1536)
+        int minWorkingSetMb = 1536, Func<string, bool>? isExcluded = null)
     {
-        var detectedList = detected.ToList();
+        bool Excluded(string path) => isExcluded?.Invoke(NormalizePath(path)) == true;
+
+        var detectedList = detected
+            .Where(app => !Excluded(app.Path))
+            .ToList();
         var observedByPid = observed
             .GroupBy(p => p.ProcessId)
             .ToDictionary(g => g.Key, g => g.First());
@@ -317,6 +322,12 @@ public sealed class HeavyAppDetectionService : IDisposable
         var detectedPids = detectedList.Select(a => a.ProcessId).ToHashSet();
         foreach (var pid in sticky.Keys.ToList())
         {
+            if (Excluded(sticky[pid].Path))
+            {
+                sticky.Remove(pid);
+                continue;
+            }
+
             if (!observedByPid.TryGetValue(pid, out var live) || !SameObservedProcess(sticky[pid], live))
             {
                 // Bootstrap/launcher PID often exits after spawning the real game binary under
@@ -326,7 +337,7 @@ public sealed class HeavyAppDetectionService : IDisposable
                 sticky.Remove(pid);
                 if (IsGame(exiting) &&
                     TryHandoffStickyToInstallRootPeer(
-                        sticky, exiting, observedByPid, detectedList, detectedPids, minWorkingSetMb))
+                        sticky, exiting, observedByPid, detectedList, detectedPids, minWorkingSetMb, isExcluded))
                 {
                     // Successor may have been appended to detectedList; keep set current.
                     detectedPids = detectedList.Select(a => a.ProcessId).ToHashSet();
@@ -339,6 +350,12 @@ public sealed class HeavyAppDetectionService : IDisposable
 
             string livePath = NormalizePath(live.Path);
             string liveName = string.IsNullOrWhiteSpace(live.Name) ? sticky[pid].Name : live.Name;
+
+            if (Excluded(livePath))
+            {
+                sticky.Remove(pid);
+                continue;
+            }
 
             // Anything that never reached the game gate is deliberately non-sticky: once it
             // stops qualifying it stops forcing the high-performance plan.
@@ -388,7 +405,8 @@ public sealed class HeavyAppDetectionService : IDisposable
         IReadOnlyDictionary<int, ObservedHeavyProcess> observedByPid,
         List<DetectedHeavyApp> detectedList,
         HashSet<int> detectedPids,
-        int minWorkingSetMb)
+        int minWorkingSetMb,
+        Func<string, bool>? isExcluded)
     {
         string? root = TryGetGameInstallRoot(NormalizePath(exiting.Path));
         if (string.IsNullOrEmpty(root))
@@ -409,6 +427,8 @@ public sealed class HeavyAppDetectionService : IDisposable
                 continue;
 
             string livePath = NormalizePath(live.Path);
+            if (isExcluded?.Invoke(livePath) == true)
+                continue;
             if (!IsPathUnderInstallRoot(livePath, root))
                 continue;
 

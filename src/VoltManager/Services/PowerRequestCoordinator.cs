@@ -237,6 +237,15 @@ public sealed class PowerRequestCoordinator : IDisposable
         string reasonCode = "manual_override")
     {
         EnsureProduction();
+        if (!Power.SetActivePlan(
+                plan,
+                HistoryContext(
+                    PlanHistoryCategory.Manual,
+                    source,
+                    reasonCode,
+                    ("durationMinutes", duration?.TotalMinutes.ToString(CultureInfo.InvariantCulture)))))
+            return false;
+
         _appProfilePlanSessionActive = false;
         _planBeforeAppProfileSession = null;
         _appProfileHistoryName = "";
@@ -246,15 +255,6 @@ public sealed class PowerRequestCoordinator : IDisposable
         _heavyAppHistoryName = "";
         _heavyAppHistoryKind = "";
         _heavyAppHistoryReason = "";
-
-        if (!Power.SetActivePlan(
-                plan,
-                HistoryContext(
-                    PlanHistoryCategory.Manual,
-                    source,
-                    reasonCode,
-                    ("durationMinutes", duration?.TotalMinutes.ToString(CultureInfo.InvariantCulture)))))
-            return false;
 
         var manualOverride = new ManualOverride
         {

@@ -182,6 +182,59 @@ public class HeavyAppClassificationTests
     }
 
     [Fact]
+    public void Sticky_game_is_dropped_when_current_exclusions_match_its_path()
+    {
+        string path = @"D:\SteamLibrary\steamapps\common\Blocked\Blocked.exe";
+        var sticky = new Dictionary<int, DetectedHeavyApp>
+        {
+            [42] = new DetectedHeavyApp
+            {
+                ProcessId = 42,
+                Name = "Blocked",
+                Path = path,
+                Reason = "gameInstallPath",
+                Kind = "game",
+            },
+        };
+        var observed = new[] { new ObservedHeavyProcess(42, path, DateTime.UnixEpoch, "Blocked", 500) };
+        Func<string, bool> excluded = candidate =>
+            candidate.Equals(HeavyAppDetectionService.NormalizePath(path), StringComparison.OrdinalIgnoreCase);
+
+        var merged = HeavyAppDetectionService.MergeStickyDetections(
+            sticky, Array.Empty<DetectedHeavyApp>(), observed, 1536, excluded);
+
+        Assert.Empty(merged);
+        Assert.Empty(sticky);
+
+        string bootstrapPath = @"D:\SteamLibrary\steamapps\common\Title\Title.exe";
+        string successorPath = @"D:\SteamLibrary\steamapps\common\Title\Binaries\Win64\Title-Win64-Shipping.exe";
+        var handoffSticky = new Dictionary<int, DetectedHeavyApp>
+        {
+            [91] = new DetectedHeavyApp
+            {
+                ProcessId = 91,
+                Name = "Title",
+                Path = bootstrapPath,
+                Reason = "gameInstallPath",
+                Kind = "game",
+                StartedAtUtc = DateTime.UnixEpoch,
+            },
+        };
+        Func<string, bool> successorExcluded = candidate =>
+            candidate.Equals(HeavyAppDetectionService.NormalizePath(successorPath), StringComparison.OrdinalIgnoreCase);
+
+        var handoffMerged = HeavyAppDetectionService.MergeStickyDetections(
+            handoffSticky,
+            Array.Empty<DetectedHeavyApp>(),
+            [new ObservedHeavyProcess(92, successorPath, DateTime.UnixEpoch.AddSeconds(1), "Title-Win64-Shipping", 500)],
+            1536,
+            successorExcluded);
+
+        Assert.Empty(handoffMerged);
+        Assert.Empty(handoffSticky);
+    }
+
+    [Fact]
     public void Battle_net_client_under_battle_net_path_never_classifies()
     {
         // Client tree is NonGame even if a channel-like folder name appears nearby.

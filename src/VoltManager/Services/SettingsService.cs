@@ -155,7 +155,7 @@ public class SettingsService
 
     private static AppSettings NormalizeSettings(AppSettings settings)
     {
-        if (settings.Rules == null || settings.Rules.Count == 0 || IsOldDefaultRules(settings.Rules))
+        if (settings.Rules == null || IsOldDefaultRules(settings.Rules))
             settings.Rules = AppSettings.DefaultRules();
 
         settings.AutoShutdown ??= new AutoShutdownSettings();

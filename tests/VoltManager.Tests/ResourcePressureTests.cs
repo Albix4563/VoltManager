@@ -233,6 +233,44 @@ public sealed class ResourcePressureTests
         Assert.Equal(ResourceProfile.Critical, hidden.Profile);
     }
 
+    [Fact]
+    public async Task Concurrent_observations_publish_the_final_current_state_last()
+    {
+        var coordinator = new ResourcePressureCoordinator(8);
+        var firstEventEntered = new ManualResetEventSlim(false);
+        var releaseFirstEvent = new ManualResetEventSlim(false);
+        ResourcePressureState? lastEvent = null;
+        int eventCount = 0;
+
+        coordinator.StateChanged += state =>
+        {
+            if (Interlocked.Increment(ref eventCount) == 1)
+            {
+                firstEventEntered.Set();
+                releaseFirstEvent.Wait();
+            }
+            Volatile.Write(ref lastEvent, state);
+        };
+
+        DateTime t0 = DateTime.UnixEpoch;
+        Task first = Task.Run(() => coordinator.Observe(Metrics(cpu: 10), gameActive: true, t0));
+        Assert.True(firstEventEntered.Wait(TimeSpan.FromSeconds(2)));
+
+        Task[] remaining = Enumerable.Range(0, 64)
+            .Select(index => Task.Run(() => coordinator.Observe(
+                Metrics(cpu: 20, gpuAvailable: index % 2 == 0),
+                gameActive: false,
+                t0.AddSeconds(20))))
+            .ToArray();
+
+        Task allRemaining = Task.WhenAll(remaining);
+        await Task.WhenAny(allRemaining, Task.Delay(250));
+        releaseFirstEvent.Set();
+        await Task.WhenAll(first, allRemaining);
+
+        Assert.Equal(coordinator.Current, Volatile.Read(ref lastEvent));
+    }
+
     [Theory]
     [InlineData(ResourceProfile.Full, 1, true, true)]
     [InlineData(ResourceProfile.Balanced, 2, true, true)]

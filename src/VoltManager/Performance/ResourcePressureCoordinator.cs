@@ -9,12 +9,15 @@ namespace VoltManager.Performance;
 public sealed class ResourcePressureCoordinator
 {
     private readonly object _gate = new();
+    private readonly object _publishGate = new();
     private readonly int _logicalCores;
     private DateTime? _criticalCandidateSinceUtc;
     private DateTime? _criticalClearSinceUtc;
     private DateTime? _lastGameActiveUtc;
     private DateTime? _lastWorkloadActiveUtc;
     private ResourcePressureState _current = new();
+    private long _stateVersion;
+    private long _lastPublishedVersion;
 
     public ResourcePressureCoordinator(int? logicalCores = null)
     {
@@ -40,6 +43,7 @@ public sealed class ResourcePressureCoordinator
         var now = nowUtc ?? DateTime.UtcNow;
         ResourcePressureState next;
         bool notify;
+        long version = 0;
 
         lock (_gate)
         {
@@ -139,9 +143,11 @@ public sealed class ResourcePressureCoordinator
 
             notify = HasOperationalChange(_current, next);
             _current = next;
+            if (notify)
+                version = ++_stateVersion;
         }
 
-        if (notify) StateChanged?.Invoke(next);
+        if (notify) PublishStateChanged(next, version);
         return next;
     }
 
@@ -149,6 +155,7 @@ public sealed class ResourcePressureCoordinator
     {
         ResourcePressureState next;
         bool notify;
+        long version = 0;
         lock (_gate)
         {
             if (_current.UiVisible == visible) return _current;
@@ -159,9 +166,23 @@ public sealed class ResourcePressureCoordinator
             };
             notify = true;
             _current = next;
+            version = ++_stateVersion;
         }
-        if (notify) StateChanged?.Invoke(next);
+        if (notify) PublishStateChanged(next, version);
         return next;
+    }
+
+    private void PublishStateChanged(ResourcePressureState state, long version)
+    {
+        // Publication has its own lock so callbacks never run while _gate protects state.
+        // The version check drops a stale publisher that lost the race after updating _current.
+        lock (_publishGate)
+        {
+            if (version <= _lastPublishedVersion)
+                return;
+            _lastPublishedVersion = version;
+            StateChanged?.Invoke(state);
+        }
     }
 
     private static bool HasOperationalChange(ResourcePressureState previous, ResourcePressureState next)

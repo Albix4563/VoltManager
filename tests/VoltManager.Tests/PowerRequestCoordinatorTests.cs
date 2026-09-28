@@ -1,3 +1,4 @@
+using System.Reflection;
 using VoltManager.Models;
 using VoltManager.Services;
 
@@ -71,6 +72,52 @@ public sealed class PowerRequestCoordinatorTests
     }
 
     [Fact]
+    public void Failed_manual_override_preserves_heavy_app_session_restore_plan()
+    {
+        var settings = TestSettings.Create();
+        Guid activeGuid = Guid.Parse(PowerPlanService.PerformanceGuid);
+        string RunPowercfg(string args)
+        {
+            if (!args.StartsWith("/setactive ", StringComparison.OrdinalIgnoreCase))
+                return "";
+
+            Guid requested = Guid.Parse(args.Split(' ', StringSplitOptions.RemoveEmptyEntries)[1]);
+            if (requested != Guid.Parse(PowerPlanService.SaverGuid))
+                activeGuid = requested;
+            return "";
+        }
+
+        var power = new PowerPlanService(settings, () => activeGuid, RunPowercfg);
+        using var awake = new PowerAwakeService(settings, () => false, () => DateTime.UnixEpoch);
+        using var profiles = new AppPowerProfileService(settings);
+        using var heavy = new HeavyAppDetectionService(settings);
+        using var coordinator = new PowerRequestCoordinator(
+            settings,
+            power,
+            awake,
+            new AutomationEngine(),
+            profiles,
+            heavy,
+            new PowerSourcePlanService(settings, () => new PowerSourceSnapshot(true, 100)),
+            new ThermalGuardService(settings),
+            new IdlePowerGuardService(settings, () => 0, () => false),
+            () => null);
+
+        coordinator.Start();
+        coordinator.RefreshActivePlanFromSystem(DateTime.UnixEpoch);
+        SetField(coordinator, "_heavyAppPlanSessionActive", true);
+        SetField(coordinator, "_planBeforeHeavyAppSession", (PlanId?)PlanId.Balanced);
+
+        Assert.False(coordinator.SetManualOverride(PlanId.PowerSaver, null));
+        Assert.Equal(PlanId.Balanced, GetField<PlanId?>(coordinator, "_planBeforeHeavyAppSession"));
+
+        MethodInfo endSession = typeof(PowerRequestCoordinator).GetMethod(
+            "HandleHeavyAppDetection", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        Assert.True((bool)endSession.Invoke(coordinator, [DateTime.UnixEpoch.AddMinutes(1)])!);
+        Assert.Equal(PlanId.Balanced, coordinator.ActivePlan?.PlanId);
+    }
+
+    [Fact]
     public void Power_coordinator_dispose_is_terminal()
     {
         using var coordinator = PowerRequestCoordinator.ForPolicyTest(
@@ -84,4 +131,12 @@ public sealed class PowerRequestCoordinatorTests
 
         Assert.Throws<ObjectDisposedException>(() => coordinator.Start());
     }
+
+    private static void SetField<T>(PowerRequestCoordinator coordinator, string name, T value)
+        => typeof(PowerRequestCoordinator).GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(coordinator, value);
+
+    private static T GetField<T>(PowerRequestCoordinator coordinator, string name)
+        => (T)typeof(PowerRequestCoordinator).GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(coordinator)!;
 }

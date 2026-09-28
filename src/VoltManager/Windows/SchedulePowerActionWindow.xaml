@@ -43,7 +43,7 @@
             </Grid.ColumnDefinitions>
             <StackPanel Grid.Column="0">
                 <TextBlock x:Name="HoursLabel" Text="Ore" Foreground="{DynamicResource ThemeMutedTextBrush}" FontSize="12" Margin="0,0,0,4" />
-                <TextBox x:Name="HoursTextBox" Text="0" TextAlignment="Center" FontSize="16" Padding="8,6" />
+                <TextBox x:Name="HoursTextBox" Text="0" TextAlignment="Center" FontSize="16" Padding="8,6" MaxLength="4" />
             </StackPanel>
             <StackPanel Grid.Column="2">
                 <TextBlock x:Name="MinutesLabel" Text="Minuti" Foreground="{DynamicResource ThemeMutedTextBrush}" FontSize="12" Margin="0,0,0,4" />

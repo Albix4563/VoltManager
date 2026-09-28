@@ -163,24 +163,32 @@ public sealed class AppPowerProfileService : IDisposable
             }
         }
 
-        var unique = detected
+        Publish(BuildState(config.Enabled, detected, DateTime.UtcNow));
+    }
+
+    internal static AppPowerProfileState BuildState(
+        bool enabled,
+        IEnumerable<DetectedAppPowerProfile> detected,
+        DateTime lastScanUtc)
+    {
+        var detectedList = detected.ToList();
+        var unique = detectedList
             .GroupBy(p => p.Path, StringComparer.OrdinalIgnoreCase)
             .Select(g => g.OrderByDescending(p => PlanPriority(p.TargetPlan)).First())
             .OrderByDescending(p => PlanPriority(p.TargetPlan))
             .ThenBy(p => p.Name, StringComparer.CurrentCultureIgnoreCase)
-            .Take(8)
             .ToList();
 
-        Publish(new AppPowerProfileState
+        return new AppPowerProfileState
         {
-            Enabled = config.Enabled,
+            Enabled = enabled,
             Active = unique.Count > 0,
-            TargetPlan = unique.Count == 0 ? null : unique.OrderByDescending(p => PlanPriority(p.TargetPlan)).First().TargetPlan,
+            TargetPlan = unique.Count == 0 ? null : unique[0].TargetPlan,
             KeepAwakeRequested = unique.Any(p => p.KeepAwake),
-            DetectedCount = detected.Count,
-            ActiveProfiles = unique,
-            LastScanUtc = DateTime.UtcNow,
-        });
+            DetectedCount = detectedList.Count,
+            ActiveProfiles = unique.Take(8).ToList(),
+            LastScanUtc = lastScanUtc,
+        };
     }
 
     public static bool TryMatchRule(

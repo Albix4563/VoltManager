@@ -8,12 +8,13 @@ internal sealed class HeavyAppTracker
     internal List<DetectedHeavyApp> Merge(
         IEnumerable<DetectedHeavyApp> detected,
         IEnumerable<ObservedHeavyProcess> observed,
-        int minWorkingSetMb = 1536)
+        int minWorkingSetMb = 1536,
+        Func<string, bool>? isExcluded = null)
     {
         lock (_gate)
         {
             return HeavyAppDetectionService.MergeStickyDetections(
-                _sticky, detected, observed, minWorkingSetMb);
+                _sticky, detected, observed, minWorkingSetMb, isExcluded);
         }
     }
 
