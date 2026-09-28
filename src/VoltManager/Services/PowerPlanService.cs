@@ -18,10 +18,15 @@ public class PowerPlanService
     private static readonly Regex GuidRegex = new(
         @"(?<guid>[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\s*(?:\((?<name>[^)]*)\))?",
         RegexOptions.Compiled);
+    private static readonly Regex BareGuidRegex = new(
+        @"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}",
+        RegexOptions.Compiled);
+    private static readonly Regex WhitespaceRegex = new(@"\s+", RegexOptions.Compiled);
 
     private readonly SettingsService _settings;
     private readonly Func<Guid?> _readActiveScheme;
     private readonly Func<string, string> _runPowercfg;
+    private readonly Func<string, string> _runValidatedPowercfgRead;
     private readonly ISystemClock _clock;
     private readonly object _sync = new();
     private PowerPlan? _lastObserved;
@@ -31,7 +36,7 @@ public class PowerPlanService
     public PlanHistoryService History { get; }
 
     public PowerPlanService(SettingsService settings)
-        : this(settings, ReadActiveScheme, RunPowercfg, new PlanHistoryService(), new SystemClock())
+        : this(settings, ReadActiveScheme, RunPowercfg, RunValidatedPowercfgRead, new PlanHistoryService(), new SystemClock())
     {
     }
 
@@ -39,7 +44,7 @@ public class PowerPlanService
         SettingsService settings,
         Func<Guid?> readActiveScheme,
         Func<string, string> runPowercfg)
-        : this(settings, readActiveScheme, runPowercfg, new PlanHistoryService(), new SystemClock())
+        : this(settings, readActiveScheme, runPowercfg, runPowercfg, new PlanHistoryService(), new SystemClock())
     {
     }
 
@@ -49,10 +54,22 @@ public class PowerPlanService
         Func<string, string> runPowercfg,
         PlanHistoryService history,
         ISystemClock clock)
+        : this(settings, readActiveScheme, runPowercfg, runPowercfg, history, clock)
+    {
+    }
+
+    private PowerPlanService(
+        SettingsService settings,
+        Func<Guid?> readActiveScheme,
+        Func<string, string> runPowercfg,
+        Func<string, string> runValidatedPowercfgRead,
+        PlanHistoryService history,
+        ISystemClock clock)
     {
         _settings = settings;
         _readActiveScheme = readActiveScheme;
         _runPowercfg = runPowercfg;
+        _runValidatedPowercfgRead = runValidatedPowercfgRead;
         History = history;
         _clock = clock;
     }
@@ -80,6 +97,12 @@ public class PowerPlanService
     }
 
     public static string RunPowercfg(string args)
+        => RunPowercfgCore(args, validateFailure: IsValidatedListPowercfg(args));
+
+    private static string RunValidatedPowercfgRead(string args)
+        => RunPowercfgCore(args, validateFailure: true);
+
+    private static string RunPowercfgCore(string args, bool validateFailure)
     {
         if (ValidationEnvironment.SuppressPowerChanges && IsMutatingPowercfg(args))
         {
@@ -101,21 +124,41 @@ public class PowerPlanService
         {
             if (result.Error != null) Logger.Error($"powercfg {args} failed", result.Error);
             else Logger.Warn($"powercfg {args}: process did not start");
+            if (validateFailure)
+                throw new InvalidOperationException("Unable to read Windows power plans.", result.Error);
             return "";
         }
         if (result.TimedOut)
         {
             Logger.Warn($"powercfg {args}: timed out after 10s, killed");
+            if (validateFailure)
+                throw new InvalidOperationException("Windows power plan query timed out.");
             return "";
         }
         if (result.Error != null)
         {
             Logger.Error($"powercfg {args} failed", result.Error);
+            if (validateFailure)
+                throw new InvalidOperationException("Unable to read Windows power plans.", result.Error);
             return "";
         }
-        if (result.ExitCode != 0 && result.StandardError.Trim().Length > 0)
-            Logger.Warn($"powercfg {args}: exit {result.ExitCode}: {result.StandardError.Trim()}");
+        if (result.ExitCode != 0)
+        {
+            if (result.StandardError.Trim().Length > 0)
+                Logger.Warn($"powercfg {args}: exit {result.ExitCode}: {result.StandardError.Trim()}");
+            else
+                Logger.Warn($"powercfg {args}: exit {result.ExitCode}");
+            if (validateFailure)
+                throw new InvalidOperationException($"Windows power plan query failed with exit code {result.ExitCode}.");
+        }
         return result.StandardOutput;
+    }
+
+    private static bool IsValidatedListPowercfg(string args)
+    {
+        string normalized = (args ?? "").TrimStart();
+        return normalized.StartsWith("/list", StringComparison.OrdinalIgnoreCase)
+            || normalized.StartsWith("-list", StringComparison.OrdinalIgnoreCase);
     }
 
     internal static bool IsMutatingPowercfg(string args)
@@ -175,7 +218,28 @@ public class PowerPlanService
     public List<PowerPlan> ListPlans()
     {
         lock (_sync)
-            return ParseListOutput(_runPowercfg("/list"), _settings.Current.PlanGuidMap);
+            return GetInstalledPlansLocked(_settings.Current.PlanGuidMap);
+    }
+
+    private List<PowerPlan> GetInstalledPlansLocked(Dictionary<string, string>? guidMap = null)
+    {
+        string output;
+        try
+        {
+            output = _runPowercfg("/list");
+        }
+        catch (Exception ex) when (ex is not InvalidOperationException)
+        {
+            throw new InvalidOperationException("Unable to read installed power plans.", ex);
+        }
+
+        if (string.IsNullOrWhiteSpace(output))
+            throw new InvalidOperationException("Unable to read installed power plans.");
+
+        List<PowerPlan> plans = ParseListOutput(output, guidMap);
+        if (plans.Count == 0)
+            throw new InvalidOperationException("Windows returned an invalid power plan list.");
+        return plans;
     }
 
     public PowerPlan? GetActivePlan()
@@ -224,12 +288,76 @@ public class PowerPlanService
     /// <summary>Checks all three canonical plans exist (directly or via guid map).</summary>
     public (bool allPresent, List<PlanId> missing) CheckDefaultPlans()
     {
-        var plans = ListPlans();
-        var present = plans.Where(p => p.PlanId != null).Select(p => p.PlanId!.Value).ToHashSet();
-        var missing = new List<PlanId>();
-        foreach (PlanId pid in Enum.GetValues<PlanId>())
-            if (!present.Contains(pid)) missing.Add(pid);
-        return (missing.Count == 0, missing);
+        DefaultPlansState state = GetDefaultPlansState();
+        return (state.AllPresent, state.Missing.Select(value => Enum.Parse<PlanId>(value)).ToList());
+    }
+
+    public DefaultPlansState GetDefaultPlansState()
+    {
+        lock (_sync)
+        {
+            List<PowerPlan> plans = GetInstalledPlansLocked(_settings.Current.PlanGuidMap);
+            var present = plans.Where(plan => plan.PlanId != null).Select(plan => plan.PlanId!.Value).ToHashSet();
+            List<string> missing = Enum.GetValues<PlanId>()
+                .Where(planId => !present.Contains(planId))
+                .Select(planId => planId.ToString())
+                .ToList();
+            return new DefaultPlansState
+            {
+                AllPresent = missing.Count == 0,
+                Missing = missing,
+                Installed = plans,
+            };
+        }
+    }
+
+    public bool AssociateDefaultPlans(IReadOnlyCollection<PlanAssociationRequest> associations)
+    {
+        ArgumentNullException.ThrowIfNull(associations);
+        if (associations.Count == 0)
+            throw new ArgumentException("At least one association is required.", nameof(associations));
+
+        lock (_sync)
+        {
+            AppSettings settings = _settings.Current;
+            List<PowerPlan> plans = GetInstalledPlansLocked(settings.PlanGuidMap);
+            var installed = plans.ToDictionary(plan => plan.Guid, StringComparer.OrdinalIgnoreCase);
+            var present = plans.Where(plan => plan.PlanId != null).Select(plan => plan.PlanId!.Value).ToHashSet();
+            var planIds = new HashSet<PlanId>();
+            var guids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var validated = new List<(PlanId PlanId, string Guid)>(associations.Count);
+
+            foreach (PlanAssociationRequest association in associations)
+            {
+                if (!Enum.TryParse(association.PlanId, ignoreCase: true, out PlanId planId) ||
+                    !Enum.IsDefined(planId))
+                    throw new ArgumentException("Unknown power plan type.", nameof(associations));
+                if (!Guid.TryParseExact(association.Guid, "D", out Guid parsedGuid))
+                    throw new ArgumentException("Invalid power plan identifier.", nameof(associations));
+
+                string guid = parsedGuid.ToString("D").ToLowerInvariant();
+                if (!planIds.Add(planId))
+                    throw new ArgumentException("A power plan type was assigned more than once.", nameof(associations));
+                if (!guids.Add(guid))
+                    throw new ArgumentException("The same installed plan cannot be assigned more than once.", nameof(associations));
+                if (present.Contains(planId))
+                    throw new InvalidOperationException("That power plan type is already available.");
+                if (!installed.ContainsKey(guid))
+                    throw new InvalidOperationException("The selected power plan is no longer installed.");
+
+                PlanId? existingOwner = ResolvePlanId(guid, settings.PlanGuidMap);
+                if (existingOwner != null && existingOwner != planId)
+                    throw new InvalidOperationException("The selected power plan is already associated with another type.");
+                validated.Add((planId, guid));
+            }
+
+            _settings.Update(state =>
+            {
+                foreach (var (planId, guid) in validated)
+                    state.PlanGuidMap[planId.ToString()] = guid;
+            });
+            return true;
+        }
     }
 
     public ExtraPlansReport FindExtraPlans()
@@ -241,7 +369,7 @@ public class PowerPlanService
     private ExtraPlansReport FindExtraPlansLocked()
     {
         AppSettings settings = _settings.Current;
-        List<PowerPlan> plans = ParseListOutput(_runPowercfg("/list"), settings.PlanGuidMap);
+        List<PowerPlan> plans = GetInstalledPlansLocked(settings.PlanGuidMap);
         var installed = plans.ToDictionary(plan => plan.Guid, StringComparer.OrdinalIgnoreCase);
         var keep = new List<KeptPowerPlan>();
         var keepGuids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -282,6 +410,7 @@ public class PowerPlanService
         // user-made plans are never listed, so they can never be deleted either.
         List<PowerPlan> extraPlans = plans.Where(plan => !keepGuids.Contains(plan.Guid)).ToList();
         var extras = new List<ExtraPowerPlan>(extraPlans.Count);
+        var settingsCache = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
         foreach (PowerPlan plan in extraPlans)
         {
             PlanId? duplicateOf = null;
@@ -299,6 +428,16 @@ public class PowerPlanService
             }
 
             if (duplicateOf == null) continue;
+            KeptPowerPlan? original = keep.FirstOrDefault(kept =>
+                kept.PlanId.Equals(duplicateOf.Value.ToString(), StringComparison.Ordinal));
+            if (original == null) continue;
+
+            string? candidateSettings = ReadComparablePlanSettingsLocked(plan.Guid, settingsCache);
+            string? originalSettings = ReadComparablePlanSettingsLocked(original.Guid, settingsCache);
+            if (candidateSettings == null || originalSettings == null ||
+                !candidateSettings.Equals(originalSettings, StringComparison.Ordinal))
+                continue;
+
             extras.Add(new ExtraPowerPlan
             {
                 Guid = plan.Guid,
@@ -319,6 +458,52 @@ public class PowerPlanService
             Keep = keep,
             Extras = extras,
         };
+    }
+
+    private string? ReadComparablePlanSettingsLocked(
+        string guid,
+        Dictionary<string, string?> cache)
+    {
+        if (cache.TryGetValue(guid, out string? cached)) return cached;
+
+        string? normalized = null;
+        try
+        {
+            string output = _runValidatedPowercfgRead($"/qh {guid}");
+            if (!string.IsNullOrWhiteSpace(output))
+            {
+                string[] lines = output.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries)
+                    .Select(line => WhitespaceRegex.Replace(line.Trim(), " "))
+                    .Where(line => line.Length > 0)
+                    .ToArray();
+                int schemeLineIndex = Array.FindIndex(lines,
+                    line => line.Contains(guid, StringComparison.OrdinalIgnoreCase));
+                int settingGuidCount = BareGuidRegex.Matches(output)
+                    .Select(match => match.Value)
+                    .Where(value => !value.Equals(guid, StringComparison.OrdinalIgnoreCase))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .Count();
+                int settingsStart = schemeLineIndex < 0 ? -1 : Array.FindIndex(
+                    lines, schemeLineIndex + 1, line => BareGuidRegex.IsMatch(line));
+                bool hasCurrentIndexes = lines.Length >= 2 &&
+                    PowerPlanParameterService.TryParseCurrentIndexes(
+                        string.Join('\n', lines.TakeLast(2)), out _, out _);
+
+                if (settingsStart >= 0 && settingGuidCount >= 4 && hasCurrentIndexes)
+                {
+                    // Ignore the scheme header and its optional canonical alias;
+                    // subgroup/settings content, including hidden AC/DC values, stays intact.
+                    normalized = string.Join('\n', lines.Skip(settingsStart));
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn($"Could not compare power plan {guid}: {ex.Message}");
+        }
+
+        cache[guid] = normalized;
+        return normalized;
     }
 
     public DeleteExtraPlansResult DeleteExtraPlans(IReadOnlyCollection<string> guids)
@@ -383,7 +568,7 @@ public class PowerPlanService
             foreach (string guid in eligible)
                 _runPowercfg($"-delete {guid}");
 
-            var installedAfterDelete = ParseListOutput(_runPowercfg("/list"))
+            var installedAfterDelete = GetInstalledPlansLocked()
                 .Select(plan => plan.Guid)
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
             var deleted = new List<string>();
@@ -468,7 +653,7 @@ public class PowerPlanService
     {
         lock (_sync)
         {
-            var plans = ParseListOutput(_runPowercfg("/list"), _settings.Current.PlanGuidMap);
+            var plans = GetInstalledPlansLocked(_settings.Current.PlanGuidMap);
             var present = plans.Where(p => p.PlanId != null).Select(p => p.PlanId!.Value).ToHashSet();
             var missing = Enum.GetValues<PlanId>().Where(pid => !present.Contains(pid)).ToList();
             var discoveredMappings = new Dictionary<string, string>();
@@ -543,7 +728,7 @@ public class PowerPlanService
             !string.IsNullOrWhiteSpace(mapped))
         {
             // Verify mapped guid still exists; fall back to canonical otherwise.
-            var existing = ParseListOutput(_runPowercfg("/list"));
+            var existing = GetInstalledPlansLocked();
             if (existing.Any(p => p.Guid.Equals(mapped, StringComparison.OrdinalIgnoreCase)))
                 return mapped;
         }

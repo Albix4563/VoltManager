@@ -188,6 +188,7 @@
                 </section>`, false)}
                 ${panel('power-plans', 'advanced', `<section class="vm-ui-panel vm-section-card">
                     <div class="vm-advanced-warning"><span class="material-symbols-outlined">info</span><span data-vm-i18n="advanced_hint"></span></div>
+                    <div id="vm-power-advanced-actions" class="vm-panel-actions"></div>
                     <div id="vm-power-advanced"></div>
                 </section>`, false)}
             `));

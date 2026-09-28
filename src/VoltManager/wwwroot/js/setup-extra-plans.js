@@ -6,15 +6,19 @@
     if (!window.Host || !Host.available) return;
 
     const overlay = document.getElementById('extra-plans-overlay');
+    const modal = document.getElementById('extra-plans-modal');
     const list = document.getElementById('extra-plans-list');
     const description = document.getElementById('extra-plans-description');
+    const count = document.getElementById('extra-plans-count');
+    const retained = document.getElementById('extra-plans-retained');
+    const selectedCount = document.getElementById('extra-plans-selected-count');
     const status = document.getElementById('extra-plans-status');
     const btnDelete = document.getElementById('btn-extra-plans-delete');
     const btnLater = document.getElementById('btn-extra-plans-later');
     const btnDismiss = document.getElementById('btn-extra-plans-dismiss');
-    const setupOverlay = document.getElementById('setup-overlay');
     const welcomeOverlay = document.getElementById('welcome-overlay');
-    if (!overlay || !list || !description || !status || !btnDelete || !btnLater || !btnDismiss) return;
+    if (!overlay || !modal || !list || !description || !count || !retained || !selectedCount ||
+        !status || !btnDelete || !btnLater || !btnDismiss) return;
 
     let currentReport = null;
     let busy = false;
@@ -40,24 +44,6 @@
                 resolve();
             });
             observer.observe(element, { attributes: true, attributeFilter: ['class'] });
-        });
-    }
-
-    function waitForSetupToFinish() {
-        if (!setupOverlay) return Promise.resolve();
-        if (!isHidden(setupOverlay)) return waitUntilHidden(setupOverlay);
-        return new Promise(resolve => {
-            let appeared = false;
-            const observer = new MutationObserver(() => {
-                if (!isHidden(setupOverlay)) {
-                    appeared = true;
-                    return;
-                }
-                if (!appeared) return;
-                observer.disconnect();
-                resolve();
-            });
-            observer.observe(setupOverlay, { attributes: true, attributeFilter: ['class'] });
         });
     }
 
@@ -90,8 +76,9 @@
     }
 
     function updateDeleteButton() {
-        const anyChecked = !!list.querySelector('input[type="checkbox"]:checked');
-        btnDelete.disabled = busy || closing || !anyChecked;
+        const selected = list.querySelectorAll('input[type="checkbox"]:checked').length;
+        btnDelete.disabled = busy || closing || selected === 0;
+        selectedCount.textContent = format('extra_plans_selected_count', { count: selected });
     }
 
     function badge(text, extraClass) {
@@ -105,13 +92,13 @@
         list.replaceChildren();
         for (const plan of extras) {
             const row = document.createElement('label');
-            row.className = 'flex items-start gap-sm rounded-xl border border-white/10 bg-white/[0.03] p-sm cursor-pointer';
+            row.className = 'vm-extra-plan-row';
 
             const checkbox = document.createElement('input');
             checkbox.type = 'checkbox';
             checkbox.checked = true;
             checkbox.value = plan.guid;
-            checkbox.className = 'mt-1 accent-[var(--vm-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-secondary-container';
+            checkbox.className = 'vm-extra-plan-check';
             checkbox.addEventListener('change', updateDeleteButton);
 
             const body = document.createElement('span');
@@ -121,7 +108,7 @@
             heading.className = 'flex items-center gap-xs flex-wrap';
 
             const name = document.createElement('span');
-            name.className = 'text-body-md text-on-surface font-semibold break-all';
+            name.className = 'vm-extra-plan-name';
             name.textContent = (plan.name || '').trim() || plan.guid;
             heading.appendChild(name);
 
@@ -132,8 +119,11 @@
                 heading.appendChild(badge(t('extra_plans_active'), 'border-white/15 text-on-surface-variant bg-white/5'));
 
             const guid = document.createElement('span');
-            guid.className = 'block text-label-sm text-on-surface-variant mt-1 break-all';
-            guid.textContent = plan.guid;
+            guid.className = 'vm-extra-plan-id';
+            guid.textContent = plan.guid.length > 16
+                ? plan.guid.slice(0, 8) + '…' + plan.guid.slice(-4)
+                : plan.guid;
+            guid.title = plan.guid;
 
             body.appendChild(heading);
             body.appendChild(guid);
@@ -147,11 +137,18 @@
     function renderReport(report) {
         currentReport = report || { extras: [] };
         const extras = Array.isArray(currentReport.extras) ? currentReport.extras : [];
+        count.textContent = String(extras.length);
         if (extras.length === 0) {
             description.textContent = t('extra_plans_none');
         } else {
             description.textContent = format('extra_plans_description', { count: extras.length });
         }
+        const keepNames = (currentReport.keep || [])
+            .map(plan => (plan.name || '').trim())
+            .filter(Boolean);
+        retained.textContent = keepNames.length
+            ? format('extra_plans_retained', { plans: keepNames.join(', ') })
+            : '';
         renderList(extras);
         btnDismiss.classList.toggle('hidden', extras.length === 0);
     }
@@ -229,8 +226,7 @@
 
     async function autoCheck() {
         try {
-            const defaults = await Host.call('checkDefaultPlans');
-            if (!defaults?.allPresent) await waitForSetupToFinish();
+            if (window.VoltSetupReady) await window.VoltSetupReady;
             await waitUntilHidden(welcomeOverlay);
 
             const report = await Host.call('findExtraPlans');
@@ -247,9 +243,26 @@
     btnLater.addEventListener('click', close);
     btnDismiss.addEventListener('click', dismissCurrent);
     document.addEventListener('keydown', event => {
-        if (event.key !== 'Escape' || isHidden(overlay) || busy) return;
-        event.preventDefault();
-        close();
+        if (isHidden(overlay)) return;
+        if (event.key === 'Escape' && !busy) {
+            event.preventDefault();
+            close();
+            return;
+        }
+        if (event.key !== 'Tab') return;
+        const focusable = Array.from(modal.querySelectorAll(
+            'button:not([disabled]):not(.hidden), input:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        )).filter(element => element.offsetParent !== null);
+        if (focusable.length === 0) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+            event.preventDefault();
+            last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+            event.preventDefault();
+            first.focus();
+        }
     });
     document.addEventListener('langchanged', () => {
         if (!currentReport || isHidden(overlay)) return;

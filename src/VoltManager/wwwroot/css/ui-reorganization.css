@@ -830,6 +830,20 @@
     font: 600 .64rem/1.2 Inter, sans-serif;
 }
 
+/* The overlay is appended to <body>, outside .vm-reorg-view, so it needs
+   its own copy of the design tokens (otherwise radii/spacing resolve to 0). */
+.vm-search-overlay,
+.vm-search-trigger {
+    --vm-radius-card: 16px;
+    --vm-radius-control: 10px;
+    --vm-radius-pill: 999px;
+    --vm-space-1: 4px;
+    --vm-space-2: 8px;
+    --vm-space-3: 12px;
+    --vm-space-4: 16px;
+    --vm-space-5: 24px;
+}
+
 .vm-search-overlay {
     position: fixed;
     inset: 0;
@@ -837,7 +851,7 @@
     display: grid;
     place-items: start center;
     padding: clamp(70px, 11vh, 118px) var(--vm-space-5) var(--vm-space-5);
-    background: color-mix(in srgb, #0A1128 72%, transparent);
+    background: color-mix(in srgb, var(--vm-bg-deep, #0b1120) 72%, transparent);
     backdrop-filter: blur(9px);
 }
 
@@ -851,10 +865,17 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    border: 1px solid color-mix(in srgb, var(--md-sys-color-on-surface, #fff) 13%, transparent);
+    border: 1px solid color-mix(in srgb, var(--vm-border, #2f578b) 72%, transparent);
     border-radius: var(--vm-radius-card);
-    background: var(--md-sys-color-surface-container, #111b30);
-    box-shadow: 0 22px 60px rgb(0 0 0 / .38);
+    background:
+        linear-gradient(180deg,
+            color-mix(in srgb, var(--vm-surface-high, #1e293b) 22%, transparent),
+            transparent 60%),
+        color-mix(in srgb, var(--vm-panel, #111827) 96%, transparent);
+    box-shadow:
+        inset 0 1px 0 rgb(255 255 255 / .06),
+        0 25px 50px -12px rgb(0 0 0 / .55),
+        0 4px 20px rgb(var(--vm-accent-rgb, 59 130 246) / .08);
 }
 
 .vm-search-input-row {
@@ -882,6 +903,11 @@
     font: 500 .96rem/1.4 Inter, sans-serif;
 }
 
+.vm-search-input::-webkit-search-cancel-button {
+    -webkit-appearance: none;
+    appearance: none;
+}
+
 .vm-search-input::placeholder {
     color: var(--md-sys-color-on-surface-variant, #aeb8c9);
     opacity: .78;
@@ -891,7 +917,7 @@
     min-height: 72px;
     overflow-y: auto;
     overscroll-behavior: contain;
-    padding: var(--vm-space-2) 0;
+    padding: var(--vm-space-2);
 }
 
 .vm-search-option {
@@ -900,9 +926,10 @@
     display: grid;
     grid-template-columns: 34px minmax(0, 1fr);
     align-items: center;
-    gap: var(--vm-space-2);
-    padding: var(--vm-space-2) var(--vm-space-4);
-    border: 0;
+    gap: var(--vm-space-3);
+    padding: var(--vm-space-2) var(--vm-space-3);
+    border: 1px solid transparent;
+    border-radius: var(--vm-radius-control);
     color: var(--md-sys-color-on-surface, #edf2fa);
     background: transparent;
     cursor: pointer;
@@ -910,13 +937,22 @@
     text-align: left;
 }
 
-.vm-search-option.is-active {
-    background: color-mix(in srgb, var(--vm-accent) 11%, transparent);
-    box-shadow: inset 3px 0 0 var(--vm-accent);
+.vm-search-option + .vm-search-option {
+    margin-top: 2px;
 }
 
 .vm-search-option:hover {
-    background: color-mix(in srgb, var(--vm-accent) 8%, transparent);
+    background: color-mix(in srgb, var(--vm-surface-high, #1e293b) 74%, transparent);
+}
+
+.vm-search-option.is-active {
+    border-color: color-mix(in srgb, var(--vm-accent) 38%, transparent);
+    background: color-mix(in srgb, var(--vm-accent) 13%, transparent);
+}
+
+.vm-search-option:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--vm-accent) 62%, transparent);
+    outline-offset: -2px;
 }
 
 .vm-search-option__icon {
@@ -924,7 +960,9 @@
     height: 32px;
     display: grid;
     place-items: center;
+    border-radius: var(--vm-radius-control);
     color: var(--vm-accent);
+    background: color-mix(in srgb, var(--vm-accent) 12%, transparent);
     font-size: 19px;
 }
 
@@ -942,8 +980,12 @@
 }
 
 .vm-search-option__path {
-    color: var(--vm-accent);
-    font-size: .69rem;
+    align-self: center;
+    padding: 2px var(--vm-space-2);
+    border-radius: var(--vm-radius-pill);
+    color: var(--vm-accent-dim, var(--vm-accent));
+    background: color-mix(in srgb, var(--vm-accent) 12%, transparent);
+    font-size: .66rem;
     font-weight: 600;
     white-space: nowrap;
 }

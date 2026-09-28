@@ -110,7 +110,9 @@ public sealed class PowerPlanServiceTests
             PlanLine(OemGuid, "OEM Quiet"),
         ]);
         var service = new PowerPlanService(TestSettings.Create(), () => Guid.Parse(PowerPlanService.BalancedGuid),
-            args => args == "/list" ? output : "");
+            args => args == "/list" ? output
+                : args.StartsWith("/qh ", StringComparison.OrdinalIgnoreCase) ? QueryOutput(args[4..], "balanced")
+                : "");
 
         ExtraPlansReport report = service.FindExtraPlans();
 
@@ -171,6 +173,8 @@ public sealed class PowerPlanServiceTests
                 var active = installed.Single(plan => plan.Guid.Equals(activeGuid, StringComparison.OrdinalIgnoreCase));
                 return PlanLine(active.Guid, active.Name, active: true);
             }
+            if (args.StartsWith("/qh ", StringComparison.OrdinalIgnoreCase))
+                return QueryOutput(args[4..], "balanced");
             if (args.StartsWith("/setactive ", StringComparison.OrdinalIgnoreCase))
             {
                 activeGuid = args["/setactive ".Length..];
@@ -218,6 +222,8 @@ public sealed class PowerPlanServiceTests
             calls.Add(args);
             if (args == "/list")
                 return string.Join('\n', installed.Select(guid => PlanLine(guid, Name(guid), guid == activeGuid)));
+            if (args.StartsWith("/qh ", StringComparison.OrdinalIgnoreCase))
+                return QueryOutput(args[4..], "performance");
             if (args.StartsWith("/setactive ", StringComparison.OrdinalIgnoreCase))
             {
                 activeGuid = args["/setactive ".Length..];
@@ -253,7 +259,9 @@ public sealed class PowerPlanServiceTests
             PlanLine(PowerPlanService.PerformanceGuid, "High performance"),
         ]);
         var service = new PowerPlanService(settings, () => Guid.Parse(PowerPlanService.BalancedGuid),
-            args => args == "/list" ? output : "");
+            args => args == "/list" ? output
+                : args.StartsWith("/qh ", StringComparison.OrdinalIgnoreCase) ? QueryOutput(args[4..], "saver")
+                : "");
 
         ExtraPlansReport report = service.FindExtraPlans();
 
@@ -281,6 +289,8 @@ public sealed class PowerPlanServiceTests
         {
             if (args == "/list")
                 return string.Join('\n', installed.Select(plan => PlanLine(plan.Guid, plan.Name)));
+            if (args.StartsWith("/qh ", StringComparison.OrdinalIgnoreCase))
+                return QueryOutput(args[4..], "saver");
             if (args == $"-delete {ExtraBalanced1}")
             {
                 installed.RemoveAll(plan => plan.Guid == ExtraBalanced1);
@@ -311,7 +321,9 @@ public sealed class PowerPlanServiceTests
             () => null,
             args => args == "/list"
                 ? string.Join('\n', installed.Select(plan => PlanLine(plan.Guid, plan.Name)))
-                : "");
+                : args.StartsWith("/qh ", StringComparison.OrdinalIgnoreCase)
+                    ? QueryOutput(args[4..], "balanced")
+                    : "");
 
         Assert.True(service.FindExtraPlans().ShouldPrompt);
 
@@ -325,6 +337,184 @@ public sealed class PowerPlanServiceTests
         Assert.True(service.FindExtraPlans().ShouldPrompt);
     }
 
+    [Theory]
+    [InlineData("")]
+    [InlineData("not a power plan list")]
+    public void ValidatedListFailure_Refuses_restore_and_delete_mutations(string listOutput)
+    {
+        int mutations = 0;
+        var service = new PowerPlanService(TestSettings.Create(), () => null, args =>
+        {
+            if (args == "/list") return listOutput;
+            mutations++;
+            return "";
+        });
+
+        Assert.Throws<InvalidOperationException>(() => service.RestoreDefaultPlans());
+        Assert.Throws<InvalidOperationException>(() => service.DeleteExtraPlans([ExtraBalanced1]));
+        Assert.Equal(0, mutations);
+    }
+
+    [Fact]
+    public void FindExtraPlans_Same_name_with_different_complete_settings_is_not_eligible()
+    {
+        string output = string.Join('\n',
+        [
+            PlanLine(PowerPlanService.SaverGuid, "Power saver"),
+            PlanLine(PowerPlanService.BalancedGuid, "Balanced"),
+            PlanLine(PowerPlanService.PerformanceGuid, "High performance"),
+            PlanLine(ExtraBalanced1, "Balanced"),
+        ]);
+        var service = new PowerPlanService(TestSettings.Create(), () => null, args =>
+        {
+            if (args == "/list") return output;
+            if (args == $"/qh {PowerPlanService.BalancedGuid}") return QueryOutput(PowerPlanService.BalancedGuid, "ac=10;dc=20");
+            if (args == $"/qh {ExtraBalanced1}") return QueryOutput(ExtraBalanced1, "ac=99;dc=20");
+            throw new InvalidOperationException($"Unexpected powercfg call: {args}");
+        });
+
+        ExtraPlansReport report = service.FindExtraPlans();
+
+        Assert.False(report.HasExtras);
+        Assert.Empty(report.Extras);
+    }
+
+    [Fact]
+    public void FindExtraPlans_Incomplete_settings_query_is_never_eligible()
+    {
+        string output = string.Join('\n',
+        [
+            PlanLine(PowerPlanService.SaverGuid, "Power saver"),
+            PlanLine(PowerPlanService.BalancedGuid, "Balanced"),
+            PlanLine(PowerPlanService.PerformanceGuid, "High performance"),
+            PlanLine(ExtraBalanced1, "Balanced"),
+        ]);
+        var service = new PowerPlanService(TestSettings.Create(), () => null, args =>
+        {
+            if (args == "/list") return output;
+            if (args == $"/qh {PowerPlanService.BalancedGuid}") return QueryOutput(PowerPlanService.BalancedGuid, "ac=10;dc=20");
+            if (args == $"/qh {ExtraBalanced1}") return $"Scheme {ExtraBalanced1}\nSetting 88888888-8888-4888-8888-888888888888";
+            throw new InvalidOperationException($"Unexpected powercfg call: {args}");
+        });
+
+        Assert.Empty(service.FindExtraPlans().Extras);
+    }
+
+    [Fact]
+    public void FindExtraPlans_Equivalent_complete_settings_are_eligible_and_cached()
+    {
+        var calls = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        string output = string.Join('\n',
+        [
+            PlanLine(PowerPlanService.SaverGuid, "Power saver"),
+            PlanLine(PowerPlanService.BalancedGuid, "Balanced"),
+            PlanLine(PowerPlanService.PerformanceGuid, "High performance"),
+            PlanLine(ExtraBalanced1, "Balanced"),
+            PlanLine(ExtraBalanced2, "Balanced"),
+        ]);
+        var service = new PowerPlanService(TestSettings.Create(), () => null, args =>
+        {
+            if (args == "/list") return output;
+            if (args.StartsWith("/qh ", StringComparison.OrdinalIgnoreCase))
+            {
+                calls[args] = calls.GetValueOrDefault(args) + 1;
+                return QueryOutput(args[4..], "ac=10;dc=20");
+            }
+            throw new InvalidOperationException($"Unexpected powercfg call: {args}");
+        });
+
+        ExtraPlansReport report = service.FindExtraPlans();
+
+        Assert.Equal(2, report.Extras.Count);
+        Assert.Equal(1, calls[$"/qh {PowerPlanService.BalancedGuid}"]);
+        Assert.All(report.Extras, extra => Assert.Equal("Balanced", extra.DuplicateOf));
+    }
+
+    [Fact]
+    public void AssociateDefaultPlans_Uses_existing_plan_without_duplicate_and_validates_atomically()
+    {
+        var settings = TestSettings.Create();
+        var calls = new List<string>();
+        string output = string.Join('\n',
+        [
+            PlanLine(PowerPlanService.BalancedGuid, "Balanced"),
+            PlanLine(ExtraBalanced1, "Restored saver copy"),
+            PlanLine(ExtraBalanced2, "Restored performance copy"),
+        ]);
+        var service = new PowerPlanService(settings, () => null, args =>
+        {
+            calls.Add(args);
+            return args == "/list" ? output : throw new InvalidOperationException($"Unexpected powercfg call: {args}");
+        });
+
+        Assert.True(service.AssociateDefaultPlans([
+            new PlanAssociationRequest { PlanId = "PowerSaver", Guid = ExtraBalanced1 },
+            new PlanAssociationRequest { PlanId = "Performance", Guid = ExtraBalanced2 },
+        ]));
+        Assert.Equal(ExtraBalanced1, settings.Current.PlanGuidMap["PowerSaver"]);
+        Assert.Equal(ExtraBalanced2, settings.Current.PlanGuidMap["Performance"]);
+        Assert.DoesNotContain(calls, call => call.Contains("duplicatescheme", StringComparison.OrdinalIgnoreCase));
+
+        var freshSettings = TestSettings.Create();
+        var invalidService = new PowerPlanService(freshSettings, () => null, args => args == "/list" ? output : "");
+        Assert.Throws<ArgumentException>(() => invalidService.AssociateDefaultPlans([
+            new PlanAssociationRequest { PlanId = "PowerSaver", Guid = ExtraBalanced1 },
+            new PlanAssociationRequest { PlanId = "Performance", Guid = ExtraBalanced1 },
+        ]));
+        Assert.Empty(freshSettings.Current.PlanGuidMap);
+        Assert.Throws<InvalidOperationException>(() => invalidService.AssociateDefaultPlans([
+            new PlanAssociationRequest { PlanId = "PowerSaver", Guid = PowerPlanService.BalancedGuid },
+        ]));
+        Assert.Empty(freshSettings.Current.PlanGuidMap);
+    }
+
     private static string PlanLine(string guid, string name, bool active = false)
         => $"Power Scheme GUID: {guid}  ({name}){(active ? " *" : "")}";
+
+    [Fact]
+    public void FindExtraPlans_Query_missing_final_current_indexes_is_not_eligible()
+    {
+        string installed = string.Join('\n',
+        [
+            PlanLine(PowerPlanService.BalancedGuid, "Balanced"),
+            PlanLine(ExtraBalanced1, "Balanced"),
+        ]);
+        var service = new PowerPlanService(TestSettings.Create(), () => null, args =>
+        {
+            if (args == "/list") return installed;
+            string query = QueryOutput(args[4..], "balanced")
+                .Replace("  Alias GUID: SCHEME_BALANCED\n", "");
+            return string.Join('\n', query.Split('\n').SkipLast(2));
+        });
+
+        Assert.Empty(service.FindExtraPlans().Extras);
+    }
+
+    private static string QueryOutput(string guid, string values)
+    {
+        (uint ac, uint dc) = values switch
+        {
+            "saver" => (5u, 10u),
+            "performance" => (100u, 100u),
+            _ => (10u, 20u),
+        };
+        if (values.StartsWith("ac=", StringComparison.Ordinal))
+        {
+            string[] pair = values.Split(';');
+            ac = uint.Parse(pair[0][3..]);
+            dc = uint.Parse(pair[1][3..]);
+        }
+        string alias = guid == PowerPlanService.BalancedGuid
+            ? "  Alias GUID: SCHEME_BALANCED\n" : "";
+        return $"Power Scheme GUID: {guid} (Plan)\n{alias}" +
+            "  Subgroup GUID: 77777777-7777-4777-8777-777777777777\n" +
+            string.Join('\n', new[]
+            {
+                "88888888-8888-4888-8888-888888888888",
+                "99999999-9999-4999-8999-999999999999",
+                "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+            }.Select(setting => $"    Power Setting GUID: {setting}\n" +
+                $"    Current AC Power Setting Index: 0x{ac:x8}\n" +
+                $"    Current DC Power Setting Index: 0x{dc:x8}"));
+    }
 }

@@ -173,7 +173,7 @@
         const link = document.createElement('link');
         link.id = 'vm-ui-reorganization-style';
         link.rel = 'stylesheet';
-        link.href = 'css/ui-reorganization.css?v=brightness1';
+        link.href = 'css/ui-reorganization.css?v=plans3';
         const themeStyles = document.querySelector('link[href*="theme-colors.css"]');
         document.head.insertBefore(link, themeStyles || null);
     }
@@ -199,8 +199,8 @@
         window.__voltUiReorganizationLoading = true;
         addStyle();
         try {
-            await loadScript('js/ui-reorganization.layout.js?v=widgetstyle1');
-            await loadScript('js/ui-reorganization.js?v=widgetstyle1');
+            await loadScript('js/ui-reorganization.layout.js?v=plans3');
+            await loadScript('js/ui-reorganization.js?v=plans3');
             await loadScript('js/ui-reorganization.status.js?v=nav-reorg1');
             await loadScript('js/global-search.js?v=brightness1');
         } catch (error) {

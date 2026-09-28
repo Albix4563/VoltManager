@@ -68,3 +68,201 @@ html:not([data-vm-brightness="supported"]) [data-vm-brightness-only] { display: 
 .power-brightness-card .power-timeout-side { min-width: 0; }
 .power-brightness-card .power-timeout-select:focus-visible {
     outline: 2px solid var(--vm-accent); outline-offset: 2px; }
+
+/* Power-plan setup and duplicate-cleanup dialogs. */
+#setup-overlay,
+#extra-plans-overlay {
+    padding: 16px;
+    overflow: hidden;
+}
+#setup-overlay:not(.hidden),
+#extra-plans-overlay:not(.hidden) {
+    display: flex;
+}
+.vm-dialog-shell {
+    width: min(100%, 720px);
+    max-height: calc(100dvh - 32px);
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    overflow: hidden;
+    border-radius: 20px;
+    color: var(--md-sys-color-on-surface, #d4e4fa);
+    background: color-mix(in srgb, var(--vm-panel, #1e2a4a) 96%, transparent);
+}
+.vm-setup-dialog { max-width: 620px; }
+.vm-dialog-header,
+.vm-dialog-footer {
+    padding: 18px 20px;
+    background: color-mix(in srgb, var(--vm-panel, #1e2a4a) 98%, transparent);
+}
+.vm-dialog-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    border-bottom: 1px solid rgba(255,255,255,.08);
+}
+.vm-dialog-footer {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    border-top: 1px solid rgba(255,255,255,.08);
+}
+.vm-dialog-body {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 18px 20px;
+    display: grid;
+    gap: 14px;
+}
+.vm-dialog-icon {
+    width: 42px;
+    height: 42px;
+    flex: 0 0 42px;
+    display: grid;
+    place-items: center;
+    border-radius: 12px;
+    border: 1px solid rgb(var(--vm-accent-rgb) / .24);
+    color: var(--vm-accent);
+    background: rgb(var(--vm-accent-rgb) / .1);
+}
+.vm-dialog-title-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+.vm-count-badge {
+    min-width: 28px;
+    height: 24px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 8px;
+    border-radius: 999px;
+    border: 1px solid rgb(var(--vm-accent-rgb) / .28);
+    color: var(--vm-accent);
+    background: rgb(var(--vm-accent-rgb) / .1);
+    font-size: 12px;
+    font-weight: 700;
+}
+.vm-dialog-status {
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid rgb(var(--vm-accent-rgb) / .22);
+    background: rgb(var(--vm-accent-rgb) / .07);
+    color: var(--md-sys-color-on-surface, #d4e4fa);
+    font-size: 13px;
+    line-height: 1.45;
+}
+.vm-dialog-status.is-error {
+    border-color: rgba(255,180,171,.3);
+    background: rgba(255,180,171,.08);
+    color: #ffb4ab;
+}
+.vm-dialog-note {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    color: var(--md-sys-color-on-surface-variant, #c6c6ce);
+    font-size: 12px;
+    line-height: 1.45;
+}
+.vm-dialog-note .material-symbols-outlined { font-size: 17px; color: var(--vm-accent); }
+.vm-setup-association {
+    display: grid;
+    gap: 12px;
+    padding: 14px;
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 14px;
+    background: rgba(255,255,255,.025);
+}
+.vm-setup-association.hidden,
+.vm-dialog-status.hidden { display: none; }
+.vm-setup-selects { display: grid; gap: 10px; }
+.vm-setup-field { display: grid; gap: 6px; min-width: 0; }
+.vm-native-select {
+    width: 100%;
+    min-height: 42px;
+    padding: 8px 34px 8px 11px;
+    border: 1px solid rgba(255,255,255,.13);
+    border-radius: 10px;
+    color: var(--md-sys-color-on-surface, #d4e4fa);
+    background: var(--vm-surface-high, #1c2b3c);
+    font: inherit;
+}
+.vm-native-select:focus-visible,
+.vm-extra-plan-check:focus-visible,
+.vm-tertiary-action:focus-visible {
+    outline: 2px solid var(--vm-accent);
+    outline-offset: 2px;
+}
+.vm-extra-plans-list {
+    display: grid;
+    gap: 8px;
+}
+.vm-extra-plan-row {
+    min-width: 0;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: start;
+    gap: 11px;
+    padding: 11px 12px;
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 12px;
+    background: rgba(255,255,255,.03);
+    cursor: pointer;
+}
+.vm-extra-plan-row:hover { border-color: rgb(var(--vm-accent-rgb) / .22); }
+.vm-extra-plan-check { margin-top: 3px; accent-color: var(--vm-accent); }
+.vm-extra-plan-name {
+    min-width: 0;
+    color: var(--md-sys-color-on-surface, #d4e4fa);
+    font-size: 14px;
+    font-weight: 650;
+    overflow-wrap: anywhere;
+}
+.vm-extra-plan-id {
+    display: block;
+    margin-top: 4px;
+    color: var(--md-sys-color-on-surface-variant, #c6c6ce);
+    font: 11px/1.35 ui-monospace, SFMono-Regular, Consolas, monospace;
+    opacity: .72;
+}
+.vm-extra-plans-footer { align-items: stretch; flex-direction: column; }
+.vm-dialog-actions { display: flex; justify-content: flex-end; gap: 10px; }
+.vm-tertiary-action {
+    align-self: flex-start;
+    padding: 2px 0;
+    border: 0;
+    color: var(--md-sys-color-on-surface-variant, #c6c6ce);
+    background: transparent;
+    font-size: 12px;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+.vm-dialog-shell .btn-primary:disabled {
+    opacity: .45;
+    cursor: not-allowed;
+    box-shadow: none;
+    transform: none;
+}
+.vm-panel-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin: 10px 0 14px;
+}
+@media (max-width: 560px), (max-height: 620px) {
+    #setup-overlay,
+    #extra-plans-overlay { padding: 16px; }
+    .vm-dialog-header,
+    .vm-dialog-body,
+    .vm-dialog-footer { padding: 14px; }
+    .vm-dialog-actions { flex-direction: column; }
+    .vm-dialog-actions > button { width: 100%; }
+    .vm-dialog-footer > #btn-setup-exit,
+    .vm-dialog-footer > #btn-setup-retry,
+    .vm-dialog-footer > #btn-setup-install { flex: 1 1 auto; }
+    .vm-setup-dialog .vm-dialog-footer { flex-wrap: wrap; }
+}

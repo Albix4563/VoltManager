@@ -10,7 +10,7 @@
 <link href="css/polish.css?v=batteryhistory1" rel="stylesheet"/>
 <link href="css/effects.css?v=motion2" rel="stylesheet"/>
 <link href="css/theme-colors.css?v=color4" rel="stylesheet"/>
-<link href="css/power-features.css?v=brightness1" rel="stylesheet"/>
+<link href="css/power-features.css?v=plans3" rel="stylesheet"/>
 <link href="css/lan-remote-control.css?v=1" rel="stylesheet"/>
 <script src="js/theme.js?v=color2"></script>
 <style>
@@ -1368,69 +1368,67 @@
 
 <!-- ============ SETUP MODAL OVERLAY ============ -->
 <div class="fixed inset-0 z-[100] bg-background hidden items-center justify-center" id="setup-overlay">
-  <div class="ambient-glow"></div>
-  <main class="w-full max-w-md px-lg z-10">
-    <div class="glass-modal rounded-3xl p-xl flex flex-col items-center text-center" id="setup-modal">
-      <div class="w-20 h-20 rounded-full bg-surface-container-high flex items-center justify-center mb-lg border border-white/5 relative overflow-hidden">
-        <div class="absolute inset-0 rounded-full theme-accent-shadow-lg"></div>
-        <img src="images/project_logo.png" alt="VOLT MANAGER" class="w-16 h-16 object-cover rounded-full relative z-10" />
+  <main class="vm-dialog-shell vm-setup-dialog glass-modal" id="setup-modal" role="dialog" aria-modal="true"
+        aria-labelledby="setup-title" aria-describedby="setup-message" tabindex="-1">
+    <header class="vm-dialog-header">
+      <div class="vm-dialog-icon" aria-hidden="true"><span class="material-symbols-outlined">bolt</span></div>
+      <div class="min-w-0">
+        <h1 class="text-headline-md text-on-surface" id="setup-title" data-i18n="setup_req">Setup Richiesto</h1>
+        <p class="text-body-md text-on-surface-variant mt-xs" id="setup-message" data-i18n="setup_req_sub">Alcuni piani energetici richiesti non sono disponibili.</p>
       </div>
-      <h1 class="text-headline-md text-on-surface mb-sm" data-i18n="setup_req">Setup Richiesto</h1>
-      <p class="text-body-md text-on-surface-variant mb-xl max-w-[280px]" id="setup-message" data-i18n="setup_req_sub">
-        Piani energetici di base non rilevati. È necessario installarli per ottimizzare le prestazioni del sistema.
-      </p>
-      <div class="flex flex-col sm:flex-row gap-md w-full">
-        <button class="btn-ghost flex-1 rounded-lg py-3 px-4 text-label-md flex items-center justify-center gap-xs" id="btn-setup-exit">
-          <span class="material-symbols-outlined text-[18px]">close</span>
-          <span data-i18n="setup_btn_exit">No, esci</span>
-        </button>
-        <button class="btn-primary flex-1 rounded-lg py-3 px-4 text-label-md flex items-center justify-center gap-xs" id="btn-setup-install">
-          <span class="material-symbols-outlined text-[18px]">download</span>
-          <span data-i18n="setup_btn_install">Installa piani di base</span>
-        </button>
-      </div>
-      <div class="mt-lg flex items-center gap-2 opacity-60">
-        <span class="material-symbols-outlined text-[14px] text-secondary-container">info</span>
-        <span class="text-label-sm text-on-surface-variant" data-i18n="setup_admin">Questa operazione richiede i privilegi di amministratore.</span>
+    </header>
+    <div class="vm-dialog-body">
+      <p class="hidden vm-dialog-status" id="setup-status" role="status" aria-live="polite"></p>
+      <section class="hidden vm-setup-association" id="setup-association" aria-labelledby="setup-association-title">
+        <h2 class="text-title-lg text-on-surface" id="setup-association-title" data-i18n="setup_existing_title">Usa piani già presenti</h2>
+        <p class="text-body-md text-on-surface-variant" data-i18n="setup_existing_desc">Se riconosci una copia esistente, puoi associarla senza crearne una nuova.</p>
+        <div class="vm-setup-selects" id="setup-association-list"></div>
+        <button class="btn-primary rounded-lg py-3 px-4 text-label-md" id="btn-setup-associate" type="button" data-i18n="setup_use_selected">Usa piani selezionati</button>
+      </section>
+      <div class="vm-dialog-note">
+        <span class="material-symbols-outlined" aria-hidden="true">info</span>
+        <span data-i18n="setup_admin">Questa operazione richiede i privilegi di amministratore.</span>
       </div>
     </div>
+    <footer class="vm-dialog-footer">
+      <button class="btn-ghost rounded-lg py-3 px-4 text-label-md" id="btn-setup-exit" type="button" data-i18n="setup_btn_exit">Esci</button>
+      <button class="btn-ghost rounded-lg py-3 px-4 text-label-md hidden" id="btn-setup-retry" type="button" data-i18n="setup_retry">Riprova</button>
+      <button class="btn-primary rounded-lg py-3 px-4 text-label-md" id="btn-setup-install" type="button" data-i18n="setup_btn_install">Ripristina piani mancanti</button>
+    </footer>
   </main>
 </div>
 
 <!-- ============ EXTRA POWER PLANS CLEANUP OVERLAY ============ -->
 <div class="fixed inset-0 z-[115] bg-black/60 hidden items-center justify-center" id="extra-plans-overlay">
-  <div class="w-full max-w-lg mx-4 glass-modal rounded-3xl p-xl" id="extra-plans-modal"
-       role="dialog" aria-modal="true" aria-labelledby="extra-plans-title">
-    <div class="flex items-start gap-md mb-md">
-      <div class="w-11 h-11 rounded-xl bg-secondary-container/15 border border-secondary-container/25 flex items-center justify-center shrink-0">
-        <span class="material-symbols-outlined text-secondary-container">delete_sweep</span>
-      </div>
+  <div class="vm-dialog-shell vm-extra-plans-dialog glass-modal" id="extra-plans-modal"
+       role="dialog" aria-modal="true" aria-labelledby="extra-plans-title" aria-describedby="extra-plans-description" tabindex="-1">
+    <header class="vm-dialog-header">
+      <div class="vm-dialog-icon" aria-hidden="true"><span class="material-symbols-outlined">delete_sweep</span></div>
       <div class="min-w-0">
-        <h2 class="text-headline-sm text-on-surface" id="extra-plans-title" data-i18n="extra_plans_title">Piani energetici duplicati</h2>
-        <p class="text-body-md text-on-surface-variant mt-xs" id="extra-plans-description"
-           data-i18n="extra_plans_description">Abbiamo trovato {count} copie ripetute dei piani energetici usati da VoltManager. Puoi eliminarle e tenere un solo Risparmio energia, Bilanciato e Prestazioni elevate. Gli altri piani non vengono toccati.</p>
+        <div class="vm-dialog-title-row">
+          <h2 class="text-headline-sm text-on-surface" id="extra-plans-title" data-i18n="extra_plans_title">Piani energetici duplicati</h2>
+          <span class="vm-count-badge" id="extra-plans-count">0</span>
+        </div>
+        <p class="text-body-md text-on-surface-variant mt-xs" id="extra-plans-description">Seleziona le copie che vuoi rimuovere.</p>
+      </div>
+    </header>
+    <div class="vm-dialog-body">
+      <p class="hidden vm-dialog-status" id="extra-plans-status" aria-live="polite"></p>
+      <div class="vm-extra-plans-list" id="extra-plans-list"></div>
+      <p class="text-label-sm text-on-surface-variant" id="extra-plans-retained"></p>
+      <div class="vm-dialog-note">
+        <span class="material-symbols-outlined" aria-hidden="true">admin_panel_settings</span>
+        <span data-i18n="extra_plans_admin_note">Potrebbero essere richiesti privilegi di amministratore.</span>
       </div>
     </div>
-
-    <p class="hidden text-body-sm text-on-surface-variant mb-md" id="extra-plans-status" aria-live="polite"></p>
-    <div class="max-h-64 overflow-y-auto pr-xs space-y-sm mb-md" id="extra-plans-list"></div>
-
-    <div class="flex items-start gap-xs mb-lg opacity-70">
-      <span class="material-symbols-outlined text-[16px] text-secondary-container mt-[1px]">admin_panel_settings</span>
-      <p class="text-label-sm text-on-surface-variant" data-i18n="extra_plans_admin_note">Richiede privilegi di amministratore. Se elimini il piano attivo, prima verrà attivato il piano principale corrispondente.</p>
-    </div>
-
-    <div class="flex flex-col sm:flex-row gap-sm">
-      <button class="btn-primary flex-1 rounded-lg py-3 px-4 text-label-md flex items-center justify-center gap-xs"
-              id="btn-extra-plans-delete" type="button">
-        <span class="material-symbols-outlined text-[18px]">delete</span>
-        <span data-i18n="extra_plans_delete">Elimina selezionati</span>
-      </button>
-      <button class="btn-ghost rounded-lg py-3 px-4 text-label-md" id="btn-extra-plans-later" type="button"
-              data-i18n="extra_plans_not_now">Non ora</button>
-    </div>
-    <button class="mt-md text-label-sm text-on-surface-variant underline underline-offset-4 hover:text-on-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-secondary-container rounded"
-            id="btn-extra-plans-dismiss" type="button" data-i18n="extra_plans_dismiss">Non chiedere più per queste copie</button>
+    <footer class="vm-dialog-footer vm-extra-plans-footer">
+      <span class="text-label-sm text-on-surface-variant" id="extra-plans-selected-count" aria-live="polite"></span>
+      <div class="vm-dialog-actions">
+        <button class="btn-primary rounded-lg py-3 px-4 text-label-md" id="btn-extra-plans-delete" type="button" disabled data-i18n="extra_plans_delete">Rimuovi selezionati</button>
+        <button class="btn-ghost rounded-lg py-3 px-4 text-label-md" id="btn-extra-plans-later" type="button" data-i18n="extra_plans_not_now">Più tardi</button>
+      </div>
+      <button class="vm-tertiary-action" id="btn-extra-plans-dismiss" type="button" data-i18n="extra_plans_dismiss">Non ricordarmelo per queste copie</button>
+    </footer>
   </div>
 </div>
 
@@ -1554,7 +1552,7 @@
 
 <script src="js/bridge.js?v=errlog1"></script>
 <script src="js/font.js?v=font18"></script>
-<script src="js/i18n.catalogs.js?v=widgetappearance1-themechooser1"></script>
+<script src="js/i18n.catalogs.js?v=plans3"></script>
 <script src="js/i18n.js?v=catalog1"></script>
 <script src="js/view-lifecycle.js?v=mod1"></script>
 <script src="js/app.js?v=fix1"></script>
@@ -1572,8 +1570,8 @@
 <script src="js/tour.js?v=brightness1"></script>
 <script src="js/tips.js?v=brightness1"></script>
 <script src="js/changelog.js?v=brightness1"></script>
-<script src="js/setup.js?v=temps1"></script>
-<script src="js/setup-extra-plans.js?v=extra2"></script>
+<script src="js/setup.js?v=plans3"></script>
+<script src="js/setup-extra-plans.js?v=plans3"></script>
 <!-- Settings bootstrap also wires Home, welcome, appearance and widgets. -->
 <script src="js/power-app-profiles.js?v=mod1"></script>
 <script src="js/power-detection.js?v=mod1"></script>

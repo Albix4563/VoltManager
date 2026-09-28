@@ -168,6 +168,7 @@
         move($('active-plan-reason'), $('vm-power-active'), true);
         move($('pref-power-source-plan-home'), $('vm-power-source'), true);
         move($('pref-low-battery-threshold-home'), $('vm-power-source'), true);
+        move($('btn-clean-extra-plans'), $('vm-power-advanced-actions'));
 
         const ruleItem = document.querySelector('.vm-acc-item[data-pm="rules"]');
         const ruleBody = ruleItem && ruleItem.querySelector('.vm-acc-body-inner');

@@ -29,7 +29,7 @@ public class EnergyRpcHandlerTests
         [
             "getBatteryHealth", "getBatteryPower", "getBatteryHistory", "exportBatteryHistory",
             "getDisplayBrightness", "setDisplayBrightness",
-            "checkDefaultPlans", "restoreDefaultPlans", "findExtraPlans", "deleteExtraPlans", "dismissExtraPlans",
+            "checkDefaultPlans", "associateDefaultPlans", "restoreDefaultPlans", "findExtraPlans", "deleteExtraPlans", "dismissExtraPlans",
             "getActivePlan", "getActivePlanReason",
             "getPlanHistory", "clearPlanHistory", "listPowerPlans", "getKeepAwakeState",
             "setKeepAwake", "setKeepAwakeSafety", "getCpuAutomationState", "setManualOverride",
@@ -241,7 +241,8 @@ public class EnergyRpcHandlerTests
             GetBatteryHistory: getHistory ?? (() => Array.Empty<BatteryHistorySample>()),
             GetDisplayBrightness: getDisplayBrightness ?? (() => new { supported = false, percent = (int?)null }),
             SetDisplayBrightness: setDisplayBrightness ?? (percent => new { supported = true, percent }),
-            CheckDefaultPlans: () => (true, new List<PlanId>()),
+            CheckDefaultPlans: () => new DefaultPlansState { AllPresent = true },
+            AssociateDefaultPlans: _ => true,
             RestoreDefaultPlans: () => true,
             FindExtraPlans: findExtraPlans ?? (() => new ExtraPlansReport()),
             DeleteExtraPlans: deleteExtraPlans ?? (_ => new DeleteExtraPlansResult { Success = true }),

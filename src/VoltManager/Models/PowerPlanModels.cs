@@ -17,6 +17,19 @@ public record PowerPlan
     [JsonPropertyName("isActive")] public bool IsActive { get; init; }
 }
 
+public record DefaultPlansState
+{
+    [JsonPropertyName("allPresent")] public bool AllPresent { get; init; }
+    [JsonPropertyName("missing")] public List<string> Missing { get; init; } = new();
+    [JsonPropertyName("installed")] public List<PowerPlan> Installed { get; init; } = new();
+}
+
+public record PlanAssociationRequest
+{
+    [JsonPropertyName("planId")] public string PlanId { get; init; } = "";
+    [JsonPropertyName("guid")] public string Guid { get; init; } = "";
+}
+
 public record ExtraPowerPlan
 {
     [JsonPropertyName("guid")] public string Guid { get; init; } = "";

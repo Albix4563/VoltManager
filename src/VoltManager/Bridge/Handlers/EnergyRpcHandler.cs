@@ -15,7 +15,7 @@ public sealed class EnergyRpcHandler : IBridgeRpcHandler
     [
         "getBatteryHealth", "getBatteryPower", "getBatteryHistory", "exportBatteryHistory",
         "getDisplayBrightness", "setDisplayBrightness",
-        "checkDefaultPlans", "restoreDefaultPlans", "findExtraPlans", "deleteExtraPlans", "dismissExtraPlans",
+        "checkDefaultPlans", "associateDefaultPlans", "restoreDefaultPlans", "findExtraPlans", "deleteExtraPlans", "dismissExtraPlans",
         "getActivePlan", "getActivePlanReason",
         "getPlanHistory", "clearPlanHistory", "listPowerPlans", "getKeepAwakeState",
         "setKeepAwake", "setKeepAwakeSafety", "getCpuAutomationState", "setManualOverride",
@@ -67,9 +67,12 @@ public sealed class EnergyRpcHandler : IBridgeRpcHandler
                 return await Task.Run(() => _actions.SetDisplayBrightness(percent), cancellationToken);
             }
             case "checkDefaultPlans":
+                return await Task.Run(_actions.CheckDefaultPlans, cancellationToken);
+            case "associateDefaultPlans":
             {
-                var state = await Task.Run(_actions.CheckDefaultPlans, cancellationToken);
-                return new { allPresent = state.allPresent, missing = state.missing.Select(m => m.ToString()).ToList() };
+                PlanAssociationRequest[] associations = RequiredAssociations(payload);
+                bool success = await Task.Run(() => _actions.AssociateDefaultPlans(associations), cancellationToken);
+                return new { success };
             }
             case "restoreDefaultPlans":
                 return new { success = await Task.Run(_actions.RestoreDefaultPlans, cancellationToken) };
@@ -306,6 +309,25 @@ public sealed class EnergyRpcHandler : IBridgeRpcHandler
         }
 
         return value.GetString();
+    }
+
+    private static PlanAssociationRequest[] RequiredAssociations(JsonElement payload)
+    {
+        if (payload.ValueKind != JsonValueKind.Object ||
+            !payload.TryGetProperty("associations", out JsonElement value) ||
+            value.ValueKind != JsonValueKind.Array)
+            throw new ArgumentException("Missing or invalid associations");
+
+        var result = new List<PlanAssociationRequest>();
+        foreach (JsonElement item in value.EnumerateArray())
+        {
+            if (item.ValueKind != JsonValueKind.Object ||
+                !item.TryGetProperty("planId", out JsonElement planId) || planId.ValueKind != JsonValueKind.String ||
+                !item.TryGetProperty("guid", out JsonElement guid) || guid.ValueKind != JsonValueKind.String)
+                throw new ArgumentException("Missing or invalid association");
+            result.Add(new PlanAssociationRequest { PlanId = planId.GetString() ?? "", Guid = guid.GetString() ?? "" });
+        }
+        return result.ToArray();
     }
 
     private static string[] RequiredStringArray(JsonElement payload, string propertyName)
