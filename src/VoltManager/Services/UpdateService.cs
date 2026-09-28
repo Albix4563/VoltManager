@@ -154,7 +154,9 @@ public sealed class UpdateService : IDisposable
                     Notes = release.Body,
                     HtmlUrl = release.HtmlUrl,
                     Prerelease = release.Prerelease,
-                    IsCurrent = version.Length > 0 && CompareVersions(version, CurrentVersion) == 0,
+                    // The assembly version carries no channel suffix (1.0.429 for tag v1.0.429-alpha):
+                    // match the release this build came from on the numeric core only.
+                    IsCurrent = version.Length > 0 && CompareVersions(VersionCore(version), CurrentVersion) == 0,
                 });
             }
         }
@@ -194,20 +196,90 @@ public sealed class UpdateService : IDisposable
             return _knownReleaseDownloadUrls.Contains(url);
     }
 
+    internal static string VersionCore(string version)
+    {
+        int end = version.IndexOfAny(new[] { '-', '+' });
+        return end >= 0 ? version[..end] : version;
+    }
+
     public static int CompareVersions(string a, string b)
     {
-        static int[] Parse(string v) => v.Split('-')[0].Split('.')
-            .Select(p => int.TryParse(p, out int n) ? n : 0).ToArray();
-        int[] pa = Parse(a);
-        int[] pb = Parse(b);
-        for (int i = 0; i < Math.Max(pa.Length, pb.Length); i++)
+        static (string[] Core, string[]? PreRelease) Parse(string version)
         {
-            int xa = i < pa.Length ? pa[i] : 0;
-            int xb = i < pb.Length ? pb[i] : 0;
-            if (xa != xb)
-                return xa.CompareTo(xb);
+            version ??= string.Empty;
+            if (version.Length > 0 && (version[0] == 'v' || version[0] == 'V'))
+                version = version[1..];
+
+            int metadataIndex = version.IndexOf('+');
+            if (metadataIndex >= 0)
+                version = version[..metadataIndex];
+
+            int prereleaseIndex = version.IndexOf('-');
+            string core = prereleaseIndex >= 0 ? version[..prereleaseIndex] : version;
+            string[]? prerelease = prereleaseIndex >= 0
+                ? version[(prereleaseIndex + 1)..].Split('.')
+                : null;
+            return (core.Split('.'), prerelease);
         }
-        return 0;
+
+        static bool IsNumeric(string value)
+            => value.Length > 0 && value.All(c => c is >= '0' and <= '9');
+
+        static string NumericValueOrZero(string value)
+            => IsNumeric(value) ? value : "0";
+
+        static int CompareNumeric(string left, string right)
+        {
+            left = left.TrimStart('0');
+            right = right.TrimStart('0');
+            if (left.Length == 0) left = "0";
+            if (right.Length == 0) right = "0";
+
+            int lengthComparison = left.Length.CompareTo(right.Length);
+            return lengthComparison != 0
+                ? lengthComparison
+                : string.Compare(left, right, StringComparison.Ordinal);
+        }
+
+        static int ComparePrereleaseIdentifier(string left, string right)
+        {
+            bool leftNumeric = IsNumeric(left);
+            bool rightNumeric = IsNumeric(right);
+            if (leftNumeric && rightNumeric)
+                return CompareNumeric(left, right);
+            if (leftNumeric != rightNumeric)
+                return leftNumeric ? -1 : 1;
+            return string.Compare(left, right, StringComparison.Ordinal);
+        }
+
+        (string[] Core, string[]? PreRelease) pa = Parse(a);
+        (string[] Core, string[]? PreRelease) pb = Parse(b);
+
+        for (int i = 0; i < Math.Max(pa.Core.Length, pb.Core.Length); i++)
+        {
+            string xa = i < pa.Core.Length ? NumericValueOrZero(pa.Core[i]) : "0";
+            string xb = i < pb.Core.Length ? NumericValueOrZero(pb.Core[i]) : "0";
+            int coreComparison = CompareNumeric(xa, xb);
+            if (coreComparison != 0)
+                return coreComparison;
+        }
+
+        if (pa.PreRelease is null || pb.PreRelease is null)
+        {
+            if (pa.PreRelease is null && pb.PreRelease is null)
+                return 0;
+            return pa.PreRelease is null ? 1 : -1;
+        }
+
+        int sharedLength = Math.Min(pa.PreRelease.Length, pb.PreRelease.Length);
+        for (int i = 0; i < sharedLength; i++)
+        {
+            int identifierComparison = ComparePrereleaseIdentifier(pa.PreRelease[i], pb.PreRelease[i]);
+            if (identifierComparison != 0)
+                return identifierComparison;
+        }
+
+        return pa.PreRelease.Length.CompareTo(pb.PreRelease.Length);
     }
 
     public void Dispose()

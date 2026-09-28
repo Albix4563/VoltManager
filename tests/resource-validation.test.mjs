@@ -61,7 +61,7 @@ $global:LASTEXITCODE = 0
       ['ok', true, 2, 'keep_swiftshader', 'inconclusive'],
     ]) {
       const output = join(root, `${scenario}-${short}`);
-      const result = spawnSync(shell, ['-NoProfile', '-NonInteractive', '-File', script,
+      const result = spawnSync(shell, ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', script,
         '-BaselineApp', process.execPath, '-CandidateApp', process.execPath,
         '-Supervisor', process.execPath, '-Harness', harness, '-Output', output,
         '-StabilizationSeconds', short ? '1' : '30', '-MeasurementSeconds', short ? '1' : '120',

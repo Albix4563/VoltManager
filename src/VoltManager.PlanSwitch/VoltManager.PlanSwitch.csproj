@@ -7,13 +7,8 @@
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net48</TargetFramework>
-    <LangVersion>latest</LangVersion>
-    <Nullable>enable</Nullable>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>..\VoltManager\Assets\voltmanager.ico</ApplicationIcon>
-    <AssemblyVersion>1.1.1.0</AssemblyVersion>
-    <FileVersion>1.1.1.0</FileVersion>
-    <Version>1.1.1</Version>
     <RootNamespace>VoltManager.PlanSwitch</RootNamespace>
     <AssemblyName>VoltManagerPlanSwitch</AssemblyName>
   </PropertyGroup>

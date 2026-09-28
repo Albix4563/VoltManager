@@ -105,7 +105,11 @@ internal sealed class GitHubUpdateClient
         try
         {
             using HttpResponseMessage response = await _http.GetAsync(url, HttpCompletionOption.ResponseContentRead, cancellationToken);
-            if (response.StatusCode == HttpStatusCode.Forbidden || (int)response.StatusCode == 429)
+            bool githubRateLimited = response.StatusCode == HttpStatusCode.Forbidden &&
+                (response.Headers.Contains("Retry-After") ||
+                 (response.Headers.TryGetValues("X-RateLimit-Remaining", out IEnumerable<string>? remainingValues) &&
+                  remainingValues.Any(value => string.Equals(value, "0", StringComparison.Ordinal))));
+            if (githubRateLimited || (int)response.StatusCode == 429)
                 return new(UpdateRemoteStatus.RateLimited, null, (int)response.StatusCode);
             if (response.StatusCode == HttpStatusCode.NotFound)
                 return new(UpdateRemoteStatus.NotFound, null, (int)response.StatusCode);

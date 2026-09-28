@@ -41,7 +41,6 @@ pinai/
 
 # Local-only project files
 /tools/
-/scripts/Test-*.ps1
 /VoltManager_logo.png
 
 # OS files

@@ -44,6 +44,39 @@ public sealed class UpdatePipelineTests
         Assert.True(content.Disposed);
     }
 
+    [Theory]
+    [InlineData(403, "0", false, true)]
+    [InlineData(403, null, true, true)]
+    [InlineData(403, null, false, false)]
+    [InlineData(403, "42", false, false)]
+    [InlineData(429, null, false, true)]
+    public async Task Github_client_classifies_rate_limits(
+        int statusCode,
+        string? rateLimitRemaining,
+        bool retryAfter,
+        bool expectedRateLimited)
+    {
+        using var http = new HttpClient(new StubHandler(_ =>
+        {
+            var response = new HttpResponseMessage((HttpStatusCode)statusCode)
+            {
+                Content = new StringContent("{}"),
+            };
+            if (rateLimitRemaining is not null)
+                response.Headers.TryAddWithoutValidation("X-RateLimit-Remaining", rateLimitRemaining);
+            if (retryAfter)
+                response.Headers.TryAddWithoutValidation("Retry-After", "60");
+            return response;
+        }));
+        var client = new GitHubUpdateClient(http);
+
+        UpdateRemoteResult<GitHubReleaseRecord?> result = await client.GetLatestReleaseAsync(
+            "owner/repo", UpdateChannelPolicy.Parse("stable"), CancellationToken.None);
+
+        Assert.Equal(expectedRateLimited ? UpdateRemoteStatus.RateLimited : UpdateRemoteStatus.Error, result.Status);
+        Assert.Equal(statusCode, result.StatusCode);
+    }
+
     [Fact]
     public async Task Github_client_reports_offline_without_throwing()
     {

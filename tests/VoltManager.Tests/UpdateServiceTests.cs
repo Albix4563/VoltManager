@@ -9,6 +9,20 @@ namespace VoltManager.Tests;
 
 public class UpdateServiceTests
 {
+    [Theory]
+    [InlineData("1.0.5-alpha", "1.0.5", -1)]
+    [InlineData("1.0.5-alpha", "1.0.5-beta", -1)]
+    [InlineData("1.0.5-alpha", "1.0.5-alpha.1", -1)]
+    [InlineData("1.0.5-alpha.1", "1.0.5-alpha.beta", -1)]
+    [InlineData("1.0.5-beta.2", "1.0.5-beta.11", -1)]
+    [InlineData("1.0.429-alpha", "1.0.428", 1)]
+    [InlineData("v1.0.5", "1.0.5", 0)]
+    [InlineData("1.0", "1.0.0", 0)]
+    [InlineData("1.0.5+build", "1.0.5", 0)]
+    [InlineData("1.0.10", "1.0.9", 1)]
+    public void CompareVersions_follows_semver_precedence(string a, string b, int expected)
+        => Assert.Equal(expected, Math.Sign(UpdateService.CompareVersions(a, b)));
+
     [Fact]
     public async Task Download_progress_does_not_report_100_before_body_completes()
     {

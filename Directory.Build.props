@@ -1,0 +1,16 @@
+<Project>
+  <PropertyGroup>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <WarningsNotAsErrors>$(WarningsNotAsErrors);NU1900</WarningsNotAsErrors>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>latest</AnalysisLevel>
+
+    <VoltManagerVersionPrefix>1.0</VoltManagerVersionPrefix>
+    <VoltManagerBuildNumber Condition="'$(VoltManagerBuildNumber)' == ''">0</VoltManagerBuildNumber>
+    <Version Condition="'$(Version)' == ''">$(VoltManagerVersionPrefix).$(VoltManagerBuildNumber)</Version>
+    <AssemblyVersion Condition="'$(AssemblyVersion)' == ''">$(Version).0</AssemblyVersion>
+    <FileVersion Condition="'$(FileVersion)' == ''">$(Version).0</FileVersion>
+  </PropertyGroup>
+</Project>

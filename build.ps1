@@ -2,11 +2,20 @@
 # Steps: publish app + supervisor -> WebView2 bootstrapper -> build WPF setup
 param(
     [switch]$SkipInstaller,
-    [string]$Version = "1.1.1"
+    [string]$Version
 )
 
 $ErrorActionPreference = 'Stop'
 $root                 = Split-Path -Parent $MyInvocation.MyCommand.Path
+$propsPath            = Join-Path $root 'Directory.Build.props'
+if ([string]::IsNullOrWhiteSpace($Version)) {
+    [xml]$props = Get-Content $propsPath
+    $versionPrefix = [string]$props.Project.PropertyGroup.VoltManagerVersionPrefix
+    if ([string]::IsNullOrWhiteSpace($versionPrefix)) {
+        throw 'VoltManagerVersionPrefix not found in Directory.Build.props.'
+    }
+    $Version = "$versionPrefix.0"
+}
 $publishDir              = Join-Path $root 'publish'
 $supervisorPublishDir    = Join-Path $root 'publish-supervisor'
 $hardwareServicePublishDir = Join-Path $root 'publish-hardware-service'

@@ -153,33 +153,48 @@ public sealed class InstallEngineRegressionTests
     }
 
     [Fact]
-    public void Second_installer_for_same_folder_waits_for_the_lock()
+    public async Task Second_installer_for_same_folder_waits_for_the_lock()
     {
         string dest = Path.Combine(Path.GetTempPath(), "VoltManagerSetupTests", Guid.NewGuid().ToString("N"));
-
-        // No await while holding: the mutex must be released on the thread that owns it.
-        using (InstallEngine.InstallDirectoryLock.Acquire(dest, TimeSpan.FromSeconds(1)))
+        using var releaseOwner = new ManualResetEventSlim(false);
+        var ownerReady = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        Task owner = Task.Run(() =>
         {
-            // Mutexes are re-entrant per thread: contend from another thread.
-            Exception? contended = Record.Exception(() => Task.Run(() =>
+            // Il mutex deve essere rilasciato dallo stesso thread che lo acquisisce.
+            using (InstallEngine.InstallDirectoryLock.Acquire(dest, TimeSpan.FromSeconds(1)))
+            {
+                ownerReady.SetResult(true);
+                releaseOwner.Wait();
+            }
+        });
+
+        await ownerReady.Task;
+        try
+        {
+            Exception? contended = await Record.ExceptionAsync(() => Task.Run(() =>
             {
                 using (InstallEngine.InstallDirectoryLock.Acquire(dest, TimeSpan.FromMilliseconds(200))) { }
-            }).GetAwaiter().GetResult());
+            }));
             Assert.IsType<IOException>(contended);
 
             using var cts = new CancellationTokenSource();
             cts.Cancel();
-            Exception? cancelled = Record.Exception(() => Task.Run(() =>
+            Exception? cancelled = await Record.ExceptionAsync(() => Task.Run(() =>
             {
                 using (InstallEngine.InstallDirectoryLock.Acquire(dest, TimeSpan.FromMinutes(1), cts.Token)) { }
-            }).GetAwaiter().GetResult());
+            }));
             Assert.IsAssignableFrom<OperationCanceledException>(cancelled);
         }
+        finally
+        {
+            releaseOwner.Set();
+            await owner;
+        }
 
-        Task.Run(() =>
+        await Task.Run(() =>
         {
             using (InstallEngine.InstallDirectoryLock.Acquire(dest, TimeSpan.FromSeconds(1))) { }
-        }).GetAwaiter().GetResult();
+        });
     }
 
     [Fact]
