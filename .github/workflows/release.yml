@@ -5,7 +5,7 @@ on:
     branches: [main, Preview, Dev]
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: release
@@ -20,8 +20,10 @@ jobs:
   release:
     needs: verify
     runs-on: windows-latest
+    permissions:
+      contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           fetch-depth: 0
           ref: ${{ github.sha }}
@@ -40,6 +42,11 @@ jobs:
         id: ver
         shell: pwsh
         run: |
+          [xml]$props = Get-Content Directory.Build.props
+          $prefix = [string]$props.Project.PropertyGroup.VoltManagerVersionPrefix
+          if ([string]::IsNullOrWhiteSpace($prefix)) {
+            throw 'VoltManagerVersionPrefix not found in Directory.Build.props.'
+          }
           $build = [int]'${{ github.run_number }}'
           $isDev = ('${{ github.ref_name }}' -eq 'Dev')
           $isPreview = ('${{ github.ref_name }}' -eq 'Preview')
@@ -48,10 +55,10 @@ jobs:
 
           # I numeri delle run possono ricomparire dopo la ricreazione della workflow.
           # Avanza al primo tag libero, evitando di sovrascrivere una release esistente.
-          while ((git tag --list "v1.0.$build$suffix").Count -gt 0) {
+          while ((git tag --list "v$prefix.$build$suffix").Count -gt 0) {
             $build++
           }
-          $version = "1.0.$build"
+          $version = "$prefix.$build"
 
           if ($isDev) {
             $tag = "v$version-alpha"
@@ -69,7 +76,7 @@ jobs:
           "is_preview=$($isPrerelease.ToString().ToLower())" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           Write-Host "Release: $name (tag $tag, prerelease=$isPrerelease)"
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
         with:
           dotnet-version: '8.0.x'
 
@@ -91,7 +98,7 @@ jobs:
           Write-Host "Portable zip: $zip"
 
       - name: Create GitHub release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
         with:
           tag_name: ${{ steps.ver.outputs.tag }}
           target_commitish: ${{ github.sha }}
