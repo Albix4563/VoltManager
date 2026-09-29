@@ -20,6 +20,9 @@
 
   <ItemGroup>
     <Reference Include="System.Net.Http" />
+    <Reference Include="PresentationFramework" />
+    <Reference Include="PresentationCore" />
+    <Reference Include="WindowsBase" />
   </ItemGroup>
 
   <ItemGroup>

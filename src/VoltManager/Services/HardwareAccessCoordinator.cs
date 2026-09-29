@@ -217,7 +217,7 @@ public sealed class HardwareAccessCoordinator : IHardwareAccess
 
     private static void TryClose(Computer computer)
     {
-        try { computer.Close(); } catch { }
+        try { computer.Close(); } catch { /* best-effort: hardware cleanup must not block disposal. */ }
     }
 
     public void Dispose()

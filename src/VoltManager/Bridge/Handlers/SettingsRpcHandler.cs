@@ -108,7 +108,7 @@ public sealed class SettingsRpcHandler : IBridgeRpcHandler
                 string normalized = LanguageResolver.Normalize(lang);
                 _settings.Update(state => state.Language = normalized);
                 _loc.SetLanguage(normalized);
-                try { _actions.RebuildJumpList(); } catch { }
+                try { _actions.RebuildJumpList(); } catch { /* best-effort: Jump List refresh is optional after settings save. */ }
                 return new { success = true, language = normalized, locale = _loc.CurrentCulture.Name };
             }
 

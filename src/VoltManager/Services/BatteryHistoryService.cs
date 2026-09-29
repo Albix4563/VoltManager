@@ -164,7 +164,7 @@ public sealed class BatteryHistoryService
         {
             // Scrittura best-effort: un disco pieno non deve far crashare il loop.
             Logger.Error("Failed to persist battery history to " + _path, ex);
-            try { if (File.Exists(tmp)) File.Delete(tmp); } catch { }
+            try { if (File.Exists(tmp)) File.Delete(tmp); } catch { /* best-effort: temporary persistence cleanup is non-fatal. */ }
         }
     }
 }

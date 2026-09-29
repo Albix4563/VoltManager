@@ -188,7 +188,7 @@ public sealed class FileSupervisorStateStore : ISupervisorStateStore
     private static void TryDelete(string path)
     {
         try { if (File.Exists(path)) File.Delete(path); }
-        catch { }
+        catch { /* best-effort: supervisor persistence cleanup must not block shutdown. */ }
     }
 }
 

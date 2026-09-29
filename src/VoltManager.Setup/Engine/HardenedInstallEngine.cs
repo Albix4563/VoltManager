@@ -334,7 +334,7 @@ namespace VoltManager.Setup.Engine
                     if (process == null) return false;
                     if (!process.WaitForExit(10000))
                     {
-                        try { process.Kill(); } catch { }
+                        try { process.Kill(); } catch { /* best-effort: process may exit between the check and kill. */ }
                         return true;
                     }
                     return process.ExitCode == 0;

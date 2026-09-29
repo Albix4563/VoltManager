@@ -174,6 +174,7 @@ public class MonitorService : IDisposable
     /// </summary>
     private static PerformanceCounter? TryCreateCpuInfoCounter(string counterName)
     {
+        PerformanceCounter? counter = null;
         try
         {
             var category = new PerformanceCounterCategory("Processor Information");
@@ -186,12 +187,13 @@ public class MonitorService : IDisposable
                 ?? instances.FirstOrDefault(i => i.Contains("_Total", StringComparison.OrdinalIgnoreCase))
                 ?? instances[0];
 
-            var c = new PerformanceCounter("Processor Information", counterName, pick, readOnly: true);
-            c.NextValue();
-            return c;
+            counter = new PerformanceCounter("Processor Information", counterName, pick, readOnly: true);
+            counter.NextValue();
+            return counter;
         }
         catch (Exception ex)
         {
+            counter?.Dispose();
             Logger.Warn($"CPU info counter '{counterName}' unavailable: " + ex.Message);
             return null;
         }

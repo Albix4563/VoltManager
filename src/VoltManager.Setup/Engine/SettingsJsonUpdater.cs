@@ -26,9 +26,11 @@ namespace VoltManager.Setup.Engine
             }
             catch (ArgumentException)
             {
+                // best-effort: malformed settings fall back to a fresh root below.
             }
             catch (InvalidOperationException)
             {
+                // best-effort: unsupported settings shapes fall back to a fresh root below.
             }
 
             malformed = true;

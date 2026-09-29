@@ -130,7 +130,7 @@ public sealed class ResourceSelfMonitor : IDisposable
         try
         {
             using Process process = Process.GetCurrentProcess();
-            try { process.Refresh(); } catch { }
+            try { process.Refresh(); } catch { /* best-effort: sampled process may exit between polls. */ }
             privateBytes = TryRead(() => process.PrivateMemorySize64);
             workingSet = TryRead(() => process.WorkingSet64);
             handles = TryRead(() => process.HandleCount);

@@ -100,9 +100,9 @@ public partial class App
     private void OnAdaptiveResourceExit(object? sender, ExitEventArgs e)
     {
         if (!_adaptiveResourcesInitialized) return;
-        try { Monitor.MetricsUpdated -= OnAdaptiveResourceMetrics; } catch { }
-        try { HeavyApps.ActivityChanged -= OnAdaptiveHeavyAppActivityChanged; } catch { }
-        try { ResourcePressure.StateChanged -= OnResourcePressureStateChanged; } catch { }
+        try { Monitor.MetricsUpdated -= OnAdaptiveResourceMetrics; } catch { /* best-effort: hot-path event cleanup must stay non-fatal. */ }
+        try { HeavyApps.ActivityChanged -= OnAdaptiveHeavyAppActivityChanged; } catch { /* best-effort: hot-path event cleanup must stay non-fatal. */ }
+        try { ResourcePressure.StateChanged -= OnResourcePressureStateChanged; } catch { /* best-effort: hot-path event cleanup must stay non-fatal. */ }
         _adaptiveResourcesInitialized = false;
     }
 }

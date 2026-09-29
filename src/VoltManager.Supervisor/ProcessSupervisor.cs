@@ -30,7 +30,7 @@ public sealed class SingleInstanceGuard : IDisposable
         if (_ownsMutex)
         {
             try { _mutex.ReleaseMutex(); }
-            catch (ApplicationException) { }
+            catch (ApplicationException) { /* best-effort: the supervised process may already have exited. */ }
             _ownsMutex = false;
         }
         _mutex.Dispose();

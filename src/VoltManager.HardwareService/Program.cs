@@ -30,8 +30,8 @@ internal static class Program
                 (method, payload) => Dispatch(method, payload, hardware),
                 shutdown.Token);
         }
-        catch (OperationCanceledException) { }
-        catch { }
+        catch (OperationCanceledException) { /* expected: service shutdown cancels the worker. */ }
+        catch { /* best-effort: hardware-service teardown must stay non-fatal. */ }
         finally { shutdown.Cancel(); }
         return 0;
     }
@@ -262,7 +262,7 @@ internal sealed class HardwareHost : IDisposable
             };
             _lastRequest = request;
         }
-        catch { }
+        catch { /* best-effort: hardware probing failure must not stop the service. */ }
     }
 
     private static bool ShouldUpdate(HardwareType type, HardwareSampleRequestDto request)
@@ -370,7 +370,7 @@ internal sealed class HardwareHost : IDisposable
 
     private static void TryClose(Computer computer)
     {
-        try { computer.Close(); } catch { }
+        try { computer.Close(); } catch { /* best-effort: hardware cleanup must not stop shutdown. */ }
     }
 
     public void Dispose()

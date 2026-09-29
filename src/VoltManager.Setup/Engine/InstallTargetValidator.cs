@@ -138,7 +138,7 @@ namespace VoltManager.Setup.Engine
         private static void Add(ISet<string> paths, string? value)
         {
             if (string.IsNullOrWhiteSpace(value)) return;
-            try { paths.Add(Normalize(value!)); } catch { }
+            try { paths.Add(Normalize(value!)); } catch { /* best-effort: malformed optional path candidates are skipped. */ }
         }
 
         private static string GetFolder(Environment.SpecialFolder folder)

@@ -58,7 +58,7 @@ public partial class MainWindow
         if (core == null || ReferenceEquals(core, _adaptiveNavigationCore)) return;
         if (_adaptiveNavigationCore != null)
         {
-            try { _adaptiveNavigationCore.NavigationCompleted -= OnAdaptiveNavigationCompleted; } catch { }
+            try { _adaptiveNavigationCore.NavigationCompleted -= OnAdaptiveNavigationCompleted; } catch { /* best-effort: hot-path event cleanup must stay non-fatal. */ }
         }
         _adaptiveNavigationCore = core;
         core.NavigationCompleted += OnAdaptiveNavigationCompleted;
@@ -233,21 +233,21 @@ public partial class MainWindow
     {
         if (!_adaptiveResourcesEnabled) return;
         _adaptiveResourcesEnabled = false;
-        try { _app.ResourcePressure.StateChanged -= OnAdaptiveResourceStateChanged; } catch { }
-        try { _app.Monitor.MetricsUpdated -= OnAdaptiveMetricsUpdated; } catch { }
-        try { IsVisibleChanged -= OnAdaptiveWindowVisibilityChanged; } catch { }
-        try { StateChanged -= OnAdaptiveWindowStateChanged; } catch { }
-        try { Activated -= OnAdaptiveWindowActivationChanged; } catch { }
-        try { Deactivated -= OnAdaptiveWindowActivationChanged; } catch { }
-        try { WebView.CoreWebView2InitializationCompleted -= OnAdaptiveCoreWebViewInitialized; } catch { }
-        try { _app.FullscreenCoverage.CoverageChanged -= OnAdaptiveCoverageChanged; } catch { }
-        try { _app.FullscreenCoverage.UnregisterSurface(_adaptiveHwnd); } catch { }
+        try { _app.ResourcePressure.StateChanged -= OnAdaptiveResourceStateChanged; } catch { /* best-effort: hot-path event cleanup must stay non-fatal. */ }
+        try { _app.Monitor.MetricsUpdated -= OnAdaptiveMetricsUpdated; } catch { /* best-effort: hot-path event cleanup must stay non-fatal. */ }
+        try { IsVisibleChanged -= OnAdaptiveWindowVisibilityChanged; } catch { /* best-effort: hot-path event cleanup must stay non-fatal. */ }
+        try { StateChanged -= OnAdaptiveWindowStateChanged; } catch { /* best-effort: hot-path event cleanup must stay non-fatal. */ }
+        try { Activated -= OnAdaptiveWindowActivationChanged; } catch { /* best-effort: hot-path event cleanup must stay non-fatal. */ }
+        try { Deactivated -= OnAdaptiveWindowActivationChanged; } catch { /* best-effort: hot-path event cleanup must stay non-fatal. */ }
+        try { WebView.CoreWebView2InitializationCompleted -= OnAdaptiveCoreWebViewInitialized; } catch { /* best-effort: hot-path event cleanup must stay non-fatal. */ }
+        try { _app.FullscreenCoverage.CoverageChanged -= OnAdaptiveCoverageChanged; } catch { /* best-effort: hot-path event cleanup must stay non-fatal. */ }
+        try { _app.FullscreenCoverage.UnregisterSurface(_adaptiveHwnd); } catch { /* best-effort: hot-path surface cleanup must stay non-fatal. */ }
         try
         {
             if (_adaptiveNavigationCore != null)
                 _adaptiveNavigationCore.NavigationCompleted -= OnAdaptiveNavigationCompleted;
         }
-        catch { }
+        catch { /* best-effort: adaptive-resource probing must stay non-fatal. */ }
         _adaptiveNavigationCore = null;
     }
 }

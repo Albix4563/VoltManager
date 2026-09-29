@@ -75,8 +75,8 @@ internal static class ExternalProcessRunner
             Task<string> stderr = process.ReadStandardErrorAsync();
             if (!process.WaitForExit(timeout))
             {
-                try { process.KillTree(); } catch { }
-                try { process.WaitForExit(KillWaitTimeout); } catch { }
+                try { process.KillTree(); } catch { /* best-effort: timed-out process may already have exited. */ }
+                try { process.WaitForExit(KillWaitTimeout); } catch { /* best-effort: timeout cleanup must not mask the primary result. */ }
                 return new ExternalProcessResult(true, true, null, CompletedText(stdout), CompletedText(stderr));
             }
 

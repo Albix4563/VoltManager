@@ -219,7 +219,7 @@ public sealed class LanRemoteControlService : IDisposable
             _settings.Update(state => state.LanRemoteControl.Enabled = false);
             _lastError = ex.Message;
             Logger.Error("LAN remote-control start failed", ex);
-            try { await StopAsync(CancellationToken.None).ConfigureAwait(false); } catch { }
+            try { await StopAsync(CancellationToken.None).ConfigureAwait(false); } catch { /* best-effort: cleanup after a failed start must not mask the start error. */ }
             PublishStateChanged();
         }
 
@@ -351,7 +351,7 @@ public sealed class LanRemoteControlService : IDisposable
         }
         catch
         {
-            try { await app.StopAsync(CancellationToken.None).ConfigureAwait(false); } catch { }
+            try { await app.StopAsync(CancellationToken.None).ConfigureAwait(false); } catch { /* best-effort: the host is being disposed anyway. */ }
             await app.DisposeAsync().ConfigureAwait(false);
             certificate?.Dispose();
             TryRemoveFirewall();
@@ -837,7 +837,7 @@ public sealed class LanRemoteControlService : IDisposable
                 return (pinElement.GetString(), false);
             }
         }
-        catch (JsonException) { }
+        catch (JsonException) { /* malformed JSON is treated as a missing value. */ }
         return (null, false);
     }
 
@@ -859,7 +859,7 @@ public sealed class LanRemoteControlService : IDisposable
                 return value.GetString();
             }
         }
-        catch (JsonException) { }
+        catch (JsonException) { /* malformed JSON is treated as a missing value. */ }
         return null;
     }
 

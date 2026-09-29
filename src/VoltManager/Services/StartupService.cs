@@ -37,7 +37,7 @@ public class StartupService
             }
             finally
             {
-                try { File.Delete(xmlPath); } catch { }
+                try { File.Delete(xmlPath); } catch { /* best-effort: legacy startup artifact cleanup is optional. */ }
             }
         }
         RunSchtasks($"/delete /f /tn \"{TaskName}\"");

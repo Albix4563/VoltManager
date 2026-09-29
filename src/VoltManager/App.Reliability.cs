@@ -139,7 +139,7 @@ public partial class App
             return;
 
         try { _mutex.ReleaseMutex(); }
-        catch (ApplicationException) { }
+        catch (ApplicationException) { /* best-effort: process state can race during crash cleanup. */ }
         _mutex.Dispose();
         _mutex = null;
     }

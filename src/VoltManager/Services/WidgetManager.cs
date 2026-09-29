@@ -46,6 +46,8 @@ public sealed class WidgetManager : IDisposable
     private readonly Func<Task<CoreWebView2Environment>> _envFactory;
     private readonly Action<bool> _refreshSamplingDemand;
     private readonly Func<WidgetManager, WidgetItem, Task<CoreWebView2Environment>, Size, WidgetPlacement, WidgetWindow> _windowFactory;
+    private readonly Action<AppSettings> _settingsChangedHandler;
+    private readonly Action<AppThemeColor> _themeChangedHandler;
     private readonly Dictionary<string, WidgetWindow> _windows = new(StringComparer.OrdinalIgnoreCase);
     private DisplayService? _displays;
     private readonly Dictionary<string, WidgetPlacement> _lastPlacements = new(StringComparer.OrdinalIgnoreCase);
@@ -76,13 +78,25 @@ public sealed class WidgetManager : IDisposable
         // and subscribes SystemEvents — not needed if widgets are disabled.
         _snapshot = DisplaySnapshot.SyntheticPrimary();
 
-        _settings.SettingsChanged += _ => {
-            PushTheme();
-            PushFont();
-            PushAnimationLevel();
-            PushAppearance();
-        };
-        _theme.ThemeChanged += _ => PushTheme();
+        _settingsChangedHandler = OnSettingsChanged;
+        _themeChangedHandler = OnThemeChanged;
+        _settings.SettingsChanged += _settingsChangedHandler;
+        _theme.ThemeChanged += _themeChangedHandler;
+    }
+
+    private void OnSettingsChanged(AppSettings _)
+    {
+        if (_disposing) return;
+        PushTheme();
+        PushFont();
+        PushAnimationLevel();
+        PushAppearance();
+    }
+
+    private void OnThemeChanged(AppThemeColor _)
+    {
+        if (_disposing) return;
+        PushTheme();
     }
 
     private Task<CoreWebView2Environment> EnvTask() => _envFactory();
@@ -468,7 +482,10 @@ public sealed class WidgetManager : IDisposable
 
     public void Dispose()
     {
+        if (_disposing) return;
         _disposing = true;
+        _settings.SettingsChanged -= _settingsChangedHandler;
+        _theme.ThemeChanged -= _themeChangedHandler;
         if (_displays != null)
         {
             _displays.DisplaysChanged -= OnDisplaysChanged;

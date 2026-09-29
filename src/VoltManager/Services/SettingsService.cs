@@ -590,7 +590,7 @@ public class SettingsService
         }
         catch (Exception ex)
         {
-            try { if (File.Exists(temporary)) File.Delete(temporary); } catch { }
+            try { if (File.Exists(temporary)) File.Delete(temporary); } catch { /* best-effort: temporary settings cleanup must not mask save failure. */ }
             Logger.Warn("Could not refresh settings backup: " + ex.Message);
             return false;
         }

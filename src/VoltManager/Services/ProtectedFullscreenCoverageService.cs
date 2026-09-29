@@ -66,7 +66,7 @@ public sealed class ProtectedFullscreenCoverageService : IDisposable
             _fallbackTimer.Change(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
             foreach (IntPtr hook in _hooks)
             {
-                try { UnhookWinEvent(hook); } catch { }
+                try { UnhookWinEvent(hook); } catch { /* best-effort: native hook cleanup must not block shutdown. */ }
             }
             _hooks.Clear();
             Interlocked.Exchange(ref _scanQueued, 0);

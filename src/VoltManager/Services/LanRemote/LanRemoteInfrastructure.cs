@@ -114,7 +114,7 @@ internal sealed class LanRemoteFirewall : ILanRemoteFirewall
             {
                 rules.GetType().InvokeMember("Remove", BindingFlags.InvokeMethod, null, rules, [LanRemoteFirewallRule.RuleName]);
             }
-            catch (COMException) { }
+            catch (COMException) { /* the rule may not exist yet. */ }
 
             rule = Activator.CreateInstance(ruleType)!;
             Set(ruleType, rule, "Name", definition.Name);
@@ -154,7 +154,7 @@ internal sealed class LanRemoteFirewall : ILanRemoteFirewall
             {
                 rules.GetType().InvokeMember("Remove", BindingFlags.InvokeMethod, null, rules, [LanRemoteFirewallRule.RuleName]);
             }
-            catch (COMException) { }
+            catch (COMException) { /* the rule may not exist yet. */ }
         }
         finally
         {
@@ -169,7 +169,7 @@ internal sealed class LanRemoteFirewall : ILanRemoteFirewall
     private static void Release(object? value)
     {
         if (value is null || !Marshal.IsComObject(value)) return;
-        try { Marshal.FinalReleaseComObject(value); } catch { }
+        try { Marshal.FinalReleaseComObject(value); } catch { /* best-effort: COM release during cleanup is non-fatal. */ }
     }
 }
 
@@ -229,7 +229,7 @@ internal static class LanRemoteCertificateManager
             (string?)null,
             X509KeyStorageFlags.PersistKeySet | X509KeyStorageFlags.UserKeySet);
 #pragma warning restore SYSLIB0057
-        try { persistent.FriendlyName = "VoltManager LAN Remote"; } catch { }
+        try { persistent.FriendlyName = "VoltManager LAN Remote"; } catch { /* best-effort: the friendly name is cosmetic. */ }
         store.Add(persistent);
         return persistent;
     }

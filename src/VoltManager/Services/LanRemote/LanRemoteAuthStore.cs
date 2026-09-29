@@ -118,7 +118,7 @@ internal sealed class LanRemoteAuthStore
         }
         finally
         {
-            try { if (File.Exists(temporary)) File.Delete(temporary); } catch { }
+            try { if (File.Exists(temporary)) File.Delete(temporary); } catch { /* best-effort: a stale temporary verifier file is harmless. */ }
         }
     }
 }

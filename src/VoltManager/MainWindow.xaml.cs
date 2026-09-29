@@ -186,8 +186,8 @@ public partial class MainWindow : Window
             if (GetDpiForMonitor(monitor, MdtEffectiveDpi, out uint dpiX, out uint dpiY) == 0 && dpiX > 0 && dpiY > 0)
                 return (dpiX / 96d, dpiY / 96d);
         }
-        catch (DllNotFoundException) { }
-        catch (EntryPointNotFoundException) { }
+        catch (DllNotFoundException) { /* best-effort: optional native DPI API is unavailable. */ }
+        catch (EntryPointNotFoundException) { /* best-effort: optional native DPI API is unavailable. */ }
 
         try
         {
@@ -198,7 +198,7 @@ public partial class MainWindow : Window
                 return (scale, scale);
             }
         }
-        catch (EntryPointNotFoundException) { }
+        catch (EntryPointNotFoundException) { /* best-effort: optional native DPI API is unavailable. */ }
 
         var fallback = Media.VisualTreeHelper.GetDpi(this);
         double fallbackX = fallback.DpiScaleX > 0 ? fallback.DpiScaleX : 1;
@@ -483,7 +483,7 @@ public partial class MainWindow : Window
         catch
         {
             RootGrid.Children.Remove(replacement);
-            try { replacement.Dispose(); } catch { }
+            try { replacement.Dispose(); } catch { /* best-effort: failed WebView replacement cleanup is non-fatal. */ }
             WebView = previous;
             throw;
         }
@@ -985,7 +985,7 @@ public partial class MainWindow : Window
     private void TrayPlanDuration_Click(object sender, RoutedEventArgs e)
     {
         _gamingReminder.Stop();
-        if (sender is not System.Windows.Controls.MenuItem { Tag: string tag }) return;
+        if (sender is not System.Windows.Controls.MenuItem { Tag: string tag } item) return;
         var parts = tag.Split('|');
         if (parts.Length != 2 || !int.TryParse(parts[1], out int hours)) return;
 
@@ -997,19 +997,66 @@ public partial class MainWindow : Window
         };
         TimeSpan? duration = hours == 0 ? null : TimeSpan.FromHours(hours);
         // SetManualOverride shells out to powercfg; keep it off the UI thread.
-        _ = Task.Run(() => _app.SetManualOverride(plan, duration));
+        _ = RunTrayActionAsync(
+            "set manual power-plan override",
+            () => Task.Run(() => _app.SetManualOverride(plan, duration)),
+            item,
+            item.IsChecked);
     }
 
     private void TrayKeepAwake_Click(object sender, RoutedEventArgs e)
     {
         bool enable = TrayKeepAwakeItem.IsChecked;
-        _ = Task.Run(() => _app.SetKeepAwake(enable));
+        _ = RunTrayActionAsync(
+            "set keep-awake state",
+            () => Task.Run(() => _app.SetKeepAwake(enable)),
+            TrayKeepAwakeItem,
+            !enable);
     }
 
     private void TrayClearOverride_Click(object sender, RoutedEventArgs e)
     {
         _gamingReminder.Stop();
-        _ = Task.Run(_app.ClearManualOverride);
+        _ = RunTrayActionAsync("clear manual power-plan override", () => Task.Run(_app.ClearManualOverride));
+    }
+
+    private async Task RunTrayActionAsync(
+        string operation,
+        Func<Task> action,
+        System.Windows.Controls.MenuItem? checkItem = null,
+        bool? restoreChecked = null)
+    {
+        try
+        {
+            await action();
+        }
+        catch (Exception ex)
+        {
+            Logger.Error("Tray action failed: " + operation, ex);
+            try
+            {
+                await Dispatcher.InvokeAsync(() =>
+                {
+                    if (checkItem != null && restoreChecked.HasValue)
+                        checkItem.IsChecked = restoreChecked.Value;
+
+                    TrayIcon.ShowNotification(
+                        "VoltManager",
+                        _app.Loc.T("Tray_ActionFailed"),
+                        H.NotifyIcon.Core.NotificationIcon.Error,
+                        null,
+                        false,
+                        true,
+                        false,
+                        true,
+                        null);
+                });
+            }
+            catch (Exception notificationEx)
+            {
+                Logger.Warn("Tray action failure notification could not be shown: " + notificationEx.Message);
+            }
+        }
     }
 
     private void TrayAutomation_Click(object sender, RoutedEventArgs e)
@@ -1054,7 +1101,9 @@ public partial class MainWindow : Window
         if (!ConfirmScheduleReplacement())
             return;
 
-        _ = Task.Run(() => _app.ScheduledPowerActions.ScheduleAfter(TimeSpan.FromMinutes(minutes), action));
+        _ = RunTrayActionAsync(
+            "schedule power action",
+            () => Task.Run(() => _app.ScheduledPowerActions.ScheduleAfter(TimeSpan.FromMinutes(minutes), action)));
     }
 
     private void TrayScheduleCustom_Click(object sender, RoutedEventArgs e)
@@ -1068,12 +1117,14 @@ public partial class MainWindow : Window
         if (dialog.ShowDialog() != true)
             return;
 
-        _ = Task.Run(() => _app.ScheduledPowerActions.ScheduleAfter(dialog.SelectedDelay, dialog.SelectedAction));
+        _ = RunTrayActionAsync(
+            "schedule custom power action",
+            () => Task.Run(() => _app.ScheduledPowerActions.ScheduleAfter(dialog.SelectedDelay, dialog.SelectedAction)));
     }
 
     private void TrayCancelScheduled_Click(object sender, RoutedEventArgs e)
     {
-        _ = Task.Run(() => _app.ScheduledPowerActions.Cancel());
+        _ = RunTrayActionAsync("cancel scheduled power action", () => Task.Run(() => _app.ScheduledPowerActions.Cancel()));
     }
 
     private bool ConfirmScheduleReplacement()

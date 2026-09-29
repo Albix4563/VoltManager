@@ -225,7 +225,7 @@ internal static class BridgeHandlerFactory
         BatteryPowerState raw = powerFlow.GetState();
         IReadOnlyList<BatteryHistorySample>? history = null;
         try { history = app.BatteryHistory.GetHistory(); }
-        catch { }
+        catch { /* best-effort: optional shell integration probing is non-fatal. */ }
         return smoother.Apply(raw, history, DateTime.UtcNow);
     }
 
@@ -253,7 +253,7 @@ internal static class BridgeHandlerFactory
 
         BatteryPowerState? batteryPower = null;
         try { batteryPower = GetBatteryPower(app, powerFlow, batteryPowerSmoother); }
-        catch { }
+        catch { /* best-effort: optional shell integration probing is non-fatal. */ }
 
         var snapshot = new DiagnosticsSnapshot
         {

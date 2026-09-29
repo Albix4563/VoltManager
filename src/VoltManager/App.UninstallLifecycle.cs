@@ -69,9 +69,9 @@ public partial class App
 
     private void OnUninstallLifecycleExit(object sender, ExitEventArgs e)
     {
-        try { _uninstallShutdownWait?.Unregister(null); } catch { }
+        try { _uninstallShutdownWait?.Unregister(null); } catch { /* best-effort: shutdown registration may already be disposed. */ }
         _uninstallShutdownWait = null;
-        try { _uninstallShutdownEvent?.Dispose(); } catch { }
+        try { _uninstallShutdownEvent?.Dispose(); } catch { /* best-effort: shutdown event cleanup must not block exit. */ }
         _uninstallShutdownEvent = null;
     }
 }

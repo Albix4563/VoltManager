@@ -56,7 +56,7 @@ public sealed class IdlePowerGuardService
             bool inputOk = idleMs != null;
             double idleSec = idleMs is uint ms ? ms / 1000.0 : 0;
             bool? onBattery = null;
-            try { onBattery = _onBatteryReader(); } catch { }
+            try { onBattery = _onBatteryReader(); } catch { /* best-effort: battery probing failure keeps the prior conservative default. */ }
 
             if (manualOverrideActive)
                 return Decision(null, _sessionActive, idleSec, onBattery, inputOk, "manual_override");

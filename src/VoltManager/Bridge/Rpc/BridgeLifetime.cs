@@ -58,7 +58,7 @@ public sealed class BridgeLifetime : IDisposable
         }
 
         try { _cancellation.Cancel(); }
-        catch (ObjectDisposedException) { }
+        catch (ObjectDisposedException) { /* expected: shutdown can dispose the bridge concurrently. */ }
 
         for (int i = callbacks.Length - 1; i >= 0; i--)
             SafeDetach(callbacks[i]);

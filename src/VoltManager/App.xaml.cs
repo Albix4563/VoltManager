@@ -99,7 +99,7 @@ public partial class App : Application
             try
             {
                 var fallbackLoc = new LocalizationService();
-                try { fallbackLoc.Initialize(new AppSettings()); } catch { }
+                try { fallbackLoc.Initialize(new AppSettings()); } catch { /* best-effort: startup error reporting must still continue. */ }
                 MessageBox.Show(
                     fallbackLoc.T("Dialog_StartupFailed",
                         Logger.LogFilePath ?? fallbackLoc.T("UpdatePrompt_ND"),

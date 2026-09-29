@@ -318,7 +318,7 @@ public sealed class PowerAwakeService : IDisposable
     public void Dispose()
     {
         _settings.SettingsChanged -= OnSettingsChanged;
-        try { _guardTimer.Dispose(); } catch { }
+        try { _guardTimer.Dispose(); } catch { /* best-effort: timer cleanup must not block service disposal. */ }
         lock (_lock)
         {
             ClearRequestLocked();

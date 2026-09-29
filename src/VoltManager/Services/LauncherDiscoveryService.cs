@@ -749,11 +749,13 @@ internal sealed class SystemLauncherEnvironment : ILauncherEnvironment
                     }
                     catch
                     {
+                        // best-effort: inaccessible uninstall entries are skipped during discovery.
                     }
                 }
             }
             catch
             {
+                // best-effort: registry discovery may be unavailable or denied on this machine.
             }
         }
         return entries;

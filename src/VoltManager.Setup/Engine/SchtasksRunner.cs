@@ -49,8 +49,8 @@ namespace VoltManager.Setup.Engine
                     int timeoutMs = checked((int)Math.Min(int.MaxValue, Math.Max(1, (timeout ?? DefaultTimeout).TotalMilliseconds)));
                     if (!process.WaitForExit(timeoutMs))
                     {
-                        try { process.Kill(); } catch { }
-                        try { process.WaitForExit(1000); } catch { }
+                        try { process.Kill(); } catch { /* best-effort: timed-out schtasks may already have exited. */ }
+                        try { process.WaitForExit(1000); } catch { /* best-effort: timeout cleanup must not mask the command result. */ }
                         return new SchtasksResult(-1, true, ReadOutput(stdout, stderr));
                     }
 

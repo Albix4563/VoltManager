@@ -128,7 +128,7 @@ namespace VoltManager.Setup.Engine
         private static void ReleaseCom(object? value)
         {
             if (value == null || !Marshal.IsComObject(value)) return;
-            try { Marshal.FinalReleaseComObject(value); } catch { }
+            try { Marshal.FinalReleaseComObject(value); } catch { /* best-effort: COM cleanup must not mask uninstall results. */ }
         }
     }
 }

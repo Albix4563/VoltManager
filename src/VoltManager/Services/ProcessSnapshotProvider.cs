@@ -359,9 +359,9 @@ public static class ProcessSnapshotProvider
             try
             {
                 DateTime? started = null;
-                try { started = process.StartTime.ToUniversalTime(); } catch { }
+                try { started = process.StartTime.ToUniversalTime(); } catch { /* best-effort: sampled process may exit or deny access. */ }
                 TimeSpan cpu = TimeSpan.Zero;
-                try { cpu = process.TotalProcessorTime; } catch { }
+                try { cpu = process.TotalProcessorTime; } catch { /* best-effort: sampled process may exit or deny access. */ }
 
                 long startTicks = started?.Ticks ?? 0;
                 if (!Identities.TryGetValue(process.Id, out var known) || known.StartTicks != startTicks)

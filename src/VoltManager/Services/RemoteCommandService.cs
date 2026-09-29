@@ -73,7 +73,7 @@ public sealed class RemoteCommandService : IDisposable
 
         foreach (var (evt, wait) in registrations)
         {
-            try { wait.Unregister(null); } catch { }
+            try { wait.Unregister(null); } catch { /* best-effort: callback registration may already be disposed. */ }
             evt.Dispose();
         }
     }

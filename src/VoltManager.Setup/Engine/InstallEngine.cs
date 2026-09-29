@@ -651,7 +651,7 @@ namespace VoltManager.Setup.Engine
                 if (Directory.Exists(path))
                     Directory.Delete(path, true);
             }
-            catch { }
+            catch { /* best-effort: rollback probing must not mask the primary install result. */ }
         }
 
         /// <summary>
@@ -803,7 +803,7 @@ namespace VoltManager.Setup.Engine
 
             public void Dispose()
             {
-                try { _mutex.ReleaseMutex(); } catch { }
+                try { _mutex.ReleaseMutex(); } catch { /* best-effort: mutex may no longer be owned during teardown. */ }
                 _mutex.Dispose();
             }
         }
@@ -1050,7 +1050,7 @@ namespace VoltManager.Setup.Engine
                 string backupPath = settingsPath + ".setup-corrupt";
                 if (File.Exists(settingsPath))
                 {
-                    try { File.Copy(settingsPath, backupPath, overwrite: true); } catch { }
+                    try { File.Copy(settingsPath, backupPath, overwrite: true); } catch { /* best-effort: settings backup is optional during uninstall. */ }
                 }
             }
 
@@ -1069,7 +1069,7 @@ namespace VoltManager.Setup.Engine
             }
             finally
             {
-                try { if (File.Exists(tmpPath)) File.Delete(tmpPath); } catch { }
+                try { if (File.Exists(tmpPath)) File.Delete(tmpPath); } catch { /* best-effort: temporary cleanup must not mask the main result. */ }
             }
         }
 
@@ -1114,7 +1114,7 @@ namespace VoltManager.Setup.Engine
                 foreach (var f in d.GetFiles()) size += f.Length;
                 foreach (var sub in d.GetDirectories()) size += DirSize(sub);
             }
-            catch { }
+            catch { /* best-effort: deferred self-cleanup must not change setup outcome. */ }
             return size;
         }
 

@@ -415,7 +415,7 @@ namespace VoltManager.Setup.Engine
             }
             catch
             {
-                try { if (File.Exists(destination)) File.Delete(destination); } catch { }
+                try { if (File.Exists(destination)) File.Delete(destination); } catch { /* best-effort: failed download cleanup is non-fatal. */ }
                 throw;
             }
         }

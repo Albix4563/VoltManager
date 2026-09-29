@@ -40,7 +40,7 @@ namespace VoltManager.Setup.Engine
             }
             catch
             {
-                try { Directory.Delete(runDirectory, true); } catch { }
+                try { Directory.Delete(runDirectory, true); } catch { /* best-effort: stale staging cleanup must not block setup. */ }
                 throw;
             }
         }

@@ -218,7 +218,7 @@ namespace VoltManager.Setup.Windows
                     BtnCancel.Visibility = Visibility.Collapsed;
                     BtnNext.IsEnabled = false;
                     BtnNext.Content = I18n.T("btn_install");
-                    StartInstall();
+                    _ = StartInstall();
                     break;
                 case Step.Done:
                     _done = new DonePage(_opts);
@@ -250,7 +250,7 @@ namespace VoltManager.Setup.Windows
                     BtnCancel.Visibility = Visibility.Collapsed;
                     BtnNext.IsEnabled = false;
                     BtnNext.Content = I18n.T("btn_uninstall");
-                    StartUninstall();
+                    _ = StartUninstall();
                     break;
                 case Step.Done:
                     _done = new DonePage(null);
@@ -263,57 +263,82 @@ namespace VoltManager.Setup.Windows
             }
         }
 
-        private async void StartInstall()
+        private async System.Threading.Tasks.Task StartInstall()
         {
-            _engine.Progress += (msg, pct) =>
-                Dispatcher.Invoke(() => _progress?.SetStatus(msg, pct));
-            bool ok = true;
-            string? errMsg = null;
             try
             {
-                _opts.InstallDir = InstallOptions.NormalizeInstallDir(_options?.GetInstallDir() ?? _opts.InstallDir);
-                _opts.CreateDesktopShortcut = _options?.DesktopShortcut ?? true;
-                _opts.StartWithWindows = _options?.StartWithWindows ?? false;
-                _opts.EnableWidgets = _options?.EnableWidgets ?? false;
-                _opts.EnabledWidgetTypes = _options?.GetEnabledWidgetTypes()
-                    ?? new System.Collections.Generic.HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                if (_opts.EnableWidgets && _opts.EnabledWidgetTypes.Count == 0)
-                    _opts.EnableWidgets = false;
-                _opts.LaunchAfterInstall = _options?.LaunchAfterInstall ?? true;
-                _opts.UpdateChannel = _options?.SelectedChannel ?? _opts.UpdateChannel;
-                await _engine.InstallAsync(_opts, App.GetVersion());
+                _engine.Progress += (msg, pct) =>
+                    Dispatcher.Invoke(() => _progress?.SetStatus(msg, pct));
+                bool ok = true;
+                string? errMsg = null;
+                try
+                {
+                    _opts.InstallDir = InstallOptions.NormalizeInstallDir(_options?.GetInstallDir() ?? _opts.InstallDir);
+                    _opts.CreateDesktopShortcut = _options?.DesktopShortcut ?? true;
+                    _opts.StartWithWindows = _options?.StartWithWindows ?? false;
+                    _opts.EnableWidgets = _options?.EnableWidgets ?? false;
+                    _opts.EnabledWidgetTypes = _options?.GetEnabledWidgetTypes()
+                        ?? new System.Collections.Generic.HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    if (_opts.EnableWidgets && _opts.EnabledWidgetTypes.Count == 0)
+                        _opts.EnableWidgets = false;
+                    _opts.LaunchAfterInstall = _options?.LaunchAfterInstall ?? true;
+                    _opts.UpdateChannel = _options?.SelectedChannel ?? _opts.UpdateChannel;
+                    await _engine.InstallAsync(_opts, App.GetVersion());
+                }
+                catch (Exception ex)
+                {
+                    ok = false;
+                    errMsg = ex.Message;
+                    SetupUpdateLog.Error("Interactive install failed: " + ex);
+                }
+                string? warningMsg = ok && _engine.LastOperationResult?.HasWarnings == true
+                    ? _engine.LastOperationResult.WarningSummary
+                    : null;
+                _done = new DonePage(_opts, ok, errMsg, warningMsg: warningMsg);
+                BtnNext.IsEnabled = true;
+                BtnNext.Content = I18n.T("btn_finish");
+                _current = Step.Done;
+                HighlightStep(3);
+                PageHost.Content = _done;
+                BtnCancel.Visibility = Visibility.Collapsed;
             }
-            catch (Exception ex) { ok = false; errMsg = ex.Message; }
-            string? warningMsg = ok && _engine.LastOperationResult?.HasWarnings == true
-                ? _engine.LastOperationResult.WarningSummary
-                : null;
-            _done = new DonePage(_opts, ok, errMsg, warningMsg: warningMsg);
-            BtnNext.IsEnabled = true;
-            BtnNext.Content = I18n.T("btn_finish");
-            _current = Step.Done;
-            HighlightStep(3);
-            PageHost.Content = _done;
-            BtnCancel.Visibility = Visibility.Collapsed;
+            catch (Exception ex)
+            {
+                SetupUpdateLog.Error("Interactive install UI completion failed: " + ex);
+            }
         }
 
-        private async void StartUninstall()
+        private async System.Threading.Tasks.Task StartUninstall()
         {
-            _engine.Progress += (msg, pct) =>
-                Dispatcher.Invoke(() => _progress?.SetStatus(msg, pct));
-            bool ok = true; string? err = null;
             try
             {
-                var result = await _engine.UninstallAsync(_args.TargetDir);
-                ok = result.Success;
-                if (!ok) err = result.Summary;
+                _engine.Progress += (msg, pct) =>
+                    Dispatcher.Invoke(() => _progress?.SetStatus(msg, pct));
+                bool ok = true;
+                string? err = null;
+                try
+                {
+                    var result = await _engine.UninstallAsync(_args.TargetDir);
+                    ok = result.Success;
+                    if (!ok) err = result.Summary;
+                }
+                catch (Exception ex)
+                {
+                    ok = false;
+                    err = ex.Message;
+                    SetupUpdateLog.Error("Interactive uninstall failed: " + ex);
+                }
+                _done = new DonePage(null, ok, err, uninstall: true);
+                BtnNext.IsEnabled = true;
+                BtnNext.Content = I18n.T("btn_close");
+                _current = Step.Done;
+                HighlightStep(2);
+                PageHost.Content = _done;
             }
-            catch (Exception ex) { ok = false; err = ex.Message; }
-            _done = new DonePage(null, ok, err, uninstall: true);
-            BtnNext.IsEnabled = true;
-            BtnNext.Content = I18n.T("btn_close");
-            _current = Step.Done;
-            HighlightStep(2);
-            PageHost.Content = _done;
+            catch (Exception ex)
+            {
+                SetupUpdateLog.Error("Interactive uninstall UI completion failed: " + ex);
+            }
         }
 
         private void BtnNext_Click(object sender, RoutedEventArgs e)

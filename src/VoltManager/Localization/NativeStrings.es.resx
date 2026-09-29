@@ -5,6 +5,7 @@
   <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
   <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
   <data name="Tray_Open" xml:space="preserve"><value>Abrir VoltManager</value></data>
+  <data name="Tray_ActionFailed" xml:space="preserve"><value>La acción de la bandeja falló. Revisa el registro para ver los detalles.</value></data>
   <data name="Tray_PowerPlanCategory" xml:space="preserve"><value>Plan de energía</value></data>
   <data name="Tray_PcControlsCategory" xml:space="preserve"><value>Controles del PC</value></data>
   <data name="Tray_ActivePlan" xml:space="preserve"><value>Plan activo: {0}</value></data>

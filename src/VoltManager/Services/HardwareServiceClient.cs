@@ -112,9 +112,9 @@ public sealed class HardwareServiceClient : IHardwareAccess
         catch (Exception ex)
         {
             Logger.Warn("Hardware service unavailable; using in-process monitoring: " + ex.Message);
-            try { pipe?.Dispose(); } catch { }
-            try { if (process is { HasExited: false }) process.Kill(entireProcessTree: true); } catch { }
-            try { process?.Dispose(); } catch { }
+            try { pipe?.Dispose(); } catch { /* best-effort: hot-path transport cleanup must stay non-fatal. */ }
+            try { if (process is { HasExited: false }) process.Kill(entireProcessTree: true); } catch { /* best-effort: helper may exit concurrently. */ }
+            try { process?.Dispose(); } catch { /* best-effort: hot-path process cleanup must stay non-fatal. */ }
             return null;
         }
     }
@@ -247,17 +247,17 @@ public sealed class HardwareServiceClient : IHardwareAccess
             if (_disposed) return;
             WriteShutdownRequest();
             _disposed = true;
-            try { _writer.Dispose(); } catch { }
-            try { _reader.Dispose(); } catch { }
-            try { _pipe.Dispose(); } catch { }
+            try { _writer.Dispose(); } catch { /* best-effort: hot-path transport cleanup must stay non-fatal. */ }
+            try { _reader.Dispose(); } catch { /* best-effort: hot-path transport cleanup must stay non-fatal. */ }
+            try { _pipe.Dispose(); } catch { /* best-effort: hot-path transport cleanup must stay non-fatal. */ }
             try
             {
                 if (!_process.HasExited && !_process.WaitForExit(1000))
                     _process.Kill(entireProcessTree: true);
             }
-            catch { }
-            try { _process.Dispose(); } catch { }
-            try { _fallback?.Dispose(); } catch { }
+            catch { /* best-effort: helper shutdown may race with process exit. */ }
+            try { _process.Dispose(); } catch { /* best-effort: hot-path process cleanup must stay non-fatal. */ }
+            try { _fallback?.Dispose(); } catch { /* best-effort: fallback cleanup must stay non-fatal. */ }
         }
     }
 
@@ -275,7 +275,7 @@ public sealed class HardwareServiceClient : IHardwareAccess
             else if (_consecutiveRpcFailures >= MaxConsecutiveRpcFailures)
                 EnableFallback("Hardware service stopped answering; continuing with in-process monitoring.");
         }
-        catch { }
+        catch { /* best-effort: hot-path service probing failure falls back to unavailable. */ }
     }
 
     // True when the service process died or the pipe dropped: pinging it again is pointless.
@@ -328,7 +328,7 @@ public sealed class HardwareServiceClient : IHardwareAccess
             using var timeout = new CancellationTokenSource(ShutdownWriteTimeout);
             _writer.WriteLineAsync(request.AsMemory(), timeout.Token).GetAwaiter().GetResult();
         }
-        catch { }
+        catch { /* best-effort: hot-path health probing failure is treated as unavailable. */ }
     }
 
     private sealed class HardwareServiceRequest

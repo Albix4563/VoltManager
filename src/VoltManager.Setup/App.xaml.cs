@@ -1,8 +1,10 @@
 using System;
+using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Media;
 using System.IO;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using VoltManager.Models;
 using VoltManager.Setup.Engine;
 using VoltManager.Setup.Windows;
@@ -22,11 +24,18 @@ namespace VoltManager.Setup
             switch (args.Mode)
             {
                 case SetupMode.Silent:
-                    RunSilent(args);
+                    _ = RunAndExitAsync(
+                        () => RunSilent(args),
+                        code => Shutdown(code),
+                        "Silent install");
                     break;
 
                 case SetupMode.Update:
-                    RunUpdate(args.WaitPid);
+                    _ = RunAndExitAsync(
+                        () => RunUpdate(args.WaitPid),
+                        code => Shutdown(code),
+                        "Update",
+                        ex => string.Format(I18n.T("update_failed"), ex.Message, SetupUpdateLog.FilePath));
                     break;
 
                 case SetupMode.Uninstall:
@@ -61,7 +70,10 @@ namespace VoltManager.Setup
                         return;
                     }
                     if (args.SilentUninstall)
-                        RunSilentUninstall(args);
+                        _ = RunAndExitAsync(
+                            () => RunSilentUninstall(args),
+                            code => Shutdown(code),
+                            "Silent uninstall");
                     else
                         new SetupWindow(args).Show();
                     break;
@@ -72,65 +84,79 @@ namespace VoltManager.Setup
             }
         }
 
-        private async void RunSilent(SetupArgs args)
+        private async Task<int> RunSilent(SetupArgs args)
         {
             var engine = new InstallEngine();
             var opts   = new InstallOptions
             {
                 InstallDir = InstallOptions.NormalizeInstallDir(null),
             };
-            int exit = 0;
-            try
-            {
-                await engine.InstallAsync(opts, GetVersion());
-            }
-            catch (Exception ex)
-            {
-                exit = 1;
-                SetupUpdateLog.Error("Silent install failed: " + ex);
-            }
-            Shutdown(exit);
+            await engine.InstallAsync(opts, GetVersion());
+            return 0;
         }
 
-        private async void RunUpdate(int pid)
+        private async Task<int> RunUpdate(int pid)
         {
             var engine = new InstallEngine();
-            int exit = 0;
             string version = GetVersion();
             SetupUpdateLog.Info($"Update to {version} started (waiting for pid {pid}).");
+            await new UpdateInstallCoordinator(engine).UpdateAsync(pid, version);
+            SetupUpdateLog.Info($"Update to {version} completed.");
+            return 0;
+        }
+
+        private async Task<int> RunSilentUninstall(SetupArgs args)
+        {
+            var engine = new HardenedInstallEngine();
+            UninstallResult result = await engine.UninstallAsync(args.TargetDir);
+            foreach (string failure in result.Failures)
+                SetupUpdateLog.Error("Silent uninstall partial failure: " + failure);
+            foreach (string residual in result.Residuals)
+                SetupUpdateLog.Error("Silent uninstall residual: " + residual);
+            foreach (string warning in engine.LastWarnings)
+                SetupUpdateLog.Warn("Silent uninstall warning: " + warning);
+
+            return GetSilentUninstallExitCode(result, engine.LastWarnings);
+        }
+
+        internal static int GetSilentUninstallExitCode(
+            UninstallResult result,
+            IReadOnlyList<string> warnings)
+            => result.Success && warnings.Count == 0 ? 0 : 3;
+
+        internal static async Task RunAndExitAsync(
+            Func<Task<int>> operation,
+            Action<int> shutdown,
+            string operationName,
+            Func<Exception, string?>? userErrorMessage = null)
+        {
+            int exitCode;
             try
             {
-                await new UpdateInstallCoordinator(engine).UpdateAsync(pid, version);
-                SetupUpdateLog.Info($"Update to {version} completed.");
+                exitCode = await operation();
             }
             catch (Exception ex)
             {
-                exit = 1;
-                SetupUpdateLog.Error($"Update to {version} failed: {ex}");
-                // /update has no window: without this the user only sees the app vanish.
-                MessageBox.Show(
-                    string.Format(I18n.T("update_failed"), ex.Message, SetupUpdateLog.FilePath),
-                    "VoltManager",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Error);
-            }
-            Shutdown(exit);
-        }
-
-        private async void RunSilentUninstall(SetupArgs args)
-        {
-            int exit = 0;
-            try
-            {
-                var result = await new HardenedInstallEngine().UninstallAsync(args.TargetDir);
-                if (!result.Success) exit = 1;
-            }
-            catch
-            {
-                exit = 1;
+                exitCode = 1;
+                SetupUpdateLog.Error(operationName + " failed: " + ex);
+                if (userErrorMessage != null)
+                {
+                    try
+                    {
+                        MessageBox.Show(
+                            userErrorMessage(ex),
+                            "VoltManager",
+                            MessageBoxButton.OK,
+                            MessageBoxImage.Error);
+                    }
+                    catch (Exception notificationEx)
+                    {
+                        SetupUpdateLog.Warn("Could not show setup error dialog: " + notificationEx.Message);
+                    }
+                }
             }
 
-            Shutdown(exit);
+            shutdown(exitCode);
         }
 
         internal static string GetVersion()

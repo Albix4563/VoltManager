@@ -99,7 +99,7 @@ public class HostBridge : IDisposable
         _lifetime.RegisterDetach(() =>
         {
             try { core.WebMessageReceived -= OnWebMessageReceived; }
-            catch { }
+            catch { /* best-effort: bridge initialization cleanup is non-fatal. */ }
         });
 
         _app.Launchers.Changed += OnLaunchersChanged;
@@ -332,7 +332,7 @@ public class HostBridge : IDisposable
                 if (IsStopped)
                     return;
                 try { _webView.CoreWebView2?.PostWebMessageAsJson(payload); }
-                catch { }
+                catch { /* best-effort: malformed bridge payload probing is ignored here. */ }
             }
 
             // Events are raised from service threads that may hold their own locks; a
@@ -369,7 +369,7 @@ public class HostBridge : IDisposable
             if (IsStopped)
                 return;
             try { _webView.CoreWebView2?.PostWebMessageAsJson(message); }
-            catch { }
+            catch { /* best-effort: bridge callback cleanup must not mask the primary result. */ }
         }
 
         try
@@ -379,7 +379,7 @@ public class HostBridge : IDisposable
                 Post,
                 action => _webView.Dispatcher.BeginInvoke(action));
         }
-        catch { }
+        catch { /* best-effort: bridge teardown may race with WebView disposal. */ }
     }
 
     internal static void DispatchReply(bool hasDispatcherAccess, Action post, Action<Action> enqueue)

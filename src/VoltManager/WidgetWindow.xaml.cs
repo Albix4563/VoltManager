@@ -165,7 +165,7 @@ public partial class WidgetWindow : Window
         core.Settings.IsStatusBarEnabled = false;
         webView.AllowExternalDrop = true;
         // Widgets are tiny surfaces — keep the renderer on a low memory target.
-        try { core.MemoryUsageTargetLevel = CoreWebView2MemoryUsageTargetLevel.Low; } catch { }
+        try { core.MemoryUsageTargetLevel = CoreWebView2MemoryUsageTargetLevel.Low; } catch { /* best-effort: older WebView runtimes may not support this hint. */ }
 
         _bridge?.Dispose();
         _bridge = _context.CreateBridge(webView, false, _type);
@@ -200,10 +200,10 @@ public partial class WidgetWindow : Window
     private void DetachWidgetCore(CoreWebView2? core)
     {
         if (core == null) return;
-        try { core.ProcessFailed -= OnWidgetProcessFailed; } catch { }
-        try { core.NavigationStarting -= OnWidgetNavigationStarting; } catch { }
-        try { core.NewWindowRequested -= OnWidgetNewWindowRequested; } catch { }
-        try { core.NavigationCompleted -= OnWidgetNavigationCompleted; } catch { }
+        try { core.ProcessFailed -= OnWidgetProcessFailed; } catch { /* best-effort: WebView cleanup may race with disposal. */ }
+        try { core.NavigationStarting -= OnWidgetNavigationStarting; } catch { /* best-effort: WebView cleanup may race with disposal. */ }
+        try { core.NewWindowRequested -= OnWidgetNewWindowRequested; } catch { /* best-effort: WebView cleanup may race with disposal. */ }
+        try { core.NavigationCompleted -= OnWidgetNavigationCompleted; } catch { /* best-effort: WebView cleanup may race with disposal. */ }
     }
 
     private void OnWidgetNavigationCompleted(object? sender, CoreWebView2NavigationCompletedEventArgs args)
@@ -882,8 +882,8 @@ public partial class WidgetWindow : Window
         _closed = true;
         _visible = false;
         _webViewLifetime.Cancel();
-        try { _context.FullscreenCoverage.CoverageChanged -= OnFullscreenCoverageChanged; } catch { }
-        try { _context.FullscreenCoverage.UnregisterSurface(_coverageHwnd); } catch { }
+        try { _context.FullscreenCoverage.CoverageChanged -= OnFullscreenCoverageChanged; } catch { /* best-effort: widget event cleanup must not block disposal. */ }
+        try { _context.FullscreenCoverage.UnregisterSurface(_coverageHwnd); } catch { /* best-effort: widget surface cleanup must not block disposal. */ }
         _hwndSource?.RemoveHook(WndProc);
         _hwndSource = null;
         _context.Monitor.MetricsUpdated -= OnMetricsUpdated;

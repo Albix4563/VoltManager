@@ -182,7 +182,7 @@ namespace VoltManager.Services
                 {
                     if (File.Exists(path)) remaining.Add(path);
                 }
-                catch { }
+                catch { /* best-effort: artifact probing skips inaccessible entries. */ }
             }
 
             if (SamePath(root, Path.GetFullPath(Path.GetTempPath())))
@@ -191,7 +191,7 @@ namespace VoltManager.Services
                 {
                     if (Directory.Exists(UpdatesDirectory)) remaining.Add(UpdatesDirectory);
                 }
-                catch { }
+                catch { /* best-effort: artifact probing skips inaccessible entries. */ }
             }
 
             return remaining.ToArray();
