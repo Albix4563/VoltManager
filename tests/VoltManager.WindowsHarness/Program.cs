@@ -290,6 +290,44 @@ internal static class Program
                 ? "WebView2 returned no probe result"
                 : $"search={probe.Opened}/{probe.Closed}; accessible={probe.Accessible}; " +
                   $"theme={probe.Theme}; accent={probe.Accent}; errors={probe.Errors.Length}"));
+
+        string wwwroot = Path.Combine(Directory.GetCurrentDirectory(), "src", "VoltManager", "wwwroot");
+        if (!Directory.Exists(wwwroot))
+            throw new DirectoryNotFoundException("Required UI smoke wwwroot was not found: " + wwwroot);
+
+        const string cspListenerScript = """
+            document.addEventListener('securitypolicyviolation', e => (window.__vmCspViolations ||= []).push(e.violatedDirective + ' ' + e.blockedURI));
+            """;
+        await surface.ConfigureVirtualHostAsync("app.local", wwwroot, cspListenerScript);
+
+        var cspViolations = new List<string>();
+        var cspMetaMissing = new List<string>();
+        foreach (string page in new[] { "index.html", "widgets.html" })
+        {
+            await surface.NavigateAsync("https://app.local/" + page);
+            await Task.Delay(TimeSpan.FromSeconds(2));
+            const string cspProbeScript = """
+                (() => ({
+                  metaPresent: !!document.querySelector('meta[http-equiv="Content-Security-Policy"]'),
+                  violations: (window.__vmCspViolations || []).slice()
+                }))()
+                """;
+            string cspJson = await surface.ExecuteAsync(cspProbeScript).WaitAsync(TimeSpan.FromSeconds(10));
+            var cspProbe = JsonSerializer.Deserialize<UiSmokeCspProbe>(cspJson,
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            if (cspProbe is null || !cspProbe.MetaPresent)
+                cspMetaMissing.Add(page);
+            if (cspProbe is not null)
+                cspViolations.AddRange(cspProbe.Violations.Select(violation => $"{page}: {violation}"));
+        }
+
+        bool cspPassed = cspMetaMissing.Count == 0 && cspViolations.Count == 0;
+        string firstViolations = cspViolations.Count == 0
+            ? "none"
+            : string.Join(" | ", cspViolations.Take(4));
+        report.Checks.Add(new HarnessCheck("ui_smoke_csp", cspPassed ? "passed" : "failed",
+            $"violations={cspViolations.Count}; metaMissing={(cspMetaMissing.Count == 0 ? "none" : string.Join(",", cspMetaMissing))}; " +
+            $"first={firstViolations}"));
     }
 
     private static string ReadRepositoryText(params string[] segments)
@@ -920,6 +958,28 @@ internal sealed class WebViewSurface : IDisposable, IAsyncDisposable
         if (!ok) throw new InvalidOperationException("WebView navigation failed: " + _name);
     }
 
+    public async Task ConfigureVirtualHostAsync(string hostName, string folder, string documentCreatedScript)
+    {
+        _window.Show();
+        await _webView.EnsureCoreWebView2Async(_environment);
+        _webView.CoreWebView2.SetVirtualHostNameToFolderMapping(hostName, folder,
+            CoreWebView2HostResourceAccessKind.DenyCors);
+        await _webView.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(documentCreatedScript);
+    }
+
+    public async Task NavigateAsync(string uri)
+    {
+        _window.Show();
+        await _webView.EnsureCoreWebView2Async(_environment);
+        var navigation = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        void Completed(object? sender, CoreWebView2NavigationCompletedEventArgs args) => navigation.TrySetResult(args.IsSuccess);
+        _webView.CoreWebView2.NavigationCompleted += Completed;
+        _webView.CoreWebView2.Navigate(uri);
+        bool ok = await navigation.Task.WaitAsync(TimeSpan.FromSeconds(15));
+        _webView.CoreWebView2.NavigationCompleted -= Completed;
+        if (!ok) throw new InvalidOperationException("WebView navigation failed: " + _name + " -> " + uri);
+    }
+
     public async Task SuspendAsync()
     {
         _webView.Visibility = Visibility.Hidden;
@@ -984,6 +1044,12 @@ internal sealed class UiSmokeProbe
     public string Theme { get; set; } = "";
     public string Accent { get; set; } = "";
     public string[] Errors { get; set; } = Array.Empty<string>();
+}
+
+internal sealed class UiSmokeCspProbe
+{
+    public bool MetaPresent { get; set; }
+    public string[] Violations { get; set; } = Array.Empty<string>();
 }
 
 internal sealed class HarnessReport

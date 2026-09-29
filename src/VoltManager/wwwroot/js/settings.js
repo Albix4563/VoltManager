@@ -323,8 +323,10 @@
     document.addEventListener('DOMContentLoaded', () => {
         const btnInstall = document.getElementById('upd-modal-btn-install');
         const btnDismiss = document.getElementById('upd-modal-btn-dismiss');
+        const btnClose = document.getElementById('upd-modal-btn-close');
         if (btnInstall) btnInstall.addEventListener('click', doDownloadAndInstall);
         if (btnDismiss) btnDismiss.addEventListener('click', closeUpdateModal);
+        if (btnClose) btnClose.addEventListener('click', closeUpdateModal);
         mountUpdateModalActions();
     });
 
