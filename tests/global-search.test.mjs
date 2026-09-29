@@ -82,10 +82,12 @@ test('catalog uses stable navigation fields and covers every reorganized main vi
 
 test('palette ships its structural accessibility hooks and startup entry point', () => {
   const layout = read('src/VoltManager/wwwroot/js/ui-reorganization.layout.js');
-  const bootstrap = read('src/VoltManager/wwwroot/js/changelog.js');
+  const bootstrap = read('src/VoltManager/wwwroot/js/bootstrap-loader.js');
+  const changelog = read('src/VoltManager/wwwroot/js/changelog.js');
 
   assert.match(layout, /vm-global-search-button/);
-  assert.match(bootstrap, /loadScript\('js\/global-search\.js/);
+  assert.match(bootstrap, /'js\/global-search\.js'/);
+  assert.doesNotMatch(changelog, /data-vm-reorg-src|loadReorganization/);
 });
 
 test('palette strings exist in every reorganized UI language and CSS handles reduced motion', () => {

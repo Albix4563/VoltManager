@@ -73,8 +73,8 @@ html[data-anim="high"]:not([data-perf="lite"]) .vm-stagger > *{
   margin-bottom: 24px;
   padding: 6px;
   border-radius: 16px;
-  background: rgba(30, 42, 74, .92);
-  border: 1px solid rgba(255, 255, 255, .06);
+  background: var(--vm-pm-subnav-bg);
+  border: 1px solid var(--vm-pm-subnav-border);
 }
 .pm-seg{
   display: inline-flex;
@@ -84,7 +84,7 @@ html[data-anim="high"]:not([data-perf="lite"]) .vm-stagger > *{
   border-radius: 12px;
   border: 1px solid transparent;
   background: transparent;
-  color: rgba(211, 222, 239, .7);
+  color: var(--vm-control-text-muted);
   font: inherit;
   font-size: 14px;
   font-weight: 500;
@@ -98,13 +98,13 @@ html[data-anim="high"]:not([data-perf="lite"]) .vm-stagger > *{
               transform var(--vm-motion-fast) var(--vm-ease-standard);
 }
 .pm-seg .material-symbols-outlined{ font-size: 20px; flex: 0 0 auto; }
-.pm-seg:hover{ background: rgba(255, 255, 255, .05); color: #d4e4fa; }
+.pm-seg:hover{ background: rgba(255, 255, 255, .05); color: var(--vm-control-text); }
 .pm-seg:active{ transform: scale(.985); }
 .pm-seg.active{
-  background: rgba(0, 241, 254, .12);
-  border-color: rgba(0, 241, 254, .4);
+  background: var(--vm-control-active-bg);
+  border-color: var(--vm-control-active-border);
   color: var(--vm-accent);
-  box-shadow: 0 0 16px rgba(0, 241, 254, .12), inset 0 1px 0 rgba(255, 255, 255, .06);
+  box-shadow: var(--vm-control-active-shadow);
 }
 
 /* Drive the existing .vm-acc-item blocks as switchable panels: hide their
@@ -119,13 +119,12 @@ html[data-anim="high"]:not([data-perf="lite"]) .vm-stagger > *{
 /* Opaque black was harsh; keep the page visible under a translucent blur. */
 .vm-scrim{
   /* Solid scrim: backdrop-filter on a full-window layer is a large GPU tile. */
-  background: rgba(6, 14, 34, .78) !important;
+  background: var(--vm-scrim-bg);
 }
 @media (prefers-reduced-transparency: reduce){
   .vm-scrim{
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
-    background: rgba(10, 17, 40, .86) !important;
   }
 }
 html[data-perf="lite"] .vm-scrim,
@@ -133,7 +132,6 @@ html[data-perf-tier="lite"] .vm-scrim,
 html[data-perf-tier="balanced"] .vm-scrim{
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
-  background: rgba(10, 17, 40, .82) !important;
 }
 
 /* ---------- 5. Collapsible sidebar ---------- */

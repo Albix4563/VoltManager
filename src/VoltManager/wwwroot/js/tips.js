@@ -8,7 +8,7 @@
         if (loading) return loading;
         loading = new Promise((resolve, reject) => {
             const script = document.createElement('script');
-            script.src = 'js/tips.feature.js?v=brightness1';
+            script.src = window.VM_ASSET_URL('js/tips.feature.js');
             script.async = false;
             script.dataset.vmLazyFeature = 'energy-tips';
             script.addEventListener('load', () => {

@@ -202,13 +202,13 @@
     }
 
     // Settings bootstrap is eager; only the advanced editor waits for navigation.
-    const deferredPowerScripts = ['js/advanced.js?v=extra1'];
+    const deferredPowerScripts = ['js/advanced.js'];
     const loadedScripts = new Map();
     function loadScriptOnce(src) {
         if (loadedScripts.has(src)) return loadedScripts.get(src);
         const loading = new Promise((resolve, reject) => {
             const s = document.createElement('script');
-            s.src = src;
+            s.src = window.VM_ASSET_URL(src);
             s.async = false;
             s.dataset.vmLazy = src;
             s.onload = resolve;

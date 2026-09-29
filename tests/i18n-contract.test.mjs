@@ -55,26 +55,39 @@ test('feature modules no longer own translation dictionaries', () => {
   assert.doesNotMatch(suspension, /const\s+text\s*=\s*\{/);
 });
 
-test('static feature catalog keys are referenced by their owning frontend modules', () => {
+test('catalog keys are referenced by the frontend or explicitly dynamic', () => {
   const catalogs = loadCatalogs();
-  const owners = {
-    system: ['src/VoltManager/wwwroot/js/app.js'],
-    settings: ['src/VoltManager/wwwroot/js/settings.js', 'src/VoltManager/wwwroot/js/widget-appearance-helpers.js'],
-    power: [
-      'src/VoltManager/wwwroot/js/power.js',
-      'src/VoltManager/wwwroot/js/power-app-profiles.js',
-      'src/VoltManager/wwwroot/js/power-detection.js',
-      'src/VoltManager/wwwroot/js/power-keep-awake.js',
-      'src/VoltManager/wwwroot/js/power-protections.js',
-    ],
+  const wwwroot = path.join(root, 'src/VoltManager/wwwroot');
+  const sourceFiles = [];
+  const collect = directory => {
+    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+      const full = path.join(directory, entry.name);
+      if (entry.isDirectory()) collect(full);
+      else if (/\.(?:js|html)$/i.test(entry.name) && entry.name !== 'i18n.catalogs.js') sourceFiles.push(full);
+    }
   };
+  collect(wwwroot);
+  const source = sourceFiles.map(file => fs.readFileSync(file, 'utf8')).join('\n');
+
+  // These keys are intentionally assembled from runtime state, so no complete
+  // literal key exists in JS/HTML for the contract scanner to find.
   const dynamicPrefixes = {
+    core: [
+      'adv_boost_',
+      'dash_cat_',
+      'dash_battery_health_rating_',
+      'power_flow_status_',
+      'set_animation_note_',
+      'widget_material_',
+      'widget_orientation_',
+      'widget_size_',
+    ],
     power: ['reason_', 'level_'],
+    uiReorganization: ['search_category_'],
   };
 
   const orphanedKeys = [];
-  for (const [namespace, files] of Object.entries(owners)) {
-    const source = files.map(read).join('\r\n');
+  for (const [namespace, catalog] of Object.entries(catalogs.namespaces)) {
     const orphaned = Object.keys(catalogs.namespaces[namespace].en)
       .filter(key => !(dynamicPrefixes[namespace] || []).some(prefix => key.startsWith(prefix)))
       .filter(key => ![`'${key}'`, `"${key}"`, `\`${key}\``].some(token => source.includes(token)))

@@ -46,10 +46,13 @@ test('shared settings bootstrap loads at startup after its consumers, while adva
 test('concurrent lazy loads share completion and a failed script can be retried', async () => {
   const app = text('src/VoltManager/wwwroot/js/app.js');
   const scripts = [];
-  const context = vm.createContext({ document: {
-    createElement: () => ({ dataset: {}, remove() { this.removed = true; } }),
-    body: { appendChild: script => scripts.push(script) },
-  } });
+  const context = vm.createContext({
+    window: { VM_ASSET_URL: path => `${path}?v=test` },
+    document: {
+      createElement: () => ({ dataset: {}, remove() { this.removed = true; } }),
+      body: { appendChild: script => scripts.push(script) },
+    },
+  });
   vm.runInContext(app.slice(app.indexOf('    const deferredPowerScripts'), app.indexOf('    function needsPowerScripts')), context);
   const first = context.ensurePowerScripts();
   const concurrent = context.ensurePowerScripts();

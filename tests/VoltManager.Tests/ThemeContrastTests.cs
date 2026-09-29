@@ -145,9 +145,6 @@ public class ThemeContrastTests
         string[] expectedSelectors =
         {
             ".segmented-control-bg {",
-            ".vm-subnav,",
-            ".pm-subnav {",
-            ".pm-seg.active {",
             ".toggle-label-large {",
             ".mini-toggle {",
             ".desktop-widget {",
@@ -168,6 +165,28 @@ public class ThemeContrastTests
 
         foreach (string selector in expectedSelectors)
             Assert.Contains(selector, css);
+    }
+
+    [Fact]
+    public void Sub_navigation_surfaces_resolve_through_theme_owned_variables()
+    {
+        string theme = LocateWebAsset("css", "theme-colors.css");
+        string redesign = LocateWebAsset("css", "redesign.css");
+        string reorganization = LocateWebAsset("css", "ui-reorganization.css");
+
+        // The sub-navigations read palette-derived variables defined by the theme
+        // instead of being re-coloured by !important overrides.
+        foreach (string variable in new[]
+                 {
+                     "--vm-control-shell-bg:", "--vm-control-shell-border:",
+                     "--vm-pm-subnav-bg:", "--vm-pm-subnav-border:",
+                     "--vm-control-active-bg:", "--vm-control-active-border:",
+                 })
+            Assert.Contains(variable, theme);
+
+        Assert.Matches(@"\.vm-subnav \{[^}]*background: var\(--vm-control-shell-bg\)", reorganization);
+        Assert.Matches(@"\.pm-subnav\{[^}]*background: var\(--vm-pm-subnav-bg\)", redesign);
+        Assert.Matches(@"\.pm-seg\.active\{[^}]*background: var\(--vm-control-active-bg\)", redesign);
     }
 
     [Fact]

@@ -429,9 +429,9 @@
     max-width: 100%;
     padding: var(--vm-space-1);
     overflow-x: auto;
-    border: 1px solid color-mix(in srgb, var(--md-sys-color-on-surface, #fff) 10%, transparent);
+    border: 1px solid var(--vm-control-shell-border);
     border-radius: var(--vm-radius-card);
-    background: color-mix(in srgb, var(--md-sys-color-surface-container-low, #10192c) 76%, transparent);
+    background: var(--vm-control-shell-bg);
     scrollbar-width: thin;
 }
 
@@ -591,9 +591,9 @@
 
 #vm-automation-rules .vm-acc-body-inner {
     display: block;
-    max-height: none !important;
-    opacity: 1 !important;
-    overflow: visible !important;
+    max-height: none;
+    opacity: 1;
+    overflow: visible;
 }
 
 #vm-automation-profiles > *,
@@ -620,9 +620,9 @@
     display: flex;
     gap: var(--vm-space-1);
     padding: var(--vm-space-1);
-    border: 1px solid color-mix(in srgb, var(--md-sys-color-on-surface, #fff) 10%, transparent);
+    border: 1px solid var(--vm-control-shell-border);
     border-radius: var(--vm-radius-card);
-    background: color-mix(in srgb, var(--md-sys-color-surface-container-low, #10192c) 75%, transparent);
+    background: var(--vm-control-shell-bg);
 }
 
 .schedule-mode-tab {
@@ -659,9 +659,9 @@
     max-width: 100%;
     padding: var(--vm-space-1);
     overflow-x: auto;
-    border: 1px solid color-mix(in srgb, var(--md-sys-color-on-surface, #fff) 10%, transparent);
+    border: 1px solid var(--vm-control-shell-border);
     border-radius: var(--vm-radius-card);
-    background: color-mix(in srgb, var(--md-sys-color-surface-container-low, #10192c) 75%, transparent);
+    background: var(--vm-control-shell-bg);
 }
 
 .vm-widget-filter {

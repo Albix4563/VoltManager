@@ -134,8 +134,8 @@
 /* ---------- 5. Navigation indicator ---------- */
 
 .nav-indicator{
-  background: linear-gradient(180deg, var(--vm-accent), var(--vm-accent-dim)) !important;
-  box-shadow: 0 0 18px rgb(var(--vm-accent-rgb) / .28) !important;
+  background: linear-gradient(180deg, var(--vm-accent), var(--vm-accent-dim));
+  box-shadow: 0 0 18px rgb(var(--vm-accent-rgb) / .28);
   animation: none;
 }
 
@@ -175,7 +175,7 @@
 
 .segmented-pill{
   box-shadow: 0 2px 8px rgba(0,0,0,.25), 0 0 0 1px rgb(var(--vm-accent-rgb) / .18),
-              0 0 18px rgb(var(--vm-accent-rgb) / .12) !important;
+              0 0 18px rgb(var(--vm-accent-rgb) / .12);
 }
 
 /* ---------- 9. Reduced-motion: kill every continuous animation ---------- */

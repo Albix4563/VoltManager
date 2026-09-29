@@ -17,6 +17,16 @@
     --vm-accent-text: #0f172a;
     --vm-on-accent: #0f172a;
     --vm-accent-rgb: 59 130 246;
+    --vm-control-shell-bg: color-mix(in srgb, var(--vm-surface) 76%, transparent);
+    --vm-control-shell-border: color-mix(in srgb, var(--vm-border) 78%, transparent);
+    --vm-control-text-muted: var(--vm-muted);
+    --vm-control-text: var(--vm-text);
+    --vm-control-active-bg: rgb(var(--vm-accent-rgb) / .12);
+    --vm-control-active-border: rgb(var(--vm-accent-rgb) / .40);
+    --vm-control-active-shadow: 0 0 16px rgb(var(--vm-accent-rgb) / .12), inset 0 0 0 1px rgb(var(--vm-accent-rgb) / .08);
+    --vm-pm-subnav-bg: color-mix(in srgb, var(--vm-surface-high) 92%, transparent);
+    --vm-pm-subnav-border: color-mix(in srgb, var(--vm-border) 72%, transparent);
+    --vm-scrim-bg: color-mix(in srgb, var(--vm-bg) 84%, transparent);
 
     /* Compatibility bridge for the reorganized/legacy UI. These semantic
        aliases must resolve through the active VoltManager palette instead of
@@ -42,54 +52,54 @@ body,
 .bg-primary-container,
 .bg-background,
 .bg-\[\#0A1128\] {
-    background-color: var(--vm-bg) !important;
+    background-color: var(--vm-bg);
     color: var(--vm-text);
 }
 
 .bg-surface-container,
 .bg-\[\#1E2A4A\] {
-    background-color: var(--vm-surface) !important;
+    background-color: var(--vm-surface);
 }
 
 .bg-surface-container-lowest,
 .bg-surface-container-low\/40,
 .bg-surface-container-low\/50 {
-    background-color: color-mix(in srgb, var(--vm-surface) 82%, transparent) !important;
+    background-color: color-mix(in srgb, var(--vm-surface) 82%, transparent);
 }
 
 .bg-surface-container-high,
 .bg-surface-container-high\/50,
 .bg-surface-variant,
 .segmented-pill {
-    background-color: var(--vm-surface-high) !important;
+    background-color: var(--vm-surface-high);
 }
 
 /* Segmented controls are legacy components whose shell still carries the old
    prototype navy in app.css. Keep the shell and its selected pill on the same
    live semantic surface so a theme switch recolors the complete control. */
 .segmented-control-bg {
-    background: color-mix(in srgb, var(--vm-surface-high) 72%, transparent) !important;
-    border-color: color-mix(in srgb, var(--vm-border) 72%, transparent) !important;
+    background: color-mix(in srgb, var(--vm-surface-high) 72%, transparent);
+    border-color: color-mix(in srgb, var(--vm-border) 72%, transparent);
 }
 
 .bg-surface-container\/70,
 .glass-panel,
 .glass-modal {
-    background-color: color-mix(in srgb, var(--vm-panel) 88%, transparent) !important;
+    background-color: color-mix(in srgb, var(--vm-panel) 88%, transparent);
 }
 
 .glass-card {
-    background-color: var(--vm-card) !important;
-    border-color: var(--vm-border) !important;
+    background-color: var(--vm-card);
+    border-color: var(--vm-border);
 }
 
 .text-on-surface,
 .hover\:text-on-surface:hover {
-    color: var(--vm-text) !important;
+    color: var(--vm-text);
 }
 
 .text-on-surface-variant {
-    color: var(--vm-muted) !important;
+    color: var(--vm-muted);
 }
 
 .text-secondary-container,
@@ -99,51 +109,51 @@ body,
 .hover\:text-secondary-fixed:hover,
 .group:hover .group-hover\:text-secondary-container,
 .group:hover .group-hover\:text-secondary-fixed {
-    color: var(--vm-accent-dim) !important;
+    color: var(--vm-accent-dim);
 }
 
 .text-on-secondary-container,
 .selection\:text-on-secondary::selection {
-    color: var(--vm-on-accent) !important;
+    color: var(--vm-on-accent);
 }
 
 .bg-secondary-container {
-    background-color: var(--vm-accent) !important;
-    color: var(--vm-on-accent) !important;
+    background-color: var(--vm-accent);
+    color: var(--vm-on-accent);
 }
 
-.bg-secondary-container\/5 { background-color: rgb(var(--vm-accent-rgb) / .05) !important; }
-.bg-secondary-container\/10 { background-color: rgb(var(--vm-accent-rgb) / .10) !important; }
-.bg-secondary-container\/20 { background-color: rgb(var(--vm-accent-rgb) / .20) !important; }
-.selection\:bg-secondary-container::selection { background-color: var(--vm-accent) !important; }
+.bg-secondary-container\/5 { background-color: rgb(var(--vm-accent-rgb) / .05); }
+.bg-secondary-container\/10 { background-color: rgb(var(--vm-accent-rgb) / .10); }
+.bg-secondary-container\/20 { background-color: rgb(var(--vm-accent-rgb) / .20); }
+.selection\:bg-secondary-container::selection { background-color: var(--vm-accent); }
 
 .border-white\/5,
 .border-white\/10,
 .border-background,
 .border-surface-variant\/50 {
-    border-color: var(--vm-border) !important;
+    border-color: var(--vm-border);
 }
 
 .border-white\/20,
 .hover\:border-white\/20:hover {
-    border-color: var(--vm-border-strong) !important;
+    border-color: var(--vm-border-strong);
 }
 
 .border-secondary-container\/20,
 .border-secondary-container\/30,
 .border-t-secondary-container\/30,
 .focus\:border-secondary-container:focus {
-    border-color: var(--vm-accent) !important;
+    border-color: var(--vm-accent);
 }
 
 nav {
-    background: color-mix(in srgb, var(--vm-surface) 88%, transparent) !important;
-    border-right-color: var(--vm-border) !important;
+    background: color-mix(in srgb, var(--vm-surface) 88%, transparent);
+    border-right-color: var(--vm-border);
 }
 
 .nav-indicator {
-    background: var(--vm-accent) !important;
-    box-shadow: 0 0 18px rgb(var(--vm-accent-rgb) / .28) !important;
+    background: var(--vm-accent);
+    box-shadow: 0 0 18px rgb(var(--vm-accent-rgb) / .28);
 }
 
 input,
@@ -151,9 +161,9 @@ select,
 textarea,
 .adv-select,
 .widget-monitor-select {
-    background-color: var(--vm-surface-high) !important;
-    border-color: var(--vm-border) !important;
-    color: var(--vm-text) !important;
+    background-color: var(--vm-surface-high);
+    border-color: var(--vm-border);
+    color: var(--vm-text);
 }
 
 input:focus,
@@ -161,14 +171,14 @@ select:focus,
 textarea:focus,
 .adv-select:focus,
 .input-glow:focus {
-    border-color: var(--vm-accent) !important;
-    box-shadow: 0 0 0 3px rgb(var(--vm-accent-rgb) / .18) !important;
+    border-color: var(--vm-accent);
+    box-shadow: 0 0 0 3px rgb(var(--vm-accent-rgb) / .18);
     outline: none;
 }
 
 option {
-    background: var(--vm-surface-high) !important;
-    color: var(--vm-text) !important;
+    background: var(--vm-surface-high);
+    color: var(--vm-text);
 }
 
 /* The legacy select arrows are inline cyan SVGs. A two-gradient chevron keeps
@@ -178,128 +188,91 @@ option {
 #welcome-lang-select {
     background-image:
         linear-gradient(45deg, transparent 50%, var(--vm-accent-dim) 50%),
-        linear-gradient(135deg, var(--vm-accent-dim) 50%, transparent 50%) !important;
+        linear-gradient(135deg, var(--vm-accent-dim) 50%, transparent 50%);
     background-position:
         calc(100% - 17px) 50%,
-        calc(100% - 12px) 50% !important;
-    background-size: 5px 5px, 5px 5px !important;
-    background-repeat: no-repeat !important;
+        calc(100% - 12px) 50%;
+    background-size: 5px 5px, 5px 5px;
+    background-repeat: no-repeat;
 }
 
 /* Off-state tracks were still fixed to the original navy palette. Keep their
    neutral appearance, but derive it from the current theme surface. */
 .toggle-label {
-    background: color-mix(in srgb, var(--vm-surface-high) 88%, var(--vm-muted) 12%) !important;
-    border-color: var(--vm-border) !important;
+    background: color-mix(in srgb, var(--vm-surface-high) 88%, var(--vm-muted) 12%);
+    border-color: var(--vm-border);
 }
 
 .toggle-label-large {
-    background: color-mix(in srgb, var(--vm-surface-high) 88%, var(--vm-muted) 12%) !important;
-    border-color: var(--vm-border) !important;
+    background: color-mix(in srgb, var(--vm-surface-high) 88%, var(--vm-muted) 12%);
+    border-color: var(--vm-border);
 }
 
 .mini-toggle {
-    background: color-mix(in srgb, var(--vm-surface-high) 88%, var(--vm-muted) 12%) !important;
-    border-color: var(--vm-border) !important;
+    background: color-mix(in srgb, var(--vm-surface-high) 88%, var(--vm-muted) 12%);
+    border-color: var(--vm-border);
 }
 
 .toggle-label::after,
 .toggle-label-large::after,
 .mini-toggle-knob {
-    background: var(--vm-muted) !important;
+    background: var(--vm-muted);
 }
 
 .toggle-checkbox:checked + .toggle-label,
 .toggle-large:checked + .toggle-label-large,
 .mini-toggle[data-on=true] {
-    background: rgb(var(--vm-accent-rgb) / .2) !important;
-    border-color: var(--vm-accent) !important;
-    box-shadow: 0 0 12px rgb(var(--vm-accent-rgb) / .25) !important;
+    background: rgb(var(--vm-accent-rgb) / .2);
+    border-color: var(--vm-accent);
+    box-shadow: 0 0 12px rgb(var(--vm-accent-rgb) / .25);
 }
 
 .toggle-checkbox:checked + .toggle-label::after,
 .toggle-large:checked + .toggle-label-large::after,
 .mini-toggle[data-on=true] .mini-toggle-knob {
-    background: var(--vm-accent) !important;
+    background: var(--vm-accent);
 }
 
 .btn-primary,
 .btn-glow.bg-secondary-container {
-    background: var(--vm-accent) !important;
-    border-color: var(--vm-accent) !important;
-    color: var(--vm-on-accent) !important;
+    background: var(--vm-accent);
+    border-color: var(--vm-accent);
+    color: var(--vm-on-accent);
 }
 
 .btn-primary:hover,
 .btn-glow:hover {
-    background: var(--vm-accent-hover) !important;
-    box-shadow: 0 0 16px rgb(var(--vm-accent-rgb) / .35) !important;
+    background: var(--vm-accent-hover);
+    box-shadow: 0 0 16px rgb(var(--vm-accent-rgb) / .35);
 }
 
 .btn-ghost {
-    background: transparent !important;
-    border-color: var(--vm-accent) !important;
-    color: var(--vm-accent-dim) !important;
+    background: transparent;
+    border-color: var(--vm-accent);
+    color: var(--vm-accent-dim);
 }
 
 .btn-ghost:hover {
-    background: rgb(var(--vm-accent-rgb) / .12) !important;
+    background: rgb(var(--vm-accent-rgb) / .12);
 }
 
 #update-status.ok {
-    color: var(--vm-accent) !important;
-}
-
-/* Reorganized navigation and the old power sub-navigation both remain mounted
-   in parts of the application. Their containers must use semantic surfaces,
-   never prototype navy/cyan values. */
-.vm-subnav,
-.schedule-mode-tabs,
-.vm-widget-filters {
-    background: color-mix(in srgb, var(--vm-surface) 76%, transparent) !important;
-    border-color: color-mix(in srgb, var(--vm-border) 78%, transparent) !important;
-}
-
-.pm-subnav {
-    background: color-mix(in srgb, var(--vm-surface-high) 92%, transparent) !important;
-    border-color: color-mix(in srgb, var(--vm-border) 72%, transparent) !important;
-}
-
-.pm-seg {
-    color: var(--vm-muted) !important;
-}
-
-.pm-seg:hover {
-    color: var(--vm-text) !important;
-}
-
-.pm-seg.active {
-    background: rgb(var(--vm-accent-rgb) / .12) !important;
-    border-color: rgb(var(--vm-accent-rgb) / .40) !important;
-    color: var(--vm-accent) !important;
-    box-shadow: 0 0 16px rgb(var(--vm-accent-rgb) / .12), inset 0 0 0 1px rgb(var(--vm-accent-rgb) / .08) !important;
-}
-
-.vm-scrim,
-html[data-perf="lite"] .vm-scrim,
-html[data-perf-tier="lite"] .vm-scrim,
-html[data-perf-tier="balanced"] .vm-scrim {
-    background: color-mix(in srgb, var(--vm-bg) 84%, transparent) !important;
+    color: var(--vm-accent);
 }
 
 /* Desktop widget material backgrounds live in widgets.css. Keep only the
    semantic border here so acrylic/transparent cards cannot inherit an opaque shell. */
 .desktop-widget {
-    border-color: color-mix(in srgb, var(--vm-border) 78%, transparent) !important;
+    border-color: color-mix(in srgb, var(--vm-border) 78%, transparent);
 }
 
 .widget-action {
-    color: var(--vm-muted) !important;
+    color: var(--vm-muted);
 }
 
 .widget-action:hover,
 .widget-action[data-on=true] {
-    color: var(--vm-accent) !important;
+    color: var(--vm-accent);
 }
 
 .widget-muted,
@@ -307,20 +280,20 @@ html[data-perf-tier="balanced"] .vm-scrim {
 .calendar-head span,
 .calendar-day,
 .plan-option {
-    color: var(--vm-muted) !important;
+    color: var(--vm-muted);
 }
 
 .plan-option:hover {
-    color: var(--vm-text) !important;
+    color: var(--vm-text);
 }
 
 .plan-option.is-active {
-    color: var(--vm-accent) !important;
+    color: var(--vm-accent);
 }
 
 .calendar-day.is-today {
-    background: var(--vm-accent) !important;
-    color: var(--vm-on-accent) !important;
+    background: var(--vm-accent);
+    color: var(--vm-on-accent);
 }
 
 /* Runtime-injected feature CSS is appended after this stylesheet. The theme
