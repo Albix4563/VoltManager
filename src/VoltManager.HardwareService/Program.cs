@@ -16,51 +16,19 @@ internal static class Program
 
     public static async Task<int> Main(string[] args)
     {
-        string? pipeName = ReadArg(args, "--pipe");
-        if (!int.TryParse(ReadArg(args, "--parent"), out int parentPid) || parentPid <= 0 || string.IsNullOrWhiteSpace(pipeName))
+        if (!TryParseArguments(args, out HardwareServiceOptions options))
             return 2;
 
         using var hardware = new HardwareHost();
-        using var server = new NamedPipeServerStream(
-            pipeName,
-            PipeDirection.InOut,
-            1,
-            PipeTransmissionMode.Byte,
-            PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly);
         using var shutdown = new CancellationTokenSource();
-        _ = WatchParentAsync(parentPid, shutdown.Token);
+        _ = WatchParentAsync(options.ParentPid, shutdown.Token);
 
         try
         {
-            await server.WaitForConnectionAsync(shutdown.Token);
-            using var reader = new StreamReader(server, new UTF8Encoding(false), false, 16 * 1024, leaveOpen: true);
-            using var writer = new StreamWriter(server, new UTF8Encoding(false), 16 * 1024, leaveOpen: true) { AutoFlush = true };
-
-            while (!shutdown.IsCancellationRequested && server.IsConnected)
-            {
-                string? line = await reader.ReadLineAsync(shutdown.Token);
-                if (line == null) break;
-                if (line.Length > 128 * 1024)
-                {
-                    await writer.WriteLineAsync(SerializeFailure("", "request_too_large"));
-                    continue;
-                }
-
-                ServiceRequest? request = null;
-                try
-                {
-                    request = JsonSerializer.Deserialize<ServiceRequest>(line, JsonOptions);
-                    if (request == null || string.IsNullOrWhiteSpace(request.Id) || string.IsNullOrWhiteSpace(request.Method))
-                        throw new InvalidDataException("Invalid request envelope.");
-                    object? result = Dispatch(request, hardware);
-                    await writer.WriteLineAsync(SerializeSuccess(request.Id, result));
-                    if (request.Method == "shutdown") break;
-                }
-                catch (Exception ex)
-                {
-                    await writer.WriteLineAsync(SerializeFailure(request?.Id ?? "", ex.Message));
-                }
-            }
+            await RunServerAsync(
+                options.PipeName,
+                (method, payload) => Dispatch(method, payload, hardware),
+                shutdown.Token);
         }
         catch (OperationCanceledException) { }
         catch { }
@@ -68,16 +36,72 @@ internal static class Program
         return 0;
     }
 
-    private static object? Dispatch(ServiceRequest request, HardwareHost hardware)
+    internal static bool TryParseArguments(string[] args, out HardwareServiceOptions options)
     {
-        JsonElement payload = request.Payload;
-        return request.Method switch
+        string? pipeName = ReadArg(args, "--pipe");
+        if (!int.TryParse(ReadArg(args, "--parent"), out int parentPid) ||
+            parentPid <= 0 ||
+            string.IsNullOrWhiteSpace(pipeName))
+        {
+            options = default;
+            return false;
+        }
+
+        options = new HardwareServiceOptions(pipeName, parentPid);
+        return true;
+    }
+
+    internal static async Task RunServerAsync(
+        string pipeName,
+        Func<string, JsonElement, object?> dispatch,
+        CancellationToken cancellationToken)
+    {
+        using var server = new NamedPipeServerStream(
+            pipeName,
+            PipeDirection.InOut,
+            1,
+            PipeTransmissionMode.Byte,
+            PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly);
+        await server.WaitForConnectionAsync(cancellationToken);
+        using var reader = new StreamReader(server, new UTF8Encoding(false), false, 16 * 1024, leaveOpen: true);
+        using var writer = new StreamWriter(server, new UTF8Encoding(false), 16 * 1024, leaveOpen: true) { AutoFlush = true };
+
+        while (!cancellationToken.IsCancellationRequested && server.IsConnected)
+        {
+            string? line = await reader.ReadLineAsync(cancellationToken);
+            if (line == null) break;
+            if (line.Length > 128 * 1024)
+            {
+                await writer.WriteLineAsync(SerializeFailure("", "request_too_large"));
+                continue;
+            }
+
+            ServiceRequest? request = null;
+            try
+            {
+                request = JsonSerializer.Deserialize<ServiceRequest>(line, JsonOptions);
+                if (request == null || string.IsNullOrWhiteSpace(request.Id) || string.IsNullOrWhiteSpace(request.Method))
+                    throw new InvalidDataException("Invalid request envelope.");
+                object? result = dispatch(request.Method, request.Payload);
+                await writer.WriteLineAsync(SerializeSuccess(request.Id, result));
+                if (request.Method == "shutdown") break;
+            }
+            catch (Exception ex)
+            {
+                await writer.WriteLineAsync(SerializeFailure(request?.Id ?? "", ex.Message));
+            }
+        }
+    }
+
+    private static object? Dispatch(string method, JsonElement payload, HardwareHost hardware)
+    {
+        return method switch
         {
             "ping" => hardware.Ping(),
             "read" => hardware.Read(ReadSampleRequest(payload), payload.TryGetProperty("force", out JsonElement force) && force.ValueKind == JsonValueKind.True),
             "invalidate" => hardware.Invalidate(),
             "shutdown" => new { success = true },
-            _ => throw new InvalidOperationException("Unknown hardware service method: " + request.Method),
+            _ => throw new InvalidOperationException("Unknown hardware service method: " + method),
         };
     }
 
@@ -131,6 +155,8 @@ internal static class Program
         public JsonElement Payload { get; set; }
     }
 }
+
+internal readonly record struct HardwareServiceOptions(string PipeName, int ParentPid);
 
 internal sealed class HardwareHost : IDisposable
 {

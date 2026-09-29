@@ -17,6 +17,8 @@
   let csrfToken = '';
   let eventSource = null;
   let currentState = null;
+  let loadStateSequence = 0;
+  let appliedStateRevision = 0;
 
   function setConnection(online) {
     connectionPill.dataset.state = online ? 'online' : 'offline';
@@ -35,6 +37,7 @@
     }
     csrfToken = '';
     currentState = null;
+    appliedStateRevision++;
     appView.classList.add('hidden');
     loginView.classList.remove('hidden');
     loginError.textContent = message;
@@ -142,6 +145,7 @@
   }
 
   function renderState(state) {
+    appliedStateRevision++;
     currentState = state;
     $('device-name').textContent = state.device || 'PC';
     $('device-version').textContent = state.version || '—';
@@ -183,12 +187,16 @@
   }
 
   async function loadState() {
+    const requestSequence = ++loadStateSequence;
+    const stateRevisionAtStart = appliedStateRevision;
     try {
       const state = await api('/api/state');
+      if (requestSequence !== loadStateSequence || stateRevisionAtStart !== appliedStateRevision) return null;
       renderState(state);
       setConnection(true);
       return state;
     } catch (error) {
+      if (requestSequence !== loadStateSequence || stateRevisionAtStart !== appliedStateRevision) return null;
       if (error.message !== 'unauthorized') {
         setConnection(false);
         setFeedback('Connection lost. Check the local network.', true);

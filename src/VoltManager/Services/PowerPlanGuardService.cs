@@ -52,13 +52,15 @@ public sealed class PowerPlanGuardService
     };
 
     private readonly TimeSpan _notificationInterval;
+    private readonly Func<DateTime> _utcNow;
     private readonly object _lock = new();
     private PowerPlanExpectation? _expectation;
     private DateTime _nextNotificationAllowedUtc = DateTime.MinValue;
 
-    public PowerPlanGuardService(TimeSpan? notificationInterval = null)
+    public PowerPlanGuardService(TimeSpan? notificationInterval = null, Func<DateTime>? utcNow = null)
     {
         _notificationInterval = notificationInterval ?? TimeSpan.FromMinutes(2);
+        _utcNow = utcNow ?? (static () => DateTime.UtcNow);
     }
 
     public PowerPlanExpectation? Expectation
@@ -98,6 +100,9 @@ public sealed class PowerPlanGuardService
             ClearExpected("manualOverride");
     }
 
+    public void RefreshManualOverride(ManualOverride? manualOverride)
+        => RefreshManualOverride(manualOverride, _utcNow());
+
     public static PlanId? PlanFromManualOverride(ManualOverride? manualOverride, DateTime nowUtc)
     {
         if (manualOverride?.IsActive(nowUtc) != true)
@@ -136,6 +141,9 @@ public sealed class PowerPlanGuardService
             return true;
         }
     }
+
+    public bool ShouldReassert(PlanId? activePlan, out PowerPlanConflictNotification? conflict)
+        => ShouldReassert(activePlan, _utcNow(), out conflict);
 
     public static List<PowerPlanInterferingProcess> FindLikelyInterferingProcesses()
     {

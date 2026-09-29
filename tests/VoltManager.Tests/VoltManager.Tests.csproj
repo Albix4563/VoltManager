@@ -18,6 +18,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\VoltManager\VoltManager.csproj" />
+    <ProjectReference Include="..\..\src\VoltManager.HardwareService\VoltManager.HardwareService.csproj" />
+    <ProjectReference Include="..\..\src\VoltManager.Supervisor\VoltManager.Supervisor.csproj" />
   </ItemGroup>
 
   <ItemGroup>

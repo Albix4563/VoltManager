@@ -1,4 +1,5 @@
 using System.IO;
+using System.Runtime.ExceptionServices;
 using System.Text.Json;
 using VoltManager.Services;
 
@@ -229,20 +230,40 @@ public sealed class SettingsServiceBackupTests
         settings.Update(state => state.Language = "en");
         settings.Update(state => state.Language = "it");
 
-        var lockHeld = new ManualResetEventSlim();
-        Task holder = Task.Run(() =>
+        using var firstReadFailure = new ManualResetEventSlim();
+        using var lockedStream = new FileStream(temp.Path, FileMode.Open, FileAccess.Read, FileShare.None);
+        int loadThreadId = 0;
+        int readFailures = 0;
+        EventHandler<FirstChanceExceptionEventArgs> handler = (_, eventArgs) =>
         {
-            using var stream = new FileStream(temp.Path, FileMode.Open, FileAccess.Read, FileShare.None);
-            lockHeld.Set();
-            Thread.Sleep(120);
-        });
-        Assert.True(lockHeld.Wait(TimeSpan.FromSeconds(5)));
+            if (Environment.CurrentManagedThreadId != Volatile.Read(ref loadThreadId) ||
+                eventArgs.Exception is not IOException)
+                return;
 
-        var loaded = new SettingsService(temp.Path);
-        await holder;
+            Interlocked.Increment(ref readFailures);
+            firstReadFailure.Set();
+        };
+        AppDomain.CurrentDomain.FirstChanceException += handler;
+        try
+        {
+            Task<SettingsService> loadTask = Task.Run(() =>
+            {
+                Volatile.Write(ref loadThreadId, Environment.CurrentManagedThreadId);
+                return new SettingsService(temp.Path);
+            });
+            firstReadFailure.Wait();
+            lockedStream.Dispose();
 
-        Assert.Equal("it", loaded.Current.Language);
-        Assert.False(File.Exists(temp.Path + ".corrupt"));
+            SettingsService loaded = await loadTask;
+
+            Assert.True(readFailures >= 1);
+            Assert.Equal("it", loaded.Current.Language);
+            Assert.False(File.Exists(temp.Path + ".corrupt"));
+        }
+        finally
+        {
+            AppDomain.CurrentDomain.FirstChanceException -= handler;
+        }
     }
 
     [Fact]

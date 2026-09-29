@@ -2,11 +2,70 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import vm from 'node:vm';
+import { FakeNode, createDocumentHarness } from './helpers/dom-harness.mjs';
 
 const root = new URL('../', import.meta.url);
 
 function read(relativePath) {
   return readFileSync(new URL(relativePath, root), 'utf8');
+}
+
+function deferred() {
+  let resolve;
+  const promise = new Promise(r => { resolve = r; });
+  return { promise, resolve };
+}
+
+function jsonResponse(payload, status = 200) {
+  return {
+    status,
+    ok: status >= 200 && status < 300,
+    json: async () => payload,
+  };
+}
+
+function withAppend(node) {
+  node.append = (...children) => {
+    for (const child of children) node.appendChild(child);
+  };
+  return node;
+}
+
+function createRemoteHarness(fetchImpl) {
+  const document = createDocumentHarness({ readyState: 'complete' });
+  const originalCreateElement = document.createElement;
+  document.createElement = tagName => withAppend(originalCreateElement(tagName));
+
+  const ids = [
+    'login-view', 'app-view', 'login-form', 'pin-input', 'login-button', 'login-error',
+    'actions-grid', 'actions-empty', 'action-feedback', 'connection-pill', 'connection-label',
+    'device-name', 'device-version', 'active-plan', 'logout-button',
+  ];
+  for (const id of ids) document.registerId(withAppend(new FakeNode({ id })));
+
+  class FakeEventSource {
+    constructor(url) {
+      this.url = url;
+      this.listeners = new Map();
+      this.onerror = null;
+    }
+    addEventListener(name, handler) { this.listeners.set(name, handler); }
+    close() {}
+  }
+
+  const window = {
+    confirm: () => true,
+    setTimeout: () => 0,
+  };
+  const context = vm.createContext({
+    window,
+    document,
+    fetch: fetchImpl,
+    EventSource: FakeEventSource,
+    console,
+  });
+  vm.runInContext(read('src/VoltManager/wwwroot/remote/remote.js'), context);
+  return { app: window.VoltLanRemoteApp, document };
 }
 
 test('welcome onboarding has a fifth LAN remote step wired through dedicated RPC methods', () => {
@@ -46,21 +105,92 @@ test('remote web client is a self-contained local bundle with no external resour
   assert.doesNotMatch(html, /<script[^>]+src=["']\/\//i);
 });
 
-test('remote client omits unauthorized actions, refreshes on SSE, confirms destructive actions and handles expired sessions', () => {
-  const source = read('src/VoltManager/wwwroot/remote/remote.js');
+test('remote client renders only permitted actions from executed state', () => {
+  const { app, document } = createRemoteHarness(async () => {
+    throw new Error('unexpected fetch');
+  });
 
-  assert.match(source, /permissions\.planChange/);
-  assert.match(source, /permissions\.shutdown/);
-  assert.match(source, /permissions\.restart/);
-  assert.match(source, /permissions\.sleep\s*&&\s*capabilities\.sleep/);
-  assert.match(source, /permissions\.hibernate\s*&&\s*capabilities\.hibernate/);
-  assert.match(source, /\/api\/actions\/sleep/);
-  assert.match(source, /\/api\/actions\/hibernate/);
-  assert.match(source, /new EventSource\(['"]\/api\/events['"]\)/);
-  assert.match(source, /addEventListener\(['"]state['"]/);
-  assert.match(source, /confirm\(/);
-  assert.match(source, /response\.status === 401/);
-  assert.match(source, /showLogin/);
+  app.renderState({
+    device: 'Desk PC',
+    version: '1.2.3',
+    plan: 'balanced',
+    permissions: {
+      planChange: true,
+      shutdown: false,
+      restart: true,
+      sleep: true,
+      hibernate: true,
+    },
+    capabilities: {
+      sleep: true,
+      hibernate: false,
+    },
+  });
+
+  const actions = document.getElementById('actions-grid').children;
+  const headings = actions.map(card => card.children[0].children[1].textContent);
+  assert.deepEqual(headings, ['Power plan', 'Restart', 'Sleep']);
+  assert.equal(document.getElementById('actions-empty').classList.contains('hidden'), true);
+});
+
+test('remote client keeps newer state when an older loadState response resolves last', async () => {
+  const requests = [];
+  const { app, document } = createRemoteHarness(() => {
+    const pending = deferred();
+    requests.push(pending);
+    return pending.promise;
+  });
+
+  const older = app.loadState();
+  const newer = app.loadState();
+  assert.equal(requests.length, 2);
+
+  requests[1].resolve(jsonResponse({
+    device: 'Newer PC',
+    version: '2',
+    plan: 'performance',
+    permissions: {},
+    capabilities: {},
+  }));
+  await newer;
+
+  requests[0].resolve(jsonResponse({
+    device: 'Older PC',
+    version: '1',
+    plan: 'powerSaver',
+    permissions: {},
+    capabilities: {},
+  }));
+  await older;
+
+  assert.equal(document.getElementById('device-name').textContent, 'Newer PC');
+  assert.equal(document.getElementById('device-version').textContent, '2');
+});
+
+test('remote client ignores an in-flight load after a newer state is applied', async () => {
+  const request = deferred();
+  const { app, document } = createRemoteHarness(() => request.promise);
+
+  const staleLoad = app.loadState();
+  app.renderState({
+    device: 'SSE state',
+    version: '3',
+    plan: 'balanced',
+    permissions: {},
+    capabilities: {},
+  });
+
+  request.resolve(jsonResponse({
+    device: 'Stale response',
+    version: '2',
+    plan: 'powerSaver',
+    permissions: {},
+    capabilities: {},
+  }));
+  await staleLoad;
+
+  assert.equal(document.getElementById('device-name').textContent, 'SSE state');
+  assert.equal(document.getElementById('device-version').textContent, '3');
 });
 
 test('local LAN remote sleep and hibernate permissions start hidden and are capability gated', () => {
