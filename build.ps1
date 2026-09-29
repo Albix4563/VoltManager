@@ -32,6 +32,7 @@ dotnet publish (Join-Path $root 'src\VoltManager\VoltManager.csproj') `
     -c Release -r win-x64 --self-contained true `
     -p:PublishSingleFile=false `
     -p:PublishReadyToRun=true `
+    -p:VoltManagerValidationHooks=false `
     -p:Version=$Version `
     -p:AssemblyVersion="$Version.0" `
     -p:FileVersion="$Version.0" `

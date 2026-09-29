@@ -1,3 +1,4 @@
+using System.IO;
 using System.Text.Json;
 using VoltManager.Bridge;
 using VoltManager.Bridge.Handlers;
@@ -58,17 +59,42 @@ public class ApplicationRpcHandlerTests
         Assert.Equal(0, calls);
     }
 
+    [Fact]
+    public async Task AddStartupApp_accepts_only_the_most_recent_picked_path_once()
+    {
+        const string picked = @"C:\Tools\Picked.exe";
+        int calls = 0;
+        string? added = null;
+        var handler = Create(
+            pickStartup: _ => Task.FromResult<string?>(picked),
+            addStartup: path => { calls++; added = path; return new { path }; });
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            handler.HandleAsync("addStartupApp", Payload(new { path = @"C:\Tools\Other.exe" }), CancellationToken.None));
+        Assert.Equal(0, calls);
+
+        await handler.HandleAsync("pickStartupExecutable", default, CancellationToken.None);
+        await handler.HandleAsync("addStartupApp", Payload(new { path = @"c:\tools\PICKED.exe" }), CancellationToken.None);
+
+        Assert.Equal(1, calls);
+        Assert.Equal(Path.GetFullPath(picked), added, ignoreCase: true);
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            handler.HandleAsync("addStartupApp", Payload(new { path = picked }), CancellationToken.None));
+        Assert.Equal(1, calls);
+    }
+
     private static ApplicationRpcHandler Create(
         Action<string>? openExternal = null,
         Action? exit = null,
         Action? minimize = null,
         Func<string, object>? addStartup = null,
+        Func<CancellationToken, Task<string?>>? pickStartup = null,
         Action? show = null)
         => new(new LocalizationService(), new ApplicationRpcActions(
             GetGamingMode: () => new { active = false },
             SetGamingMode: _ => Task.FromResult<object?>(new { active = true }),
             GetStartupApps: () => new { enabled = Array.Empty<object>(), disabled = Array.Empty<object>() },
-            PickStartupExecutable: _ => Task.FromResult<string?>(null),
+            PickStartupExecutable: pickStartup ?? (_ => Task.FromResult<string?>(null)),
             AddStartupApp: addStartup ?? (path => new { path }),
             SetStartupAppEnabled: (_, _) => true,
             RemoveStartupApp: _ => true,

@@ -101,6 +101,41 @@ public class BridgeRpcTests
     }
 
     [Fact]
+    public void HandleLogError_sanitizes_controls_and_truncates_large_payloads()
+    {
+        string? logged = null;
+        var limiter = new BridgeRpc.LogErrorRateLimiter();
+        string message = "first\r\nsecond\t" + new string('x', 3000);
+
+        BridgeRpc.HandleLogError(message, "stack\r\nline", msg => logged = msg, limiter);
+
+        Assert.NotNull(logged);
+        Assert.DoesNotContain('\r', logged);
+        Assert.DoesNotContain('\n', logged);
+        Assert.DoesNotContain('\t', logged);
+        Assert.EndsWith("…[truncated]", logged);
+        Assert.True(logged!.Length <= 2053);
+    }
+
+    [Fact]
+    public void HandleLogError_rate_limits_to_twenty_entries_per_ten_seconds()
+    {
+        DateTimeOffset now = new(2026, 9, 29, 0, 0, 0, TimeSpan.Zero);
+        var limiter = new BridgeRpc.LogErrorRateLimiter(() => now);
+        var logged = new List<string>();
+
+        for (int i = 0; i < 22; i++)
+            BridgeRpc.HandleLogError("boom " + i, null, logged.Add, limiter);
+
+        Assert.Equal(21, logged.Count);
+        Assert.Equal(1, logged.Count(line => line.Contains("logError rate limit reached", StringComparison.Ordinal)));
+
+        now = now.AddSeconds(11);
+        BridgeRpc.HandleLogError("after window", null, logged.Add, limiter);
+        Assert.Contains("after window", logged[^1]);
+    }
+
+    [Fact]
     public void Simulated_throwing_dispatch_yields_non_ok_payload_like_HandleMessageAsync()
     {
         // Mirrors HostBridge.HandleMessageAsync catch path without WebView2.

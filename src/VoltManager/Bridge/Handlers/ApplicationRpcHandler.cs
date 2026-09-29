@@ -1,3 +1,4 @@
+using System.IO;
 using System.Text.Json;
 using VoltManager.Bridge.Rpc;
 using VoltManager.Localization;
@@ -15,6 +16,8 @@ public sealed class ApplicationRpcHandler : IBridgeRpcHandler
 
     private readonly LocalizationService _loc;
     private readonly ApplicationRpcActions _actions;
+    private readonly object _startupPickGate = new();
+    private string? _pendingStartupExecutable;
 
     public ApplicationRpcHandler(LocalizationService loc, ApplicationRpcActions actions)
     {
@@ -41,11 +44,41 @@ public sealed class ApplicationRpcHandler : IBridgeRpcHandler
             case "getStartupApps":
                 return await Task.Run(_actions.GetStartupApps, cancellationToken);
             case "pickStartupExecutable":
-                return new { path = await _actions.PickStartupExecutable(cancellationToken) };
+            {
+                string? selected = await _actions.PickStartupExecutable(cancellationToken);
+                if (string.IsNullOrWhiteSpace(selected))
+                    return new { path = (string?)null };
+
+                string fullPath = Path.GetFullPath(selected);
+                lock (_startupPickGate)
+                    _pendingStartupExecutable = fullPath;
+                return new { path = fullPath };
+            }
             case "addStartupApp":
             {
                 string path = BridgePayload.RequiredString(payload, "path", _loc.T("Error_MissingPath"));
-                object entry = await Task.Run(() => _actions.AddStartupApp(path), cancellationToken);
+                string fullPath;
+                try
+                {
+                    fullPath = Path.GetFullPath(path);
+                }
+                catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+                {
+                    throw new InvalidOperationException("Startup application path was not selected by the host.");
+                }
+
+                lock (_startupPickGate)
+                {
+                    if (_pendingStartupExecutable == null ||
+                        !string.Equals(_pendingStartupExecutable, fullPath, StringComparison.OrdinalIgnoreCase))
+                    {
+                        throw new InvalidOperationException("Startup application path was not selected by the host.");
+                    }
+
+                    _pendingStartupExecutable = null;
+                }
+
+                object entry = await Task.Run(() => _actions.AddStartupApp(fullPath), cancellationToken);
                 return new { success = true, entry };
             }
             case "setStartupAppEnabled":

@@ -6,9 +6,7 @@ namespace VoltManager.Services;
 
 /// <summary>
 /// Listens for plan commands signalled by the non-elevated jump-list helper
-/// (VoltManagerPlanSwitch.exe). One named auto-reset event per command key;
-/// the DACL must grant Modify to authenticated users explicitly because this
-/// process runs elevated while the helper does not.
+/// (VoltManagerPlanSwitch.exe). One named auto-reset event per command key.
 /// </summary>
 public sealed class RemoteCommandService : IDisposable
 {
@@ -30,15 +28,7 @@ public sealed class RemoteCommandService : IDisposable
 
         foreach (string key in RemoteCommandProtocol.AllKeys)
         {
-            var security = new EventWaitHandleSecurity();
-            security.AddAccessRule(new EventWaitHandleAccessRule(
-                new SecurityIdentifier(WellKnownSidType.AuthenticatedUserSid, null),
-                EventWaitHandleRights.Modify | EventWaitHandleRights.Synchronize,
-                AccessControlType.Allow));
-            security.AddAccessRule(new EventWaitHandleAccessRule(
-                new SecurityIdentifier(WellKnownSidType.BuiltinAdministratorsSid, null),
-                EventWaitHandleRights.FullControl,
-                AccessControlType.Allow));
+            EventWaitHandleSecurity security = CreateEventSecurity();
 
             var evt = EventWaitHandleAcl.Create(
                 false, EventResetMode.AutoReset,
@@ -50,6 +40,26 @@ public sealed class RemoteCommandService : IDisposable
             _waits.Add((evt, wait));
         }
         }
+    }
+
+    internal static EventWaitHandleSecurity CreateEventSecurity()
+    {
+        SecurityIdentifier currentUser = WindowsIdentity.GetCurrent().User
+            ?? throw new InvalidOperationException("Current Windows user SID is unavailable.");
+        var security = new EventWaitHandleSecurity();
+        security.AddAccessRule(new EventWaitHandleAccessRule(
+            currentUser,
+            EventWaitHandleRights.Modify | EventWaitHandleRights.Synchronize,
+            AccessControlType.Allow));
+        security.AddAccessRule(new EventWaitHandleAccessRule(
+            new SecurityIdentifier(WellKnownSidType.LocalSystemSid, null),
+            EventWaitHandleRights.FullControl,
+            AccessControlType.Allow));
+        security.AddAccessRule(new EventWaitHandleAccessRule(
+            new SecurityIdentifier(WellKnownSidType.BuiltinAdministratorsSid, null),
+            EventWaitHandleRights.FullControl,
+            AccessControlType.Allow));
+        return security;
     }
 
     public void Stop()

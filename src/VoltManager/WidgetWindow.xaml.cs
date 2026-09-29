@@ -152,8 +152,13 @@ public partial class WidgetWindow : Window
             ?? throw new InvalidOperationException("Widget CoreWebView2 not ready.");
         string wwwroot = Path.Combine(AppContext.BaseDirectory, "wwwroot");
         core.SetVirtualHostNameToFolderMapping("app.local", wwwroot,
-            CoreWebView2HostResourceAccessKind.Allow);
+            CoreWebView2HostResourceAccessKind.DenyCors);
 
+#if DEBUG
+        core.Settings.AreDevToolsEnabled = true;
+#else
+        core.Settings.AreDevToolsEnabled = false;
+#endif
         core.Settings.AreDefaultContextMenusEnabled = false;
         core.Settings.IsZoomControlEnabled = false;
         core.Settings.AreBrowserAcceleratorKeysEnabled = false;

@@ -93,6 +93,7 @@ internal sealed class LauncherDiscoveryService
         var detected = await EnsureDetectedAsync(false, ct).ConfigureAwait(false);
         string? path = null;
         string? args = null;
+        bool isCustom = false;
 
         var match = detected.FirstOrDefault(d => string.Equals(d.Definition.Id, id, StringComparison.OrdinalIgnoreCase));
         if (match.Definition != null)
@@ -104,13 +105,30 @@ internal sealed class LauncherDiscoveryService
             var custom = _settings.Current.Launcher.CustomApps
                 .FirstOrDefault(a => string.Equals(a.Id, id, StringComparison.OrdinalIgnoreCase));
             if (custom != null)
+            {
                 path = custom.Path;
+                isCustom = true;
+            }
         }
 
         if (path == null)
             return new LaunchResult(false, "unknown");
+
+        if (isCustom)
+        {
+            string? validatedPath = ValidateCustomLaunchPath(path, _environment.FileExists, out string? validationError);
+            if (validatedPath == null)
+            {
+                Logger.Warn("Launcher custom path " + validationError + " at launch: " + id);
+                return new LaunchResult(false, validationError);
+            }
+            path = validatedPath;
+        }
+
         if (!_environment.FileExists(path))
+        {
             return new LaunchResult(false, "missing");
+        }
 
         try
         {
@@ -445,6 +463,43 @@ internal sealed class LauncherDiscoveryService
         {
             return null;
         }
+    }
+
+    internal static string? NormalizeCustomLaunchPath(string? path)
+    {
+        if (!LauncherSettings.IsAllowedCustomPath(path))
+            return null;
+        try
+        {
+            string fullPath = Path.GetFullPath(path!.Trim());
+            return LauncherSettings.IsAllowedCustomPath(fullPath) ? fullPath : null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    internal static string? ValidateCustomLaunchPath(
+        string? path,
+        Func<string, bool> fileExists,
+        out string? error)
+    {
+        ArgumentNullException.ThrowIfNull(fileExists);
+        string? fullPath = NormalizeCustomLaunchPath(path);
+        if (fullPath == null)
+        {
+            error = "invalid";
+            return null;
+        }
+        if (!fileExists(fullPath))
+        {
+            error = "missing";
+            return null;
+        }
+
+        error = null;
+        return fullPath;
     }
 
     private static void StartProcess(string path, string? args)

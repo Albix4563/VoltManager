@@ -201,6 +201,28 @@ public sealed class LauncherDiscoveryServiceTests : IDisposable
         Assert.Empty(_launched);
     }
 
+    [Theory]
+    [InlineData(@"D:\Tools\payload.txt")]
+    [InlineData(@"\\server\share\payload.exe")]
+    [InlineData("relative.exe")]
+    public void Custom_launch_refuses_disallowed_stored_paths(string path)
+    {
+        string? validated = LauncherDiscoveryService.ValidateCustomLaunchPath(path, _ => true, out string? error);
+
+        Assert.Null(validated);
+        Assert.Equal("invalid", error);
+    }
+
+    [Fact]
+    public void Custom_launch_refuses_missing_stored_path()
+    {
+        string? validated = LauncherDiscoveryService.ValidateCustomLaunchPath(
+            @"D:\Tools\missing.exe", _ => false, out string? error);
+
+        Assert.Null(validated);
+        Assert.Equal("missing", error);
+    }
+
     [Fact]
     public async Task Missing_transient_shortcut_is_repaired_from_start_menu()
     {

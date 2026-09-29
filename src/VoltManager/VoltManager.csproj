@@ -19,6 +19,12 @@
     <ServerGarbageCollection>false</ServerGarbageCollection>
     <ConcurrentGarbageCollection>false</ConcurrentGarbageCollection>
     <RetainVMGarbageCollection>false</RetainVMGarbageCollection>
+    <VoltManagerValidationHooks Condition="'$(VoltManagerValidationHooks)' == '' and '$(_IsPublishing)' != 'true'">true</VoltManagerValidationHooks>
+    <VoltManagerValidationHooks Condition="'$(VoltManagerValidationHooks)' == '' and '$(_IsPublishing)' == 'true'">false</VoltManagerValidationHooks>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(VoltManagerValidationHooks)' == 'true'">
+    <DefineConstants>$(DefineConstants);VOLTMANAGER_VALIDATION_HOOKS</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>

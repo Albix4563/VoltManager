@@ -6,47 +6,61 @@ using System.Text;
 namespace VoltManager.Services;
 
 /// <summary>
-/// Private validation hooks used by the repository's Windows harness. Production runs
-/// never set these variables, so normal paths and power behavior are unchanged.
+/// Private validation hooks used by the repository's Windows harness. Published builds
+/// compile the hooks out so validation environment variables cannot affect host behavior.
 /// </summary>
 internal static class ValidationEnvironment
 {
     internal const string RootVariable = "VOLTMANAGER_VALIDATION_ROOT";
     internal const string SuppressPowerVariable = "VOLTMANAGER_VALIDATION_NO_POWER_CHANGES";
     internal const string RendererVariable = "VOLTMANAGER_VALIDATION_RENDERER";
+#if VOLTMANAGER_VALIDATION_HOOKS
+    internal const bool HooksCompiledIn = true;
+#else
+    internal const bool HooksCompiledIn = false;
+#endif
 
     public static bool IsActive
-        => !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(RootVariable));
+        => HooksCompiledIn && !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(RootVariable));
 
-    public static string ApplicationDataRoot
+    public static string ApplicationDataRoot => ResolveRoot(HooksCompiledIn, Environment.GetEnvironmentVariable);
+
+    internal static string ResolveRoot(bool hooksEnabled, Func<string, string?> env)
     {
-        get
-        {
-            string? validationRoot = Environment.GetEnvironmentVariable(RootVariable);
-            return string.IsNullOrWhiteSpace(validationRoot)
-                ? Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData)
-                : Path.GetFullPath(validationRoot);
-        }
+        ArgumentNullException.ThrowIfNull(env);
+        if (!hooksEnabled)
+            return Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+
+        string? validationRoot = env(RootVariable);
+        return string.IsNullOrWhiteSpace(validationRoot)
+            ? Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData)
+            : Path.GetFullPath(validationRoot);
     }
 
     public static bool SuppressPowerChanges
-        => string.Equals(Environment.GetEnvironmentVariable(SuppressPowerVariable), "1", StringComparison.Ordinal);
+        => HooksCompiledIn &&
+           string.Equals(Environment.GetEnvironmentVariable(SuppressPowerVariable), "1", StringComparison.Ordinal);
 
     public static WebViewRendererVariant RendererVariant
-        => !IsActive || IsValidationRenderer("hardware")
+        => !HooksCompiledIn || !IsActive || IsValidationRenderer("hardware")
             ? WebViewRendererVariant.HardwareDefault
             : WebViewRendererVariant.SwiftShader;
 
     public static string NamedObject(string productionName)
     {
+#if !VOLTMANAGER_VALIDATION_HOOKS
+        return productionName;
+#else
         string? validationRoot = Environment.GetEnvironmentVariable(RootVariable);
         if (string.IsNullOrWhiteSpace(validationRoot)) return productionName;
         byte[] digest = SHA256.HashData(Encoding.UTF8.GetBytes(Path.GetFullPath(validationRoot).ToUpperInvariant()));
         return productionName + "_Validation_" + Convert.ToHexString(digest.AsSpan(0, 6));
+#endif
     }
 
     private static bool IsValidationRenderer(string value)
-        => !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(RootVariable))
+        => HooksCompiledIn
+            && !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(RootVariable))
             && string.Equals(Environment.GetEnvironmentVariable(RendererVariable), value, StringComparison.OrdinalIgnoreCase);
 }
 
