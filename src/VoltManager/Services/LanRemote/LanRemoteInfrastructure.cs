@@ -197,7 +197,15 @@ internal static class LanRemoteCertificateManager
                      .Where(c => string.Equals(c.Subject, SubjectName, StringComparison.OrdinalIgnoreCase))
                      .ToArray())
         {
-            try { store.Remove(old); } catch { }
+            TryDeletePrivateKey(old);
+            try
+            {
+                store.Remove(old);
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn("Could not remove old LAN remote-control certificate: " + ex.Message);
+            }
         }
 
         using RSA rsa = RSA.Create(2048);
@@ -224,6 +232,28 @@ internal static class LanRemoteCertificateManager
         try { persistent.FriendlyName = "VoltManager LAN Remote"; } catch { }
         store.Add(persistent);
         return persistent;
+    }
+
+    private static void TryDeletePrivateKey(X509Certificate2 certificate)
+    {
+        try
+        {
+            using RSA? rsa = certificate.GetRSAPrivateKey();
+            switch (rsa)
+            {
+                case RSACng cng:
+                    cng.Key.Delete();
+                    break;
+                case RSACryptoServiceProvider csp:
+                    csp.PersistKeyInCsp = false;
+                    csp.Clear();
+                    break;
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn("Could not delete old LAN remote-control certificate private key: " + ex.Message);
+        }
     }
 
     public static string Sha256Fingerprint(X509Certificate2 certificate)

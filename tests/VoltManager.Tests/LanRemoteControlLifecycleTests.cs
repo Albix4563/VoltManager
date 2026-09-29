@@ -101,10 +101,10 @@ public sealed class LanRemoteControlLifecycleTests
     public async Task Stop_under_non_pumping_synchronization_context_does_not_deadlock()
     {
         using var fixture = new LanFixture();
-        var warnings = new List<string>();
-        using var service = fixture.Create(shutdownTimeout: TimeSpan.FromSeconds(2), warningLogger: warnings.Add);
+        using var service = fixture.Create(shutdownTimeout: TimeSpan.FromSeconds(2));
         await service.StartAsync().WaitAsync(TimeSpan.FromSeconds(5));
         SynchronizationContext? previous = SynchronizationContext.Current;
+        var stopwatch = Stopwatch.StartNew();
         try
         {
             SynchronizationContext.SetSynchronizationContext(new NonPumpingSynchronizationContext());
@@ -115,28 +115,99 @@ public sealed class LanRemoteControlLifecycleTests
             SynchronizationContext.SetSynchronizationContext(previous);
         }
 
+        stopwatch.Stop();
+        Assert.True(stopwatch.Elapsed < TimeSpan.FromMilliseconds(500));
+        await service.StopAsync().WaitAsync(TimeSpan.FromSeconds(2));
         Assert.False(service.GetState().Running);
-        Assert.Empty(warnings);
     }
 
     [Fact]
-    public async Task Stop_timeout_logs_and_returns()
+    public async Task Stop_returns_without_waiting_for_blocked_stop_hook()
     {
         using var fixture = new LanFixture();
         var blocker = NewSignal();
-        var warnings = new List<string>();
         using var service = fixture.Create(
             beforeStop: _ => blocker.Task,
             shutdownTimeout: TimeSpan.FromMilliseconds(50),
-            warningLogger: warnings.Add,
             addresses: []);
 
+        var stopwatch = Stopwatch.StartNew();
         service.Stop();
+        stopwatch.Stop();
 
-        Assert.Single(warnings);
-        Assert.Contains("did not complete", warnings[0], StringComparison.Ordinal);
+        Assert.True(stopwatch.Elapsed < TimeSpan.FromMilliseconds(500));
         blocker.TrySetResult();
         await service.StopAsync().WaitAsync(TimeSpan.FromSeconds(2));
+    }
+
+    [Fact]
+    public async Task Failed_enable_keeps_enabled_false_and_exposes_last_error()
+    {
+        using var fixture = new LanFixture(enabled: false);
+        using var service = fixture.Create(
+            beforeStart: _ => Task.FromException(new InvalidOperationException("listener failed")));
+
+        LanRemoteEnableResult result = await service.SetEnabledAsync(true).WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.False(result.State.Enabled);
+        Assert.False(result.State.Running);
+        Assert.NotNull(result.State.LastError);
+        Assert.Contains("listener failed", result.State.LastError!, StringComparison.Ordinal);
+        Assert.False(fixture.Settings.Current.LanRemoteControl.Enabled);
+    }
+
+    [Fact]
+    public void Corrupt_auth_file_disables_feature_and_state_exposes_flag()
+    {
+        using var fixture = new LanFixture(enabled: true);
+        File.WriteAllText(fixture.AuthPath, "{broken");
+        var auth = new LanRemoteAuthStore(fixture.AuthPath);
+
+        using var service = fixture.Create(auth: auth);
+
+        Assert.False(fixture.Settings.Current.LanRemoteControl.Enabled);
+        Assert.True(service.GetState().AuthStoreCorrupt);
+        Assert.False(service.GetState().HasPin);
+
+        service.SetPin("Abc12345");
+        Assert.False(service.GetState().AuthStoreCorrupt);
+    }
+
+    [Fact]
+    public void Generating_new_secret_clears_corrupt_auth_flag()
+    {
+        using var fixture = new LanFixture(enabled: false);
+        File.WriteAllText(fixture.AuthPath, "{broken");
+        var auth = new LanRemoteAuthStore(fixture.AuthPath);
+        using var service = fixture.Create(auth: auth);
+
+        string secret = service.GeneratePin();
+
+        Assert.True(LanRemotePinAuth.IsValidPin(secret));
+        Assert.False(service.GetState().AuthStoreCorrupt);
+        Assert.True(service.GetState().HasPin);
+    }
+
+    [Fact]
+    public void Legacy_auth_keeps_has_pin_and_requests_regeneration()
+    {
+        using var fixture = new LanFixture(enabled: false);
+        var legacy = new LanRemotePinVerifier
+        {
+            SaltBase64 = Convert.ToBase64String(new byte[16]),
+            HashBase64 = Convert.ToBase64String(new byte[32]),
+            Iterations = LanRemotePinAuth.Iterations,
+            Digits = 4,
+        };
+        File.WriteAllText(fixture.AuthPath, System.Text.Json.JsonSerializer.Serialize(legacy));
+        var auth = new LanRemoteAuthStore(fixture.AuthPath);
+
+        using var service = fixture.Create(auth: auth);
+        LanRemoteControlState state = service.GetState();
+
+        Assert.True(state.HasPin);
+        Assert.True(state.PinNeedsRegeneration);
+        Assert.False(state.AuthStoreCorrupt);
     }
 
     [Fact]
@@ -181,6 +252,9 @@ public sealed class LanRemoteControlLifecycleTests
         private readonly SettingsService _settings;
         private readonly int _port;
 
+        public SettingsService Settings => _settings;
+        public string AuthPath => Path.Combine(_root, "auth.json");
+
         public LanFixture(bool enabled = true)
         {
             _root = Path.Combine(Path.GetTempPath(), "VoltManager.Tests", Guid.NewGuid().ToString("N"));
@@ -199,7 +273,8 @@ public sealed class LanRemoteControlLifecycleTests
             Func<CancellationToken, Task>? beforeStop = null,
             TimeSpan? shutdownTimeout = null,
             Action<string>? warningLogger = null,
-            IReadOnlyList<IPAddress>? addresses = null)
+            IReadOnlyList<IPAddress>? addresses = null,
+            LanRemoteAuthStore? auth = null)
             => new(
                 _settings,
                 new LanRemoteControlActions(
@@ -208,7 +283,7 @@ public sealed class LanRemoteControlLifecycleTests
                     _ => { },
                     () => new WindowsPowerCapabilityState(true, true),
                     () => "1.0.0"),
-                auth: new LanRemoteAuthStore(Path.Combine(_root, "auth.json")),
+                auth: auth ?? new LanRemoteAuthStore(AuthPath),
                 firewall: new RecordingFirewall(),
                 addressProvider: () => addresses ?? [IPAddress.Loopback],
                 portAvailable: (_, _) => true,

@@ -5,4 +5,7 @@ namespace VoltManager.Services;
 public interface IPowerActionExecutor
 {
     void Execute(ScheduledPowerActionType action);
+
+    void Execute(ScheduledPowerActionType action, int shutdownDelaySeconds)
+        => Execute(action);
 }

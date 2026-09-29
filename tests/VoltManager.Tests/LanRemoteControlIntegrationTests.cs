@@ -4,6 +4,7 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Net.Sockets;
+using System.Text;
 using System.Text.Json;
 using VoltManager.Models;
 using VoltManager.Services;
@@ -41,7 +42,7 @@ public sealed class LanRemoteControlIntegrationTests
     [Fact]
     public async Task Api_LoginProtectsStateRequiresCsrfAndLogoutRevokesSession()
     {
-        const string pin = "1234";
+        const string pin = "Abc2345678";
         int port = GetFreeTcpPort();
         SettingsService settings = TestSettings.Create(out string settingsPath);
         string root = Path.GetDirectoryName(settingsPath)!;
@@ -60,6 +61,7 @@ public sealed class LanRemoteControlIntegrationTests
         });
 
         var firewall = new RecordingFirewall();
+        var audit = new List<string>();
         using var service = new LanRemoteControlService(
             settings,
             CreateActions(),
@@ -69,7 +71,8 @@ public sealed class LanRemoteControlIntegrationTests
             portAvailable: (_, _) => true,
             clientAddressAllowed: _ => true,
             remoteAssetsPath: remoteAssetsPath,
-            useHttps: false);
+            useHttps: false,
+            auditLogger: audit.Add);
 
         await service.StartAsync();
         Assert.True(service.GetState().Running);
@@ -92,6 +95,25 @@ public sealed class LanRemoteControlIntegrationTests
         HttpResponseMessage anonymous = await client.GetAsync("api/state");
         Assert.Equal(HttpStatusCode.Unauthorized, anonymous.StatusCode);
 
+        using var oversizedLogin = new HttpRequestMessage(HttpMethod.Post, "api/auth/login")
+        {
+            Content = new StringContent(
+                "{\"pin\":\"" + new string('A', 5000) + "\"}",
+                Encoding.UTF8,
+                "application/json")
+        };
+        AddOrigin(oversizedLogin, port);
+        using HttpResponseMessage oversizedResponse = await client.SendAsync(oversizedLogin);
+        Assert.Equal(HttpStatusCode.RequestEntityTooLarge, oversizedResponse.StatusCode);
+
+        using var wrongLogin = new HttpRequestMessage(HttpMethod.Post, "api/auth/login")
+        {
+            Content = JsonContent.Create(new { pin = "Wrong1234" })
+        };
+        AddOrigin(wrongLogin, port);
+        using HttpResponseMessage wrongLoginResponse = await client.SendAsync(wrongLogin);
+        Assert.Equal(HttpStatusCode.Unauthorized, wrongLoginResponse.StatusCode);
+
         using var login = new HttpRequestMessage(HttpMethod.Post, "api/auth/login")
         {
             Content = JsonContent.Create(new { pin })
@@ -102,6 +124,9 @@ public sealed class LanRemoteControlIntegrationTests
         using JsonDocument loginJson = JsonDocument.Parse(await loginResponse.Content.ReadAsStringAsync());
         string csrf = loginJson.RootElement.GetProperty("csrfToken").GetString()!;
         Assert.False(string.IsNullOrWhiteSpace(csrf));
+        Assert.Contains(audit, line => line.Contains("result=failure", StringComparison.Ordinal));
+        Assert.Contains(audit, line => line.Contains("result=success", StringComparison.Ordinal));
+        Assert.DoesNotContain(audit, line => line.Contains(pin, StringComparison.Ordinal));
 
         HttpResponseMessage stateResponse = await client.GetAsync("api/state");
         Assert.Equal(HttpStatusCode.OK, stateResponse.StatusCode);
@@ -133,7 +158,7 @@ public sealed class LanRemoteControlIntegrationTests
     [Fact]
     public async Task PowerActions_RequireCsrfPermissionAndCurrentCapabilityBeforeRouting()
     {
-        const string pin = "1234";
+        const string pin = "Abc2345678";
         int port = GetFreeTcpPort();
         SettingsService settings = TestSettings.Create(out string settingsPath);
         string root = Path.GetDirectoryName(settingsPath)!;
@@ -143,22 +168,30 @@ public sealed class LanRemoteControlIntegrationTests
         {
             current.LanRemoteControl.Enabled = true;
             current.LanRemoteControl.Port = port;
+            current.LanRemoteControl.AllowShutdown = true;
+            current.LanRemoteControl.AllowRestart = true;
             current.LanRemoteControl.AllowSleep = true;
             current.LanRemoteControl.AllowHibernate = false;
         });
 
         WindowsPowerCapabilityState capabilities = new(SleepAvailable: true, HibernateAvailable: true);
         var routedActions = new List<ScheduledPowerActionType>();
+        var delayedActions = new List<(ScheduledPowerActionType Action, int DelaySeconds)>();
+        var audit = new List<string>();
         using var service = new LanRemoteControlService(
             settings,
-            CreateActions(() => capabilities, routedActions.Add),
+            CreateActions(
+                () => capabilities,
+                routedActions.Add,
+                (action, delay) => delayedActions.Add((action, delay))),
             auth: auth,
             firewall: new RecordingFirewall(),
             addressProvider: () => [IPAddress.Loopback],
             portAvailable: (_, _) => true,
             clientAddressAllowed: _ => true,
             remoteAssetsPath: root,
-            useHttps: false);
+            useHttps: false,
+            auditLogger: audit.Add);
 
         await service.StartAsync();
         using var handler = new HttpClientHandler
@@ -203,17 +236,41 @@ public sealed class LanRemoteControlIntegrationTests
         using HttpResponseMessage sleep = await SendPowerActionAsync(client, port, "sleep", csrf);
         Assert.Equal(HttpStatusCode.Accepted, sleep.StatusCode);
         Assert.Equal([ScheduledPowerActionType.Hibernate, ScheduledPowerActionType.Sleep], routedActions);
+
+        using HttpResponseMessage shutdown = await SendPowerActionAsync(client, port, "shutdown", csrf);
+        Assert.Equal(HttpStatusCode.Accepted, shutdown.StatusCode);
+        using JsonDocument shutdownJson = JsonDocument.Parse(await shutdown.Content.ReadAsStringAsync());
+        Assert.Equal(LanRemoteControlService.PowerActionDelaySeconds, shutdownJson.RootElement.GetProperty("delaySeconds").GetInt32());
+        Assert.Equal(
+            [(ScheduledPowerActionType.Shutdown, LanRemoteControlService.PowerActionDelaySeconds)],
+            delayedActions);
+        Assert.Contains(audit, line => line.Contains("action=Shutdown", StringComparison.Ordinal)
+            && line.Contains("result=accepted", StringComparison.Ordinal));
+
+        using HttpResponseMessage restart = await SendPowerActionAsync(client, port, "restart", csrf);
+        Assert.Equal(HttpStatusCode.Accepted, restart.StatusCode);
+        using JsonDocument restartJson = JsonDocument.Parse(await restart.Content.ReadAsStringAsync());
+        Assert.Equal(LanRemoteControlService.PowerActionDelaySeconds, restartJson.RootElement.GetProperty("delaySeconds").GetInt32());
+        Assert.Equal(
+            [
+                (ScheduledPowerActionType.Shutdown, LanRemoteControlService.PowerActionDelaySeconds),
+                (ScheduledPowerActionType.Restart, LanRemoteControlService.PowerActionDelaySeconds),
+            ],
+            delayedActions);
+        Assert.DoesNotContain(audit, line => line.Contains(pin, StringComparison.Ordinal));
     }
 
     private static LanRemoteControlActions CreateActions(
         Func<WindowsPowerCapabilityState>? getCapabilities = null,
-        Action<ScheduledPowerActionType>? executePowerAction = null)
+        Action<ScheduledPowerActionType>? executePowerAction = null,
+        Action<ScheduledPowerActionType, int>? executePowerActionWithDelay = null)
         => new(
             () => new PowerPlan { PlanId = PlanId.Balanced, Name = "Balanced", IsActive = true },
             _ => true,
             executePowerAction ?? (_ => { }),
             getCapabilities ?? (() => new WindowsPowerCapabilityState(SleepAvailable: true, HibernateAvailable: true)),
-            () => "1.0.0");
+            () => "1.0.0",
+            executePowerActionWithDelay);
 
     private static async Task<HttpResponseMessage> SendPowerActionAsync(
         HttpClient client,

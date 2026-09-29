@@ -4,12 +4,21 @@ using VoltManager.Models;
 
 namespace VoltManager.Services.LanRemote;
 
+internal enum LanRemoteAuthStoreStatus
+{
+    Missing,
+    Valid,
+    Legacy,
+    Corrupt,
+}
+
 internal sealed class LanRemoteAuthStore
 {
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
     private readonly object _sync = new();
     private readonly string _path;
     private LanRemotePinVerifier? _verifier;
+    private LanRemoteAuthStoreStatus _status;
 
     public LanRemoteAuthStore(string? path = null)
     {
@@ -17,12 +26,27 @@ internal sealed class LanRemoteAuthStore
             ValidationEnvironment.ApplicationDataRoot,
             "VoltManager",
             "remote-control-auth.json");
-        _verifier = Load();
+        (_verifier, _status) = Load();
     }
 
     public bool HasPin
     {
         get { lock (_sync) return _verifier is not null; }
+    }
+
+    public bool PinNeedsRegeneration
+    {
+        get { lock (_sync) return _status == LanRemoteAuthStoreStatus.Legacy; }
+    }
+
+    public bool IsCorrupt
+    {
+        get { lock (_sync) return _status == LanRemoteAuthStoreStatus.Corrupt; }
+    }
+
+    internal LanRemoteAuthStoreStatus Status
+    {
+        get { lock (_sync) return _status; }
     }
 
     public void SetPin(string pin)
@@ -32,38 +56,51 @@ internal sealed class LanRemoteAuthStore
         {
             Persist(verifier);
             _verifier = verifier;
+            _status = LanRemoteAuthStoreStatus.Valid;
         }
     }
 
     public bool Verify(string? pin)
     {
         lock (_sync)
-            return LanRemotePinAuth.Verify(pin, _verifier);
+            return _status == LanRemoteAuthStoreStatus.Valid && LanRemotePinAuth.Verify(pin, _verifier);
     }
 
-    private LanRemotePinVerifier? Load()
+    private (LanRemotePinVerifier? Verifier, LanRemoteAuthStoreStatus Status) Load()
     {
         try
         {
             if (!File.Exists(_path))
-                return null;
+                return (null, LanRemoteAuthStoreStatus.Missing);
             string json = File.ReadAllText(_path);
             LanRemotePinVerifier? verifier = JsonSerializer.Deserialize<LanRemotePinVerifier>(json, JsonOptions);
             if (verifier is null)
-                return null;
-            if (Convert.FromBase64String(verifier.SaltBase64).Length != 16
-                || Convert.FromBase64String(verifier.HashBase64).Length != 32
-                || verifier.Iterations != LanRemotePinAuth.Iterations
-                || verifier.Digits != LanRemotePinAuth.PinLength)
             {
-                return null;
+                Logger.Warn("LAN remote-control authentication verifier is corrupt.");
+                return (null, LanRemoteAuthStoreStatus.Corrupt);
             }
-            return verifier;
+            if (string.IsNullOrEmpty(verifier.SaltBase64)
+                || string.IsNullOrEmpty(verifier.HashBase64)
+                || Convert.FromBase64String(verifier.SaltBase64).Length != 16
+                || Convert.FromBase64String(verifier.HashBase64).Length != 32
+                || verifier.Iterations != LanRemotePinAuth.Iterations)
+            {
+                Logger.Warn("LAN remote-control authentication verifier is corrupt.");
+                return (null, LanRemoteAuthStoreStatus.Corrupt);
+            }
+
+            if (LanRemotePinAuth.IsCurrentVerifier(verifier))
+                return (verifier, LanRemoteAuthStoreStatus.Valid);
+            if (LanRemotePinAuth.IsLegacyVerifier(verifier))
+                return (verifier, LanRemoteAuthStoreStatus.Legacy);
+
+            Logger.Warn("LAN remote-control authentication verifier uses unsupported parameters.");
+            return (null, LanRemoteAuthStoreStatus.Corrupt);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or FormatException)
         {
             Logger.Warn("Could not load LAN remote-control authentication verifier: " + ex.Message);
-            return null;
+            return (null, LanRemoteAuthStoreStatus.Corrupt);
         }
     }
 

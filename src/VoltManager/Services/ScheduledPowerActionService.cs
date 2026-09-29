@@ -39,6 +39,9 @@ public sealed class ScheduledPowerActionService : IDisposable
 
     public void ExecuteNow(ScheduledPowerActionType action) => _executor.Execute(action);
 
+    public void ExecuteNow(ScheduledPowerActionType action, int shutdownDelaySeconds)
+        => _executor.Execute(action, shutdownDelaySeconds);
+
     public ScheduledPowerActionState ScheduleAfter(TimeSpan delay, ScheduledPowerActionType action)
     {
         ValidateDelay(delay);

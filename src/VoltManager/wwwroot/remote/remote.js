@@ -219,8 +219,8 @@
   loginForm.addEventListener('submit', async event => {
     event.preventDefault();
     const pin = pinInput.value.trim();
-    if (!/^[0-9]{4}$/.test(pin)) {
-      loginError.textContent = 'Enter exactly 4 digits.';
+    if (!/^[A-Za-z0-9]{8,64}$/.test(pin)) {
+      loginError.textContent = 'Enter the secret using 8–64 letters or numbers.';
       return;
     }
     loginButton.disabled = true;
@@ -233,11 +233,14 @@
         body: JSON.stringify({ pin })
       });
       if (response.status === 401) {
-        loginError.textContent = 'Incorrect PIN.';
+        loginError.textContent = 'Incorrect secret.';
         return;
       }
       if (response.status === 429) {
-        loginError.textContent = 'Too many attempts. Try again in a minute.';
+        const retryAfter = Number.parseInt(response.headers.get('Retry-After') || '', 10);
+        loginError.textContent = Number.isFinite(retryAfter) && retryAfter > 0
+          ? `Too many attempts. Try again in ${retryAfter} seconds.`
+          : 'Too many attempts. Try again shortly.';
         return;
       }
       if (!response.ok) {
@@ -259,7 +262,7 @@
   });
 
   pinInput.addEventListener('input', event => {
-    event.target.value = event.target.value.replace(/[^0-9]/g, '').slice(0, 4);
+    event.target.value = event.target.value.slice(0, 64);
   });
 
   $('logout-button').addEventListener('click', async () => {

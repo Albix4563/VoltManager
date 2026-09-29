@@ -9,33 +9,38 @@ namespace VoltManager.Tests;
 public sealed class LanRemoteControlSecurityTests
 {
     [Theory]
-    [InlineData("0000", true)]
-    [InlineData("1234", true)]
-    [InlineData("123", false)]
-    [InlineData("12345", false)]
-    [InlineData("123a", false)]
-    [InlineData(" 1234", false)]
-    public void PinValidation_RequiresExactlyFourAsciiDigits(string pin, bool expected)
+    [InlineData("Abc12345", true)]
+    [InlineData("ABCDEFGH", true)]
+    [InlineData("abc1234", false)]
+    [InlineData("Abc1234!", false)]
+    [InlineData(" Abc12345", false)]
+    [InlineData("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789AB", true)]
+    [InlineData("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABC", false)]
+    public void PinValidation_RequiresEightToSixtyFourAsciiLettersOrDigits(string pin, bool expected)
         => Assert.Equal(expected, LanRemotePinAuth.IsValidPin(pin));
 
     [Fact]
     public void PinVerifier_UsesConfiguredPbkdf2ParametersAndRejectsWrongPin()
     {
-        const string pin = "1234";
+        const string pin = "Abc12345";
         LanRemotePinVerifier verifier = LanRemotePinAuth.CreateVerifier(pin);
 
         Assert.Equal(600_000, verifier.Iterations);
+        Assert.Equal(8, verifier.MinLength);
+        Assert.Equal(64, verifier.MaxLength);
+        Assert.Equal(0, verifier.Digits);
         Assert.Equal(16, Convert.FromBase64String(verifier.SaltBase64).Length);
         Assert.Equal(32, Convert.FromBase64String(verifier.HashBase64).Length);
         Assert.True(LanRemotePinAuth.Verify(pin, verifier));
-        Assert.False(LanRemotePinAuth.Verify("1235", verifier));
+        Assert.False(LanRemotePinAuth.Verify("Abc12346", verifier));
+        Assert.False(LanRemotePinAuth.Verify("abc12345", verifier));
     }
 
     [Fact]
-    public void GeneratedPin_IsAlwaysFourDigits()
+    public void GeneratedPin_IsTenUnambiguousAlphanumericCharacters()
     {
         for (int i = 0; i < 32; i++)
-            Assert.Matches("^[0-9]{4}$", LanRemotePinAuth.GeneratePin());
+            Assert.Matches("^[A-HJ-NP-Za-km-z2-9]{10}$", LanRemotePinAuth.GeneratePin());
     }
 
     [Fact]
@@ -68,22 +73,113 @@ public sealed class LanRemoteControlSecurityTests
     }
 
     [Fact]
-    public void LoginRateLimiter_EnforcesPerIpAndGlobalLimits()
+    public void LoginRateLimiter_LocksPerIpEscalatesAndLeavesOtherIpsUnaffected()
     {
-        var limiter = new LanRemoteLoginRateLimiter();
         DateTimeOffset now = new(2026, 9, 24, 8, 0, 0, TimeSpan.Zero);
+        var limiter = new LanRemoteLoginRateLimiter(() => now);
 
         for (int i = 0; i < 5; i++)
-            Assert.True(limiter.TryAcquire("192.168.1.10", now));
-        Assert.False(limiter.TryAcquire("192.168.1.10", now));
+        {
+            Assert.True(limiter.TryAcquire("192.168.1.10").Allowed);
+            limiter.RecordFailure("192.168.1.10");
+        }
 
-        for (int ip = 20; ip < 25; ip++)
-            for (int attempt = 0; attempt < 5; attempt++)
-                Assert.True(limiter.TryAcquire($"192.168.1.{ip}", now));
-        Assert.False(limiter.TryAcquire("192.168.1.99", now));
+        LanRemoteRateLimitResult firstLockout = limiter.TryAcquire("192.168.1.10");
+        Assert.False(firstLockout.Allowed);
+        Assert.Equal(TimeSpan.FromSeconds(30), firstLockout.RetryAfter);
+        Assert.True(limiter.TryAcquire("192.168.1.11").Allowed);
 
-        now = now.AddMinutes(1).AddMilliseconds(1);
-        Assert.True(limiter.TryAcquire("192.168.1.10", now));
+        now = now.AddSeconds(31);
+        for (int i = 0; i < 5; i++)
+        {
+            Assert.True(limiter.TryAcquire("192.168.1.10").Allowed);
+            limiter.RecordFailure("192.168.1.10");
+        }
+
+        LanRemoteRateLimitResult secondLockout = limiter.TryAcquire("192.168.1.10");
+        Assert.False(secondLockout.Allowed);
+        Assert.Equal(TimeSpan.FromSeconds(60), secondLockout.RetryAfter);
+    }
+
+    [Fact]
+    public void LoginRateLimiter_SuccessResetsIpPenalty()
+    {
+        DateTimeOffset now = new(2026, 9, 24, 8, 0, 0, TimeSpan.Zero);
+        var limiter = new LanRemoteLoginRateLimiter(() => now);
+
+        for (int i = 0; i < 5; i++)
+        {
+            Assert.True(limiter.TryAcquire("192.168.1.10").Allowed);
+            limiter.RecordFailure("192.168.1.10");
+        }
+
+        now = now.AddSeconds(31);
+        Assert.True(limiter.TryAcquire("192.168.1.10").Allowed);
+        limiter.RecordSuccess("192.168.1.10");
+
+        for (int i = 0; i < 5; i++)
+        {
+            Assert.True(limiter.TryAcquire("192.168.1.10").Allowed);
+            limiter.RecordFailure("192.168.1.10");
+        }
+
+        Assert.Equal(TimeSpan.FromSeconds(30), limiter.TryAcquire("192.168.1.10").RetryAfter);
+    }
+
+    [Fact]
+    public void LoginRateLimiter_ValidSessionSkipsIpLockoutButNotGlobalCap()
+    {
+        DateTimeOffset now = new(2026, 9, 24, 8, 0, 0, TimeSpan.Zero);
+        var limiter = new LanRemoteLoginRateLimiter(() => now);
+
+        for (int i = 0; i < LanRemoteLoginRateLimiter.FailureThreshold; i++)
+        {
+            Assert.True(limiter.TryAcquire("192.168.1.10").Allowed);
+            limiter.RecordFailure("192.168.1.10");
+        }
+        Assert.False(limiter.TryAcquire("192.168.1.10").Allowed);
+        Assert.True(limiter.TryAcquire("192.168.1.10", hasValidSession: true).Allowed);
+
+        while (limiter.TryAcquire("192.168.1.99").Allowed) { }
+        Assert.False(limiter.TryAcquire("192.168.1.10", hasValidSession: true).Allowed);
+    }
+
+    [Fact]
+    public void LoginRateLimiter_PrunesExpiredIpEntries()
+    {
+        DateTimeOffset now = new(2026, 9, 24, 8, 0, 0, TimeSpan.Zero);
+        var limiter = new LanRemoteLoginRateLimiter(() => now);
+
+        Assert.True(limiter.TryAcquire("192.168.1.10").Allowed);
+        limiter.RecordFailure("192.168.1.10");
+        Assert.Equal(1, limiter.TrackedIpCount);
+
+        now = now.AddMinutes(16);
+        Assert.True(limiter.TryAcquire("192.168.1.20").Allowed);
+        Assert.Equal(0, limiter.TrackedIpCount);
+    }
+
+    [Fact]
+    public void LoginRateLimiter_EscalationCapsAtFifteenMinutes()
+    {
+        DateTimeOffset now = new(2026, 9, 24, 8, 0, 0, TimeSpan.Zero);
+        var limiter = new LanRemoteLoginRateLimiter(() => now);
+        TimeSpan lastRetry = TimeSpan.Zero;
+
+        for (int level = 0; level < 6; level++)
+        {
+            for (int attempt = 0; attempt < LanRemoteLoginRateLimiter.FailureThreshold; attempt++)
+            {
+                Assert.True(limiter.TryAcquire("192.168.1.10").Allowed);
+                limiter.RecordFailure("192.168.1.10");
+            }
+
+            lastRetry = limiter.TryAcquire("192.168.1.10").RetryAfter;
+            Assert.True(lastRetry <= TimeSpan.FromMinutes(15));
+            now = now.Add(lastRetry).AddSeconds(1);
+        }
+
+        Assert.Equal(TimeSpan.FromMinutes(15), lastRetry);
     }
 
     [Theory]
@@ -143,19 +239,47 @@ public sealed class LanRemoteControlSecurityTests
     }
 
     [Fact]
-    public void AuthStore_IgnoresLegacyVerifierWithoutPinLength()
+    public void AuthStore_FlagsLegacyFourDigitVerifierForRegeneration()
     {
         string root = Path.Combine(Path.GetTempPath(), "VoltManager.Tests", Guid.NewGuid().ToString("N"));
         string path = Path.Combine(root, "remote-control-auth.json");
         try
         {
             Directory.CreateDirectory(root);
-            LanRemotePinVerifier legacy = LanRemotePinAuth.CreateVerifier("1234") with { Digits = 0 };
+            var legacy = new LanRemotePinVerifier
+            {
+                SaltBase64 = Convert.ToBase64String(new byte[16]),
+                HashBase64 = Convert.ToBase64String(new byte[32]),
+                Iterations = LanRemotePinAuth.Iterations,
+                Digits = 4,
+            };
             File.WriteAllText(path, System.Text.Json.JsonSerializer.Serialize(legacy));
 
             var store = new LanRemoteAuthStore(path);
-            Assert.False(store.HasPin);
+            Assert.True(store.HasPin);
+            Assert.True(store.PinNeedsRegeneration);
+            Assert.False(store.IsCorrupt);
             Assert.False(store.Verify("1234"));
+        }
+        finally
+        {
+            try { Directory.Delete(root, true); } catch { }
+        }
+    }
+
+    [Fact]
+    public void AuthStore_MissingFileIsNotCorrupt()
+    {
+        string root = Path.Combine(Path.GetTempPath(), "VoltManager.Tests", Guid.NewGuid().ToString("N"));
+        string path = Path.Combine(root, "remote-control-auth.json");
+        try
+        {
+            var store = new LanRemoteAuthStore(path);
+
+            Assert.Equal(LanRemoteAuthStoreStatus.Missing, store.Status);
+            Assert.False(store.HasPin);
+            Assert.False(store.PinNeedsRegeneration);
+            Assert.False(store.IsCorrupt);
         }
         finally
         {
@@ -168,7 +292,7 @@ public sealed class LanRemoteControlSecurityTests
     {
         string root = Path.Combine(Path.GetTempPath(), "VoltManager.Tests", Guid.NewGuid().ToString("N"));
         string path = Path.Combine(root, "remote-control-auth.json");
-        const string pin = "9876";
+        const string pin = "Abc98765";
         try
         {
             var store = new LanRemoteAuthStore(path);
@@ -176,13 +300,15 @@ public sealed class LanRemoteControlSecurityTests
 
             Assert.True(store.HasPin);
             Assert.True(store.Verify(pin));
-            Assert.False(store.Verify("9875"));
+            Assert.False(store.Verify("Abc98764"));
             string json = File.ReadAllText(path);
             Assert.DoesNotContain(pin, json, StringComparison.Ordinal);
             Assert.DoesNotContain("pin", json, StringComparison.OrdinalIgnoreCase);
 
             var reloaded = new LanRemoteAuthStore(path);
             Assert.True(reloaded.HasPin);
+            Assert.False(reloaded.PinNeedsRegeneration);
+            Assert.False(reloaded.IsCorrupt);
             Assert.True(reloaded.Verify(pin));
         }
         finally

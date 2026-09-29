@@ -18,7 +18,10 @@ public sealed record LanRemotePinVerifier
     [JsonPropertyName("salt")] public required string SaltBase64 { get; init; }
     [JsonPropertyName("hash")] public required string HashBase64 { get; init; }
     [JsonPropertyName("iterations")] public int Iterations { get; init; } = 600_000;
-    [JsonPropertyName("digits")] public int Digits { get; init; }
+    [JsonPropertyName("minLength")] public int MinLength { get; init; }
+    [JsonPropertyName("maxLength")] public int MaxLength { get; init; }
+    [JsonPropertyName("digits"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public int Digits { get; init; }
 }
 
 public sealed record LanRemoteControlState
@@ -30,6 +33,9 @@ public sealed record LanRemoteControlState
     [JsonPropertyName("urls")] public IReadOnlyList<string> Urls { get; init; } = [];
     [JsonPropertyName("tlsFingerprintSha256")] public string? TlsFingerprintSha256 { get; init; }
     [JsonPropertyName("hasPin")] public bool HasPin { get; init; }
+    [JsonPropertyName("pinNeedsRegeneration")] public bool PinNeedsRegeneration { get; init; }
+    [JsonPropertyName("authStoreCorrupt")] public bool AuthStoreCorrupt { get; init; }
+    [JsonPropertyName("lastError")] public string? LastError { get; init; }
     [JsonPropertyName("allowPlanChange")] public bool AllowPlanChange { get; init; }
     [JsonPropertyName("allowShutdown")] public bool AllowShutdown { get; init; }
     [JsonPropertyName("allowRestart")] public bool AllowRestart { get; init; }

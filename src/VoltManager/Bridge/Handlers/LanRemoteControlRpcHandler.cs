@@ -45,7 +45,7 @@ public sealed class LanRemoteControlRpcHandler : IBridgeRpcHandler
                 BridgePayload.RequiredBoolean(payload, "allowHibernate", "Invalid hibernate permission.")),
             "generateLanRemoteControlPin" => new { pin = _actions.GeneratePin(), state = _actions.GetState() },
             "setLanRemoteControlPin" => _actions.SetPin(
-                BridgePayload.RequiredString(payload, "pin", "Invalid LAN remote-control PIN.")),
+                BridgePayload.RequiredString(payload, "pin", "Invalid LAN remote-control access secret.")),
             _ => throw new InvalidOperationException("Unsupported LAN remote-control RPC method: " + method),
         };
 }

@@ -10,11 +10,14 @@ namespace VoltManager.Services.LanRemote;
 internal static partial class LanRemotePinAuth
 {
     public const int Iterations = 600_000;
-    public const int PinLength = 4;
+    public const int MinSecretLength = 8;
+    public const int MaxSecretLength = 64;
+    public const int GeneratedSecretLength = 10;
     private const int SaltSize = 16;
     private const int HashSize = 32;
+    private const string GeneratedSecretAlphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
 
-    [GeneratedRegex("^[0-9]{4}$", RegexOptions.CultureInvariant)]
+    [GeneratedRegex("^[A-Za-z0-9]{8,64}$", RegexOptions.CultureInvariant)]
     private static partial Regex PinRegex();
 
     public static bool IsValidPin(string? pin)
@@ -22,14 +25,18 @@ internal static partial class LanRemotePinAuth
 
     public static string GeneratePin()
     {
-        int value = RandomNumberGenerator.GetInt32(0, 10_000);
-        return value.ToString("D4", System.Globalization.CultureInfo.InvariantCulture);
+        Span<char> secret = stackalloc char[GeneratedSecretLength];
+        for (int i = 0; i < secret.Length; i++)
+            secret[i] = GeneratedSecretAlphabet[RandomNumberGenerator.GetInt32(GeneratedSecretAlphabet.Length)];
+        return new string(secret);
     }
 
     public static LanRemotePinVerifier CreateVerifier(string pin)
     {
         if (!IsValidPin(pin))
-            throw new ArgumentException("PIN must contain exactly 4 ASCII digits.", nameof(pin));
+            throw new ArgumentException(
+                $"Access secret must contain {MinSecretLength}-{MaxSecretLength} ASCII letters or digits.",
+                nameof(pin));
 
         byte[] salt = RandomNumberGenerator.GetBytes(SaltSize);
         byte[] hash = Rfc2898DeriveBytes.Pbkdf2(
@@ -44,13 +51,18 @@ internal static partial class LanRemotePinAuth
             SaltBase64 = Convert.ToBase64String(salt),
             HashBase64 = Convert.ToBase64String(hash),
             Iterations = Iterations,
-            Digits = PinLength,
+            MinLength = MinSecretLength,
+            MaxLength = MaxSecretLength,
         };
     }
 
     public static bool Verify(string? pin, LanRemotePinVerifier? verifier)
     {
-        if (!IsValidPin(pin) || verifier is null || verifier.Iterations <= 0)
+        if (!IsValidPin(pin)
+            || verifier is null
+            || string.IsNullOrEmpty(verifier.SaltBase64)
+            || string.IsNullOrEmpty(verifier.HashBase64)
+            || !IsCurrentVerifier(verifier))
             return false;
 
         try
@@ -69,6 +81,18 @@ internal static partial class LanRemotePinAuth
             return false;
         }
     }
+
+    public static bool IsCurrentVerifier(LanRemotePinVerifier verifier)
+        => verifier.Iterations == Iterations
+           && verifier.MinLength == MinSecretLength
+           && verifier.MaxLength == MaxSecretLength
+           && verifier.Digits == 0;
+
+    public static bool IsLegacyVerifier(LanRemotePinVerifier verifier)
+        => verifier.Iterations == Iterations
+           && verifier.MinLength == 0
+           && verifier.MaxLength == 0
+           && verifier.Digits == 4;
 }
 
 internal sealed record LanRemoteSession(
@@ -147,35 +171,134 @@ internal sealed class LanRemoteSessionStore
     }
 }
 
+internal readonly record struct LanRemoteRateLimitResult(bool Allowed, TimeSpan RetryAfter)
+{
+    public static LanRemoteRateLimitResult Permit => new(true, TimeSpan.Zero);
+}
+
 internal sealed class LanRemoteLoginRateLimiter
 {
-    private static readonly TimeSpan Window = TimeSpan.FromMinutes(1);
-    private readonly object _sync = new();
-    private readonly Dictionary<string, Queue<DateTimeOffset>> _perIp = new(StringComparer.Ordinal);
-    private readonly Queue<DateTimeOffset> _global = new();
+    internal const int FailureThreshold = 5;
+    internal const int GlobalAttemptLimit = 30;
+    private static readonly TimeSpan GlobalWindow = TimeSpan.FromMinutes(1);
+    private static readonly TimeSpan BaseLockout = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan MaxLockout = TimeSpan.FromMinutes(15);
+    private static readonly TimeSpan EntryRetention = TimeSpan.FromMinutes(15);
 
-    public bool TryAcquire(string ipAddress, DateTimeOffset now)
+    private sealed class IpState
     {
-        lock (_sync)
+        public int ConsecutiveFailures;
+        public int LockoutLevel;
+        public DateTimeOffset? LockedUntil;
+        public DateTimeOffset LastActivity;
+    }
+
+    private readonly object _sync = new();
+    private readonly Dictionary<string, IpState> _perIp = new(StringComparer.Ordinal);
+    private readonly Queue<DateTimeOffset> _global = new();
+    private readonly Func<DateTimeOffset> _clock;
+
+    public LanRemoteLoginRateLimiter(Func<DateTimeOffset>? clock = null)
+        => _clock = clock ?? (() => DateTimeOffset.UtcNow);
+
+    internal int TrackedIpCount
+    {
+        get
         {
-            Trim(_global, now);
-            if (!_perIp.TryGetValue(ipAddress, out Queue<DateTimeOffset>? perIp))
-                _perIp[ipAddress] = perIp = new Queue<DateTimeOffset>();
-            Trim(perIp, now);
-
-            if (perIp.Count >= 5 || _global.Count >= 30)
-                return false;
-
-            perIp.Enqueue(now);
-            _global.Enqueue(now);
-            return true;
+            lock (_sync)
+            {
+                Prune(_clock());
+                return _perIp.Count;
+            }
         }
     }
 
-    private static void Trim(Queue<DateTimeOffset> queue, DateTimeOffset now)
+    public LanRemoteRateLimitResult TryAcquire(string ipAddress, bool hasValidSession = false)
     {
-        while (queue.TryPeek(out DateTimeOffset timestamp) && now - timestamp >= Window)
-            queue.Dequeue();
+        DateTimeOffset now = _clock();
+        lock (_sync)
+        {
+            Prune(now);
+            // A valid session only skips the per-IP lockout (a legitimate user behind a
+            // locked address can still sign in); the global cap always applies so a session
+            // holder cannot drive unlimited PBKDF2 verifications.
+            if (!hasValidSession
+                && _perIp.TryGetValue(ipAddress, out IpState? state)
+                && state.LockedUntil is DateTimeOffset lockedUntil
+                && lockedUntil > now)
+            {
+                return new LanRemoteRateLimitResult(false, lockedUntil - now);
+            }
+
+            if (_global.Count >= GlobalAttemptLimit)
+            {
+                DateTimeOffset availableAt = _global.Peek() + GlobalWindow;
+                return new LanRemoteRateLimitResult(false, availableAt > now ? availableAt - now : TimeSpan.FromSeconds(1));
+            }
+
+            _global.Enqueue(now);
+            return LanRemoteRateLimitResult.Permit;
+        }
+    }
+
+    public void RecordSuccess(string ipAddress)
+    {
+        lock (_sync)
+        {
+            Prune(_clock());
+            _perIp.Remove(ipAddress);
+        }
+    }
+
+    public void RecordFailure(string ipAddress)
+    {
+        DateTimeOffset now = _clock();
+        lock (_sync)
+        {
+            Prune(now);
+            if (!_perIp.TryGetValue(ipAddress, out IpState? state))
+            {
+                state = new IpState();
+                _perIp[ipAddress] = state;
+            }
+
+            if (state.LockedUntil is DateTimeOffset lockedUntil && lockedUntil > now)
+            {
+                state.LastActivity = now;
+                return;
+            }
+
+            state.LockedUntil = null;
+            state.LastActivity = now;
+            state.ConsecutiveFailures++;
+            if (state.ConsecutiveFailures < FailureThreshold)
+                return;
+
+            state.ConsecutiveFailures = 0;
+            double seconds = BaseLockout.TotalSeconds * Math.Pow(2, state.LockoutLevel);
+            TimeSpan duration = TimeSpan.FromSeconds(Math.Min(seconds, MaxLockout.TotalSeconds));
+            state.LockoutLevel++;
+            state.LockedUntil = now + duration;
+        }
+    }
+
+    private void Prune(DateTimeOffset now)
+    {
+        while (_global.TryPeek(out DateTimeOffset timestamp) && now - timestamp >= GlobalWindow)
+            _global.Dequeue();
+
+        foreach ((string ip, IpState state) in _perIp.ToArray())
+        {
+            if (state.LockedUntil is DateTimeOffset lockedUntil && lockedUntil <= now)
+            {
+                if (lockedUntil > state.LastActivity)
+                    state.LastActivity = lockedUntil;
+                state.LockedUntil = null;
+            }
+
+            if (state.LockedUntil is null && now - state.LastActivity >= EntryRetention)
+                _perIp.Remove(ip);
+        }
     }
 }
 

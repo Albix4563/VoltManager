@@ -29,7 +29,17 @@
         if ($('lan-remote-url')) $('lan-remote-url').textContent = url;
         if ($('lan-remote-port')) $('lan-remote-port').textContent = String(next.port || 51737);
         if ($('lan-remote-fingerprint')) $('lan-remote-fingerprint').textContent = next.tlsFingerprintSha256 || '--';
-        if ($('lan-remote-pin-status')) $('lan-remote-pin-status').textContent = next.hasPin ? '••••' : t('remote_pin_missing');
+        if ($('lan-remote-pin-status')) $('lan-remote-pin-status').textContent = next.hasPin ? '••••••••••' : t('remote_pin_missing');
+        const warning = $('lan-remote-warning');
+        if (warning) {
+            let message = '';
+            if (next.authStoreCorrupt) message = t('remote_auth_store_corrupt');
+            else if (next.pinNeedsRegeneration) message = t('remote_pin_needs_regeneration');
+            else if (next.lastError) message = next.lastError;
+            warning.textContent = message;
+            warning.dataset.error = message ? 'true' : 'false';
+            warning.classList.toggle('hidden', !message);
+        }
         if ($('lan-remote-perm-plan')) $('lan-remote-perm-plan').checked = !!next.allowPlanChange;
         if ($('lan-remote-perm-shutdown')) $('lan-remote-perm-shutdown').checked = !!next.allowShutdown;
         if ($('lan-remote-perm-restart')) $('lan-remote-perm-restart').checked = !!next.allowRestart;
@@ -78,9 +88,10 @@
         const desired = !!$('lan-remote-enabled')?.checked;
         try {
             const result = await Host.call('setLanRemoteControlEnabled', { enabled: desired });
-            render(result?.state || result);
+            const next = result?.state || result;
+            render(next);
             if (result?.generatedPin) showGenerated(result.generatedPin);
-            feedback(desired ? 'remote_started' : 'remote_stopped');
+            feedback(desired && !next?.running ? 'remote_error' : (desired ? 'remote_started' : 'remote_stopped'), desired && !next?.running);
         } catch (error) {
             render(state);
             feedback('remote_error', true);
@@ -101,7 +112,7 @@
     async function setPin() {
         const input = $('lan-remote-pin-input');
         const pin = input?.value || '';
-        if (!/^[0-9]{4}$/.test(pin)) {
+        if (!/^[A-Za-z0-9]{8,64}$/.test(pin)) {
             feedback('remote_pin_invalid', true);
             input?.focus();
             return;
@@ -134,7 +145,7 @@
         $('lan-remote-copy-url')?.addEventListener('click', () => copyValue($('lan-remote-url')?.textContent));
         $('lan-remote-copy-fingerprint')?.addEventListener('click', () => copyValue($('lan-remote-fingerprint')?.textContent));
         $('lan-remote-copy-pin')?.addEventListener('click', () => copyValue($('lan-remote-generated-pin')?.textContent));
-        $('lan-remote-pin-input')?.addEventListener('input', event => { event.target.value = event.target.value.replace(/[^0-9]/g, '').slice(0, 4); });
+        $('lan-remote-pin-input')?.addEventListener('input', event => { event.target.value = event.target.value.replace(/[^A-Za-z0-9]/g, '').slice(0, 64); });
     }
 
     document.addEventListener('voltuiviewchanged', event => {

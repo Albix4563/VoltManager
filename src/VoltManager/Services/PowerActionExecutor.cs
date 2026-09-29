@@ -15,11 +15,17 @@ public sealed class PowerActionExecutor : IPowerActionExecutor
         [MarshalAs(UnmanagedType.U1)] bool disableWakeEvent);
 
     public void Execute(ScheduledPowerActionType action)
+        => Execute(action, shutdownDelaySeconds: 0);
+
+    public void Execute(ScheduledPowerActionType action, int shutdownDelaySeconds)
     {
+        if (shutdownDelaySeconds < 0)
+            throw new ArgumentOutOfRangeException(nameof(shutdownDelaySeconds));
+
         switch (action)
         {
             case ScheduledPowerActionType.Shutdown:
-                StartShutdownProcess("/s /t 0");
+                StartShutdownProcess($"/s /t {shutdownDelaySeconds}");
                 break;
             case ScheduledPowerActionType.Sleep:
                 ExecuteSuspend(hibernate: false);
@@ -28,7 +34,7 @@ public sealed class PowerActionExecutor : IPowerActionExecutor
                 ExecuteSuspend(hibernate: true);
                 break;
             case ScheduledPowerActionType.Restart:
-                StartShutdownProcess("/r /t 0");
+                StartShutdownProcess($"/r /t {shutdownDelaySeconds}");
                 break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(action), action, "Unsupported power action.");
