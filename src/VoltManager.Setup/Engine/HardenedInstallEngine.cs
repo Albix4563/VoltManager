@@ -55,9 +55,10 @@ namespace VoltManager.Setup.Engine
                 {
                     result.Add("Uninstaller is still running from the install directory");
                 }
-                else if (!_systemOperations.TryDeleteDirectoryTree(installDir, out string installError))
+                else
                 {
-                    result.Add("Install directory: " + installError);
+                    foreach (string failure in InstallManifest.DeleteOwnedEntries(installDir))
+                        result.Add("Install directory: " + failure);
                 }
             }
 
@@ -278,15 +279,17 @@ namespace VoltManager.Setup.Engine
 
         internal static void DeleteStartupTask(UninstallResult result)
         {
-            try
-            {
-                RunSchtasks("/delete /f /tn \"" + VoltManagerArtifacts.StartupTaskName + "\"");
-            }
-            catch (Exception ex)
-            {
-                result.Add("Startup task delete: " + ex.Message);
-            }
+            SchtasksResult taskResult = SchtasksRunner.Run(
+                "/delete /f /tn \"" + VoltManagerArtifacts.StartupTaskName + "\"");
+            if (taskResult.Success || SchtasksRunner.IsTaskNotFound(taskResult))
+                return;
 
+            string detail = taskResult.TimedOut
+                ? "schtasks.exe timed out."
+                : "schtasks.exe exited with code " + taskResult.ExitCode + ".";
+            if (!string.IsNullOrWhiteSpace(taskResult.Output))
+                detail += " " + taskResult.Output;
+            SetupUpdateLog.Warn("Startup task delete failed: " + detail);
         }
 
         internal static void RemoveShortcuts(UninstallResult result)
@@ -350,24 +353,6 @@ namespace VoltManager.Setup.Engine
             }
         }
 
-        private static void RunSchtasks(string arguments)
-        {
-            using (Process? process = Process.Start(new ProcessStartInfo("schtasks", arguments)
-            {
-                CreateNoWindow = true,
-                UseShellExecute = false,
-            }))
-            {
-                if (process == null)
-                    throw new InvalidOperationException("Unable to start schtasks.exe.");
-                if (!process.WaitForExit(10000))
-                {
-                    try { process.Kill(); } catch { }
-                    throw new TimeoutException("schtasks.exe did not exit within 10 seconds.");
-                }
-            }
-        }
-
         private static bool RegistryKeyExists(string keyPath)
         {
             try
@@ -389,8 +374,8 @@ namespace VoltManager.Setup.Engine
             var residuals = new List<string>();
             if (AnyOwnedProcessRunningFromDirectory(installDir))
                 residuals.Add("Owned VoltManager process remains after uninstall");
-            if (!string.IsNullOrWhiteSpace(installDir) && Directory.Exists(installDir))
-                residuals.Add("Install directory still exists: " + installDir);
+            if (!string.IsNullOrWhiteSpace(installDir) && InstallManifest.HasOwnedArtifacts(installDir))
+                residuals.Add("Owned install artifacts still exist in: " + installDir);
             if (Directory.Exists(appData))
                 residuals.Add("AppData still exists: " + appData);
             if (StartupTaskExists())

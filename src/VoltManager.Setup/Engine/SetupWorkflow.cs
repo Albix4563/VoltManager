@@ -16,6 +16,7 @@ namespace VoltManager.Setup.Engine
     public sealed class SetupWorkflowResult
     {
         private readonly List<SetupStepDiagnostic> _steps;
+        private readonly List<string> _warnings = new List<string>();
 
         internal SetupWorkflowResult(List<SetupStepDiagnostic> steps, Exception? failure, bool cancelled)
         {
@@ -28,7 +29,16 @@ namespace VoltManager.Setup.Engine
         public bool Success => !Cancelled && FailureException == null && _steps.All(step => step.Success);
         public string? FailedStep => _steps.LastOrDefault(step => !step.Success)?.Name;
         public string Summary => string.Join("; ", _steps.Where(step => !step.Success).Select(step => step.Name + ": " + step.Message));
+        public IReadOnlyList<string> Warnings => _warnings;
+        public bool HasWarnings => _warnings.Count > 0;
+        public string WarningSummary => string.Join("; ", _warnings);
         internal Exception? FailureException { get; }
+
+        internal void AddWarning(string warning)
+        {
+            if (!string.IsNullOrWhiteSpace(warning))
+                _warnings.Add(warning);
+        }
     }
 
     internal sealed class SetupWorkflowStep

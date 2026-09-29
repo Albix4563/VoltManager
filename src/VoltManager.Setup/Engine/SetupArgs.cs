@@ -41,7 +41,7 @@ namespace VoltManager.Setup.Engine
 
             if (uninstall)
             {
-                string target = GetParam(args, "--target");
+                string target = GetParam(args, "--target").Trim();
                 return new SetupArgs(SetupMode.Uninstall, 0, target, silent, lang, fromTemp);
             }
 

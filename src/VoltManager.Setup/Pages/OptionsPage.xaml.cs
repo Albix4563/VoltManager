@@ -85,6 +85,8 @@ namespace VoltManager.Setup.Pages
             TxtDir.ScrollToHome();
         }
 
+        public void SetInstallDir(string path) => ApplyInstallDir(path);
+
         private void BtnBrowse_Click(object sender, RoutedEventArgs e)
         {
             using var dlg = new WinForms.FolderBrowserDialog

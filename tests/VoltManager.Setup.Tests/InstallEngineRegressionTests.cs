@@ -122,6 +122,7 @@ public sealed class InstallEngineRegressionTests
         Directory.CreateDirectory(dest);
         Directory.CreateDirectory(Path.Combine(staging, "wwwroot"));
         File.WriteAllText(Path.Combine(dest, "old.txt"), "old");
+        File.WriteAllText(Path.Combine(dest, InstallManifest.FileName), "{\"entries\":[\"old.txt\"]}");
         File.WriteAllText(Path.Combine(staging, "new.txt"), "new");
         File.WriteAllText(Path.Combine(staging, "wwwroot", "index.html"), "<html>");
 
@@ -209,6 +210,7 @@ public sealed class InstallEngineRegressionTests
             Directory.CreateDirectory(dir);
             File.WriteAllText(Path.Combine(dir, "file.txt"), "x");
         }
+        File.WriteAllText(Path.Combine(backup, "VoltManager.exe"), "x");
 
         try
         {

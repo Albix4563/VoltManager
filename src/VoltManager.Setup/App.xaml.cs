@@ -30,6 +30,28 @@ namespace VoltManager.Setup
                     break;
 
                 case SetupMode.Uninstall:
+                    if (!string.IsNullOrWhiteSpace(args.TargetDir))
+                    {
+                        InstallTargetValidationResult targetValidation =
+                            InstallTargetValidator.ValidateUninstallTarget(args.TargetDir);
+                        if (!targetValidation.Ok)
+                        {
+                            string message = string.Format(
+                                I18n.T("uninstall_target_invalid"),
+                                targetValidation.Reason);
+                            SetupUpdateLog.Error(message);
+                            if (!args.SilentUninstall)
+                            {
+                                MessageBox.Show(
+                                    message,
+                                    "VoltManager",
+                                    MessageBoxButton.OK,
+                                    MessageBoxImage.Error);
+                            }
+                            Shutdown(1);
+                            return;
+                        }
+                    }
                     if (InstallEngine.TryRelaunchFromTempIfNeeded(args, out int handoffExit))
                     {
                         if (args.SilentUninstall)

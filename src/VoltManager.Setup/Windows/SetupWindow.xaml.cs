@@ -284,7 +284,10 @@ namespace VoltManager.Setup.Windows
                 await _engine.InstallAsync(_opts, App.GetVersion());
             }
             catch (Exception ex) { ok = false; errMsg = ex.Message; }
-            _done = new DonePage(_opts, ok, errMsg);
+            string? warningMsg = ok && _engine.LastOperationResult?.HasWarnings == true
+                ? _engine.LastOperationResult.WarningSummary
+                : null;
+            _done = new DonePage(_opts, ok, errMsg, warningMsg: warningMsg);
             BtnNext.IsEnabled = true;
             BtnNext.Content = I18n.T("btn_finish");
             _current = Step.Done;
@@ -327,9 +330,42 @@ namespace VoltManager.Setup.Windows
             switch (_current)
             {
                 case Step.Welcome: NavigateTo(Step.Options); break;
-                case Step.Options: NavigateTo(Step.Progress); break;
+                case Step.Options:
+                    if (ValidateSelectedInstallTarget())
+                        NavigateTo(Step.Progress);
+                    break;
                 case Step.Done: _done?.LaunchIfRequested(); Close(); break;
             }
+        }
+
+        private bool ValidateSelectedInstallTarget()
+        {
+            if (_options == null) return false;
+            string path = _options.GetInstallDir();
+            InstallTargetValidationResult validation = InstallTargetValidator.ValidateInstallTarget(path);
+            if (validation.Ok) return true;
+
+            if (!string.IsNullOrWhiteSpace(validation.SuggestedPath))
+            {
+                MessageBoxResult choice = MessageBox.Show(
+                    string.Format(I18n.T("install_target_suggest"), validation.Reason, validation.SuggestedPath),
+                    I18n.T("install_target_title"),
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Warning);
+                if (choice == MessageBoxResult.Yes)
+                {
+                    _options.SetInstallDir(validation.SuggestedPath!);
+                    return true;
+                }
+                return false;
+            }
+
+            MessageBox.Show(
+                string.Format(I18n.T("install_target_invalid"), validation.Reason),
+                I18n.T("install_target_title"),
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+            return false;
         }
 
         private void BtnBack_Click(object sender, RoutedEventArgs e)

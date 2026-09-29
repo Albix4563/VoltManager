@@ -47,9 +47,11 @@ namespace VoltManager.Setup.Engine
         private readonly IInstallProcessOperations _processOperations;
         private readonly IPreviewReleaseClient _previewReleaseClient;
         private readonly SetupWorkflowRunner _workflowRunner = new SetupWorkflowRunner();
+        private readonly List<string> _operationWarnings = new List<string>();
 
         public event Action<string, double>? Progress; // (statusText, 0-100)
         public SetupWorkflowResult? LastOperationResult { get; private set; }
+        public IReadOnlyList<string> LastWarnings => _operationWarnings;
 
         public InstallEngine()
             : this(new SystemInstallProcessOperations(), GitHubPreviewReleaseClient.CreateDefault())
@@ -69,6 +71,16 @@ namespace VoltManager.Setup.Engine
 
         public async Task InstallAsync(InstallOptions opts, string version, CancellationToken ct = default)
         {
+            _operationWarnings.Clear();
+            opts.InstallDir = InstallOptions.NormalizeInstallDir(opts.InstallDir);
+            InstallTargetValidationResult targetValidation = InstallTargetValidator.ValidateInstallTarget(opts.InstallDir);
+            if (!targetValidation.Ok)
+            {
+                string message = "Unsafe install target '" + opts.InstallDir + "': " + targetValidation.Reason;
+                SetupUpdateLog.Error(message);
+                throw new InvalidOperationException(message);
+            }
+
             string effectiveVersion = version;
             string? previewPayloadZip = null;
             var steps = new List<SetupWorkflowStep>
@@ -132,7 +144,7 @@ namespace VoltManager.Setup.Engine
                     if (opts.StartWithWindows)
                     {
                         Report(I18n.T("status_startup"), 82);
-                        CreateStartupTask(opts.InstallDir);
+                        CreateStartupTask(opts.InstallDir, _operationWarnings);
                     }
                     token.ThrowIfCancellationRequested();
                     return Task.CompletedTask;
@@ -141,7 +153,7 @@ namespace VoltManager.Setup.Engine
                 {
                     Report(I18n.T("status_registry"), 88);
                     WriteArpEntry(opts.InstallDir, effectiveVersion);
-                    CopyUninstaller(opts.InstallDir);
+                    CopyUninstaller(opts.InstallDir, _operationWarnings);
                     WriteInitialAppSettings(opts);
                     token.ThrowIfCancellationRequested();
                     Report("", 100);
@@ -154,6 +166,7 @@ namespace VoltManager.Setup.Engine
 
         public async Task UpdateAsync(int waitPid, string version, CancellationToken ct = default)
         {
+            _operationWarnings.Clear();
             string? installDir = null;
             var steps = new List<SetupWorkflowStep>
             {
@@ -171,6 +184,9 @@ namespace VoltManager.Setup.Engine
                     installDir = ReadInstallLocation();
                     if (string.IsNullOrEmpty(installDir) || !Directory.Exists(installDir))
                         throw new InvalidOperationException("VoltManager install directory not found in registry.");
+                    InstallTargetValidationResult validation = InstallTargetValidator.ValidateInstallTarget(installDir);
+                    if (!validation.Ok)
+                        throw new InvalidOperationException("Unsafe registered install directory: " + validation.Reason);
                     token.ThrowIfCancellationRequested();
                     return Task.CompletedTask;
                 }),
@@ -190,7 +206,7 @@ namespace VoltManager.Setup.Engine
                 {
                     Report(I18n.T("status_registry"), 90);
                     WriteArpEntry(installDir!, version);
-                    CopyUninstaller(installDir!);
+                    CopyUninstaller(installDir!, _operationWarnings);
                     token.ThrowIfCancellationRequested();
                     return Task.CompletedTask;
                 }),
@@ -211,6 +227,8 @@ namespace VoltManager.Setup.Engine
 
         private void CompleteWorkflow(SetupWorkflowResult result, CancellationToken cancellationToken)
         {
+            foreach (string warning in _operationWarnings)
+                result.AddWarning(warning);
             LastOperationResult = result;
             if (result.Success)
                 return;
@@ -253,6 +271,16 @@ namespace VoltManager.Setup.Engine
         public static bool TryRelaunchFromTempIfNeeded(SetupArgs args, out int exitCode)
         {
             exitCode = 0;
+            if (!string.IsNullOrWhiteSpace(args.TargetDir))
+            {
+                InstallTargetValidationResult validation = InstallTargetValidator.ValidateUninstallTarget(args.TargetDir);
+                if (!validation.Ok)
+                {
+                    SetupUpdateLog.Error("Unsafe uninstall target '" + args.TargetDir + "': " + validation.Reason);
+                    exitCode = 1;
+                    return true;
+                }
+            }
             if (args.FromTemp) return false;
 
             string installDir = ResolveInstallDir(args.TargetDir);
@@ -626,12 +654,20 @@ namespace VoltManager.Setup.Engine
             Directory.CreateDirectory(backupDir);
             var backedUp = new List<string>();
             var installed = new List<string>();
+            string[] stagedNames = Directory.GetFileSystemEntries(stagingDir)
+                .Select(Path.GetFileName)
+                .Where(name => !string.IsNullOrWhiteSpace(name))
+                .Cast<string>()
+                .ToArray();
+            HashSet<string> ownedNames = InstallManifest.GetOwnedNamesForReplacement(destDir, stagedNames);
 
             try
             {
                 foreach (string path in Directory.GetFileSystemEntries(destDir))
                 {
                     string name = Path.GetFileName(path);
+                    if (!ownedNames.Contains(name))
+                        continue;
                     MoveEntry(path, Path.Combine(backupDir, name));
                     backedUp.Add(name);
                 }
@@ -642,6 +678,9 @@ namespace VoltManager.Setup.Engine
                     MoveEntry(entry, Path.Combine(destDir, name));
                     installed.Add(name);
                 }
+
+                installed.Add(InstallManifest.FileName);
+                InstallManifest.Write(destDir, stagedNames);
             }
             catch
             {
@@ -683,7 +722,12 @@ namespace VoltManager.Setup.Engine
             {
                 foreach (string pattern in new[] { "." + installName + ".backup-*", "." + installName + ".staging-*" })
                     foreach (string dir in Directory.GetDirectories(parent, pattern))
-                        TryDeleteBackupDirectory(dir);
+                    {
+                        bool isBackup = Path.GetFileName(dir).StartsWith("." + installName + ".backup-", StringComparison.OrdinalIgnoreCase);
+                        // Backups left by older setups may hold user files: only remove app-owned or empty ones.
+                        if (!isBackup || InstallManifest.HasOwnedArtifacts(dir) || !Directory.EnumerateFileSystemEntries(dir).Any())
+                            TryDeleteBackupDirectory(dir);
+                    }
             }
             catch (Exception ex)
             {
@@ -930,10 +974,37 @@ namespace VoltManager.Setup.Engine
             ((IPersistFile)link).Save(lnkPath, false);
         }
 
-        private static void CreateStartupTask(string installDir)
+        private static void CreateStartupTask(string installDir, ICollection<string> warnings)
         {
+            if (!InstallDirectorySecurity.IsUnderProgramFiles(installDir))
+            {
+                try
+                {
+                    InstallDirectorySecurity.ApplyRestrictiveAcl(installDir);
+                }
+                catch (Exception ex)
+                {
+                    string aclWarning = "Startup task was not created because the install directory ACL could not be secured: " + ex.Message;
+                    SetupUpdateLog.Warn(aclWarning);
+                    warnings.Add(aclWarning);
+                    return;
+                }
+            }
+
             string exe = Path.Combine(installDir, AppExe);
-            RunSchtasks($"/create /f /tn \"{STARTUP_TASK}\" /tr \"\\\"{exe}\\\" --minimized\" /sc onlogon /rl highest /delay 0000:30");
+            SchtasksResult result = SchtasksRunner.Run(
+                $"/create /f /tn \"{STARTUP_TASK}\" /tr \"\\\"{exe}\\\" --minimized\" /sc onlogon /rl highest /delay 0000:30");
+            if (result.Success)
+                return;
+
+            string detail = result.TimedOut
+                ? "schtasks.exe timed out."
+                : "schtasks.exe exited with code " + result.ExitCode + ".";
+            if (!string.IsNullOrWhiteSpace(result.Output))
+                detail += " " + result.Output;
+            string warning = "Startup task was not created: " + detail;
+            SetupUpdateLog.Error(warning);
+            warnings.Add(warning);
         }
 
         private static void WriteArpEntry(string installDir, string version)
@@ -962,16 +1033,19 @@ namespace VoltManager.Setup.Engine
 
             string settingsPath = Path.Combine(settingsDir, "settings.json");
             string json = File.Exists(settingsPath) ? File.ReadAllText(settingsPath) : "{}";
-            if (!LooksLikeJsonObject(json))
+            var root = SettingsJsonUpdater.ParseRootOrEmpty(json, out bool malformed);
+            if (malformed)
             {
                 string backupPath = settingsPath + ".setup-corrupt";
-                try { File.Copy(settingsPath, backupPath, overwrite: true); } catch { }
-                json = "{}";
+                if (File.Exists(settingsPath))
+                {
+                    try { File.Copy(settingsPath, backupPath, overwrite: true); } catch { }
+                }
             }
 
-            json = SetWidgetsState(json, opts.EnableWidgets, opts.EnabledWidgetTypes);
-            // Persist the wizard's channel choice so in-app updates keep following it.
-            json = SetUpdateChannelState(json, IsPreviewChannel(opts) ? "preview" : "stable");
+            SettingsJsonUpdater.SetWidgetsState(root, opts.EnableWidgets, opts.EnabledWidgetTypes);
+            SettingsJsonUpdater.SetUpdateChannelState(root, IsPreviewChannel(opts) ? "preview" : "stable");
+            json = SettingsJsonUpdater.Serialize(root);
 
             string tmpPath = Path.Combine(settingsDir, "settings." + Path.GetRandomFileName() + ".tmp");
             try
@@ -988,160 +1062,20 @@ namespace VoltManager.Setup.Engine
             }
         }
 
-        /// <summary>
-        /// Sets "autoUpdates.updateChannel" in settings.json, preserving any other
-        /// property inside the autoUpdates object; inserts the object when missing.
-        /// </summary>
-        private static string SetUpdateChannelState(string json, string channel)
-        {
-            int autoStart = FindJsonProperty(json, "autoUpdates");
-            if (autoStart < 0)
-            {
-                return InsertTopLevelProperty(json,
-                    "\"autoUpdates\": {\"enabled\": true, \"silentInstallEnabled\": true, \"updateChannel\": \"" +
-                    channel + "\", \"intervalMinutes\": 30, \"snoozedUntilUtc\": null, \"skippedVersion\": null}");
-            }
-
-            int valueStart = FindJsonValueStart(json, autoStart);
-            if (valueStart < 0 || json[valueStart] != '{') return json;
-            int valueEnd = FindMatching(json, valueStart, '{', '}');
-            if (valueEnd < valueStart) return json;
-
-            string autoObj = json.Substring(valueStart, valueEnd - valueStart + 1);
-            int ch = FindJsonProperty(autoObj, "updateChannel");
-            if (ch >= 0)
-            {
-                int vStart = FindJsonValueStart(autoObj, ch);
-                int vEnd = vStart >= 0 ? FindJsonValueEnd(autoObj, vStart) : -1;
-                if (vStart >= 0 && vEnd >= vStart)
-                    autoObj = autoObj.Substring(0, vStart) + "\"" + channel + "\"" + autoObj.Substring(vEnd + 1);
-            }
-            else
-            {
-                string channelProp = "\"updateChannel\": \"" + channel + "\"";
-                string inner = autoObj.Substring(1, autoObj.Length - 2).Trim();
-                autoObj = inner.Length == 0
-                    ? "{" + channelProp + "}"
-                    : "{" + channelProp + "," + inner + "}";
-            }
-
-            return json.Substring(0, valueStart) + autoObj + json.Substring(valueEnd + 1);
-        }
-
-        private static bool LooksLikeJsonObject(string json)
-        {
-            string trimmed = json.Trim();
-            return trimmed.Length >= 2 && trimmed[0] == '{' && trimmed[trimmed.Length - 1] == '}';
-        }
-
-        private static string SetWidgetsState(string json, bool masterEnabled, HashSet<string> enabledTypes)
-        {
-            var all = new[] { "clock", "calendar", "usage", "temps", "power", "plans" };
-            // Only explicitly selected types start enabled. Empty selection ⇒ master off.
-            var selected = enabledTypes ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            bool any = false;
-            foreach (var t in all) if (selected.Contains(t)) { any = true; break; }
-            bool master = masterEnabled && any;
-            var items = string.Join(",", Array.ConvertAll(all, t =>
-                "{\"type\":\"" + t + "\",\"enabled\":" + (selected.Contains(t) ? "true" : "false") + ",\"pinned\":false}"));
-            string widgetsVal = "{\"enabled\":" + (master ? "true" : "false") + ",\"items\":[" + items + "]}";
-
-            int propStart = FindJsonProperty(json, "widgets");
-            if (propStart < 0)
-                return InsertTopLevelProperty(json, "\"widgets\": " + widgetsVal);
-
-            int valueStart = FindJsonValueStart(json, propStart);
-            if (valueStart < 0) return InsertTopLevelProperty("{}", "\"widgets\": " + widgetsVal);
-            int valueEnd = json[valueStart] == '{'
-                ? FindMatching(json, valueStart, '{', '}')
-                : FindJsonValueEnd(json, valueStart);
-            if (valueEnd < valueStart) return InsertTopLevelProperty("{}", "\"widgets\": " + widgetsVal);
-            return json.Substring(0, valueStart) + widgetsVal + json.Substring(valueEnd + 1);
-        }
-
-        private static int FindJsonProperty(string json, string propertyName)
-        {
-            var match = Regex.Match(json, "\\\"" + Regex.Escape(propertyName) + "\\\"\\s*:", RegexOptions.CultureInvariant);
-            return match.Success ? match.Index : -1;
-        }
-
-        private static int FindJsonValueStart(string json, int propertyStart)
-        {
-            int colon = json.IndexOf(':', propertyStart);
-            if (colon < 0) return -1;
-            int i = colon + 1;
-            while (i < json.Length && char.IsWhiteSpace(json[i])) i++;
-            return i < json.Length ? i : -1;
-        }
-
-        private static int FindJsonValueEnd(string json, int valueStart)
-        {
-            if (valueStart < 0 || valueStart >= json.Length) return -1;
-            char first = json[valueStart];
-            if (first == '{') return FindMatching(json, valueStart, '{', '}');
-            if (first == '[') return FindMatching(json, valueStart, '[', ']');
-            if (first == '"') return FindStringEnd(json, valueStart);
-
-            int i = valueStart;
-            while (i < json.Length && json[i] != ',' && json[i] != '}') i++;
-            return i - 1;
-        }
-
-        private static int FindMatching(string json, int start, char open, char close)
-        {
-            bool inString = false;
-            bool escaped = false;
-            int depth = 0;
-
-            for (int i = start; i < json.Length; i++)
-            {
-                char c = json[i];
-                if (inString)
-                {
-                    if (escaped) escaped = false;
-                    else if (c == '\\') escaped = true;
-                    else if (c == '"') inString = false;
-                    continue;
-                }
-
-                if (c == '"') inString = true;
-                else if (c == open) depth++;
-                else if (c == close && --depth == 0) return i;
-            }
-
-            return -1;
-        }
-
-        private static int FindStringEnd(string json, int start)
-        {
-            bool escaped = false;
-            for (int i = start + 1; i < json.Length; i++)
-            {
-                char c = json[i];
-                if (escaped) escaped = false;
-                else if (c == '\\') escaped = true;
-                else if (c == '"') return i;
-            }
-            return -1;
-        }
-
-        private static string InsertTopLevelProperty(string json, string propertyJson)
-        {
-            int end = json.LastIndexOf('}');
-            if (end < 0) return "{\n  " + propertyJson + "\n}";
-
-            string prefix = json.Substring(0, end).TrimEnd();
-            int firstBrace = prefix.IndexOf('{');
-            bool hasProperties = firstBrace >= 0 && prefix.Substring(firstBrace + 1).Trim().Length > 0;
-            string separator = hasProperties ? ",\n  " : "\n  ";
-            return prefix + separator + propertyJson + "\n" + json.Substring(end);
-        }
-
-        private static void CopyUninstaller(string installDir)
+        private static void CopyUninstaller(string installDir, ICollection<string> warnings)
         {
             string self = Assembly.GetExecutingAssembly().Location;
             string dest = Path.Combine(installDir, "uninstall.exe");
-            try { File.Copy(self, dest, true); } catch { }
+            try
+            {
+                File.Copy(self, dest, true);
+            }
+            catch (Exception ex)
+            {
+                string warning = "Could not copy the uninstaller: " + ex.Message;
+                SetupUpdateLog.Error(warning);
+                warnings.Add(warning);
+            }
         }
 
         private static void ScheduleDownloadedUpdateDelete()
@@ -1182,13 +1116,6 @@ namespace VoltManager.Setup.Engine
             }
             catch { }
             return size;
-        }
-
-        private static void RunSchtasks(string args)
-        {
-            var p = Process.Start(new ProcessStartInfo("schtasks", args)
-            { CreateNoWindow = true, UseShellExecute = false })!;
-            p.WaitForExit(10000);
         }
 
         private static string? ReadInstallLocation()

@@ -10,7 +10,12 @@ namespace VoltManager.Setup.Pages
     {
         private readonly InstallOptions? _opts;
 
-        public DonePage(InstallOptions? opts, bool success = true, string? errMsg = null, bool uninstall = false)
+        public DonePage(
+            InstallOptions? opts,
+            bool success = true,
+            string? errMsg = null,
+            bool uninstall = false,
+            string? warningMsg = null)
         {
             _opts = opts;
             InitializeComponent();
@@ -30,6 +35,16 @@ namespace VoltManager.Setup.Pages
                     ChkLaunch.Content    = I18n.T("done_launch");
                     ChkLaunch.IsChecked  = opts.LaunchAfterInstall;
                     LaunchPill.Visibility = Visibility.Visible;
+                }
+
+                if (!string.IsNullOrWhiteSpace(warningMsg))
+                {
+                    ErrCard.Background = new System.Windows.Media.SolidColorBrush(
+                        System.Windows.Media.Color.FromRgb(0x30, 0x27, 0x16));
+                    ErrCard.BorderBrush = (System.Windows.Media.Brush)FindResource("WarningBrush");
+                    ErrText.Foreground = (System.Windows.Media.Brush)FindResource("WarningBrush");
+                    ErrText.Text = I18n.T("done_warning") + "\n" + warningMsg;
+                    ErrCard.Visibility = Visibility.Visible;
                 }
             }
             else
