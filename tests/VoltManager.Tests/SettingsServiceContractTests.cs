@@ -189,7 +189,7 @@ public sealed class SettingsServiceContractTests
             Assert.False(loaded.MasterAutomationEnabled);
             Assert.Equal("it", loaded.Language);
             Assert.Equal("arial", loaded.Font);
-            Assert.Equal("Albix4563/power_efficency", loaded.UpdateRepo);
+            Assert.Equal("Albix4563/VoltManager", loaded.UpdateRepo);
             Assert.Equal(50, loaded.PowerSourcePlan.LowBatteryThresholdPercent);
             Assert.Equal("stable", loaded.AutoUpdates.UpdateChannel);
             Assert.Equal(30, loaded.AutoUpdates.IntervalMinutes);

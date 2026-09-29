@@ -3,6 +3,7 @@ using VoltManager.Bridge;
 using VoltManager.Bridge.Handlers;
 using VoltManager.Localization;
 using VoltManager.Models;
+using VoltManager.Services;
 
 namespace VoltManager.Tests;
 
@@ -26,7 +27,7 @@ public class UpdateRpcHandlerTests
         int downloads = 0, defers = 0;
         var handler = Create(
             heavy: () => true,
-            download: (_, _) => { downloads++; return Task.FromResult("installer.exe"); },
+            download: (_, _) => { downloads++; return Task.FromResult(UpdateTestHelpers.CreateVerifiedDownload()); },
             defer: _ => defers++);
 
         object? result = await handler.HandleAsync(
@@ -44,7 +45,7 @@ public class UpdateRpcHandlerTests
         int downloads = 0;
         var handler = Create(
             allowed: _ => false,
-            download: (_, _) => { downloads++; return Task.FromResult("installer.exe"); });
+            download: (_, _) => { downloads++; return Task.FromResult(UpdateTestHelpers.CreateVerifiedDownload()); });
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => handler.HandleAsync(
             "downloadUpdate", Payload(new { url = "https://evil.example/update.exe" }), CancellationToken.None));
@@ -60,7 +61,7 @@ public class UpdateRpcHandlerTests
         var handler = Create(download: (_, token) =>
         {
             observed = token;
-            return Task.FromResult("installer.exe");
+            return Task.FromResult(UpdateTestHelpers.CreateVerifiedDownload());
         });
 
         await handler.HandleAsync(
@@ -75,13 +76,13 @@ public class UpdateRpcHandlerTests
         string? launchedPath = null, launchedArgs = null;
         int exits = 0;
         var handler = Create(
-            launch: (path, args) => { launchedPath = path; launchedArgs = args; },
+            launch: (download, args) => { launchedPath = download.Path; launchedArgs = args; },
             exit: () => exits++);
 
         object? result = await handler.HandleAsync(
             "downloadUpdate", Payload(new { url = "https://example/update.exe" }), CancellationToken.None);
 
-        Assert.Equal("installer.exe", launchedPath);
+        Assert.EndsWith(".exe", launchedPath, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("/update --pid ", launchedArgs);
         Assert.Contains("--lang it", launchedArgs);
         Assert.Equal(1, exits);
@@ -92,15 +93,15 @@ public class UpdateRpcHandlerTests
     private static UpdateRpcHandler Create(
         Func<bool>? heavy = null,
         Func<string, bool>? allowed = null,
-        Func<string, CancellationToken, Task<string>>? download = null,
+        Func<string, CancellationToken, Task<VerifiedUpdateDownload>>? download = null,
         Action<string>? defer = null,
-        Action<string, string>? launch = null,
+        Action<VerifiedUpdateDownload, string>? launch = null,
         Action? exit = null)
         => new(new LocalizationService(), new UpdateRpcActions(
             CheckForUpdates: () => Task.FromResult(new UpdateInfo()),
             GetReleaseHistory: () => Task.FromResult(new ReleaseHistory()),
             IsDownloadUrlAllowed: allowed ?? (_ => true),
-            DownloadUpdate: download ?? ((_, _) => Task.FromResult("installer.exe")),
+            DownloadUpdate: download ?? ((_, _) => Task.FromResult(UpdateTestHelpers.CreateVerifiedDownload())),
             IsHeavyAppSessionActive: heavy ?? (() => false),
             DeferUpdateUntilGameEnds: defer ?? (_ => { }),
             LaunchInstaller: launch ?? ((_, _) => { }),

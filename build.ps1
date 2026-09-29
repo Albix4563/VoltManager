@@ -105,6 +105,15 @@ if (-not (Test-Path $wv2)) {
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
     Invoke-WebRequest -UseBasicParsing -Uri 'https://go.microsoft.com/fwlink/p/?LinkId=2124703' -OutFile $wv2
 }
+# Il bootstrapper viene aggiornato da Microsoft e il suo hash cambia: si verifica la firma
+# Authenticode (valida e intestata a Microsoft Corporation), anche per la copia già in cache.
+$wv2Signature = Get-AuthenticodeSignature -LiteralPath $wv2
+$wv2Signer = if ($wv2Signature.SignerCertificate) { $wv2Signature.SignerCertificate.Subject } else { '' }
+if ($wv2Signature.Status -ne 'Valid' -or $wv2Signer -notmatch '(^|,\s*)O=Microsoft Corporation(,|$)') {
+    Remove-Item -LiteralPath $wv2 -Force -ErrorAction SilentlyContinue
+    throw "WebView2 bootstrapper signature check failed (status: $($wv2Signature.Status), signer: '$wv2Signer')."
+}
+Write-Host ("Bootstrapper signed by: " + $wv2Signer) -ForegroundColor Green
 Write-Host ("Bootstrapper: " + $wv2) -ForegroundColor Green
 
 # Refresh setup project icon from source of truth (Assets is committed; this keeps it in sync)

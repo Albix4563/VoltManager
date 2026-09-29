@@ -2,6 +2,8 @@ using System;
 using System.IO;
 using System.Net;
 using System.Net.Http;
+using System.Security.Cryptography;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using VoltManager.Setup.Engine;
@@ -14,23 +16,41 @@ namespace VoltManager.Setup.Tests
         public async Task Client_selects_beta_asset_downloads_it_and_disposes_http_content()
         {
             string root = CreateTempDirectory();
+            string hash = Sha256("payload");
             var releases = new TrackingContent(
-                "[{\"tag_name\":\"v1.4.0-beta\",\"assets\":[{\"browser_download_url\":\"https://example.test/setup.exe\"}]}]");
+                "[{\"tag_name\":\"v1.4.0-beta\",\"assets\":[" +
+                "{\"name\":\"setup.exe\",\"browser_download_url\":\"https://example.test/setup.exe\"}," +
+                "{\"name\":\"SHA256SUMS\",\"browser_download_url\":\"https://example.test/SHA256SUMS\"}]}]");
+            var checksums = new TrackingContent(hash + "  setup.exe\n");
             var asset = new TrackingContent("payload");
             var handler = new SequenceHandler(
                 new HttpResponseMessage(HttpStatusCode.OK) { Content = releases },
+                new HttpResponseMessage(HttpStatusCode.OK) { Content = checksums },
                 new HttpResponseMessage(HttpStatusCode.OK) { Content = asset });
-            var client = new GitHubPreviewReleaseClient(() => new HttpClient(handler, false), root);
+            var client = new GitHubPreviewReleaseClient(
+                () => new HttpClient(handler, false),
+                root,
+                runDirectoryFactory: CreateUnprotectedRunDirectory);
 
             try
             {
-                PreviewReleaseDownload result = await client.DownloadLatestAsync(_ => { }, CancellationToken.None);
+                using PreviewReleaseDownload result =
+                    await client.DownloadLatestAsync(_ => { }, CancellationToken.None);
 
                 Assert.Equal("1.4.0-beta", result.Version);
                 Assert.Equal("payload", File.ReadAllText(result.ExePath));
+                Assert.Throws<IOException>(() =>
+                {
+                    using var _ = new FileStream(
+                        result.ExePath,
+                        FileMode.Open,
+                        FileAccess.Write,
+                        FileShare.ReadWrite);
+                });
                 Assert.True(releases.Disposed);
+                Assert.True(checksums.Disposed);
                 Assert.True(asset.Disposed);
-                Assert.Equal(2, handler.Calls);
+                Assert.Equal(3, handler.Calls);
             }
             finally
             {
@@ -43,7 +63,10 @@ namespace VoltManager.Setup.Tests
         {
             string root = CreateTempDirectory();
             var handler = new SequenceHandler(new HttpResponseMessage(HttpStatusCode.OK));
-            var client = new GitHubPreviewReleaseClient(() => new HttpClient(handler, false), root);
+            var client = new GitHubPreviewReleaseClient(
+                () => new HttpClient(handler, false),
+                root,
+                runDirectoryFactory: CreateUnprotectedRunDirectory);
             using var cts = new CancellationTokenSource();
             cts.Cancel();
 
@@ -69,6 +92,20 @@ namespace VoltManager.Setup.Tests
         private static void Cleanup(string path)
         {
             try { if (Directory.Exists(path)) Directory.Delete(path, true); } catch { }
+        }
+
+        private static string CreateUnprotectedRunDirectory(string root)
+        {
+            string directory = Path.Combine(root, Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(directory);
+            return directory;
+        }
+
+        private static string Sha256(string value)
+        {
+            using SHA256 sha256 = SHA256.Create();
+            byte[] hash = sha256.ComputeHash(Encoding.UTF8.GetBytes(value));
+            return BitConverter.ToString(hash).Replace("-", string.Empty);
         }
 
         private sealed class SequenceHandler : HttpMessageHandler

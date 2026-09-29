@@ -198,9 +198,20 @@ public class SettingsService
         NormalizeFont(settings);
         NormalizeAnimationLevel(settings);
 
-        // Migrate stale repo name from pre-release installs.
-        if (settings.UpdateRepo == "Albix4563/VoltManager")
-            settings.UpdateRepo = "Albix4563/power_efficency";
+        // Migrate the legacy repository name and reject arbitrary update sources.
+        if (string.Equals(settings.UpdateRepo, "Albix4563/power_efficency", StringComparison.OrdinalIgnoreCase))
+        {
+            settings.UpdateRepo = AppSettings.DefaultUpdateRepo;
+        }
+        else if (!string.Equals(settings.UpdateRepo, AppSettings.DefaultUpdateRepo, StringComparison.OrdinalIgnoreCase))
+        {
+            Logger.Warn($"Repository aggiornamenti non consentito '{settings.UpdateRepo}'; ripristino {AppSettings.DefaultUpdateRepo}.");
+            settings.UpdateRepo = AppSettings.DefaultUpdateRepo;
+        }
+        else
+        {
+            settings.UpdateRepo = AppSettings.DefaultUpdateRepo;
+        }
 
         return settings;
     }

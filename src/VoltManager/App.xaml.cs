@@ -39,6 +39,7 @@ public partial class App : Application
     public IHardwareAccess HardwareAccess { get; private set; } = null!;
     public MonitorService Monitor { get; private set; } = null!;
     public UpdateService Updates { get; private set; } = null!;
+    internal UpdateInstallerLauncher UpdateInstallerLauncher { get; private set; } = null!;
     public UpdateCoordinator UpdateCoordinator { get; private set; } = null!;
     public StartupService AutoStart { get; private set; } = null!;
     public AutomationEngine Automation { get; private set; } = null!;
@@ -160,6 +161,7 @@ public partial class App : Application
         Monitor = new MonitorService(HardwareAccess);
         Mark("MonitorService");
         Updates = new UpdateService(Settings);
+        UpdateInstallerLauncher = new UpdateInstallerLauncher();
         AutoStart = new StartupService();
         Automation = new AutomationEngine();
         HeavyApps = new HeavyAppDetectionService(Settings, Monitor.ReadGpu3DByProcess);

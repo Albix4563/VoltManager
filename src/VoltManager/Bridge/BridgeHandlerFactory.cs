@@ -147,11 +147,7 @@ internal static class BridgeHandlerFactory
                 updates.DownloadUpdateAsync,
                 app.IsHeavyAppSessionActive,
                 app.DeferUpdateUntilGameEnds,
-                (path, args) =>
-                {
-                    Process.Start(new ProcessStartInfo(path, args) { UseShellExecute = true });
-                    Logger.Info("Update installer launched; exiting for update.");
-                },
+                app.UpdateInstallerLauncher.Launch,
                 requestExit));
 
         var applicationHandler = new ApplicationRpcHandler(

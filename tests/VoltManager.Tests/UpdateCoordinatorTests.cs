@@ -92,20 +92,24 @@ public sealed class UpdateCoordinatorTests
     public async Task Workload_starting_during_download_blocks_install_request()
     {
         bool protectedWorkload = false;
-        var download = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var download = new TaskCompletionSource<VerifiedUpdateDownload>(TaskCreationOptions.RunContinuationsAsynchronously);
         using var coordinator = UpdateCoordinator.ForTest(
             check: () => Task.FromResult(new UpdateInfo()),
             protectedWorkload: () => protectedWorkload,
             createTimer: (_, _) => new CallbackDisposable());
         string? installPath = null;
-        coordinator.InstallRequested += path => installPath = path;
+        coordinator.InstallRequested += verified =>
+        {
+            installPath = verified.Path;
+            verified.Dispose();
+        };
 
         coordinator.Start();
         Task prepare = coordinator.PrepareInstallAsync(
             "https://example.invalid/update.exe",
             (_, _) => download.Task);
         protectedWorkload = true;
-        download.SetResult(@"C:\Temp\VoltManagerUpdate.exe");
+        download.SetResult(UpdateTestHelpers.CreateVerifiedDownload());
         await prepare;
         Assert.Null(installPath);
     }

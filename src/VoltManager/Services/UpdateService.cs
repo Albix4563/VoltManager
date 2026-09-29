@@ -16,6 +16,7 @@ public sealed class UpdateService : IDisposable
     // Asset URLs returned by our own release checks: a later (or failed) background
     // check must not invalidate a URL the UI already obtained and is about to download.
     private readonly HashSet<string> _knownReleaseDownloadUrls = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, KnownInstallerAsset> _knownInstallerAssets = new(StringComparer.Ordinal);
     private int _disposed;
 
     public event Action<double>? DownloadProgress;
@@ -95,13 +96,20 @@ public sealed class UpdateService : IDisposable
         }
 
         string latestVersion = policy.NormalizeVersion(release.TagName);
-        string? downloadUrl = release.Assets
-            .FirstOrDefault(asset => asset.Name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
-            ?.DownloadUrl;
+        GitHubReleaseAsset? installerAsset = release.Assets
+            .FirstOrDefault(asset => asset.Name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase));
+        string? downloadUrl = installerAsset?.DownloadUrl;
         if (!string.IsNullOrWhiteSpace(downloadUrl))
         {
             lock (_releaseGate)
+            {
                 _knownReleaseDownloadUrls.Add(downloadUrl);
+                _knownInstallerAssets[downloadUrl] = new KnownInstallerAsset(
+                    installerAsset!.Name,
+                    release.Sha256SumsAssetUrl);
+                if (!string.IsNullOrWhiteSpace(release.Sha256SumsAssetUrl))
+                    _knownReleaseDownloadUrls.Add(release.Sha256SumsAssetUrl);
+            }
         }
         bool updateAvailable = latestVersion.Length > 0 && CompareVersions(latestVersion, CurrentVersion) > 0;
 
@@ -180,13 +188,25 @@ public sealed class UpdateService : IDisposable
         };
     }
 
-    public Task<string> DownloadUpdateAsync(string url)
+    public Task<VerifiedUpdateDownload> DownloadUpdateAsync(string url)
         => DownloadUpdateAsync(url, CancellationToken.None);
 
-    public Task<string> DownloadUpdateAsync(string url, CancellationToken cancellationToken)
+    public Task<VerifiedUpdateDownload> DownloadUpdateAsync(string url, CancellationToken cancellationToken)
     {
         ThrowIfDisposed();
-        return _downloader.DownloadAsync(url, progress => DownloadProgress?.Invoke(progress), cancellationToken);
+        KnownInstallerAsset asset;
+        lock (_releaseGate)
+        {
+            if (!_knownInstallerAssets.TryGetValue(url, out KnownInstallerAsset? known))
+                throw new InvalidOperationException("URL aggiornamento non autorizzato o metadati release mancanti.");
+            asset = known;
+        }
+        return _downloader.DownloadAsync(
+            url,
+            asset.AssetName,
+            asset.Sha256SumsUrl,
+            progress => DownloadProgress?.Invoke(progress),
+            cancellationToken);
     }
 
     public bool IsKnownReleaseAssetUrl(string url)
@@ -297,6 +317,8 @@ public sealed class UpdateService : IDisposable
         => new() { Status = status, CurrentVersion = CurrentVersion, Message = message };
 
     private void ThrowIfDisposed() => ObjectDisposedException.ThrowIf(_disposed != 0, this);
+
+    private sealed record KnownInstallerAsset(string AssetName, string? Sha256SumsUrl);
 
     private static HttpClient CreateHttpClient()
     {

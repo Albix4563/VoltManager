@@ -10,7 +10,7 @@ public sealed class UpdateCoordinator : IDisposable
     private readonly Func<bool> _protectedWorkload;
     private readonly Func<TimeSpan, Action, IDisposable> _createTimer;
     private readonly SettingsService? _settings;
-    private readonly Func<string, CancellationToken, Task<string>>? _download;
+    private readonly Func<string, CancellationToken, Task<VerifiedUpdateDownload>>? _download;
     private IDisposable? _timer;
     private Task? _inflightCheck;
     private string? _deferredInstallUrl;
@@ -35,7 +35,7 @@ public sealed class UpdateCoordinator : IDisposable
         Func<bool> protectedWorkload,
         Func<TimeSpan, Action, IDisposable> createTimer,
         SettingsService? settings = null,
-        Func<string, CancellationToken, Task<string>>? download = null)
+        Func<string, CancellationToken, Task<VerifiedUpdateDownload>>? download = null)
     {
         _check = check;
         _protectedWorkload = protectedWorkload;
@@ -51,7 +51,7 @@ public sealed class UpdateCoordinator : IDisposable
         => new(check, protectedWorkload, createTimer);
 
     public event Action<UpdateInfo>? UpdateAvailable;
-    public event Action<string>? InstallRequested;
+    public event Action<VerifiedUpdateDownload>? InstallRequested;
 
     public void Start()
     {
@@ -152,7 +152,7 @@ public sealed class UpdateCoordinator : IDisposable
 
     public async Task PrepareInstallAsync(
         string url,
-        Func<string, CancellationToken, Task<string>> download,
+        Func<string, CancellationToken, Task<VerifiedUpdateDownload>> download,
         CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(url) || !_lifecycle.IsStarted)
@@ -165,17 +165,28 @@ public sealed class UpdateCoordinator : IDisposable
             return;
         }
 
-        string path = await download(url, cancellationToken).ConfigureAwait(false);
-        cancellationToken.ThrowIfCancellationRequested();
-        if (!_lifecycle.IsCurrent(epoch))
-            return;
-        if (_protectedWorkload())
+        VerifiedUpdateDownload verified = await download(url, cancellationToken).ConfigureAwait(false);
+        try
         {
-            DeferInstall(url);
-            return;
-        }
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!_lifecycle.IsCurrent(epoch))
+                return;
+            if (_protectedWorkload())
+            {
+                DeferInstall(url);
+                return;
+            }
 
-        InstallRequested?.Invoke(path);
+            Action<VerifiedUpdateDownload>? installRequested = InstallRequested;
+            if (installRequested is null)
+                return;
+            installRequested(verified);
+            verified = null!;
+        }
+        finally
+        {
+            verified?.Dispose();
+        }
     }
 
     public void Snooze(int minutes)

@@ -7,9 +7,8 @@ namespace VoltManager.Setup
     {
         protected override void OnExit(ExitEventArgs e)
         {
-            // The temp uninstaller cannot delete itself while its WPF process is
-            // alive. Start the bounded helper only at real process exit, after the
-            // interactive completion page (if any) has been closed.
+            // A staged uninstaller cannot delete itself while its WPF process is
+            // alive. Schedule its reboot-time cleanup only at real process exit.
             HardenedInstallEngine.ScheduleTemporaryUninstallerSelfDeleteIfNeeded();
             base.OnExit(e);
         }

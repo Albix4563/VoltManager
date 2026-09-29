@@ -117,10 +117,11 @@ public sealed class UpdatePipelineTests
     [Fact]
     public async Task Service_only_approves_installer_urls_from_its_own_release_checks()
     {
-        const string installerUrl = "https://github.com/owner/repo/releases/download/v99.0.0/VoltManagerSetup.exe";
+        const string installerUrl = "https://github.com/Albix4563/VoltManager/releases/download/v99.0.0/VoltManagerSetup.exe";
+        const string checksumsUrl = "https://github.com/Albix4563/VoltManager/releases/download/v99.0.0/SHA256SUMS";
         bool offline = false;
         const string releaseJson = """
-        {"tag_name":"v99.0.0","name":"Release","body":"notes","published_at":"2026-09-21T00:00:00Z","html_url":"https://github.com/owner/repo/releases/tag/v99.0.0","prerelease":false,"assets":[{"name":"VoltManagerSetup.exe","browser_download_url":"https://github.com/owner/repo/releases/download/v99.0.0/VoltManagerSetup.exe"}]}
+        {"tag_name":"v99.0.0","name":"Release","body":"notes","published_at":"2026-09-21T00:00:00Z","html_url":"https://github.com/Albix4563/VoltManager/releases/tag/v99.0.0","prerelease":false,"assets":[{"name":"VoltManagerSetup.exe","browser_download_url":"https://github.com/Albix4563/VoltManager/releases/download/v99.0.0/VoltManagerSetup.exe"},{"name":"SHA256SUMS","browser_download_url":"https://github.com/Albix4563/VoltManager/releases/download/v99.0.0/SHA256SUMS"}]}
         """;
         using var http = new HttpClient(new StubHandler(request =>
             offline
@@ -138,6 +139,7 @@ public sealed class UpdatePipelineTests
 
         Assert.Equal(installerUrl, info.DownloadUrl);
         Assert.True(service.IsKnownReleaseAssetUrl(installerUrl));
+        Assert.True(service.IsKnownReleaseAssetUrl(checksumsUrl));
         Assert.False(service.IsKnownReleaseAssetUrl("https://evil.example/VoltManagerSetup.exe"));
 
         // A later failing background check must not revoke the URL the UI already holds.
@@ -156,10 +158,15 @@ public sealed class UpdatePipelineTests
         }));
         var downloader = new UpdateDownloadClient(http, fs, TimeSpan.FromMilliseconds(40));
 
-        await Assert.ThrowsAsync<TimeoutException>(() => downloader.DownloadAsync("https://example/update.exe", null, CancellationToken.None));
+        await Assert.ThrowsAsync<TimeoutException>(() => downloader.DownloadAsync(
+            "https://example/update.exe",
+            "VoltManagerSetup.exe",
+            "https://example/SHA256SUMS",
+            null,
+            CancellationToken.None));
 
         Assert.True(fs.DeleteCalled);
-        Assert.False(fs.Exists(fs.UpdatePath));
+        Assert.False(fs.HasInstaller);
     }
 
     [Fact]
@@ -173,10 +180,15 @@ public sealed class UpdatePipelineTests
         var downloader = new UpdateDownloadClient(http, fs, TimeSpan.FromSeconds(5));
         using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(40));
 
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => downloader.DownloadAsync("https://example/update.exe", null, cts.Token));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => downloader.DownloadAsync(
+            "https://example/update.exe",
+            "VoltManagerSetup.exe",
+            "https://example/SHA256SUMS",
+            null,
+            cts.Token));
 
         Assert.True(fs.DeleteCalled);
-        Assert.False(fs.Exists(fs.UpdatePath));
+        Assert.False(fs.HasInstaller);
     }
 
     private static UpdateService CreateService(HttpClient http, IUpdateFileSystem fs, string currentVersion)
@@ -234,16 +246,25 @@ public sealed class UpdatePipelineTests
     private sealed class MemoryUpdateFileSystem : IUpdateFileSystem
     {
         private MemoryStream? _stream;
-        public string UpdatePath => "memory://VoltManagerUpdate.exe";
+        private readonly HashSet<string> _directories = new(StringComparer.OrdinalIgnoreCase);
+        public string UpdatesBasePath => @"C:\ProgramData\VoltManager\Updates";
         public bool DeleteCalled { get; private set; }
-        public string GetTempFilePath(string fileName) => UpdatePath;
-        public Stream CreateFile(string path) => _stream = new MemoryStream();
-        public bool Exists(string path) => _stream != null;
-        public void Delete(string path)
+        public bool HasInstaller => _stream != null;
+        public bool DirectoryExists(string path) => _directories.Contains(path);
+        public void CreateDirectory(string path) => _directories.Add(path);
+        public void ApplyProtectedDirectoryAcl(string path) { }
+        public IEnumerable<string> EnumerateDirectories(string path)
+            => _directories.Where(directory => !string.Equals(directory, path, StringComparison.OrdinalIgnoreCase)).ToArray();
+        public DateTime GetDirectoryCreationTimeUtc(string path) => DateTime.UtcNow;
+        public Stream CreateInstallerFile(string path) => _stream = new MemoryStream();
+        public void DeleteDirectory(string path, bool recursive)
         {
             DeleteCalled = true;
             _stream?.Dispose();
             _stream = null;
+            _directories.RemoveWhere(directory =>
+                directory.Equals(path, StringComparison.OrdinalIgnoreCase) ||
+                directory.StartsWith(path + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase));
         }
     }
 }

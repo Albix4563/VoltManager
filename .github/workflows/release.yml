@@ -97,6 +97,21 @@ jobs:
             [IO.Compression.CompressionLevel]::Optimal, $false)
           Write-Host "Portable zip: $zip"
 
+      - name: Compute SHA256SUMS
+        shell: pwsh
+        run: |
+          # Formato sha256sum ("<hex>  <nome>"): l'app e il Setup verificano l'installer prima di avviarlo.
+          $assets = @(
+            'dist/VoltManagerSetup-${{ steps.ver.outputs.version }}.exe',
+            'dist/VoltManager-portable-${{ steps.ver.outputs.version }}-win-x64.zip'
+          )
+          $lines = foreach ($asset in $assets) {
+            $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $asset).Hash.ToLowerInvariant()
+            "$hash  $(Split-Path -Leaf $asset)"
+          }
+          [IO.File]::WriteAllText((Join-Path (Resolve-Path 'dist').Path 'SHA256SUMS'), (($lines -join "`n") + "`n"))
+          Get-Content dist/SHA256SUMS
+
       - name: Create GitHub release
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
         with:
@@ -108,3 +123,4 @@ jobs:
           files: |
             dist/VoltManagerSetup-${{ steps.ver.outputs.version }}.exe
             dist/VoltManager-portable-${{ steps.ver.outputs.version }}-win-x64.zip
+            dist/SHA256SUMS

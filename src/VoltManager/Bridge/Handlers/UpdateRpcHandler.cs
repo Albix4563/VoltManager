@@ -1,6 +1,7 @@
 using System.Text.Json;
 using VoltManager.Bridge.Rpc;
 using VoltManager.Localization;
+using VoltManager.Services;
 
 namespace VoltManager.Bridge.Handlers;
 
@@ -45,13 +46,13 @@ public sealed class UpdateRpcHandler : IBridgeRpcHandler
         if (_actions.IsHeavyAppSessionActive())
             return Deferred(url);
 
-        string path = await _actions.DownloadUpdate(url, cancellationToken);
+        using VerifiedUpdateDownload download = await _actions.DownloadUpdate(url, cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
         if (_actions.IsHeavyAppSessionActive())
             return Deferred(url);
 
         _actions.LaunchInstaller(
-            path,
+            download,
             $"/update --pid {Environment.ProcessId} --lang {_loc.CurrentLanguage}");
         _actions.RequestExit();
         return new { success = true };

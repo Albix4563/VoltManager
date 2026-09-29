@@ -105,9 +105,19 @@ namespace VoltManager.Setup.Engine
                     Report(I18n.T("status_download_preview"), 8);
                     PreviewReleaseDownload release = await _previewReleaseClient.DownloadLatestAsync(
                         pct => Report(I18n.T("status_download_preview"), 8 + pct * 0.06), token).ConfigureAwait(false);
-                    token.ThrowIfCancellationRequested();
-                    previewPayloadZip = ExtractPreviewPayloadZip(release.ExePath, token);
-                    effectiveVersion = release.Version;
+                    try
+                    {
+                        token.ThrowIfCancellationRequested();
+                        previewPayloadZip = ExtractPreviewPayloadZip(release.ExePath, token);
+                        effectiveVersion = release.Version;
+                    }
+                    finally
+                    {
+                        release.Dispose();
+                        SetupStaging.DeleteRunDirectoryBestEffort(
+                            release.StagingDirectory,
+                            SetupUpdateLog.Warn);
+                    }
                 }),
                 new SetupWorkflowStep("extract-payload", async token =>
                 {
@@ -263,7 +273,8 @@ namespace VoltManager.Setup.Engine
         }
 
         /// <summary>
-        /// If this process is running from the install dir, copy self to %TEMP% and relaunch.
+        /// If this process is running from the install dir, copy self to a protected
+        /// per-run update staging directory and relaunch.
         /// Returns true when the caller should exit (handoff done).
         /// For silent mode waits for the child and sets <paramref name="exitCode"/>.
         /// For UI mode starts the child and returns immediately with exitCode 0.
@@ -294,15 +305,15 @@ namespace VoltManager.Setup.Engine
             if (!IsPathUnder(self, installDir))
                 return false;
 
-            string tempDir = CreateUniqueTempDirectory();
-            string tempExe = Path.Combine(tempDir, "VoltManagerUninstall.exe");
+            string tempDir = SetupStaging.CreateProtectedRunDirectory(SetupStaging.DefaultUpdatesRoot);
+            string tempExe = Path.Combine(tempDir, Guid.NewGuid().ToString("N") + ".exe");
             try
             {
                 File.Copy(self, tempExe, true);
             }
             catch
             {
-                TryDeleteTempDirectory(tempDir);
+                SetupStaging.DeleteRunDirectoryBestEffort(tempDir, SetupUpdateLog.Warn);
                 throw;
             }
 
@@ -328,12 +339,12 @@ namespace VoltManager.Setup.Engine
             }
             catch
             {
-                TryDeleteTempDirectory(tempDir);
+                SetupStaging.DeleteRunDirectoryBestEffort(tempDir, SetupUpdateLog.Warn);
                 throw;
             }
             if (child == null)
             {
-                TryDeleteTempDirectory(tempDir);
+                SetupStaging.DeleteRunDirectoryBestEffort(tempDir, SetupUpdateLog.Warn);
                 exitCode = 1;
                 return true;
             }
@@ -343,7 +354,7 @@ namespace VoltManager.Setup.Engine
                 child.WaitForExit();
                 exitCode = child.ExitCode;
                 child.Dispose();
-                TryDeleteTempDirectory(tempDir);
+                SetupStaging.DeleteRunDirectoryBestEffort(tempDir, SetupUpdateLog.Warn);
             }
             else
             {
@@ -1021,7 +1032,7 @@ namespace VoltManager.Setup.Engine
             key.SetValue("NoRepair", 1, RegistryValueKind.DWord);
             long size = DirSize(new DirectoryInfo(installDir)) / 1024;
             key.SetValue("EstimatedSize", (int)size, RegistryValueKind.DWord);
-            key.SetValue("URLInfoAbout", "https://github.com/Albix4563/power_efficency");
+            key.SetValue("URLInfoAbout", "https://github.com/Albix4563/VoltManager");
         }
 
         private static void WriteInitialAppSettings(InstallOptions opts)
@@ -1081,29 +1092,18 @@ namespace VoltManager.Setup.Engine
         private static void ScheduleDownloadedUpdateDelete()
         {
             string self = Assembly.GetExecutingAssembly().Location;
-            string temp = Path.GetFullPath(Path.GetTempPath()).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
             string fullSelf = Path.GetFullPath(self);
-
-            if (!fullSelf.StartsWith(temp + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
-                return;
-            if (!string.Equals(Path.GetFileName(fullSelf), "VoltManagerUpdate.exe", StringComparison.OrdinalIgnoreCase))
-                return;
-
-            string bat = Path.Combine(Path.GetTempPath(), "vmgr_update_cleanup.bat");
-            File.WriteAllText(bat,
-                "@echo off\r\n" +
-                "for /l %%i in (1,1,30) do (\r\n" +
-                "  del /f /q \"" + fullSelf + "\" 2>nul && goto done\r\n" +
-                "  timeout /t 1 /nobreak >nul\r\n" +
-                ")\r\n" +
-                ":done\r\n" +
-                "del \"%~f0\"\r\n");
-            Process.Start(new ProcessStartInfo("cmd", "/c \"" + bat + "\"")
+            if (SetupStaging.IsStagedUpdateExecutable(fullSelf, SetupStaging.DefaultUpdatesRoot))
             {
-                CreateNoWindow = true,
-                UseShellExecute = false,
-                WindowStyle = ProcessWindowStyle.Hidden,
-            });
+                SetupStaging.ScheduleDeleteOnReboot(fullSelf, SetupUpdateLog.Warn);
+                string? directory = Path.GetDirectoryName(fullSelf);
+                if (!string.IsNullOrWhiteSpace(directory))
+                    SetupStaging.ScheduleDeleteOnReboot(directory, SetupUpdateLog.Warn);
+                return;
+            }
+
+            if (SetupStaging.IsLegacyDownloadedUpdateExecutable(fullSelf, Path.GetTempPath()))
+                SetupStaging.ScheduleDeleteOnReboot(fullSelf, SetupUpdateLog.Warn);
         }
 
         private static long DirSize(DirectoryInfo d)

@@ -4,6 +4,7 @@ namespace VoltManager.Models;
 
 public class AppSettings
 {
+    public const string DefaultUpdateRepo = "Albix4563/VoltManager";
     [JsonPropertyName("standbyAutoCleaner")] public StandbyAutoCleanerSettings StandbyAutoCleaner { get; set; } = new();
     [JsonPropertyName("themeColor")]
     [JsonConverter(typeof(AppThemeColorJsonConverter))]
@@ -15,7 +16,7 @@ public class AppSettings
     [JsonPropertyName("startWithWindows")] public bool StartWithWindows { get; set; } = false;
     /// <summary>Schema version of the registered VoltManagerAutostart task (0 = never migrated).</summary>
     [JsonPropertyName("autostartTaskSchemaVersion")] public int AutostartTaskSchemaVersion { get; set; } = 0;
-    [JsonPropertyName("updateRepo")] public string UpdateRepo { get; set; } = "Albix4563/power_efficency";
+    [JsonPropertyName("updateRepo")] public string UpdateRepo { get; set; } = DefaultUpdateRepo;
     [JsonPropertyName("rules")] public List<AutomationRule> Rules { get; set; } = DefaultRules();
     // Kept as autoShutdown for backwards compatibility with existing settings.json files.
     [JsonPropertyName("autoShutdown")] public AutoShutdownSettings AutoShutdown { get; set; } = new();

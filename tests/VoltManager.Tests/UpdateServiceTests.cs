@@ -27,30 +27,40 @@ public class UpdateServiceTests
     public async Task Download_progress_does_not_report_100_before_body_completes()
     {
         await using var server = StallingHttpServer.Start(totalBytes: 10_000, initialBytes: 9_996);
-        var service = CreateService();
+        using var http = new HttpClient();
+        var fs = new TestUpdateFileSystem();
+        var downloader = new UpdateDownloadClient(http, fs, TimeSpan.FromSeconds(5));
         var nearComplete = new TaskCompletionSource<double>(TaskCreationOptions.RunContinuationsAsynchronously);
-        service.DownloadProgress += pct =>
+        var completed = new TaskCompletionSource<double>(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var cts = new CancellationTokenSource();
+        void Progress(double pct)
         {
             if (pct >= 99.9)
                 nearComplete.TrySetResult(pct);
-        };
+            if (pct >= 100)
+                completed.TrySetResult(pct);
+        }
 
-        string? downloadedPath = null;
+        Task<VerifiedUpdateDownload> download = downloader.DownloadAsync(
+            server.Url,
+            "VoltManagerUpdate.exe",
+            server.Url + ".SHA256SUMS",
+            Progress,
+            cts.Token);
         try
         {
-            Task<string> download = service.DownloadUpdateAsync(server.Url);
             double reported = await nearComplete.Task.WaitAsync(TimeSpan.FromSeconds(2));
 
             Assert.True(reported < 100, $"Progress reached {reported}% before the response body completed.");
 
             server.ReleaseRemainder();
-            downloadedPath = await download.WaitAsync(TimeSpan.FromSeconds(2));
-            Assert.True(File.Exists(downloadedPath));
+            Assert.Equal(100, await completed.Task.WaitAsync(TimeSpan.FromSeconds(2)));
         }
         finally
         {
             server.ReleaseRemainder();
-            DeleteIfExists(downloadedPath ?? Path.Combine(Path.GetTempPath(), "VoltManagerUpdate.exe"));
+            cts.Cancel();
+            try { using VerifiedUpdateDownload _ = await download.WaitAsync(TimeSpan.FromSeconds(1)); } catch { }
         }
     }
 
@@ -58,9 +68,15 @@ public class UpdateServiceTests
     public async Task Download_times_out_when_response_body_stops_making_progress()
     {
         await using var server = StallingHttpServer.Start(totalBytes: 10_000, initialBytes: 100);
-        var service = CreateService(TimeSpan.FromMilliseconds(150));
+        using var http = new HttpClient();
+        var downloader = new UpdateDownloadClient(http, new TestUpdateFileSystem(), TimeSpan.FromMilliseconds(150));
 
-        Task<string> download = service.DownloadUpdateAsync(server.Url);
+        Task<VerifiedUpdateDownload> download = downloader.DownloadAsync(
+            server.Url,
+            "VoltManagerUpdate.exe",
+            server.Url + ".SHA256SUMS",
+            null,
+            CancellationToken.None);
 
         try
         {

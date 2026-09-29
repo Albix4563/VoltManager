@@ -659,8 +659,8 @@ public partial class MainWindow : Window
                 await ShowBackgroundUpdatePromptAsync(info);
         });
 
-    private void OnCoordinatorInstallRequested(string path)
-        => _ = Dispatcher.InvokeAsync(() => LaunchDownloadedInstaller(path));
+    private void OnCoordinatorInstallRequested(VerifiedUpdateDownload download)
+        => _ = Dispatcher.InvokeAsync(() => LaunchDownloadedInstaller(download));
 
     private void OnHeavyAppActivityChangedForUpdates(HeavyAppDetectionState state)
     {
@@ -747,13 +747,13 @@ public partial class MainWindow : Window
         }
     }
 
-    private void LaunchDownloadedInstaller(string path)
+    private void LaunchDownloadedInstaller(VerifiedUpdateDownload download)
     {
         try
         {
-            Process.Start(new ProcessStartInfo(path,
-                $"/update --pid {Environment.ProcessId} --lang {_app.Loc.CurrentLanguage}") { UseShellExecute = true });
-            Logger.Info("Update installer launched; exiting for update.");
+            _app.UpdateInstallerLauncher.Launch(
+                download,
+                $"/update --pid {Environment.ProcessId} --lang {_app.Loc.CurrentLanguage}");
             _exiting = true;
             _app.ExitApp();
         }

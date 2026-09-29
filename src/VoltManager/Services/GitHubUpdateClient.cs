@@ -28,7 +28,12 @@ internal sealed record GitHubReleaseRecord(
     string? PublishedAt,
     string? HtmlUrl,
     bool Prerelease,
-    IReadOnlyList<GitHubReleaseAsset> Assets);
+    IReadOnlyList<GitHubReleaseAsset> Assets)
+{
+    internal string? Sha256SumsAssetUrl => Assets
+        .FirstOrDefault(asset => string.Equals(asset.Name, "SHA256SUMS", StringComparison.Ordinal))
+        ?.DownloadUrl;
+}
 
 internal sealed class GitHubUpdateClient
 {

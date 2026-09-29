@@ -144,9 +144,9 @@ public sealed class SettingsServiceBackupTests
         var loaded = new SettingsService(temp.Path);
 
         Assert.Equal("it", loaded.Current.Language);
-        Assert.Equal("Albix4563/power_efficency", loaded.Current.UpdateRepo);
+        Assert.Equal("Albix4563/VoltManager", loaded.Current.UpdateRepo);
         Assert.True(File.Exists(temp.Path));
-        Assert.Equal("Albix4563/power_efficency", ReadString(temp.Path, "UpdateRepo"));
+        Assert.Equal("Albix4563/VoltManager", ReadString(temp.Path, "UpdateRepo"));
     }
 
     [Fact]

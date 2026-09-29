@@ -47,6 +47,22 @@ namespace VoltManager.Services
             ValidationApplicationDataRoot,
             AppName);
 
+        public static string UpdatesDirectory => Path.Combine(
+            ValidationProgramDataRoot,
+            AppName,
+            "Updates");
+
+        private static string ValidationProgramDataRoot
+        {
+            get
+            {
+                var validationRoot = Environment.GetEnvironmentVariable("VOLTMANAGER_VALIDATION_ROOT");
+                return string.IsNullOrWhiteSpace(validationRoot)
+                    ? Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData)
+                    : Path.Combine(Path.GetFullPath(validationRoot), "ProgramData");
+            }
+        }
+
         // This file is compile-linked into VoltManager.Setup, so keep the private
         // validation redirect self-contained instead of depending on app-only types.
         // Production/setup behavior is unchanged unless the repository harness sets
@@ -135,6 +151,12 @@ namespace VoltManager.Services
                     failures.Add(fileName + ": " + error);
             }
 
+            if (SamePath(root, Path.GetFullPath(Path.GetTempPath())) &&
+                !TryDeleteDirectoryTree(UpdatesDirectory, out string updatesError))
+            {
+                failures.Add("Updates directory: " + updatesError);
+            }
+
             return failures.ToArray();
         }
 
@@ -163,7 +185,42 @@ namespace VoltManager.Services
                 catch { }
             }
 
+            if (SamePath(root, Path.GetFullPath(Path.GetTempPath())))
+            {
+                try
+                {
+                    if (Directory.Exists(UpdatesDirectory)) remaining.Add(UpdatesDirectory);
+                }
+                catch { }
+            }
+
             return remaining.ToArray();
+        }
+
+        private static bool TryDeleteDirectoryTree(string path, out string error)
+        {
+            error = string.Empty;
+            if (!Directory.Exists(path)) return true;
+
+            for (int attempt = 1; attempt <= 5; attempt++)
+            {
+                try
+                {
+                    if (!Directory.Exists(path)) return true;
+                    Directory.Delete(path, recursive: true);
+                    if (!Directory.Exists(path)) return true;
+                    error = "directory still exists after delete";
+                }
+                catch (Exception ex)
+                {
+                    error = ex.Message;
+                }
+
+                if (attempt < 5)
+                    Thread.Sleep(100 * attempt);
+            }
+
+            return !Directory.Exists(path);
         }
 
         private static bool TryDeleteFile(string path, out string error)

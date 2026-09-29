@@ -101,41 +101,34 @@ namespace VoltManager.Setup.Engine
             try
             {
                 string self = Path.GetFullPath(Assembly.GetExecutingAssembly().Location);
+                if (SetupStaging.IsStagedUpdateExecutable(self, SetupStaging.DefaultUpdatesRoot))
+                {
+                    SetupStaging.ScheduleDeleteOnReboot(self, SetupUpdateLog.Warn);
+                    string? selfDirectory = Path.GetDirectoryName(self);
+                    if (!string.IsNullOrWhiteSpace(selfDirectory))
+                        SetupStaging.ScheduleDeleteOnReboot(selfDirectory, SetupUpdateLog.Warn);
+                    return;
+                }
+
                 string tempRoot = Path.GetFullPath(Path.GetTempPath())
                     .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-                if (!self.StartsWith(tempRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
-                    return;
-                if (!string.Equals(Path.GetFileName(self), "VoltManagerUninstall.exe", StringComparison.OrdinalIgnoreCase))
-                    return;
-                string selfDir = Path.GetDirectoryName(self) ?? tempRoot;
-                string removeTempDir = string.Equals(selfDir, tempRoot, StringComparison.OrdinalIgnoreCase)
-                    ? ""
-                    : "rmdir \"" + selfDir + "\" 2>nul\r\n";
-
-                string cleanup = Path.Combine(Path.GetTempPath(), "vmgr_uninstall_cleanup.bat");
-                try { if (File.Exists(cleanup)) File.Delete(cleanup); } catch { }
-
-                File.WriteAllText(cleanup,
-                    "@echo off\r\n" +
-                    "for /l %%i in (1,1,30) do (\r\n" +
-                    "  del /f /q \"" + self + "\" 2>nul && goto done\r\n" +
-                    "  timeout /t 1 /nobreak >nul\r\n" +
-                    ")\r\n" +
-                    ":done\r\n" +
-                    removeTempDir +
-                    "del /f /q \"%~f0\" 2>nul\r\n");
-
-                Process.Start(new ProcessStartInfo("cmd.exe", "/d /c \"\"" + cleanup + "\"\"")
+                string? legacyDirectory = Path.GetDirectoryName(self);
+                string tempPrefix = tempRoot + Path.DirectorySeparatorChar;
+                if (string.IsNullOrWhiteSpace(legacyDirectory) ||
+                    !string.Equals(Path.GetFileName(self), "VoltManagerUninstall.exe", StringComparison.OrdinalIgnoreCase) ||
+                    (!string.Equals(legacyDirectory, tempRoot, StringComparison.OrdinalIgnoreCase) &&
+                     !legacyDirectory.StartsWith(tempPrefix, StringComparison.OrdinalIgnoreCase)))
                 {
-                    CreateNoWindow = true,
-                    UseShellExecute = false,
-                    WindowStyle = ProcessWindowStyle.Hidden,
-                });
+                    return;
+                }
+
+                SetupStaging.ScheduleDeleteOnReboot(self, SetupUpdateLog.Warn);
+                if (!string.Equals(legacyDirectory, tempRoot, StringComparison.OrdinalIgnoreCase))
+                    SetupStaging.ScheduleDeleteOnReboot(legacyDirectory, SetupUpdateLog.Warn);
             }
-            catch
+            catch (Exception ex)
             {
-                // Exit-time cleanup is best effort; synchronous verification has
-                // already removed every other owned artifact.
+                SetupUpdateLog.Warn("Cleanup uninstaller differito fallito: " + ex.Message);
             }
         }
 
