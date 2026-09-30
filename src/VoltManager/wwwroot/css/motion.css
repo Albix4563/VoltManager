@@ -1,26 +1,4 @@
-:root {
-  --vm-motion-fast: 280ms;
-  --vm-motion-base: 420ms;
-  --vm-motion-sidebar: 520ms;
-  --vm-motion-slow: 600ms;
-  --vm-motion-enter: 560ms;
-  --vm-motion-exit: 360ms;
-  --vm-motion-stagger: 80ms;
-  --vm-ease-standard: cubic-bezier(.2,.8,.2,1);
-  --vm-ease-emphasized: cubic-bezier(.16,1,.3,1);
-  --vm-ease-exit: cubic-bezier(.4,0,.2,1);
-}
-
-html[data-anim="low"] {
-  --vm-motion-fast: 120ms;
-  --vm-motion-base: 120ms;
-  --vm-motion-sidebar: 120ms;
-  --vm-motion-slow: 1ms;
-  --vm-motion-enter: 1ms;
-  --vm-motion-exit: 1ms;
-  --vm-motion-stagger: 0ms;
-}
-
+@layer components {
 /* Keep utility-driven micro-interactions responsive, but less abrupt. */
 .transition,
 .transition-all,
@@ -76,4 +54,5 @@ html[data-anim="low"] {
   .app-profile-icon-btn {
     transition: none !important;
   }
+}
 }

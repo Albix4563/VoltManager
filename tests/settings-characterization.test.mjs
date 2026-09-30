@@ -13,7 +13,7 @@ function settingsHarness() {
   let saves = 0;
   const h = createFrontendHarness({
     script: 'settings.js',
-    preload: ['widget-appearance-helpers.js'],
+    preload: ['style-controller.js', 'theme.js', 'widget-appearance-helpers.js'],
     responses: {
       getWidgetsState: () => structuredClone(settings.widgets),
       setWidgetsMaster: payload => ({ ...structuredClone(settings.widgets), enabled: payload.enabled }),
@@ -28,7 +28,6 @@ function settingsHarness() {
         recommended: () => 'medium', resolveLevel: level => level === 'auto' ? 'medium' : level,
         exceedsRecommended: () => false, hardwareTier: () => 'balanced',
       },
-      VoltTheme: { apply() {} },
     },
     beforeRun({ document, window }) {
       const font = document.getElementById('font-select');

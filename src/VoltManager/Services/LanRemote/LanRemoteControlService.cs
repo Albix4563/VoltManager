@@ -523,6 +523,9 @@ public sealed class LanRemoteControlService : IDisposable
         }
 
         string webRoot = Path.Combine(AppContext.BaseDirectory, "wwwroot", "vendor", "fonts");
+        string cssRoot = Path.Combine(AppContext.BaseDirectory, "wwwroot", "css");
+        app.MapGet("/css/layers.css", context => SendAssetAsync(context, Path.Combine(cssRoot, "layers.css"), "text/css; charset=utf-8"));
+        app.MapGet("/css/tokens.css", context => SendAssetAsync(context, Path.Combine(cssRoot, "tokens.css"), "text/css; charset=utf-8"));
         app.MapGet("/fonts/inter-latin.woff2", context => SendAssetAsync(context, Path.Combine(webRoot, "inter-latin.woff2"), "font/woff2"));
         app.MapGet("/fonts/material-symbols-outlined.woff2", context => SendAssetAsync(context, Path.Combine(webRoot, "material-symbols-outlined.woff2"), "font/woff2"));
     }

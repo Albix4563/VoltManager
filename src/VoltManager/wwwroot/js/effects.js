@@ -6,17 +6,11 @@
  * under prefers-reduced-motion.
  */
 (function () {
-  const motionQuery = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)');
+  const styleController = window.Volt && window.Volt.style;
   // Aurora/pointer effects off by default: continuous blur layers pushed the
   // WebView GPU process toward ~100MB. Rings/bars still chase via VoltFx
   // unless lite/hidden. Opt back in with <html data-fx="rich">.
-  const reduce = () => !!(
-    (motionQuery && motionQuery.matches) ||
-    document.hidden ||
-    document.documentElement.dataset.perf === 'lite' ||
-    document.documentElement.dataset.perfTier !== 'full' ||
-    document.documentElement.dataset.fx !== 'rich'
-  );
+  const reduce = () => !styleController || styleController.getState().effects !== 'full';
   const CIRC = 251.2; // 2*PI*r(40), matches dashboard ring geometry
 
   function currentAccent() {
@@ -272,10 +266,7 @@
       }
     });
     document.addEventListener('navmounted', decorateTitles);
-    document.addEventListener('perftierchange', syncRichEffects);
-    document.addEventListener('perfmodechange', syncRichEffects);
-    document.addEventListener('visibilitychange', syncRichEffects);
-    if (motionQuery) motionQuery.addEventListener('change', syncRichEffects);
+    document.addEventListener('voltstylechange', syncRichEffects);
   }
 
   if (document.readyState === 'loading') {

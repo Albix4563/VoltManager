@@ -245,12 +245,9 @@
         settings = res.settings;
         if (window.I18n && I18n.initFromSettings) I18n.initFromSettings(res);
         if (window.I18n && I18n.getLang && settings) settings.language = I18n.getLang();
-        window.__voltThemeCatalog = res.themeCatalog || {};
-        window.__voltThemeState = res.theme || null;
-        if (window.VoltTheme && VoltTheme.apply) {
-            settings.themeColor = VoltTheme.apply(
-                settings.themeColor || (res.theme && res.theme.themeColor),
-                res.theme && res.theme.palette);
+        if (window.Volt && Volt.style) {
+            Volt.style.hydrateSettings(res);
+            settings.themeColor = Volt.style.getState().theme;
         }
         if (window.VoltFont && VoltFont.apply && settings) {
             settings.font = VoltFont.apply(settings.font);

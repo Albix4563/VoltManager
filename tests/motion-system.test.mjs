@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs';
 const read = (path) => readFileSync(new URL(path, import.meta.url), 'utf8');
 
 const motion = read('../src/VoltManager/wwwroot/css/motion.css');
+const tokensCss = read('../src/VoltManager/wwwroot/css/tokens.css');
 const redesign = read('../src/VoltManager/wwwroot/css/redesign.css');
 const polish = read('../src/VoltManager/wwwroot/css/polish.css');
 const effects = read('../src/VoltManager/wwwroot/css/effects.css');
@@ -38,7 +39,7 @@ test('shared motion tokens are loaded by the app and widget surfaces', () => {
   };
 
   for (const [name, value] of Object.entries(tokens)) {
-    assert.ok(motion.includes(`${name}: ${value}`), `${name} should be ${value}`);
+    assert.ok(tokensCss.includes(`${name}: ${value}`), `${name} should be ${value}`);
   }
 });
 

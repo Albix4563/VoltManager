@@ -21,16 +21,6 @@
         else if (node.parentNode) node.parentNode.removeChild(node);
     }
 
-    function addStyle() {
-        if (document.getElementById('vm-ui-reorganization-style')) return;
-        const link = document.createElement('link');
-        link.id = 'vm-ui-reorganization-style';
-        link.rel = 'stylesheet';
-        link.href = assetUrl('css/ui-reorganization.css');
-        const themeStyles = document.querySelector('link[href*="theme-colors.css"]');
-        document.head.insertBefore(link, themeStyles || null);
-    }
-
     function reportError(error) {
         const message = 'VoltManager UI reorganization failed to load: ' +
             ((error && error.message) || String(error || 'Unknown error'));
@@ -88,7 +78,6 @@
     async function loadReorganization(options) {
         if (window.__voltUiReorganizationLoading) return false;
         window.__voltUiReorganizationLoading = true;
-        addStyle();
         try {
             for (const path of REORGANIZATION_SCRIPTS)
                 await loadScriptWithRetry(path, options);

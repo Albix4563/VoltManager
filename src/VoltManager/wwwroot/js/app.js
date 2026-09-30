@@ -57,7 +57,7 @@
         if (document.getElementById('system-startup-switch-styles')) return;
         const style = document.createElement('style');
         style.id = 'system-startup-switch-styles';
-        style.textContent = `
+        style.textContent = `@layer components {
 @keyframes startupCardIn{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
 @keyframes startupSwitchPulse{0%{box-shadow:0 0 0 0 rgb(var(--vm-accent-rgb) / .34)}70%{box-shadow:0 0 0 12px rgb(var(--vm-accent-rgb) / 0)}100%{box-shadow:0 0 0 0 rgb(var(--vm-accent-rgb) / 0)}}
 @keyframes startupKnobPop{0%{transform:translateX(var(--knob-x)) scale(.92)}55%{transform:translateX(var(--knob-x)) scale(1.08)}100%{transform:translateX(var(--knob-x)) scale(1)}}
@@ -135,7 +135,7 @@
 @media (max-width:720px){.startup-card__header{flex-direction:column}.startup-actions{align-self:stretch;justify-content:space-between}.startup-card__details{padding-left:0}.startup-switch{width:104px}.startup-switch[data-state="on"],.startup-switch[data-on="true"]{--knob-x:64px}}
 @container (max-width:320px){.startup-card__header{display:grid;grid-template-columns:minmax(0,1fr);align-items:start;gap:12px}.startup-actions{width:100%;justify-content:flex-start}.startup-card__details{padding-left:0}.startup-card__title-wrap{width:100%;}}
 @container (max-width:260px){.startup-actions{gap:8px}.startup-switch{width:88px;height:38px}.startup-switch[data-state="on"],.startup-switch[data-on="true"]{--knob-x:48px}.startup-remove-btn{width:38px;height:38px}}
-        `.trim();
+        }`.trim();
         document.head.appendChild(style);
     }
 

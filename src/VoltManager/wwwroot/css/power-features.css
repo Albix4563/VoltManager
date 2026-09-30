@@ -1,3 +1,4 @@
+@layer components {
 /* Route-owned power feature styles. Uses shared VoltManager theme/motion tokens. */
 @keyframes heavyAppGlow{0%{box-shadow:0 0 0 0 rgb(var(--vm-accent-rgb) / .26)}70%{box-shadow:0 0 0 13px rgb(var(--vm-accent-rgb) / 0)}100%{box-shadow:0 0 0 0 rgb(var(--vm-accent-rgb) / 0)}}
 .app-profile-panel{position:relative;overflow:hidden;border:1px solid rgb(var(--vm-accent-rgb) / .13);background:linear-gradient(135deg,rgba(18,33,49,.82),rgba(10,17,40,.68));}
@@ -265,4 +266,5 @@ html:not([data-vm-brightness="supported"]) [data-vm-brightness-only] { display: 
     .vm-dialog-footer > #btn-setup-retry,
     .vm-dialog-footer > #btn-setup-install { flex: 1 1 auto; }
     .vm-setup-dialog .vm-dialog-footer { flex-wrap: wrap; }
+}
 }

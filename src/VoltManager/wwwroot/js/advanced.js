@@ -51,7 +51,7 @@
         if (document.getElementById('adv-feature-styles')) return;
         const style = document.createElement('style');
         style.id = 'adv-feature-styles';
-        style.textContent = `
+        style.textContent = `@layer components {
 /* ── Advanced params ─────────────────────────────────────────────── */
 .adv-panel{position:relative;overflow:hidden;}
 .adv-panel:before{content:"";position:absolute;inset:-40% auto auto -12%;width:300px;height:300px;
@@ -143,7 +143,7 @@
 .ram-btn-clean:disabled{opacity:.55;cursor:wait;transform:none!important;}
 @keyframes ramPulse{0%,100%{box-shadow:0 0 0 0 rgb(var(--vm-accent-rgb) / .4)}50%{box-shadow:0 0 0 8px rgb(var(--vm-accent-rgb) / 0)}}
 .ram-btn-cleaning{animation:ramPulse 1s ease infinite;}
-        `.trim();
+        }`.trim();
         document.head.appendChild(style);
     }
 

@@ -1,4 +1,5 @@
 using System.IO;
+using System.Text.RegularExpressions;
 using System.Windows.Media;
 using VoltManager.Models;
 using VoltManager.Services;
@@ -94,7 +95,7 @@ public class ThemeContrastTests
     [Fact]
     public void Web_theme_bridges_legacy_material_tokens_to_the_active_palette()
     {
-        string css = LocateWebAsset("css", "theme-colors.css");
+        string css = LocateWebAsset("css", "tokens.css");
 
         string[] expectedMappings =
         {
@@ -114,24 +115,91 @@ public class ThemeContrastTests
     }
 
     [Fact]
-    public void Theme_runtime_updates_legacy_material_tokens_with_each_palette()
+    public void Theme_runtime_updates_palette_sources_consumed_by_legacy_material_aliases()
     {
-        string js = LocateWebAsset("js", "theme.js");
+        string js = LocateWebAsset("js", "style-controller.js");
+        string css = LocateWebAsset("css", "tokens.css");
 
         string[] expectedRuntimeTokens =
         {
-            "root.setProperty('--md-sys-color-background', palette.background);",
-            "root.setProperty('--md-sys-color-surface-container-low', palette.surface);",
-            "root.setProperty('--md-sys-color-surface-container-high', palette.surfaceElevated);",
-            "root.setProperty('--md-sys-color-on-surface', palette.text);",
-            "root.setProperty('--md-sys-color-on-surface-variant', palette.mutedText);",
-            "root.setProperty('--md-sys-color-outline', palette.border);",
-            "root.setProperty('--md-sys-color-secondary-container', palette.primary);",
-            "root.setProperty('--md-sys-color-on-secondary-container', palette.onPrimary);",
+            "'--vm-bg': 'background'",
+            "'--vm-surface': 'surface'",
+            "'--vm-surface-high': 'surfaceElevated'",
+            "'--vm-text': 'text'",
+            "'--vm-muted': 'mutedText'",
+            "'--vm-border': 'border'",
+            "'--vm-accent': 'primary'",
+            "'--vm-on-accent': 'onPrimary'",
         };
 
         foreach (string token in expectedRuntimeTokens)
             Assert.Contains(token, js);
+
+        Assert.Contains("--md-sys-color-background: var(--vm-bg);", css);
+        Assert.Contains("--md-sys-color-surface-container-high: var(--vm-surface-high);", css);
+        Assert.Contains("--md-sys-color-on-surface: var(--vm-text);", css);
+        Assert.Contains("--md-sys-color-secondary-container: var(--vm-accent);", css);
+        Assert.Contains("--md-sys-color-on-secondary-container: var(--vm-on-accent);", css);
+    }
+
+    [Theory]
+    [InlineData(AppThemeColor.Blue)]
+    [InlineData(AppThemeColor.Red)]
+    [InlineData(AppThemeColor.Green)]
+    [InlineData(AppThemeColor.Orange)]
+    [InlineData(AppThemeColor.Purple)]
+    [InlineData(AppThemeColor.Pink)]
+    [InlineData(AppThemeColor.Gray)]
+    public void Preset_css_tokens_and_semantic_aliases_match_native_palette(AppThemeColor theme)
+    {
+        string css = LocateWebAsset("css", "tokens.css");
+        var palette = ThemeService.GetPalette(theme);
+        var declarations = ParseCssDeclarations(ExtractCssBlock(css, ":root {"));
+
+        foreach ((string name, string value) in ParseCssDeclarations(
+                     ExtractCssBlock(css, $":root[data-theme=\"{theme.ToKey()}\"]")))
+            declarations[name] = value;
+
+        var expected = new Dictionary<string, string>
+        {
+            ["--vm-bg"] = ToCssHex(palette.Background),
+            ["--vm-bg-deep"] = ToCssHex(palette.Background),
+            ["--vm-surface"] = ToCssHex(palette.Surface),
+            ["--vm-surface-low"] = ToCssHex(palette.Surface),
+            ["--vm-panel"] = ToCssHex(palette.Surface),
+            ["--vm-surface-high"] = ToCssHex(palette.SurfaceElevated),
+            ["--vm-card"] = ToCssHex(palette.SurfaceElevated),
+            ["--vm-accent"] = ToCssHex(palette.Primary),
+            ["--vm-accent-dim"] = ToCssHex(palette.Secondary),
+            ["--vm-border-strong"] = ToCssHex(palette.Secondary),
+            ["--vm-accent-hover"] = ToCssHex(palette.Hover),
+            ["--vm-text"] = ToCssHex(palette.Text),
+            ["--vm-muted"] = ToCssHex(palette.MutedText),
+            ["--vm-muted-soft"] = ToCssHex(palette.MutedText),
+            ["--vm-border"] = ToCssHex(palette.Border),
+            ["--vm-on-accent"] = ToCssHex(palette.OnPrimary),
+            ["--vm-accent-text"] = ToCssHex(palette.OnPrimary),
+            ["--md-sys-color-background"] = ToCssHex(palette.Background),
+            ["--md-sys-color-surface"] = ToCssHex(palette.Surface),
+            ["--md-sys-color-surface-container-lowest"] = ToCssHex(palette.Background),
+            ["--md-sys-color-surface-container-low"] = ToCssHex(palette.Surface),
+            ["--md-sys-color-surface-container"] = ToCssHex(palette.Surface),
+            ["--md-sys-color-surface-container-high"] = ToCssHex(palette.SurfaceElevated),
+            ["--md-sys-color-surface-container-highest"] = ToCssHex(palette.SurfaceElevated),
+            ["--md-sys-color-on-surface"] = ToCssHex(palette.Text),
+            ["--md-sys-color-on-surface-variant"] = ToCssHex(palette.MutedText),
+            ["--md-sys-color-outline"] = ToCssHex(palette.Border),
+            ["--md-sys-color-outline-variant"] = ToCssHex(palette.Border),
+            ["--md-sys-color-secondary"] = ToCssHex(palette.Secondary),
+            ["--md-sys-color-secondary-container"] = ToCssHex(palette.Primary),
+            ["--md-sys-color-on-secondary-container"] = ToCssHex(palette.OnPrimary),
+        };
+
+        foreach ((string token, string expectedValue) in expected)
+        {
+            string actualValue = ResolveSimpleCssAlias(declarations, token);
+            Assert.Equal(expectedValue, actualValue);
+        }
     }
 
     [Fact]
@@ -170,7 +238,7 @@ public class ThemeContrastTests
     [Fact]
     public void Sub_navigation_surfaces_resolve_through_theme_owned_variables()
     {
-        string theme = LocateWebAsset("css", "theme-colors.css");
+        string theme = LocateWebAsset("css", "tokens.css");
         string redesign = LocateWebAsset("css", "redesign.css");
         string reorganization = LocateWebAsset("css", "ui-reorganization.css");
 
@@ -245,6 +313,45 @@ public class ThemeContrastTests
         throw new FileNotFoundException(
             "Could not locate src/VoltManager/wwwroot/" + string.Join('/', pathParts));
     }
+
+    private static string ExtractCssBlock(string css, string selector)
+    {
+        int selectorIndex = css.IndexOf(selector, StringComparison.Ordinal);
+        Assert.True(selectorIndex >= 0, $"CSS selector not found: {selector}");
+        int blockStart = css.IndexOf('{', selectorIndex);
+        Assert.True(blockStart >= 0, $"CSS block start not found: {selector}");
+        int blockEnd = css.IndexOf('}', blockStart + 1);
+        Assert.True(blockEnd >= 0, $"CSS block end not found: {selector}");
+        return css[(blockStart + 1)..blockEnd];
+    }
+
+    private static Dictionary<string, string> ParseCssDeclarations(string block)
+        => Regex.Matches(block, @"(?<name>--[A-Za-z0-9-]+)\s*:\s*(?<value>[^;]+);")
+            .Cast<Match>()
+            .ToDictionary(
+                match => match.Groups["name"].Value,
+                match => match.Groups["value"].Value.Trim(),
+                StringComparer.Ordinal);
+
+    private static string ResolveSimpleCssAlias(IReadOnlyDictionary<string, string> declarations, string token)
+    {
+        var visited = new HashSet<string>(StringComparer.Ordinal);
+        string current = token;
+        while (visited.Add(current))
+        {
+            Assert.True(declarations.TryGetValue(current, out string? value), $"CSS token not found: {current}");
+            Match alias = Regex.Match(value!, @"^var\((?<name>--[A-Za-z0-9-]+)\)$");
+            if (!alias.Success)
+                return value!.ToUpperInvariant();
+
+            current = alias.Groups["name"].Value;
+        }
+
+        throw new InvalidOperationException($"Circular CSS alias detected from {token}");
+    }
+
+    private static string ToCssHex(Color color)
+        => $"#{color.R:X2}{color.G:X2}{color.B:X2}";
 
     private static double ContrastRatio(Color first, Color second)
     {

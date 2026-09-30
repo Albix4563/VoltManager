@@ -72,7 +72,7 @@
         if (document.getElementById('vm-tour-styles')) return;
         const style = document.createElement('style');
         style.id = 'vm-tour-styles';
-        style.textContent = `
+        style.textContent = `@layer components {
 #vm-tour-root{position:fixed;inset:0;z-index:130;pointer-events:none;}
 #vm-tour-root[hidden]{display:none;}
 .vm-tour-blocker{position:fixed;inset:0;pointer-events:auto;background:transparent;}
@@ -102,7 +102,7 @@
 .vm-tour-skip{background:transparent;border:0;cursor:pointer;font-size:12px;color:var(--vm-muted);padding:4px 6px;transition:color var(--vm-motion-fast) var(--vm-ease-standard);}
 .vm-tour-skip:hover{color:var(--vm-text);}
 #vm-tour-root[data-reduce="true"] .vm-tour-hole,#vm-tour-root[data-reduce="true"] .vm-tour-pop{transition:none;}
-        `.trim();
+        }`.trim();
         document.head.appendChild(style);
     }
 

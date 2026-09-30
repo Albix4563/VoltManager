@@ -38,10 +38,6 @@
     let purging = false;
     let brightnessTimer = null;
     let brightnessDragging = false;
-    let resourceProfile = 'full';
-    let resourceReducedEffects = false;
-    let animationSetting = 'auto';
-    let animationHardwareTier = null;
     let widgetAppearance = normalizeAppearance(null);
     let locale = (window.I18n && I18n.getLocale ? I18n.getLocale() : 'it-IT');
     document.documentElement.dataset.size = size;
@@ -364,6 +360,7 @@
     }
 
     function syncPolling() {
+        const resourceProfile = window.Volt?.style?.getState().resourceProfile || 'full';
         if (pollTimer != null) clearInterval(pollTimer);
         pollTimer = null;
         if (!POLLERS[type] || document.hidden) return;
@@ -1113,40 +1110,18 @@
 
     const POLLERS = { power: pollPower, processes: pollProcesses, memory: pollMemory };
 
-    function setResolvedAnimationLevel(resolved) {
-        // widgets.css keys off data-animation-level; the shared motion.css tokens off data-anim.
-        document.documentElement.dataset.animationLevel = resolved;
-        document.documentElement.dataset.anim = resolved;
-    }
-
-    function applyAnimationLevel(level) {
-        animationSetting = ['auto', 'low', 'medium', 'high'].includes(level) ? level : 'auto';
-        if (animationSetting !== 'auto') {
-            setResolvedAnimationLevel(animationSetting);
-            return;
-        }
-        if (!animationHardwareTier || !window.VoltAnimationLevel) return;
-        setResolvedAnimationLevel(VoltAnimationLevel.resolveLevel(animationSetting, animationHardwareTier));
-    }
-
     function applyAnimationHardware(info) {
-        if (!info || !window.VoltAnimationLevel || !VoltAnimationLevel.classifyHardwareTier) return;
-        animationHardwareTier = VoltAnimationLevel.classifyHardwareTier(info.ramTotalGb, info.logicalCores);
-        document.documentElement.dataset.hwTier = animationHardwareTier;
-        applyAnimationLevel(animationSetting);
+        if (!info) return;
+        window.Volt?.style?.setHardwareInfo(info);
     }
 
     function applySettings(res) {
         if (!res || !res.settings) return;
-        applyAnimationLevel(res.settings.animationLevel || 'auto');
+        window.Volt?.style?.hydrateSettings(res);
         if (window.VoltFont && VoltFont.apply) {
             VoltFont.apply(res.settings.font || 'inter');
         }
         locale = (window.I18n && I18n.getLocale ? I18n.getLocale() : locale);
-        window.__voltThemeCatalog = res.themeCatalog || {};
-        if (res.theme && window.VoltTheme) {
-            VoltTheme.apply(res.theme.themeColor || res.settings.themeColor, res.theme.palette);
-        }
         const item = res.settings.widgets && Array.isArray(res.settings.widgets.items)
             ? res.settings.widgets.items.find(i => i.type === type)
             : null;
@@ -1156,19 +1131,10 @@
         reflectPin();
     }
 
-    Host.on('themeChanged', (data) => {
-        if (!data || !data.themeColor || !data.palette || !window.VoltTheme) return;
-        window.__voltThemeCatalog = window.__voltThemeCatalog || {};
-        window.__voltThemeCatalog[data.themeColor] = data.palette;
-        VoltTheme.apply(data.themeColor, data.palette);
-    });
     Host.on('fontChanged', (data) => {
         if (window.VoltFont && VoltFont.apply && data && data.font) {
             VoltFont.apply(data.font);
         }
-    });
-    Host.on('animationLevelChanged', (data) => {
-        applyAnimationLevel(data && data.level);
     });
     Host.on('widgetAppearanceChanged', applyWidgetAppearance);
     Host.on('widgetTopmostChanged', (data) => {
@@ -1210,15 +1176,10 @@
         Host.on('gamingModeChanged', applyGamingState);
         Host.on('scheduledPowerActionChanged', applySchedule);
     }
-    Host.on('resourceProfileChanged', state => {
+    document.addEventListener('resourceprofilechange', event => {
+        const state = event.detail;
         const profile = state && state.profile;
         if (!['full', 'balanced', 'gaming', 'workload', 'critical'].includes(profile)) return;
-        const reducedEffects = !!(state && state.reducedEffects);
-        if (profile === resourceProfile && reducedEffects === resourceReducedEffects) return;
-        resourceProfile = profile;
-        resourceReducedEffects = reducedEffects;
-        document.documentElement.dataset.resourceProfile = profile;
-        document.documentElement.dataset.perf = reducedEffects ? 'lite' : 'full';
         syncPolling();
     });
     document.addEventListener('visibilitychange', () => {
@@ -1234,6 +1195,7 @@
     }[type] || startClock)();
 
     if (Host.available) {
+        window.Volt?.style?.bindHost(Host);
         Host.call('getSystemInfo').then(applyAnimationHardware).catch(() => {});
         Host.call('getSettings').then(applySettings).catch(() => {});
     }

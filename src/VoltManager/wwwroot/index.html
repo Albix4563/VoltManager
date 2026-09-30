@@ -1,21 +1,26 @@
 <!DOCTYPE html>
-<html data-theme-color="blue" lang="it">
+<html data-theme="blue" data-theme-color="blue" lang="it">
 <head>
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; media-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'"/>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <title>VOLT MANAGER</title>
+<link href="css/layers.css?v=20260929-1" rel="stylesheet"/>
+<link href="css/tokens.css?v=20260929-1" rel="stylesheet"/>
 <link href="css/app.css?v=20260929-1" rel="stylesheet"/>
 <link href="css/motion.css?v=20260929-1" rel="stylesheet"/>
 <link href="css/redesign.css?v=20260929-1" rel="stylesheet"/>
 <link href="css/polish.css?v=20260929-1" rel="stylesheet"/>
 <link href="css/effects.css?v=20260929-1" rel="stylesheet"/>
+<link href="css/ui-reorganization.css?v=20260929-1" rel="stylesheet"/>
 <link href="css/theme-colors.css?v=20260929-1" rel="stylesheet"/>
 <link href="css/power-features.css?v=20260929-1" rel="stylesheet"/>
 <link href="css/lan-remote-control.css?v=20260929-1" rel="stylesheet"/>
 <script src="js/asset-version.js?v=20260929-1"></script>
+<script src="js/style-controller.js?v=20260929-1"></script>
 <script src="js/theme.js?v=20260929-1"></script>
 <style>
+@layer components {
 @keyframes slideInRight{from{transform:translateX(110%);opacity:0}to{transform:translateX(0);opacity:1}}
 .welcome-step{animation:slideInRight .4s var(--vm-ease-emphasized)}
 /* Spacing scale gap-lg (24px) was missing from app.css, leaving welcome
@@ -36,6 +41,7 @@
 .welcome-theme-card[data-selected=true] .welcome-theme-check{background:var(--theme-swatch);border-color:var(--theme-swatch);color:var(--vm-on-accent)}
 @media (max-width:420px){.welcome-theme-grid{grid-template-columns:1fr}}
 .material-symbols-outlined{width:1em;min-width:1em;max-width:1em;overflow:hidden;text-align:center;flex:0 0 auto}
+}
 </style>
 </head>
 <body class="bg-primary-container text-on-surface h-screen flex overflow-hidden selection:bg-secondary-container selection:text-on-secondary">

@@ -74,7 +74,7 @@
         if (document.getElementById('update-modal-layout-fix')) return;
         const style = document.createElement('style');
         style.id = 'update-modal-layout-fix';
-        style.textContent = `
+        style.textContent = `@layer components {
 #update-modal-overlay{overflow:hidden;padding:16px;box-sizing:border-box;}
 #update-modal{width:min(640px,calc(100vw - 32px));max-width:min(640px,calc(100vw - 32px));max-height:calc(100vh - 32px);display:flex;flex-direction:column;overflow:hidden;box-sizing:border-box;}
 #update-modal,#update-modal *{min-width:0;box-sizing:border-box;}
@@ -96,7 +96,7 @@
   #update-modal .update-modal-footer{grid-template-columns:1fr;align-items:stretch;}
   #update-modal .update-modal-actions{justify-content:stretch;}
   #update-modal .update-modal-actions button,#upd-modal-btn-snooze,#upd-modal-btn-install,#upd-modal-btn-dismiss,#upd-modal-btn-skip{flex:1 1 140px;max-width:none;}
-}`;
+}}`;
         document.head.appendChild(style);
     }
 
@@ -1851,11 +1851,7 @@
         Host.call('setThemeColor', payload)
             .then(data => {
                 if (!data || !data.themeColor || !data.palette) return;
-                window.__voltThemeState = data;
-                if (data.themeColor !== 'custom') {
-                    window.__voltThemeCatalog = window.__voltThemeCatalog || {};
-                    window.__voltThemeCatalog[data.themeColor] = data.palette;
-                }
+                window.Volt?.style?.acceptThemeState(data);
                 settings.themeColor = data.themeColor;
                 settings.customThemeColor = data.customColor || null;
                 setThemeUi(data.themeColor, data.palette, data.customColor || null);
@@ -2138,20 +2134,16 @@
 
         if (!window.__voltThemeListenerWired) {
             window.__voltThemeListenerWired = true;
-            if (window.Host && Host.on) {
-                Host.on('themeChanged', (data) => {
-                    if (!data || !data.themeColor || !data.palette) return;
-                    window.__voltThemeState = data;
-                    window.__voltThemeCatalog = window.__voltThemeCatalog || {};
-                    if (data.themeColor !== 'custom') window.__voltThemeCatalog[data.themeColor] = data.palette;
-                    const current = window.__voltSettings && (window.__voltSettings.get ? window.__voltSettings.get() : window.__voltSettings);
-                    if (current) {
-                        current.themeColor = data.themeColor;
-                        current.customThemeColor = data.customColor || null;
-                    }
-                    setThemeUi(data.themeColor, data.palette, data.customColor || null);
-                });
-            }
+            document.addEventListener('themechange', (event) => {
+                const data = event.detail;
+                if (!data || !data.themeColor) return;
+                const current = window.__voltSettings && (window.__voltSettings.get ? window.__voltSettings.get() : window.__voltSettings);
+                if (current) {
+                    current.themeColor = data.themeColor;
+                    current.customThemeColor = data.customColor || null;
+                }
+                setThemeUi(data.themeColor, data.palette, data.customColor || null);
+            });
         }
     });
 

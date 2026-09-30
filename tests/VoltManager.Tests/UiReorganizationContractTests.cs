@@ -8,6 +8,7 @@ public class UiReorganizationContractTests
     public void Reorganized_ui_uses_the_single_rounded_token_scale()
     {
         string css = LocateWebAsset("css", "ui-reorganization.css");
+        string tokens = LocateWebAsset("css", "tokens.css");
 
         string[] expectedTokens =
         {
@@ -26,7 +27,7 @@ public class UiReorganizationContractTests
         };
 
         foreach (string token in expectedTokens)
-            Assert.Contains(token, css);
+            Assert.Contains(token, tokens);
 
         Assert.DoesNotContain("technical desktop-tool redesign", css);
         Assert.DoesNotContain("--vm-panel-radius: 8px", css);

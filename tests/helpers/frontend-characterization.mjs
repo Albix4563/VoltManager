@@ -209,8 +209,9 @@ export function createFrontendHarness({
   beforeRun?.({ document, nodes, window, context, host, lifecycleEntries, richNode: opts => richNode(document, opts) });
   for (const file of preload) {
     vm.runInContext(frontendSource(file), context, { filename: file });
-    for (const key of ['VoltManagerBatteryHistory']) {
+    for (const key of ['VoltManagerBatteryHistory', 'VoltTheme']) {
       if (context[key] && !window[key]) window[key] = context[key];
+      if (window[key] && !context[key]) context[key] = window[key];
     }
   }
   vm.runInContext(source, context, { filename: script });

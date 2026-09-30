@@ -20,11 +20,11 @@ public class ThemeStartupThemeContrastTests
     [Fact]
     public void Theme_script_prefers_preinjected_native_state_over_html_blue_default()
     {
-        string source = LocateRepoFile("src", "VoltManager", "wwwroot", "js", "theme.js");
+        string source = LocateRepoFile("src", "VoltManager", "wwwroot", "js", "style-controller.js");
 
-        Assert.Contains("const bootstrapState = window.__voltThemeState", source);
-        Assert.Contains("bootstrapState && bootstrapState.themeColor", source);
-        Assert.Contains("bootstrapState && bootstrapState.palette", source);
+        Assert.Contains("const bootstrap = win.__voltThemeState || null;", source);
+        Assert.Contains("if (bootstrap && bootstrap.themeColor) acceptThemeState(bootstrap);", source);
+        Assert.Contains("else applyTheme(html.dataset.theme || html.dataset.themeColor || 'blue');", source);
     }
 
     [Fact]
