@@ -1,4 +1,4 @@
-@layer tokens {
+﻿@layer tokens {
   :root {
     color-scheme: dark;
 
@@ -13,6 +13,14 @@
     --vm-pm-subnav-bg: color-mix(in srgb, var(--vm-surface-high) 92%, transparent);
     --vm-pm-subnav-border: color-mix(in srgb, var(--vm-border) 72%, transparent);
     --vm-scrim-bg: color-mix(in srgb, var(--vm-bg) 84%, transparent);
+    --vm-theme-blue: #3B82F6;
+    --vm-theme-red: #EF4444;
+    --vm-theme-green: #22C55E;
+    --vm-theme-orange: #F97316;
+    --vm-theme-purple: #A855F7;
+    --vm-theme-pink: #EC4899;
+    --vm-theme-gray: #94A3B8;
+    --vm-font-family: Inter, system-ui, -apple-system, sans-serif;
 
     --md-sys-color-background: var(--vm-bg);
     --md-sys-color-surface: var(--vm-surface);
@@ -43,6 +51,25 @@
     --side-nav-w: 280px;
     --side-nav-w-collapsed: 84px;
   }
+
+  [data-font="inter"] { --vm-font-family: Inter, system-ui, -apple-system, sans-serif; }
+  [data-font="segoe-ui"] { --vm-font-family: "Segoe UI", system-ui, -apple-system, sans-serif; }
+  [data-font="arial"] { --vm-font-family: Arial, Helvetica, sans-serif; }
+  [data-font="calibri"] { --vm-font-family: Calibri, Candara, "Segoe UI", sans-serif; }
+  [data-font="verdana"] { --vm-font-family: Verdana, Geneva, sans-serif; }
+  [data-font="tahoma"] { --vm-font-family: Tahoma, Verdana, sans-serif; }
+  [data-font="trebuchet-ms"] { --vm-font-family: "Trebuchet MS", Arial, sans-serif; }
+  [data-font="candara"] { --vm-font-family: Candara, Calibri, "Segoe UI", sans-serif; }
+  [data-font="corbel"] { --vm-font-family: Corbel, "Segoe UI", sans-serif; }
+  [data-font="century-gothic"] { --vm-font-family: "Century Gothic", Arial, sans-serif; }
+  [data-font="franklin-gothic"] { --vm-font-family: "Franklin Gothic Medium", "Arial Narrow", Arial, sans-serif; }
+  [data-font="georgia"] { --vm-font-family: Georgia, serif; }
+  [data-font="cambria"] { --vm-font-family: Cambria, Georgia, serif; }
+  [data-font="palatino-linotype"] { --vm-font-family: "Palatino Linotype", Palatino, Georgia, serif; }
+  [data-font="times-new-roman"] { --vm-font-family: "Times New Roman", Times, serif; }
+  [data-font="consolas"] { --vm-font-family: Consolas, "Courier New", monospace; }
+  [data-font="courier-new"] { --vm-font-family: "Courier New", Courier, monospace; }
+  [data-font="lucida-console"] { --vm-font-family: "Lucida Console", Monaco, monospace; }
 
   /* Exact ThemeService preset palettes. */
   :root,

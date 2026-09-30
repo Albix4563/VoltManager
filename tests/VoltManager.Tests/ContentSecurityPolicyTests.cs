@@ -32,6 +32,13 @@ public class ContentSecurityPolicyTests
         Assert.False(scriptSources.Contains("'unsafe-inline'", StringComparison.OrdinalIgnoreCase));
         Assert.False(scriptSources.Contains("'unsafe-eval'", StringComparison.OrdinalIgnoreCase));
 
+        Match styleDirective = Regex.Match(policy, @"(?:^|;)\s*style-src\s+(?<value>[^;]+)",
+            RegexOptions.IgnoreCase);
+        Assert.True(styleDirective.Success, $"{page} CSP must define style-src.");
+        string styleSources = styleDirective.Groups["value"].Value;
+        Assert.Contains("'self'", styleSources);
+        Assert.False(styleSources.Contains("'unsafe-inline'", StringComparison.OrdinalIgnoreCase));
+
         foreach (Match script in Regex.Matches(html, @"<script\b(?<attrs>[^>]*)>",
                      RegexOptions.IgnoreCase | RegexOptions.Singleline).Cast<Match>())
         {

@@ -580,6 +580,12 @@
     overflow: visible;
 }
 
+#vm-automation-rules .vm-automation-expanded {
+    max-height: none;
+    opacity: 1;
+    overflow: visible;
+}
+
 #vm-automation-profiles > *,
 #vm-automation-gaming > *,
 #vm-system-memory > * {

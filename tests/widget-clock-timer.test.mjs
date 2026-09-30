@@ -54,6 +54,19 @@ function loadWidget(type = 'clock', initialTime = new Date(2026, 8, 5, 12, 34, 1
     Volt: {
       style: {
         getState: () => ({ resourceProfile }),
+        runtime: {
+          set(element, property, value) {
+            element.style ||= {};
+            element.style[property] = String(value);
+            return true;
+          },
+          setMany(element, declarations) {
+            for (const [property, value] of Object.entries(declarations || {}))
+              this.set(element, property, value);
+            return true;
+          },
+          release() { return true; },
+        },
       },
     },
   };

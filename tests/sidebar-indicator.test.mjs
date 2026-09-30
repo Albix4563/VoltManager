@@ -30,7 +30,18 @@ test('positions the sidebar indicator relative to its offset parent', () => {
         document: {
             getElementById: id => elements[id] || null
         },
-        window: {}
+        window: {
+            Volt: {
+                style: {
+                    runtime: {
+                        setMany(element, declarations) {
+                            Object.assign(element.style, declarations);
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
     };
 
     vm.runInNewContext(layoutScript, context);

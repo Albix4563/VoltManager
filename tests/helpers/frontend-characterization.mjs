@@ -8,6 +8,32 @@ export const frontendSource = name => readFileSync(
 );
 
 const camelData = name => name.replace(/-([a-z])/g, (_, ch) => ch.toUpperCase());
+const camelStyle = name => name.replace(/-([a-z])/g, (_, ch) => ch.toUpperCase());
+
+function runtimeStyleHarness() {
+  function set(element, property, value) {
+    if (!element) return false;
+    element.style ||= {};
+    const text = value == null ? '' : String(value);
+    if (typeof element.style.setProperty === 'function') element.style.setProperty(property, text);
+    else element.style[camelStyle(property)] = text;
+    return true;
+  }
+  return {
+    set,
+    setMany(element, declarations) {
+      for (const [property, value] of Object.entries(declarations || {})) set(element, property, value);
+      return true;
+    },
+    remove(element, property) {
+      if (!element?.style) return false;
+      if (typeof element.style.removeProperty === 'function') element.style.removeProperty(property);
+      else delete element.style[camelStyle(property)];
+      return true;
+    },
+    release() { return true; },
+  };
+}
 
 export function richNode(document, options = {}) {
   const node = new FakeNode(options);
@@ -169,6 +195,13 @@ export function createFrontendHarness({
     removeEventListener() {},
     ...windowValues,
   };
+  window.Volt ||= {};
+  window.Volt.style ||= {};
+  window.Volt.style.runtime ||= runtimeStyleHarness();
+  window.Volt.style.getState ||= () => ({ resourceProfile: 'full' });
+  window.Volt.style.bindHost ||= () => true;
+  window.Volt.style.hydrateSettings ||= () => {};
+  window.Volt.style.setHardwareInfo ||= () => {};
   window.window = window;
   window.document = document;
   const context = vm.createContext({

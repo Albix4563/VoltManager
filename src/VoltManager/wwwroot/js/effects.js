@@ -92,20 +92,21 @@
       // rAF is the sole driver of the fill — strip the CSS transition so it
       // can't re-ease every per-frame write (that layering smeared the chase).
       if (circle.dataset.fxRing !== '1') {
-        circle.style.transition = 'stroke .4s ease, filter .4s ease';
         circle.dataset.fxRing = '1';
       }
       // Promote only while the chase runs; drop will-change when settled.
-      circle.style.willChange = reduce() ? 'auto' : 'stroke-dashoffset';
+      Volt.style.runtime.set(circle, 'will-change', reduce() ? 'auto' : 'stroke-dashoffset');
       const toOff = CIRC * (1 - clamped / 100);
       chase(circle, toOff, (v) => {
-        circle.style.strokeDashoffset = v.toFixed(1);
-        if (Math.abs(toOff - v) <= 0.3) circle.style.willChange = 'auto';
+        Volt.style.runtime.set(circle, 'stroke-dashoffset', v.toFixed(1));
+        if (Math.abs(toOff - v) <= 0.3) Volt.style.runtime.set(circle, 'will-change', 'auto');
       }, 0.3, CIRC);
       if (label) this.animateNumber(label, clamped, { suffix: '%' });
       const { stroke, load } = ringColor(clamped);
-      circle.style.stroke = stroke;
-      circle.style.filter = 'drop-shadow(0 0 6px ' + stroke + 'aa)';
+      Volt.style.runtime.setMany(circle, {
+        stroke,
+        filter: 'drop-shadow(0 0 6px ' + stroke + 'aa)',
+      });
       const card = circle.closest('.glass-card');
       if (card) card.dataset.load = load;
     },
@@ -116,15 +117,12 @@
       if (!bar) return;
       const clamped = Math.max(0, Math.min(100, pct));
       if (bar.dataset.fxBar !== '1') {
-        bar.style.width = '100%';
-        bar.style.transformOrigin = 'left center';
-        bar.style.transition = 'none';
         bar.dataset.fxBar = '1';
       }
-      bar.style.willChange = reduce() ? 'auto' : 'transform';
+      Volt.style.runtime.set(bar, 'will-change', reduce() ? 'auto' : 'transform');
       chase(bar, clamped, (v) => {
-        bar.style.transform = 'scaleX(' + (v / 100).toFixed(4) + ')';
-        if (Math.abs(clamped - v) <= 0.15) bar.style.willChange = 'auto';
+        Volt.style.runtime.set(bar, 'transform', 'scaleX(' + (v / 100).toFixed(4) + ')');
+        if (Math.abs(clamped - v) <= 0.15) Volt.style.runtime.set(bar, 'will-change', 'auto');
       }, 0.15, 0);
     },
 
@@ -176,8 +174,10 @@
     spotQueued = false;
     if (!spotEl) return;
     const r = spotEl.getBoundingClientRect();
-    spotEl.style.setProperty('--mx', ((spotX - r.left) / r.width * 100).toFixed(1) + '%');
-    spotEl.style.setProperty('--my', ((spotY - r.top) / r.height * 100).toFixed(1) + '%');
+    Volt.style.runtime.setMany(spotEl, {
+      '--mx': ((spotX - r.left) / r.width * 100).toFixed(1) + '%',
+      '--my': ((spotY - r.top) / r.height * 100).toFixed(1) + '%',
+    });
   }
   function onPointerMove(e) {
     let card = e.target.closest && e.target.closest('.glass-card, .glass-panel');
@@ -213,14 +213,19 @@
     const size = Math.max(r.width, r.height) * 1.6;
     const span = document.createElement('span');
     span.className = 'vm-ripple';
-    span.style.width = span.style.height = size + 'px';
-    span.style.left = (e.clientX - r.left) + 'px';
-    span.style.top = (e.clientY - r.top) + 'px';
+    Volt.style.runtime.setMany(span, {
+      width: size + 'px',
+      height: size + 'px',
+      left: (e.clientX - r.left) + 'px',
+      top: (e.clientY - r.top) + 'px',
+    });
     const cs = getComputedStyle(btn);
-    if (cs.position === 'static') btn.style.position = 'relative';
-    if (cs.overflow !== 'hidden') btn.style.overflow = 'hidden';
+    if (cs.position === 'static' || cs.overflow !== 'hidden') btn.classList.add('vm-ripple-host');
     btn.appendChild(span);
-    span.addEventListener('animationend', () => span.remove());
+    span.addEventListener('animationend', () => {
+      Volt.style.runtime.release(span);
+      span.remove();
+    });
   }
 
   // ---- Gradient-shimmer headings ----

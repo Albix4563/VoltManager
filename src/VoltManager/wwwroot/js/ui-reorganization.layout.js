@@ -378,7 +378,9 @@
         if (!parent) return;
         const parentRect = parent.getBoundingClientRect();
         const linkRect = link.getBoundingClientRect();
-        indicator.style.top = (linkRect.top - parentRect.top) + 'px';
-        indicator.style.height = linkRect.height + 'px';
+        window.Volt.style.runtime.setMany(indicator, {
+            top: (linkRect.top - parentRect.top) + 'px',
+            height: linkRect.height + 'px',
+        });
     };
 })();

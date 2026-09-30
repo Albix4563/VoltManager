@@ -69,7 +69,7 @@
         if (counterEl) counterEl.textContent = (pos + 1) + ' / ' + order.length;
 
         const last = pos >= order.length - 1;
-        if (btnPrev) btnPrev.style.visibility = pos === 0 ? 'hidden' : 'visible';
+        if (btnPrev) btnPrev.classList.toggle('is-invisible', pos === 0);
         if (btnNext) btnNext.textContent = last ? t('tips_close') : t('tips_next');
         if (btnPrev) btnPrev.textContent = t('tips_prev');
 

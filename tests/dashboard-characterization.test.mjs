@@ -84,10 +84,12 @@ test('dashboard manual override modal keeps plan and duration RPC payloads stabl
   const { h, planCalls } = dashboardHarness();
   await flush();
   h.window.openOverrideModal('performance');
-  assert.equal(h.document.getElementById('manual-override-overlay').style.display, 'flex');
+  assert.equal(h.document.getElementById('manual-override-overlay').classList.contains('hidden'), false);
+  assert.equal(h.document.getElementById('manual-override-overlay').classList.contains('flex'), true);
   const option = h.document.querySelectorAll('.manual-override-option')[0];
   option.dispatchEvent(event('click', { currentTarget: option }));
   await flush();
   assert.deepEqual(JSON.parse(JSON.stringify(planCalls)), [{ plan: 'performance', hours: 1 }]);
-  assert.equal(h.document.getElementById('manual-override-overlay').style.display, 'none');
+  assert.equal(h.document.getElementById('manual-override-overlay').classList.contains('hidden'), true);
+  assert.equal(h.document.getElementById('manual-override-overlay').classList.contains('flex'), false);
 });

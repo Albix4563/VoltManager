@@ -68,47 +68,9 @@
         else if (api && api.save) api.save();
     }
 
-    function ensureStyles() {
-        if (document.getElementById('vm-tour-styles')) return;
-        const style = document.createElement('style');
-        style.id = 'vm-tour-styles';
-        style.textContent = `@layer components {
-#vm-tour-root{position:fixed;inset:0;z-index:130;pointer-events:none;}
-#vm-tour-root[hidden]{display:none;}
-.vm-tour-blocker{position:fixed;inset:0;pointer-events:auto;background:transparent;}
-.vm-tour-hole{position:fixed;top:0;left:0;width:0;height:0;border-radius:14px;
-  box-shadow:0 0 0 9999px rgba(5,9,20,.66);border:2px solid var(--vm-accent);
-  pointer-events:none;transition:top .42s var(--vm-ease-standard),left .42s var(--vm-ease-standard),width .42s var(--vm-ease-standard),height .42s var(--vm-ease-standard),box-shadow .42s var(--vm-ease-standard);}
-.vm-tour-hole[data-glow="true"]{box-shadow:0 0 0 9999px rgba(5,9,20,.66),0 0 22px 2px rgb(var(--vm-accent-rgb) / .45),inset 0 0 14px rgb(var(--vm-accent-rgb) / .25);}
-.vm-tour-pop{position:fixed;top:0;left:0;width:320px;max-width:calc(100vw - 32px);pointer-events:auto;
-  background:linear-gradient(135deg,var(--vm-surface-high),var(--vm-surface));
-  border:1px solid var(--vm-border);border-radius:18px;padding:18px 18px 14px;
-  box-shadow:0 24px 60px rgba(0,0,0,.5),0 0 0 1px rgba(255,255,255,.04),0 0 30px rgb(var(--vm-accent-rgb) / .12);
-  backdrop-filter:blur(20px);color:var(--vm-text);opacity:0;transform:translateY(6px) scale(.98);
-  transition:top .5s var(--vm-ease-standard),left .5s var(--vm-ease-standard),opacity .42s var(--vm-ease-standard),transform .42s var(--vm-ease-emphasized);}
-.vm-tour-pop[data-show="true"]{opacity:1;transform:translateY(0) scale(1);}
-.vm-tour-pop__title{font-size:16px;font-weight:800;letter-spacing:.01em;margin:0 0 6px;color:var(--vm-text);display:flex;align-items:center;gap:8px;}
-.vm-tour-pop__title .material-symbols-outlined{font-size:20px;color:var(--vm-accent);}
-.vm-tour-pop__body{font-size:13px;line-height:1.5;margin:0;color:var(--vm-muted);}
-.vm-tour-pop__foot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:16px;}
-.vm-tour-counter{font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--vm-accent-dim);font-variant-numeric:tabular-nums;}
-.vm-tour-actions{display:flex;align-items:center;gap:8px;}
-.vm-tour-btn{border:0;cursor:pointer;font-size:13px;font-weight:700;border-radius:10px;padding:8px 14px;transition:transform var(--vm-motion-fast) var(--vm-ease-standard),background var(--vm-motion-fast) var(--vm-ease-standard),color var(--vm-motion-fast) var(--vm-ease-standard),border-color var(--vm-motion-fast) var(--vm-ease-standard);line-height:1;}
-.vm-tour-btn:active{transform:scale(.98);}
-.vm-tour-btn--ghost{background:transparent;color:var(--vm-muted);border:1px solid var(--vm-border);}
-.vm-tour-btn--ghost:hover{color:var(--vm-text);border-color:var(--vm-border-strong);background:rgba(255,255,255,.05);}
-.vm-tour-btn--primary{background:linear-gradient(135deg,var(--vm-accent),var(--vm-accent-hover));color:var(--vm-on-accent);box-shadow:0 6px 18px rgb(var(--vm-accent-rgb) / .28);}
-.vm-tour-btn--primary:hover{box-shadow:0 8px 22px rgb(var(--vm-accent-rgb) / .4);}
-.vm-tour-skip{background:transparent;border:0;cursor:pointer;font-size:12px;color:var(--vm-muted);padding:4px 6px;transition:color var(--vm-motion-fast) var(--vm-ease-standard);}
-.vm-tour-skip:hover{color:var(--vm-text);}
-#vm-tour-root[data-reduce="true"] .vm-tour-hole,#vm-tour-root[data-reduce="true"] .vm-tour-pop{transition:none;}
-        }`.trim();
-        document.head.appendChild(style);
-    }
 
     function build() {
         if (root) return;
-        ensureStyles();
 
         root = document.createElement('div');
         root.id = 'vm-tour-root';
@@ -209,13 +171,16 @@
         if (!el) {
             // Centered card; collapse the spotlight to nothing (full dim).
             hole.dataset.glow = 'false';
-            hole.style.width = '0px';
-            hole.style.height = '0px';
-            hole.style.left = (vw / 2) + 'px';
-            hole.style.top = (vh / 2) + 'px';
-            hole.style.borderColor = 'transparent';
-            pop.style.left = Math.round((vw - pw) / 2) + 'px';
-            pop.style.top = Math.round((vh - ph) / 2) + 'px';
+            window.Volt.style.runtime.setMany(hole, {
+                width: '0px',
+                height: '0px',
+                left: (vw / 2) + 'px',
+                top: (vh / 2) + 'px',
+            });
+            window.Volt.style.runtime.setMany(pop, {
+                left: Math.round((vw - pw) / 2) + 'px',
+                top: Math.round((vh - ph) / 2) + 'px',
+            });
             return;
         }
 
@@ -223,11 +188,12 @@
         const hx = r.left - PAD, hy = r.top - PAD;
         const hw = r.width + PAD * 2, hh = r.height + PAD * 2;
         hole.dataset.glow = 'true';
-        hole.style.borderColor = '';
-        hole.style.left = hx + 'px';
-        hole.style.top = hy + 'px';
-        hole.style.width = hw + 'px';
-        hole.style.height = hh + 'px';
+        window.Volt.style.runtime.setMany(hole, {
+            left: hx + 'px',
+            top: hy + 'px',
+            width: hw + 'px',
+            height: hh + 'px',
+        });
 
         let left, top;
         if (placement === 'right') {
@@ -243,8 +209,10 @@
         const minLeft = Math.min(MIN_LEFT, maxLeft);
         left = Math.max(minLeft, Math.min(left, maxLeft));
         top = Math.max(MARGIN, Math.min(top, vh - ph - MARGIN));
-        pop.style.left = Math.round(left) + 'px';
-        pop.style.top = Math.round(top) + 'px';
+        window.Volt.style.runtime.setMany(pop, {
+            left: Math.round(left) + 'px',
+            top: Math.round(top) + 'px',
+        });
     }
 
     let repositionRaf = 0;
@@ -268,10 +236,10 @@
         popBody.textContent = t(steps[step].body);
         popCounter.textContent = (position + 1) + ' / ' + available.length;
         btnBack.textContent = t('tour_back');
-        btnBack.style.visibility = position <= 0 ? 'hidden' : 'visible';
+        btnBack.classList.toggle('is-invisible', position <= 0);
         btnNext.textContent = position >= available.length - 1 ? t('tour_finish') : t('tour_next');
         btnSkip.textContent = t('tour_skip');
-        btnSkip.style.visibility = position >= available.length - 1 ? 'hidden' : 'visible';
+        btnSkip.classList.toggle('is-invisible', position >= available.length - 1);
     }
 
     function measureAndPlace(s) {

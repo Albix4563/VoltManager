@@ -607,6 +607,14 @@ option {
     gap: 10px;
 }
 
+.theme-choice[data-theme-choice="blue"] { --theme-choice-color: var(--vm-theme-blue); }
+.theme-choice[data-theme-choice="red"] { --theme-choice-color: var(--vm-theme-red); }
+.theme-choice[data-theme-choice="green"] { --theme-choice-color: var(--vm-theme-green); }
+.theme-choice[data-theme-choice="orange"] { --theme-choice-color: var(--vm-theme-orange); }
+.theme-choice[data-theme-choice="purple"] { --theme-choice-color: var(--vm-theme-purple); }
+.theme-choice[data-theme-choice="pink"] { --theme-choice-color: var(--vm-theme-pink); }
+.theme-choice[data-theme-choice="gray"] { --theme-choice-color: var(--vm-theme-gray); }
+
 .theme-choice {
     position: relative;
     min-height: 72px;

@@ -12,6 +12,28 @@ const palette = {
   border: '#404040', onPrimary: '#000000',
 };
 
+function mutableSheet() {
+  const cssRules = [];
+  const insertions = [];
+  return {
+    cssRules,
+    insertions,
+    insertRule(text, index = cssRules.length) {
+      const values = new Map();
+      const declaration = {
+        values,
+        setProperty(name, value) { values.set(name, String(value)); },
+        removeProperty(name) { values.delete(name); },
+      };
+      const wrapper = { cssRules: [{ style: declaration }] };
+      cssRules.splice(index, 0, wrapper);
+      insertions.push(text);
+      return index;
+    },
+    deleteRule(index) { cssRules.splice(index, 1); },
+  };
+}
+
 function fixture({
   bootstrap,
   reduced = false,
@@ -20,6 +42,7 @@ function fixture({
   cssWriteThrows = false,
   hostAvailable = true,
   hostThrows = [],
+  runtimeFallback = false,
 } = {}) {
   const listeners = new Map();
   const hostListeners = new Map();
@@ -38,9 +61,11 @@ function fixture({
   const tokenSheet = cssReadThrows
     ? { href: '/css/tokens.css', get cssRules() { throw Error('CSSOM read denied'); } }
     : { href: '/css/tokens.css', cssRules: [{ cssRules: [customRule] }] };
+  const runtimeSheet = runtimeFallback ? mutableSheet() : null;
   const document = {
     hidden: false, documentElement: { dataset: {}, style: { setProperty() { throw Error('root inline token'); } } },
-    styleSheets: sheet ? [tokenSheet] : [],
+    styleSheets: sheet ? [tokenSheet, ...(runtimeSheet ? [runtimeSheet] : [])] : [],
+    adoptedStyleSheets: [],
     addEventListener(name, fn) { listeners.set(name, [...(listeners.get(name) || []), fn]); },
     dispatchEvent(event) { for (const fn of listeners.get(event.type) || []) fn(event); },
   };
@@ -56,7 +81,7 @@ function fixture({
     constructor(type, options) { this.type = type; this.detail = options.detail; }
   } });
   vm.runInContext(script, context);
-  return { window, document, Host, context, listeners, hostListeners, cssValues, mediaListeners, media,
+  return { window, document, Host, context, listeners, hostListeners, cssValues, mediaListeners, media, runtimeSheet,
     fire(name, detail) { document.dispatchEvent({ type: name, detail }); },
     host(name, value) { for (const fn of hostListeners.get(name) || []) fn(value); } };
 }
@@ -178,6 +203,28 @@ test('repeated initialization binds host, document and media listeners once', ()
   assert.equal(f.mediaListeners.length, 1);
   f.host('animationLevelChanged', { level: 'low' });
   assert.equal(f.window.Volt.style.getState().animationSetting, 'low');
+});
+
+test('runtime style owner falls back to layered CSSOM and prunes repeated disconnected renders', () => {
+  const f = fixture({ runtimeFallback: true });
+  const runtime = f.window.Volt.style.runtime;
+  let element = { dataset: {}, isConnected: true };
+
+  assert.equal(runtime.set(element, 'width', '25%'), true);
+  assert.equal(runtime.stats().backend, 'existing');
+  assert.equal(runtime.stats().constructable, false);
+  assert.match(f.runtimeSheet.insertions[0], /^@layer overrides\s*\{/);
+  assert.equal(f.runtimeSheet.cssRules[0].cssRules[0].style.values.get('width'), '25%');
+
+  for (let i = 0; i < 500; i += 1) {
+    element.isConnected = false;
+    element = { dataset: {}, isConnected: true };
+    assert.equal(runtime.set(element, 'width', (i % 101) + '%'), true);
+  }
+
+  const stats = runtime.stats();
+  assert.equal(stats.records, 1);
+  assert.equal(stats.rules, 1);
 });
 
 test('shared CSS ownership, loading order and LAN static routes are explicit', () => {

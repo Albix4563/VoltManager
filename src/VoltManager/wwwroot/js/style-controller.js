@@ -53,6 +53,183 @@
   const boundHostChannels = new WeakMap();
   const motionQuery = win.matchMedia ? win.matchMedia('(prefers-reduced-motion: reduce)') : null;
 
+  function createRuntimeStyleOwner() {
+    const records = new WeakMap();
+    const recordsById = new Map();
+    const PRUNE_THRESHOLD = 128;
+    let sheet = null;
+    let sheetAttempted = false;
+    let sheetBackend = 'none';
+    let nextId = 0;
+
+    function fallbackSheet() {
+      const sheets = Array.from(doc.styleSheets || []).reverse();
+      for (const candidate of sheets) {
+        try {
+          void candidate.cssRules;
+          if (typeof candidate.insertRule === 'function' && typeof candidate.deleteRule === 'function')
+            return candidate;
+        } catch (_) {}
+      }
+      return null;
+    }
+
+    function ensureSheet() {
+      if (sheet) return sheet;
+      if (sheetAttempted) return null;
+      sheetAttempted = true;
+      if (typeof win.CSSStyleSheet === 'function') {
+        try {
+          const candidate = new win.CSSStyleSheet();
+          if (typeof candidate.replaceSync === 'function') {
+            candidate.replaceSync('');
+            const adopted = Array.from(doc.adoptedStyleSheets || []);
+            doc.adoptedStyleSheets = adopted.concat(candidate);
+            sheet = candidate;
+            sheetBackend = 'constructable';
+          }
+        } catch (_) {
+          sheet = null;
+        }
+      }
+      if (!sheet) {
+        sheet = fallbackSheet();
+        if (sheet) sheetBackend = 'existing';
+      }
+      return sheet;
+    }
+
+    function recordElement(record) {
+      if (!record) return null;
+      return record.ref && typeof record.ref.deref === 'function' ? record.ref.deref() : record.ref;
+    }
+
+    function removeRule(record) {
+      if (!sheet || !record || !record.wrapper) return;
+      try {
+        const rules = Array.from(sheet.cssRules || []);
+        const index = rules.indexOf(record.wrapper);
+        if (index >= 0) sheet.deleteRule(index);
+      } catch (_) {}
+    }
+
+    function releaseRecord(record, element) {
+      if (!record) return false;
+      removeRule(record);
+      const target = element || recordElement(record);
+      if (target) {
+        if (target.dataset) delete target.dataset.vmStyleId;
+        else if (typeof target.removeAttribute === 'function') target.removeAttribute('data-vm-style-id');
+        records.delete(target);
+      }
+      recordsById.delete(record.id);
+      return true;
+    }
+
+    function pruneDisconnected() {
+      for (const record of Array.from(recordsById.values())) {
+        const element = recordElement(record);
+        if (!element || (record.wasConnected && element.isConnected === false)) releaseRecord(record, element);
+      }
+      return recordsById.size;
+    }
+
+    function ensureRecord(element) {
+      if (!element) return null;
+      let record = records.get(element);
+      if (record) {
+        if (element.isConnected !== false) record.wasConnected = true;
+        return record;
+      }
+      pruneDisconnected();
+      if (recordsById.size >= PRUNE_THRESHOLD) pruneDisconnected();
+      const id = 'vm-runtime-' + (++nextId);
+      if (element.dataset) element.dataset.vmStyleId = id;
+      else if (typeof element.setAttribute === 'function') element.setAttribute('data-vm-style-id', id);
+      const Ref = typeof win.WeakRef === 'function' ? win.WeakRef : null;
+      record = {
+        id,
+        ref: Ref ? new Ref(element) : element,
+        rule: null,
+        wrapper: null,
+        values: new Map(),
+        wasConnected: element.isConnected !== false,
+      };
+      const owner = ensureSheet();
+      if (owner) {
+        try {
+          const index = owner.insertRule('@layer overrides { [data-vm-style-id="' + id + '"] {} }', owner.cssRules.length);
+          const wrapper = owner.cssRules[index];
+          record.rule = wrapper && wrapper.cssRules ? wrapper.cssRules[0] : null;
+          record.wrapper = wrapper || null;
+        } catch (_) {}
+      }
+      records.set(element, record);
+      recordsById.set(id, record);
+      return record;
+    }
+
+    function set(element, property, value) {
+      if (!element || typeof property !== 'string' || !property.trim()) return false;
+      const record = ensureRecord(element);
+      if (!record) return false;
+      const normalized = value == null ? '' : String(value);
+      record.values.set(property, normalized);
+      if (record.rule && record.rule.style && typeof record.rule.style.setProperty === 'function') {
+        try {
+          record.rule.style.setProperty(property, normalized);
+        } catch (_) { return false; }
+      }
+      return true;
+    }
+
+    function setMany(element, declarations) {
+      if (!declarations || typeof declarations !== 'object') return false;
+      let ok = true;
+      for (const [property, value] of Object.entries(declarations)) ok = set(element, property, value) && ok;
+      return ok;
+    }
+
+    function remove(element, property) {
+      const record = element && records.get(element);
+      if (!record) return false;
+      record.values.delete(property);
+      if (record.rule && record.rule.style && typeof record.rule.style.removeProperty === 'function') {
+        try { record.rule.style.removeProperty(property); } catch (_) { return false; }
+      }
+      return true;
+    }
+
+    function release(element) {
+      const record = element && records.get(element);
+      if (!record) return false;
+      return releaseRecord(record, element);
+    }
+
+    function get(element, property) {
+      const record = element && records.get(element);
+      return record && record.values.has(property) ? record.values.get(property) : '';
+    }
+
+    function stats() {
+      pruneDisconnected();
+      return {
+        records: recordsById.size,
+        rules: sheet ? Array.from(sheet.cssRules || []).length : 0,
+        constructable: sheetBackend === 'constructable',
+        backend: sheetBackend,
+      };
+    }
+
+    // WebView2 uses a constructable sheet. Environments without constructable
+    // sheets fall back to mutating an already-loaded same-document stylesheet
+    // through CSSOM. Both paths insert only @layer overrides rules; there is
+    // deliberately no inline-style or dynamically-created <style> fallback.
+    return { set, setMany, remove, release, get, prune: pruneDisconnected, stats };
+  }
+
+  const runtime = createRuntimeStyleOwner();
+
   function normalize(themeColor) {
     const value = typeof themeColor === 'string' ? themeColor.trim().toLowerCase() : '';
     return THEMES.includes(value) ? value : 'blue';
@@ -125,10 +302,11 @@
   function writeCustomPalette(palette) {
     if (!isSafePalette(palette)) return false;
     const rule = customThemeRule();
-    if (!rule || !rule.style || typeof rule.style.setProperty !== 'function') return false;
+    const declaration = rule && rule.style;
+    if (!declaration || typeof declaration.setProperty !== 'function') return false;
     try {
-      for (const [token, key] of Object.entries(customTokenMap)) rule.style.setProperty(token, palette[key]);
-      rule.style.setProperty('--vm-accent-rgb', toRgbChannels(palette.primary));
+      for (const [token, key] of Object.entries(customTokenMap)) declaration.setProperty(token, palette[key]);
+      declaration.setProperty('--vm-accent-rgb', toRgbChannels(palette.primary));
       return true;
     } catch (_) {
       return false;
@@ -405,6 +583,7 @@
     recommendedLevel,
     resolveLevel,
     isMotionReduced,
+    runtime,
     getState: snapshot,
   };
 

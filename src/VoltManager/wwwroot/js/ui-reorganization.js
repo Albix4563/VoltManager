@@ -64,7 +64,6 @@
     function setBatteryOnlyVisible(node, visible) {
         if (!node) return;
         node.classList.toggle('hidden', !visible);
-        node.style.display = visible ? '' : 'none';
         node.setAttribute('aria-hidden', visible ? 'false' : 'true');
         if (node.matches('button, a, input, select, textarea, [role="tab"], [tabindex]')) {
             node.tabIndex = visible ? 0 : -1;
@@ -219,11 +218,7 @@
             .forEach(id => $(id)?.classList.remove('mt-8'));
 
         document.querySelectorAll('#vm-automation-rules .vm-acc-body, #vm-automation-rules .vm-acc-body-inner')
-            .forEach(node => {
-                node.style.maxHeight = 'none';
-                node.style.opacity = '1';
-                node.style.overflow = 'visible';
-            });
+            .forEach(node => node.classList.add('vm-automation-expanded'));
         document.querySelectorAll('#vm-automation-rules [data-rule][data-field="thresholdPct"]')
             .forEach(input => input.closest('.glass-panel')?.classList.add('vm-rule-row'));
 
