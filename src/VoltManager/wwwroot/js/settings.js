@@ -70,8 +70,38 @@
         statusEl.classList.add(isError ? 'err' : 'ok');
     }
 
+    function injectUpdateModalLayoutStyles() {
+        if (document.getElementById('update-modal-layout-fix')) return;
+        const style = document.createElement('style');
+        style.id = 'update-modal-layout-fix';
+        style.textContent = `
+#update-modal-overlay{overflow:hidden;padding:16px;box-sizing:border-box;}
+#update-modal{width:min(640px,calc(100vw - 32px));max-width:min(640px,calc(100vw - 32px));max-height:calc(100vh - 32px);display:flex;flex-direction:column;overflow:hidden;box-sizing:border-box;}
+#update-modal,#update-modal *{min-width:0;box-sizing:border-box;}
+#update-modal .update-modal-header{flex:0 0 auto;}
+#update-modal .update-modal-versions{display:flex;align-items:center;gap:16px;flex-wrap:wrap;flex:0 0 auto;}
+#update-modal .update-modal-version-card{flex:1 1 150px;max-width:210px;}
+#upd-modal-notes{flex:1 1 auto;max-height:min(42vh,260px);overflow-y:auto;overflow-x:hidden;scrollbar-gutter:stable;}
+#upd-modal-notes,#upd-modal-notes *{max-width:100%;overflow-wrap:anywhere;word-break:break-word;}
+#upd-modal-progress-wrap,#upd-modal-state-msg{flex:0 0 auto;}
+#update-modal .update-modal-footer{flex:0 0 auto;display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:12px;overflow:hidden;}
+#upd-modal-snooze-wrap{display:flex;align-items:end;gap:8px;flex-wrap:wrap;min-width:0;}
+#upd-modal-snooze-label{width:100%;}
+#upd-modal-snooze-minutes{width:128px;max-width:100%;}
+#update-modal .update-modal-actions{display:flex;justify-content:flex-end;gap:12px;flex-wrap:wrap;min-width:0;}
+#update-modal .update-modal-actions button,#upd-modal-btn-snooze{min-height:42px;white-space:normal;text-align:center;}
+#upd-modal-btn-install{min-width:130px;max-width:160px;justify-content:center;}
+@media (max-width:680px){
+  #update-modal{width:calc(100vw - 24px);max-width:calc(100vw - 24px);}
+  #update-modal .update-modal-footer{grid-template-columns:1fr;align-items:stretch;}
+  #update-modal .update-modal-actions{justify-content:stretch;}
+  #update-modal .update-modal-actions button,#upd-modal-btn-snooze,#upd-modal-btn-install,#upd-modal-btn-dismiss,#upd-modal-btn-skip{flex:1 1 140px;max-width:none;}
+}`;
+        document.head.appendChild(style);
+    }
 
     function applyUpdateModalLayout() {
+        injectUpdateModalLayoutStyles();
 
         const modal = document.getElementById('update-modal');
         const notesEl = document.getElementById('upd-modal-notes');
@@ -194,13 +224,15 @@
                     newBadge.parentElement?.appendChild(betaTag);
                 }
                 betaTag.textContent = isAlpha ? 'ALPHA' : 'BETA';
-                betaTag.className = 'update-channel-tag ' + (isAlpha ? 'is-alpha' : 'is-beta');
+                betaTag.style.cssText = isAlpha 
+                    ? 'margin-top:4px;padding:2px 8px;border-radius:9999px;font-size:11px;font-weight:700;background:rgba(239,68,68,0.18);color:#f87171;border:1px solid rgba(239,68,68,0.45);'
+                    : 'margin-top:4px;padding:2px 8px;border-radius:9999px;font-size:11px;font-weight:700;background:rgba(251,191,36,0.18);color:#fcd34d;border:1px solid rgba(251,191,36,0.45);';
             } else if (betaTag) {
                 betaTag.remove();
             }
         }
         if (progWrap)  progWrap.classList.add('hidden');
-        if (progBar) window.Volt.style.runtime.set(progBar, 'width', '0%');
+        if (progBar)   progBar.style.width = '0%';
         if (progLabel) progLabel.textContent = '0%';
         if (stateMsg)  stateMsg.classList.add('hidden');
         if (btnInstall) {
@@ -330,7 +362,7 @@
                 stateMsg.textContent = tr('upd_modal_installing', lt('installing'));
                 stateMsg.classList.remove('hidden');
             }
-            if (progBar) window.Volt.style.runtime.set(progBar, 'width', '100%');
+            if (progBar) progBar.style.width = '100%';
             // A successful install closes this app; if we are still alive the
             // installer never took over, so surface it instead of sitting at 100%.
             installHandoffTimer = setTimeout(() => {
@@ -394,7 +426,7 @@
         const pct = Math.max(0, Math.min(100, Number(data && data.pct) || 0));
         const progBar   = document.getElementById('upd-modal-bar');
         const progLabel = document.getElementById('upd-modal-prog-label');
-        if (progBar) window.Volt.style.runtime.set(progBar, 'width', pct + '%');
+        if (progBar)   progBar.style.width = pct + '%';
         if (progLabel) progLabel.textContent = tr('msg_dl_prog', lt('dlProg')) + pct + '%';
         if (btnDownloadLabel) btnDownloadLabel.textContent = tr('msg_dl_prog', lt('dlProg')) + pct + '%';
     });
@@ -416,14 +448,19 @@
         if (document.getElementById('updated-toast')) return;
         const toast = document.createElement('div');
         toast.id = 'updated-toast';
+        toast.style.cssText =
+            'position:fixed;bottom:24px;right:24px;z-index:2000;' +
+            'border-radius:12px;padding:14px 18px;' +
+            'font-size:13px;display:flex;align-items:flex-start;gap:12px;max-width:min(420px,calc(100vw - 48px));' +
+            'overflow-wrap:anywhere;animation:slideInRight .45s var(--vm-ease-emphasized);';
         toast.innerHTML =
-            '<span class="material-symbols-outlined toast-icon">new_releases</span>' +
-            '<span class="updated-toast-content">' +
-            '  <strong class="toast-title">' + esc(lt('updatedToastTitle')) + (ver ? ' v' + esc(ver) : '') + '</strong>' +
-            '  <span class="toast-body">' + esc(lt('updatedToastBody')) + '</span>' +
-            '  <button id="updated-toast-changelog" type="button">' + esc(lt('updatedToastCta')) + '</button>' +
+            '<span class="material-symbols-outlined toast-icon" style="font-size:20px;margin-top:1px;">new_releases</span>' +
+            '<span style="display:flex;flex-direction:column;gap:6px;min-width:0;">' +
+            '  <strong class="toast-title" style="font-size:13px;">' + esc(lt('updatedToastTitle')) + (ver ? ' v' + esc(ver) : '') + '</strong>' +
+            '  <span class="toast-body" style="line-height:1.35;">' + esc(lt('updatedToastBody')) + '</span>' +
+            '  <button id="updated-toast-changelog" type="button" style="align-self:flex-start;border-radius:8px;padding:6px 10px;cursor:pointer;font-weight:700;font-size:12px;">' + esc(lt('updatedToastCta')) + '</button>' +
             '</span>' +
-            '<button id="updated-toast-close" type="button">x</button>';
+            '<button id="updated-toast-close" type="button" style="background:none;border:none;cursor:pointer;font-size:18px;margin-left:4px;line-height:1;">x</button>';
         document.body.appendChild(toast);
         document.getElementById('updated-toast-close')?.addEventListener('click', () => toast.remove());
         document.getElementById('updated-toast-changelog')?.addEventListener('click', () => {
@@ -700,12 +737,10 @@
         el.dataset.material = normalized.material;
         el.dataset.tint = normalized.tint;
         el.dataset.gradient = normalized.gradient;
-        window.Volt.style.runtime.setMany(el, {
-            '--vm-widget-intensity': String(level),
-            '--vm-widget-solid-alpha': String(0.70 + level * 0.25),
-            '--vm-widget-acrylic-alpha': String(0.06 + level * 0.40),
-            '--vm-widget-transparent-alpha': String(level * 0.20),
-        });
+        el.style.setProperty('--vm-widget-intensity', String(level));
+        el.style.setProperty('--vm-widget-solid-alpha', String(0.70 + level * 0.25));
+        el.style.setProperty('--vm-widget-acrylic-alpha', String(0.06 + level * 0.40));
+        el.style.setProperty('--vm-widget-transparent-alpha', String(level * 0.20));
     }
 
     function renderWidgetAppearanceState(value, updateDesired = true) {
@@ -1441,7 +1476,7 @@
         if (!note) return;
         const hwTier = animationHardwareTier();
         const exceeds = !!hwTier && window.VoltAnimationLevel.exceedsRecommended(setting, hwTier);
-        note.classList.toggle('is-warning', exceeds);
+        note.style.color = exceeds ? '#ffc857' : '';
         if (exceeds) note.textContent = animText('set_animation_over');
         else note.textContent = animText('set_animation_note_' + window.VoltAnimationLevel.resolveLevel(setting, hwTier));
     }
@@ -1632,7 +1667,7 @@
             || null;
         const swatch = document.getElementById('theme-current-swatch');
         if (swatch && resolvedPalette && resolvedPalette.primary) {
-            window.Volt.style.runtime.set(swatch, 'background', resolvedPalette.primary);
+            swatch.style.background = resolvedPalette.primary;
         }
         const label = document.getElementById('theme-current-label');
         if (label) label.textContent = themeLabel(normalized, customColor);
@@ -1681,7 +1716,7 @@
         const customPanel = document.getElementById('theme-custom-panel');
         if (customPanel) customPanel.dataset.selected = selection.themeColor === 'custom' ? 'true' : 'false';
         const customSwatch = document.getElementById('theme-custom-swatch');
-        if (customSwatch && selection.customColor) window.Volt.style.runtime.set(customSwatch, 'background', selection.customColor);
+        if (customSwatch && selection.customColor) customSwatch.style.background = selection.customColor;
         const apply = document.getElementById('theme-chooser-apply');
         if (apply) apply.disabled = selection.themeColor === 'custom' && !selection.customColor;
     }
@@ -1816,7 +1851,11 @@
         Host.call('setThemeColor', payload)
             .then(data => {
                 if (!data || !data.themeColor || !data.palette) return;
-                window.Volt?.style?.acceptThemeState(data);
+                window.__voltThemeState = data;
+                if (data.themeColor !== 'custom') {
+                    window.__voltThemeCatalog = window.__voltThemeCatalog || {};
+                    window.__voltThemeCatalog[data.themeColor] = data.palette;
+                }
                 settings.themeColor = data.themeColor;
                 settings.customThemeColor = data.customColor || null;
                 setThemeUi(data.themeColor, data.palette, data.customColor || null);
@@ -1903,7 +1942,7 @@
 
         const preview = document.getElementById('font-specimen-preview');
         if (preview) {
-            preview.dataset.font = normalized;
+            preview.style.fontFamily = stack;
         }
         return normalized;
     }
@@ -2099,16 +2138,20 @@
 
         if (!window.__voltThemeListenerWired) {
             window.__voltThemeListenerWired = true;
-            document.addEventListener('themechange', (event) => {
-                const data = event.detail;
-                if (!data || !data.themeColor) return;
-                const current = window.__voltSettings && (window.__voltSettings.get ? window.__voltSettings.get() : window.__voltSettings);
-                if (current) {
-                    current.themeColor = data.themeColor;
-                    current.customThemeColor = data.customColor || null;
-                }
-                setThemeUi(data.themeColor, data.palette, data.customColor || null);
-            });
+            if (window.Host && Host.on) {
+                Host.on('themeChanged', (data) => {
+                    if (!data || !data.themeColor || !data.palette) return;
+                    window.__voltThemeState = data;
+                    window.__voltThemeCatalog = window.__voltThemeCatalog || {};
+                    if (data.themeColor !== 'custom') window.__voltThemeCatalog[data.themeColor] = data.palette;
+                    const current = window.__voltSettings && (window.__voltSettings.get ? window.__voltSettings.get() : window.__voltSettings);
+                    if (current) {
+                        current.themeColor = data.themeColor;
+                        current.customThemeColor = data.customColor || null;
+                    }
+                    setThemeUi(data.themeColor, data.palette, data.customColor || null);
+                });
+            }
         }
     });
 

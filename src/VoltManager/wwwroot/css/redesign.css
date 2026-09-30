@@ -1,4 +1,3 @@
-@layer components {
 /* ============================================================
    VoltManager — Redesign layer (hand-written, no Tailwind build).
    Loaded AFTER app.css. Scope: tab organization + inter-tab motion.
@@ -136,6 +135,10 @@ html[data-perf-tier="balanced"] .vm-scrim{
 }
 
 /* ---------- 5. Collapsible sidebar ---------- */
+:root{
+  --side-nav-w: 280px;
+  --side-nav-w-collapsed: 84px;
+}
 .side-nav{
   width: var(--side-nav-w);
   transition: width var(--vm-motion-sidebar) var(--vm-ease-emphasized);
@@ -312,6 +315,7 @@ body.sidebar-expanding #btn-sidebar-expand{
 }
 
 @media (max-width: 900px){
+  :root{ --side-nav-w: 84px; }
   .side-nav{ align-items: center; }
   .side-nav__header{ padding-inline: 12px; margin-bottom: 12px; justify-content: center; }
   .side-nav__brand,
@@ -348,5 +352,4 @@ body.sidebar-expanding #btn-sidebar-expand{
   #sidebar-toggle-icon,
   .side-nav-expand-btn .material-symbols-outlined,
   .nav-indicator{ transition: none !important; }
-}
 }

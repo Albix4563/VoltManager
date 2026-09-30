@@ -32,7 +32,14 @@ window.VoltFont = (function() {
 
     function apply(key) {
         const norm = normalize(key);
-        document.documentElement.dataset.font = norm;
+        const stack = fonts[norm];
+        // Set on both html and body so Tailwind's html{font-family:...} never
+        // wins over our runtime choice for elements that inherit from body.
+        document.documentElement.style.setProperty('--vm-font-family', stack);
+        if (document.body) {
+            document.body.style.fontFamily = stack;
+        }
+        document.documentElement.style.fontFamily = stack;
         return norm;
     }
 

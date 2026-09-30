@@ -64,7 +64,7 @@
     function metric(source, target, meter) {
         const value = $(source)?.textContent.trim() || '--';
         set(target, value);
-        if ($(meter)) window.Volt.style.runtime.set($(meter), 'width', percentage(value) + '%');
+        if ($(meter)) $(meter).style.width = percentage(value) + '%';
     }
 
     function activeRules() {

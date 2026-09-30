@@ -33,22 +33,23 @@ test('central capability state hides laptop and brightness nodes until supported
 
   api.syncLaptopOnly();
   assert.equal(document.documentElement.dataset.vmHasBattery, 'unknown');
-  assert.equal(laptop.classList.contains('hidden'), true);
+  assert.equal(laptop.style.display, 'none');
   assert.equal(laptop.getAttribute('aria-hidden'), 'true');
   api.state.hasBattery = false;
   api.setBrightnessSupport(false);
   assert.equal(document.documentElement.dataset.vmHasBattery, 'false');
   assert.equal(document.documentElement.dataset.vmBrightness, 'unsupported');
+  assert.equal(brightness.style.display, 'none');
   assert.equal(brightness.classList.contains('hidden'), true);
 
   api.setBrightnessSupport(true);
-  assert.equal(shared.classList.contains('hidden'), true);
+  assert.equal(shared.style.display, 'none');
   assert.equal(shared.getAttribute('aria-hidden'), 'true');
 
   api.state.hasBattery = true;
   api.syncLaptopOnly();
-  assert.equal(laptop.classList.contains('hidden'), false);
-  assert.equal(brightness.classList.contains('hidden'), false);
+  assert.equal(laptop.style.display, '');
+  assert.equal(brightness.style.display, '');
 });
 
 test('desktop search removes battery results and its power source keyword', () => {

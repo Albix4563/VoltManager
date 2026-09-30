@@ -72,7 +72,7 @@
     function setStatus(message, isError) {
         status.textContent = message || '';
         status.classList.toggle('hidden', !message);
-        status.classList.toggle('is-error', !!isError);
+        status.style.color = isError ? '#ff8a80' : '';
     }
 
     function updateDeleteButton() {

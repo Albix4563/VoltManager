@@ -1,4 +1,3 @@
-@layer components {
 html,
 body {
   width: 100%;
@@ -30,6 +29,12 @@ body {
 }
 
 .desktop-widget {
+  --vm-widget-intensity: .6;
+  --vm-widget-solid-alpha: .85;
+  --vm-widget-acrylic-alpha: .30;
+  --vm-widget-transparent-alpha: .12;
+  --widget-tint: color-mix(in srgb, var(--vm-accent, #3b82f6) 26%, var(--vm-surface-high, #1e293b));
+  --widget-tint-2: var(--vm-bg, #0b1120);
   position: relative;
   width: 100%;
   height: 100%;
@@ -47,6 +52,12 @@ body {
       rgb(from var(--widget-tint-2) r g b / var(--vm-widget-solid-alpha)));
   box-shadow: inset 0 1px 0 rgba(255,255,255,.10);
 }
+
+.desktop-widget[data-tint="midnight"] { --widget-tint: #23345b; --widget-tint-2: #0b1425; }
+.desktop-widget[data-tint="graphite"] { --widget-tint: #525762; --widget-tint-2: #1e2127; }
+.desktop-widget[data-tint="aurora"] { --widget-tint: #26a692; --widget-tint-2: #3965b8; }
+.desktop-widget[data-tint="ember"] { --widget-tint: #d3653c; --widget-tint-2: #6f272a; }
+.desktop-widget[data-tint="neutral"] { --widget-tint: #7c8492; --widget-tint-2: #30343c; }
 
 .desktop-widget[data-material="solid"][data-gradient="vertical"] {
   background:
@@ -929,14 +940,23 @@ html[data-resource-profile="critical"] .widget-bar span { transition: none; }
 .desktop-widget[data-widget-type=launcher],
 .desktop-widget[data-widget-type=apps] {
   /* Keep in sync with WidgetSettings.LauncherChromeLength: 34 + 6 + 6 + 14 + 2px border = 62 DIP. */
+  --launcher-leading-cap: 34px;
+  --launcher-resize-cap: 14px;
+  --launcher-body-padding: 6px;
+  --launcher-icon-size: 40px;
+  --launcher-slot-size: 52px;
 }
 
 html[data-size=mini] .desktop-widget[data-widget-type=launcher],
 html[data-size=mini] .desktop-widget[data-widget-type=apps] {
+  --launcher-icon-size: 32px;
+  --launcher-slot-size: 44px;
 }
 
 html[data-size=large] .desktop-widget[data-widget-type=launcher],
 html[data-size=large] .desktop-widget[data-widget-type=apps] {
+  --launcher-icon-size: 52px;
+  --launcher-slot-size: 68px;
 }
 
 .launcher-grid {
@@ -1178,6 +1198,7 @@ html[data-size=mini] .launcher-empty .widget-button span:not(.material-symbols-o
 }
 
 .launcher-drop-overlay {
+  --launcher-danger: #ffb4ab;
   position: absolute;
   inset: 4px;
   z-index: 20;
@@ -1792,4 +1813,3 @@ html[data-resource-profile="gaming"] .proc-bar span,
 html[data-resource-profile="gaming"] .memory-bar span,
 html[data-resource-profile="critical"] .proc-bar span,
 html[data-resource-profile="critical"] .memory-bar span { transition: none; }
-}

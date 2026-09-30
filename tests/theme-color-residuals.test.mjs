@@ -19,21 +19,6 @@ const themeScript = readFileSync(
   new URL('../src/VoltManager/wwwroot/js/theme.js', import.meta.url),
   'utf8'
 );
-const controllerScript = readFileSync(new URL('../src/VoltManager/wwwroot/js/style-controller.js', import.meta.url), 'utf8');
-const tokensCss = readFileSync(new URL('../src/VoltManager/wwwroot/css/tokens.css', import.meta.url), 'utf8');
-
-function themeFixture() {
-  const properties = new Map();
-  const rule = { selectorText: ':root[data-theme="custom"]', style: { setProperty: (key, value) => properties.set(key, value) } };
-  const document = { documentElement: { dataset: {}, style: { setProperty() { throw Error('inline root token'); } } },
-    styleSheets: [{ href: '/css/tokens.css', cssRules: [{ cssRules: [rule] }] }],
-    addEventListener() {}, dispatchEvent() {} };
-  const window = {};
-  const context = vm.createContext({ window, document });
-  vm.runInContext(controllerScript, context);
-  vm.runInContext(themeScript, context);
-  return { window, document, properties };
-}
 
 function expectThemeOwned(selector, requiredTokens) {
   const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -72,8 +57,16 @@ test('widget power-plan override uses the live palette instead of the prototype 
   assert.doesNotMatch(widgetOverrideCss, /rgba\(34,\s*50,\s*86|rgba\(14,\s*26,\s*46|rgba\(5,\s*12,\s*24/);
 });
 
-test('preset theme selection updates root state and uses declared palette tokens', () => {
-  const { window, document, properties } = themeFixture();
+test('applying a theme updates the document state and live CSS variables', () => {
+  const properties = new Map();
+  const document = {
+    documentElement: {
+      dataset: { themeColor: 'blue' },
+      style: { setProperty: (name, value) => properties.set(name, value) },
+    },
+  };
+  const window = {};
+  vm.runInContext(themeScript, vm.createContext({ window, document }));
   const palette = {
     background: '#101010', surface: '#202020', surfaceElevated: '#303030', border: '#404040',
     text: '#ffffff', mutedText: '#aaaaaa', primary: '#ff0000', secondary: '#cc0000',
@@ -84,14 +77,21 @@ test('preset theme selection updates root state and uses declared palette tokens
 
   assert.equal(applied, 'red');
   assert.equal(document.documentElement.dataset.themeColor, 'red');
-  assert.equal(document.documentElement.dataset.theme, 'red');
-  assert.equal(properties.size, 0);
-  assert.match(tokensCss, /:root\[data-theme="red"\]\s*\{[^}]*--vm-accent:\s*#EF4444/i);
-  assert.match(tokensCss, /--md-sys-color-secondary-container:\s*var\(--vm-accent\)/);
+  assert.equal(properties.get('--vm-accent'), '#ff0000');
+  assert.equal(properties.get('--vm-bg'), '#101010');
+  assert.equal(properties.get('--md-sys-color-secondary-container'), '#ff0000');
+  assert.equal(properties.get('--vm-accent-rgb'), '255 0 0');
 });
 
 test('custom CSS hex colors normalize like the native theme service', () => {
-  const { window } = themeFixture();
+  const document = {
+    documentElement: {
+      dataset: { themeColor: 'blue' },
+      style: { setProperty() {} },
+    },
+  };
+  const window = {};
+  vm.runInContext(themeScript, vm.createContext({ window, document }));
 
   assert.equal(window.VoltTheme.normalizeCustomColor('#abc'), '#AABBCC');
   assert.equal(window.VoltTheme.normalizeCustomColor(' #123456 '), '#123456');
@@ -101,7 +101,15 @@ test('custom CSS hex colors normalize like the native theme service', () => {
 });
 
 test('custom palette application rejects unsafe CSS values', () => {
-  const { window, document, properties } = themeFixture();
+  const properties = new Map();
+  const document = {
+    documentElement: {
+      dataset: { themeColor: 'blue' },
+      style: { setProperty: (name, value) => properties.set(name, value) },
+    },
+  };
+  const window = {};
+  vm.runInContext(themeScript, vm.createContext({ window, document }));
 
   const unsafe = {
     background: '#101010', surface: '#202020', surfaceElevated: '#303030', border: '#404040',

@@ -1,4 +1,3 @@
-@layer components {
 /* Shared material depth. Colors come exclusively from theme-colors.css. */
 .glass-card {
   background-image: linear-gradient(
@@ -317,5 +316,4 @@ html[data-perf="lite"] .glass-card:not(.fx-metric):hover,
 html[data-perf-tier="lite"] .glass-card:not(.fx-metric):hover,
 html[data-perf-tier="balanced"] .glass-card:not(.fx-metric):hover{
   transform: none;
-}
 }

@@ -1,4 +1,3 @@
-@layer components {
 .widget-override-overlay {
   position: fixed;
   inset: 0;
@@ -217,5 +216,4 @@ html[data-size=large] .widget-override-option {
   .widget-override-close {
     transition: none !important;
   }
-}
 }

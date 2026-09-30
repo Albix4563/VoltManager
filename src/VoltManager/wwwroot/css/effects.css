@@ -1,4 +1,3 @@
-@layer components {
 .glass-card{
   contain: layout paint style;
 }
@@ -334,5 +333,4 @@ html[data-perf-tier="lite"] .fx-title,
 html[data-perf="lite"] .fx-title{
   color: var(--vm-text,#d4e4fa);
   -webkit-text-fill-color: currentColor;
-}
 }

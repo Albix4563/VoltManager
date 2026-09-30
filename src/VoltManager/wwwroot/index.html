@@ -1,24 +1,42 @@
 <!DOCTYPE html>
-<html data-theme="blue" data-theme-color="blue" lang="it">
+<html data-theme-color="blue" lang="it">
 <head>
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; media-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'"/>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; media-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'"/>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <title>VOLT MANAGER</title>
-<link href="css/layers.css?v=20260929-1" rel="stylesheet"/>
-<link href="css/tokens.css?v=20260929-1" rel="stylesheet"/>
 <link href="css/app.css?v=20260929-1" rel="stylesheet"/>
 <link href="css/motion.css?v=20260929-1" rel="stylesheet"/>
 <link href="css/redesign.css?v=20260929-1" rel="stylesheet"/>
 <link href="css/polish.css?v=20260929-1" rel="stylesheet"/>
 <link href="css/effects.css?v=20260929-1" rel="stylesheet"/>
-<link href="css/ui-reorganization.css?v=20260929-1" rel="stylesheet"/>
 <link href="css/theme-colors.css?v=20260929-1" rel="stylesheet"/>
 <link href="css/power-features.css?v=20260929-1" rel="stylesheet"/>
 <link href="css/lan-remote-control.css?v=20260929-1" rel="stylesheet"/>
 <script src="js/asset-version.js?v=20260929-1"></script>
-<script src="js/style-controller.js?v=20260929-1"></script>
 <script src="js/theme.js?v=20260929-1"></script>
+<style>
+@keyframes slideInRight{from{transform:translateX(110%);opacity:0}to{transform:translateX(0);opacity:1}}
+.welcome-step{animation:slideInRight .4s var(--vm-ease-emphasized)}
+/* Spacing scale gap-lg (24px) was missing from app.css, leaving welcome
+   preference rows crammed together. Defined here to match the rest of the
+   lg spacing scale (p-lg/mb-lg/mt-lg/px-lg/py-lg = 24px). */
+.gap-lg{gap:24px}
+.welcome-dot{width:8px;height:8px;border-radius:9999px;background:rgba(255,255,255,.18);cursor:pointer;transition:all var(--vm-motion-fast) var(--vm-ease-standard);display:inline-block}
+.welcome-dot[data-active=true]{background:var(--vm-accent);width:24px}
+#welcome-overlay{z-index:120}
+#channel-warn-overlay{z-index:200}
+.welcome-theme-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.welcome-theme-card{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:10px;min-height:58px;padding:10px 12px;border-radius:16px;border:1px solid var(--vm-border);background:rgba(255,255,255,.045);color:var(--vm-text);font-size:14px;font-weight:700;text-align:left;cursor:pointer;transition:transform var(--vm-motion-fast) var(--vm-ease-standard),border-color var(--vm-motion-fast) var(--vm-ease-standard),background var(--vm-motion-fast) var(--vm-ease-standard),box-shadow var(--vm-motion-fast) var(--vm-ease-standard)}
+.welcome-theme-card:hover{transform:translateY(-1px);border-color:var(--theme-swatch);background:rgba(255,255,255,.07)}
+.welcome-theme-card:focus-visible{outline:3px solid var(--theme-swatch);outline-offset:2px}
+.welcome-theme-card[data-selected=true]{border-color:var(--theme-swatch);box-shadow:0 0 0 1px var(--theme-swatch),0 0 22px rgb(var(--vm-accent-rgb) / .2)}
+.welcome-theme-swatch{width:28px;height:28px;border-radius:9999px;background:var(--theme-swatch);box-shadow:inset 0 0 0 1px rgba(255,255,255,.28)}
+.welcome-theme-check{width:24px;min-width:24px;height:24px;border-radius:9999px;display:flex;align-items:center;justify-content:center;border:1px solid var(--vm-border);background:rgba(255,255,255,.05);color:transparent;font-size:17px;transition:all var(--vm-motion-fast) var(--vm-ease-standard)}
+.welcome-theme-card[data-selected=true] .welcome-theme-check{background:var(--theme-swatch);border-color:var(--theme-swatch);color:var(--vm-on-accent)}
+@media (max-width:420px){.welcome-theme-grid{grid-template-columns:1fr}}
+.material-symbols-outlined{width:1em;min-width:1em;max-width:1em;overflow:hidden;text-align:center;flex:0 0 auto}
+</style>
 </head>
 <body class="bg-primary-container text-on-surface h-screen flex overflow-hidden selection:bg-secondary-container selection:text-on-secondary">
 
@@ -39,7 +57,7 @@
   </div>
   <!-- Navigation Links -->
   <div class="relative w-full">
-    <div class="nav-indicator" id="nav-indicator"></div>
+    <div class="nav-indicator" id="nav-indicator" style="top: 0px; height: 48px;"></div>
     <ul class="flex flex-col gap-1 px-4 w-full relative z-20" id="nav-list">
       <li class="nav-section-label is-first" aria-hidden="true" data-i18n="nav_sec_monitor">Monitor</li>
       <li>
@@ -84,7 +102,7 @@
     </div>
     <p class="text-label-sm text-on-surface-variant opacity-60 mt-3 px-1" id="sidebar-version">VOLT MANAGER v1.0.0</p>
     <div class="mt-sm px-1 flex items-center gap-2 opacity-70 hover:opacity-100 transition-opacity duration-300">
-      <img src="images/sponsor_logo.png" alt="VOLT MANAGER" class="h-6 w-auto rounded sponsor-logo" />
+      <img src="images/sponsor_logo.png" alt="VOLT MANAGER" class="h-6 w-auto rounded" style="max-width: 160px; object-fit: contain;" />
     </div>
   </div>
 </nav>
@@ -122,7 +140,7 @@
       <section class="glass-card rounded-xl p-6 flex flex-col items-center">
         <h4 class="text-label-md text-on-surface-variant mb-3 uppercase tracking-wider" data-i18n="dash_active_plan">Active Power Plan</h4>
         <div class="segmented-control-bg p-1 rounded-xl flex items-center relative w-full max-w-md" id="plan-control">
-          <div class="absolute left-1 top-1 bottom-1 w-[32.5%] segmented-pill rounded-lg z-0" id="plan-pill" data-plan-position="1"></div>
+          <div class="absolute left-1 top-1 bottom-1 w-[32.5%] segmented-pill rounded-lg z-0" id="plan-pill" style="transform: translateX(102%);"></div>
           <button class="flex-1 py-3 px-4 relative z-10 text-center text-body-md text-on-surface-variant hover:text-on-surface transition-all duration-300 focus:outline-none hover:scale-105" data-plan="powerSaver" data-i18n="dash_plan_saver">
             Power Efficiency
           </button>
@@ -241,7 +259,7 @@
               <p class="text-label-sm font-mono text-secondary-fixed-dim mb-4 hidden" id="ram-clock">-- MHz</p>
             </div>
             <div class="w-full h-3 bg-[#1E2A4A] rounded-full overflow-hidden">
-              <div class="theme-progress-fill h-full rounded-full progress-glow transition-all duration-1000 ease-out" id="ram-bar"></div>
+              <div class="theme-progress-fill h-full rounded-full progress-glow transition-all duration-1000 ease-out" id="ram-bar" style="width: 0%"></div>
             </div>
           </div>
 
@@ -258,7 +276,7 @@
               <p class="text-label-sm text-on-surface-variant mb-6" data-i18n="dash_disk_sub">Attività disco totale</p>
             </div>
             <div class="w-full h-3 bg-[#1E2A4A] rounded-full overflow-hidden">
-              <div class="theme-progress-fill h-full rounded-full progress-glow transition-all duration-1000 ease-out" id="disk-bar"></div>
+              <div class="theme-progress-fill h-full rounded-full progress-glow transition-all duration-1000 ease-out" id="disk-bar" style="width: 0%"></div>
             </div>
           </div>
         </div>
@@ -304,7 +322,7 @@
           </div>
           <p class="text-label-sm text-on-surface-variant mb-4" id="battery-health-detail">--</p>
           <div class="w-full h-3 bg-[#1E2A4A] rounded-full overflow-hidden">
-            <div class="theme-progress-fill h-full rounded-full progress-glow transition-all duration-1000 ease-out" id="battery-health-bar"></div>
+            <div class="theme-progress-fill h-full rounded-full progress-glow transition-all duration-1000 ease-out" id="battery-health-bar" style="width: 0%"></div>
           </div>
         </div>
       </section>
@@ -368,7 +386,7 @@
             </div>
             <span class="text-title-lg font-bold text-on-surface" id="battery-history-current">--%</span>
           </div>
-          <svg class="w-full battery-history-chart" viewBox="0 0 100 32" preserveAspectRatio="none">
+          <svg class="w-full" viewBox="0 0 100 32" preserveAspectRatio="none" style="height: 8rem;">
             <defs>
               <linearGradient id="battery-history-fill" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stop-color="#00E5FF" stop-opacity="0.35"></stop>
@@ -663,21 +681,22 @@
                     <span class="text-label-md text-on-surface-variant" id="version-badge">Current Version: v1.0.0</span>
                   </div>
                   <div class="inline-flex items-center gap-xs px-3 py-1 rounded-full bg-surface-container-high border border-white/5" id="update-channel-badge">
-                    <span class="material-symbols-outlined text-secondary-fixed-dim update-channel-icon">hub</span>
+                    <span class="material-symbols-outlined text-secondary-fixed-dim" style="font-size:14px;">hub</span>
                     <span class="text-label-md text-on-surface-variant" id="update-channel-badge-text">Canale: Stabile</span>
                   </div>
                 </div>
                 <p class="text-label-md text-on-surface-variant mt-sm hidden" id="update-status"></p>
               </div>
               <div class="flex flex-col gap-sm items-stretch">
-                <div class="update-channel-field">
+                <div style="display:flex;flex-direction:column;gap:4px;">
                   <label class="text-label-sm text-on-surface-variant" for="update-channel-select" data-i18n="set_channel_label">Canale aggiornamenti</label>
-                  <select id="update-channel-select" class="text-label-md text-on-surface update-channel-select">
+                  <select id="update-channel-select" class="text-label-md text-on-surface"
+                          style="width:100%;background:var(--md-sys-color-surface-container-high,#1b2236);color:inherit;font-weight:600;padding:8px 12px;border-radius:8px;border:1px solid rgba(255,255,255,0.12);cursor:pointer;outline:none;">
                     <option value="stable" data-i18n="set_channel_stable">Stabile</option>
                     <option value="preview" data-i18n="set_channel_preview">Preview (Beta)</option>
                     <option value="dev" data-i18n="set_channel_dev">Dev (Alpha)</option>
                   </select>
-                  <p class="text-label-sm mt-1 hidden update-channel-risk-note" id="update-channel-risk-note"></p>
+                  <p class="text-label-sm mt-1 hidden" id="update-channel-risk-note" style="color:#ffc857;line-height:1.35;"></p>
                 </div>
                 <button class="btn-glow flex items-center justify-center gap-sm bg-secondary-container text-on-secondary-container text-label-md font-bold px-6 py-3 rounded-lg transition-all duration-200 whitespace-nowrap" id="btn-check-updates">
                   <span class="material-symbols-outlined text-[18px]">download</span>
@@ -718,7 +737,8 @@
                   <p class="text-body-md text-on-surface" data-i18n="set_animation_label">Animations</p>
                   <p class="text-label-sm text-on-surface-variant mt-1" id="animation-level-note"></p>
                 </div>
-                <select id="animation-level-select" class="text-label-md text-on-surface shrink-0 animation-level-select">
+                <select id="animation-level-select" class="text-label-md text-on-surface shrink-0"
+                        style="min-width:190px;background:var(--md-sys-color-surface-container-high,#1b2236);color:inherit;font-weight:600;padding:8px 12px;border-radius:8px;border:1px solid rgba(255,255,255,0.12);cursor:pointer;outline:none;">
                   <option value="auto">Automatic</option>
                   <option value="low" data-i18n="set_animation_low">Low</option>
                   <option value="medium" data-i18n="set_animation_medium">Medium</option>
@@ -802,7 +822,7 @@
                   <p class="text-body-md text-on-surface group-hover:text-secondary-fixed transition-colors" data-i18n="set_pref_lang">Lingua</p>
                   <p class="text-label-sm text-on-surface-variant" data-i18n="set_pref_lang_sub">Lingua dell'interfaccia</p>
                 </div>
-                <select id="lang-select" class="bg-surface-container-low/50 text-secondary-container font-medium border border-white/10 rounded-lg py-2 px-4 pr-10 text-body-md focus:outline-none focus:border-secondary-container transition-all duration-300 cursor-pointer hover:bg-white/10 shadow-lg backdrop-blur-md">
+                <select id="lang-select" class="bg-surface-container-low/50 text-secondary-container font-medium border border-white/10 rounded-lg py-2 px-4 pr-10 text-body-md focus:outline-none focus:border-secondary-container transition-all duration-300 cursor-pointer hover:bg-white/10 shadow-lg backdrop-blur-md" style="-webkit-appearance: none; -moz-appearance: none; appearance: none; background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2300f1fe%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E'); background-repeat: no-repeat; background-position: right 0.75rem center; background-size: 1.2em 1.2em;">
                   <option value="it" class="bg-[#0A1128] text-white">Italiano</option>
                   <option value="en" class="bg-[#0A1128] text-white">English</option>
                   <option value="es" class="bg-[#0A1128] text-white">Español</option>
@@ -814,7 +834,7 @@
                   <label class="text-body-md text-on-surface group-hover:text-secondary-fixed transition-colors block cursor-pointer" for="font-select" data-i18n="set_pref_font">Carattere</label>
                   <p class="text-label-sm text-on-surface-variant" data-i18n="set_pref_font_sub">Tipo di carattere dell'interfaccia</p>
                 </div>
-                <select id="font-select" class="bg-surface-container-low/50 text-secondary-container font-medium border border-white/10 rounded-lg py-2 px-4 pr-10 text-body-md focus:outline-none focus:border-secondary-container transition-all duration-300 cursor-pointer hover:bg-white/10 shadow-lg backdrop-blur-md">
+                <select id="font-select" class="bg-surface-container-low/50 text-secondary-container font-medium border border-white/10 rounded-lg py-2 px-4 pr-10 text-body-md focus:outline-none focus:border-secondary-container transition-all duration-300 cursor-pointer hover:bg-white/10 shadow-lg backdrop-blur-md" style="-webkit-appearance: none; -moz-appearance: none; appearance: none; background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2300f1fe%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E'); background-repeat: no-repeat; background-position: right 0.75rem center; background-size: 1.2em 1.2em;">
                   <option value="inter" class="bg-[#0A1128] text-white">Inter</option>
                   <option value="segoe-ui" class="bg-[#0A1128] text-white">Segoe UI</option>
                   <option value="arial" class="bg-[#0A1128] text-white">Arial</option>
@@ -1056,11 +1076,12 @@
 
 <!-- ============ CHANNEL RISK WARNING MODAL ============ -->
 <!-- z-index inline: arbitrary Tailwind z-[115] is not in the compiled CSS bundle. -->
-<div class="fixed inset-0 bg-black/60 hidden items-center justify-center" id="channel-warn-overlay">
+<div class="fixed inset-0 bg-black/60 hidden items-center justify-center" id="channel-warn-overlay" style="z-index:200;">
   <div class="w-full max-w-md mx-4 glass-modal rounded-2xl overflow-hidden" role="dialog" aria-modal="true" aria-labelledby="channel-warn-title">
     <div class="px-6 py-5 border-b border-white/5 flex items-center gap-3">
-      <div class="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 channel-warning-icon">
-        <span class="material-symbols-outlined text-2xl channel-warning-glyph">warning</span>
+      <div class="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
+           style="background:color-mix(in srgb,#ffc857 12%,transparent);border:1px solid color-mix(in srgb,#ffc857 30%,transparent);">
+        <span class="material-symbols-outlined text-2xl" style="color:#ffc857;">warning</span>
       </div>
       <h2 class="text-title-lg text-on-surface font-bold" id="channel-warn-title">Attenzione</h2>
     </div>
@@ -1108,7 +1129,7 @@
     <!-- Progress bar (hidden until download starts) -->
     <div class="px-6 pb-2 hidden" id="upd-modal-progress-wrap">
       <div class="w-full h-1.5 bg-surface-container rounded-full overflow-hidden mt-2">
-        <div class="h-full bg-secondary-container rounded-full transition-all duration-300" id="upd-modal-bar"></div>
+        <div class="h-full bg-secondary-container rounded-full transition-all duration-300" id="upd-modal-bar" style="width:0%"></div>
       </div>
       <div class="flex justify-between mt-1">
         <span class="text-label-sm text-on-surface-variant" id="upd-modal-prog-label">0%</span>
@@ -1178,25 +1199,25 @@
           <p class="text-body-md text-on-surface-variant max-w-[360px] mx-auto" data-i18n="welcome_theme_intro">Puoi cambiarlo in qualsiasi momento dalle impostazioni.</p>
         </div>
         <div class="welcome-theme-grid" role="group" aria-label="Colore tema" data-i18n-aria-label="set_pref_theme">
-          <button class="welcome-theme-card" data-welcome-theme="blue" type="button" aria-pressed="false">
+          <button class="welcome-theme-card" data-welcome-theme="blue" type="button" aria-pressed="false" style="--theme-swatch:#3B82F6">
             <span class="welcome-theme-swatch" aria-hidden="true"></span><span data-i18n="set_theme_blue">Blu</span><span class="welcome-theme-check material-symbols-outlined">check</span>
           </button>
-          <button class="welcome-theme-card" data-welcome-theme="red" type="button" aria-pressed="false">
+          <button class="welcome-theme-card" data-welcome-theme="red" type="button" aria-pressed="false" style="--theme-swatch:#EF4444">
             <span class="welcome-theme-swatch" aria-hidden="true"></span><span data-i18n="set_theme_red">Rosso</span><span class="welcome-theme-check material-symbols-outlined">check</span>
           </button>
-          <button class="welcome-theme-card" data-welcome-theme="green" type="button" aria-pressed="false">
+          <button class="welcome-theme-card" data-welcome-theme="green" type="button" aria-pressed="false" style="--theme-swatch:#22C55E">
             <span class="welcome-theme-swatch" aria-hidden="true"></span><span data-i18n="set_theme_green">Verde</span><span class="welcome-theme-check material-symbols-outlined">check</span>
           </button>
-          <button class="welcome-theme-card" data-welcome-theme="orange" type="button" aria-pressed="false">
+          <button class="welcome-theme-card" data-welcome-theme="orange" type="button" aria-pressed="false" style="--theme-swatch:#F97316">
             <span class="welcome-theme-swatch" aria-hidden="true"></span><span data-i18n="set_theme_orange">Arancione</span><span class="welcome-theme-check material-symbols-outlined">check</span>
           </button>
-          <button class="welcome-theme-card" data-welcome-theme="purple" type="button" aria-pressed="false">
+          <button class="welcome-theme-card" data-welcome-theme="purple" type="button" aria-pressed="false" style="--theme-swatch:#A855F7">
             <span class="welcome-theme-swatch" aria-hidden="true"></span><span data-i18n="set_theme_purple">Viola</span><span class="welcome-theme-check material-symbols-outlined">check</span>
           </button>
-          <button class="welcome-theme-card" data-welcome-theme="pink" type="button" aria-pressed="false">
+          <button class="welcome-theme-card" data-welcome-theme="pink" type="button" aria-pressed="false" style="--theme-swatch:#EC4899">
             <span class="welcome-theme-swatch" aria-hidden="true"></span><span data-i18n="set_theme_pink">Rosa</span><span class="welcome-theme-check material-symbols-outlined">check</span>
           </button>
-          <button class="welcome-theme-card" data-welcome-theme="gray" type="button" aria-pressed="false">
+          <button class="welcome-theme-card" data-welcome-theme="gray" type="button" aria-pressed="false" style="--theme-swatch:#94A3B8">
             <span class="welcome-theme-swatch" aria-hidden="true"></span><span data-i18n="set_theme_gray">Grigio</span><span class="welcome-theme-check material-symbols-outlined">check</span>
           </button>
         </div>
@@ -1247,7 +1268,7 @@
             <p class="text-body-md text-on-surface font-medium" data-i18n="set_pref_lang">Lingua</p>
             <p class="text-label-sm text-on-surface-variant" data-i18n="set_pref_lang_sub">Lingua dell'interfaccia</p>
           </div>
-          <select id="welcome-lang-select" class="bg-surface-container-low/50 text-secondary-container font-medium border border-white/10 rounded-lg py-2 px-4 pr-10 text-body-md focus:outline-none focus:border-secondary-container transition-all duration-300 cursor-pointer hover:bg-white/10 shadow-lg backdrop-blur-md">
+          <select id="welcome-lang-select" class="bg-surface-container-low/50 text-secondary-container font-medium border border-white/10 rounded-lg py-2 px-4 pr-10 text-body-md focus:outline-none focus:border-secondary-container transition-all duration-300 cursor-pointer hover:bg-white/10 shadow-lg backdrop-blur-md" style="-webkit-appearance: none; -moz-appearance: none; appearance: none; background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2300f1fe%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E'); background-repeat: no-repeat; background-position: right 0.75rem center; background-size: 1.2em 1.2em;">
             <option value="it">Italiano</option>
             <option value="en">English</option>
             <option value="es">Español</option>
@@ -1478,25 +1499,25 @@
           <p data-i18n="theme_picker_presets_sub">Scegli una palette ottimizzata per l'interfaccia scura.</p>
         </div>
         <div class="theme-choice-grid" role="radiogroup" data-i18n-aria-label="theme_picker_presets">
-          <button type="button" class="theme-choice" data-theme-choice="blue" role="radio" aria-checked="false">
+          <button type="button" class="theme-choice" data-theme-choice="blue" role="radio" aria-checked="false" style="--theme-choice-color:#3B82F6">
             <span class="theme-choice__swatch" aria-hidden="true"></span><span data-i18n="set_theme_blue">Blu</span><span class="material-symbols-outlined theme-choice__check" aria-hidden="true">check</span>
           </button>
-          <button type="button" class="theme-choice" data-theme-choice="red" role="radio" aria-checked="false">
+          <button type="button" class="theme-choice" data-theme-choice="red" role="radio" aria-checked="false" style="--theme-choice-color:#EF4444">
             <span class="theme-choice__swatch" aria-hidden="true"></span><span data-i18n="set_theme_red">Rosso</span><span class="material-symbols-outlined theme-choice__check" aria-hidden="true">check</span>
           </button>
-          <button type="button" class="theme-choice" data-theme-choice="green" role="radio" aria-checked="false">
+          <button type="button" class="theme-choice" data-theme-choice="green" role="radio" aria-checked="false" style="--theme-choice-color:#22C55E">
             <span class="theme-choice__swatch" aria-hidden="true"></span><span data-i18n="set_theme_green">Verde</span><span class="material-symbols-outlined theme-choice__check" aria-hidden="true">check</span>
           </button>
-          <button type="button" class="theme-choice" data-theme-choice="orange" role="radio" aria-checked="false">
+          <button type="button" class="theme-choice" data-theme-choice="orange" role="radio" aria-checked="false" style="--theme-choice-color:#F97316">
             <span class="theme-choice__swatch" aria-hidden="true"></span><span data-i18n="set_theme_orange">Arancione</span><span class="material-symbols-outlined theme-choice__check" aria-hidden="true">check</span>
           </button>
-          <button type="button" class="theme-choice" data-theme-choice="purple" role="radio" aria-checked="false">
+          <button type="button" class="theme-choice" data-theme-choice="purple" role="radio" aria-checked="false" style="--theme-choice-color:#A855F7">
             <span class="theme-choice__swatch" aria-hidden="true"></span><span data-i18n="set_theme_purple">Viola</span><span class="material-symbols-outlined theme-choice__check" aria-hidden="true">check</span>
           </button>
-          <button type="button" class="theme-choice" data-theme-choice="pink" role="radio" aria-checked="false">
+          <button type="button" class="theme-choice" data-theme-choice="pink" role="radio" aria-checked="false" style="--theme-choice-color:#EC4899">
             <span class="theme-choice__swatch" aria-hidden="true"></span><span data-i18n="set_theme_pink">Rosa</span><span class="material-symbols-outlined theme-choice__check" aria-hidden="true">check</span>
           </button>
-          <button type="button" class="theme-choice" data-theme-choice="gray" role="radio" aria-checked="false">
+          <button type="button" class="theme-choice" data-theme-choice="gray" role="radio" aria-checked="false" style="--theme-choice-color:#94A3B8">
             <span class="theme-choice__swatch" aria-hidden="true"></span><span data-i18n="set_theme_gray">Grigio</span><span class="material-symbols-outlined theme-choice__check" aria-hidden="true">check</span>
           </button>
         </div>

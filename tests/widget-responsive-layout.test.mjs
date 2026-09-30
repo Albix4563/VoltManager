@@ -10,10 +10,6 @@ const widgetsCss = readFileSync(
   new URL('../src/VoltManager/wwwroot/css/widgets.css', import.meta.url),
   'utf8'
 );
-const tokensCss = readFileSync(
-  new URL('../src/VoltManager/wwwroot/css/tokens.css', import.meta.url),
-  'utf8'
-);
 const appCss = readFileSync(
   new URL('../src/VoltManager/wwwroot/css/app.css', import.meta.url),
   'utf8'
@@ -122,12 +118,12 @@ test('launcher layout is deterministic, fixed-size and scrolls instead of shrink
   assert.doesNotMatch(widgetsJs, /widget-resize-grip|south_east/);
   assert.match(widgetsJs, /id="widget-drag"/);
   assert.match(widgetsJs, /if \(e\.target\.closest\('button'\)\) return;[\s\S]*?beginWidgetDrag/);
-  assert.match(tokensCss, /--launcher-icon-size:\s*32px/);
-  assert.match(tokensCss, /--launcher-icon-size:\s*40px/);
-  assert.match(tokensCss, /--launcher-icon-size:\s*52px/);
-  assert.match(tokensCss, /--launcher-leading-cap:\s*34px/);
-  assert.match(tokensCss, /--launcher-resize-cap:\s*14px/);
-  assert.match(tokensCss, /--launcher-body-padding:\s*6px/);
+  assert.match(widgetsCss, /--launcher-icon-size:\s*32px/);
+  assert.match(widgetsCss, /--launcher-icon-size:\s*40px/);
+  assert.match(widgetsCss, /--launcher-icon-size:\s*52px/);
+  assert.match(widgetsCss, /--launcher-leading-cap:\s*34px/);
+  assert.match(widgetsCss, /--launcher-resize-cap:\s*14px/);
+  assert.match(widgetsCss, /--launcher-body-padding:\s*6px/);
   assert.match(widgetsCss, /grid-auto-columns:\s*var\(--launcher-slot-size\)/);
   assert.match(widgetsCss, /grid-auto-rows:\s*var\(--launcher-slot-size\)/);
   assert.match(widgetsCss, /width:\s*calc\(var\(--launcher-slot-size\) - 6px\)/);

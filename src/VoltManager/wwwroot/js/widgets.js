@@ -38,6 +38,10 @@
     let purging = false;
     let brightnessTimer = null;
     let brightnessDragging = false;
+    let resourceProfile = 'full';
+    let resourceReducedEffects = false;
+    let animationSetting = 'auto';
+    let animationHardwareTier = null;
     let widgetAppearance = normalizeAppearance(null);
     let locale = (window.I18n && I18n.getLocale ? I18n.getLocale() : 'it-IT');
     document.documentElement.dataset.size = size;
@@ -83,12 +87,12 @@
             el.dataset.material = widgetAppearance.material;
             el.dataset.tint = widgetAppearance.tint;
             el.dataset.gradient = widgetAppearance.gradient;
-            window.Volt.style.runtime.setMany(el, {
-                '--vm-widget-intensity': String(level),
-                '--vm-widget-solid-alpha': String(0.70 + level * 0.25),
-                '--vm-widget-acrylic-alpha': String(0.06 + level * 0.40),
-                '--vm-widget-transparent-alpha': String(level * 0.20),
-            });
+            if (el.style && typeof el.style.setProperty === 'function') {
+                el.style.setProperty('--vm-widget-intensity', String(level));
+                el.style.setProperty('--vm-widget-solid-alpha', String(0.70 + level * 0.25));
+                el.style.setProperty('--vm-widget-acrylic-alpha', String(0.06 + level * 0.40));
+                el.style.setProperty('--vm-widget-transparent-alpha', String(level * 0.20));
+            }
         });
     }
 
@@ -237,7 +241,7 @@
             scheduleDateTick();
             return;
         }
-        shell('<div class="widget-muted calendar-title" id="calendar-title"></div><div class="calendar-head" id="calendar-head"></div><div class="calendar-grid" id="calendar-grid"></div>');
+        shell('<div class="widget-muted" id="calendar-title" style="margin-bottom:10px"></div><div class="calendar-head" id="calendar-head"></div><div class="calendar-grid" id="calendar-grid"></div>');
         dateTick = renderCalendar;
         scheduleDateTick();
     }
@@ -310,12 +314,12 @@
         if (!valueEl || !bar) return;
         if (value == null) {
             valueEl.textContent = 'N/D';
-            window.Volt.style.runtime.set(bar, 'width', '0%');
+            bar.style.width = '0%';
             return;
         }
         const v = pct(value);
         valueEl.textContent = Math.round(v) + '%';
-        window.Volt.style.runtime.set(bar, 'width', v + '%');
+        bar.style.width = v + '%';
     }
 
     function startTemps() {
@@ -360,7 +364,6 @@
     }
 
     function syncPolling() {
-        const resourceProfile = window.Volt?.style?.getState().resourceProfile || 'full';
         if (pollTimer != null) clearInterval(pollTimer);
         pollTimer = null;
         if (!POLLERS[type] || document.hidden) return;
@@ -391,6 +394,7 @@
         if (batteryRow) {
             const noBattery = state?.message === 'no_battery';
             batteryRow.classList.toggle('hidden', noBattery);
+            batteryRow.style.display = noBattery ? 'none' : '';
             batteryRow.setAttribute('aria-hidden', noBattery ? 'true' : 'false');
         }
         if (!state || !state.available) {
@@ -507,10 +511,11 @@
         }
         if (!pill) return;
         if (index < 0) {
-            pill.dataset.widgetPlanPosition = 'hidden';
+            pill.style.opacity = '0';
             return;
         }
-        pill.dataset.widgetPlanPosition = String(index);
+        pill.style.opacity = '1';
+        pill.style.transform = 'translateX(' + (index * 100) + '%)';
     }
 
     async function selectPlan(plan) {
@@ -1029,7 +1034,9 @@
         setText('brightness-icon', value < 34 ? 'brightness_low' : value < 67 ? 'brightness_medium' : 'brightness_high');
         setText('brightness-value', Math.round(value) + '%');
         const slider = document.getElementById('brightness-slider');
-        if (slider) window.Volt.style.runtime.set(slider, '--fill', Math.round(value) + '%');
+        if (slider && slider.style && typeof slider.style.setProperty === 'function') {
+            slider.style.setProperty('--fill', Math.round(value) + '%');
+        }
     }
 
     // ---- Top processes --------------------------------------------------
@@ -1053,20 +1060,16 @@
             if (window.I18n && I18n.apply) I18n.apply();
             return;
         }
-        const cpuValues = rows.map((p) => pct(p.cpuPercent));
-        host.innerHTML = rows.map((p, index) => {
+        host.innerHTML = rows.map((p) => {
             const cpu = pct(p.cpuPercent);
             const name = (p.name || '?') + (p.instances > 1 ? ' ×' + p.instances : '');
             return '<div class="proc-row" role="listitem">' +
                 '<span class="proc-name" title="' + esc(name) + '">' + esc(name) + '</span>' +
                 (size === 'mini' ? '' : '<span class="proc-ram">' + mb(p.ramMb) + '</span>') +
                 '<strong class="proc-cpu">' + (cpu < 10 ? cpu.toFixed(1) : Math.round(cpu)) + '%</strong>' +
-                '<div class="proc-bar" aria-hidden="true"><span data-proc-index="' + index + '"></span></div>' +
+                '<div class="proc-bar" aria-hidden="true"><span style="width:' + cpu + '%"></span></div>' +
                 '</div>';
         }).join('');
-        host.querySelectorAll('.proc-bar > span').forEach((bar, index) => {
-            window.Volt.style.runtime.set(bar, 'width', cpuValues[index] + '%');
-        });
     }
 
     // ---- Memory ---------------------------------------------------------
@@ -1104,24 +1107,46 @@
         setText('memory-free', gb(m.freeGb));
         const bar = document.getElementById('memory-bar');
         const standbyBar = document.getElementById('memory-standby-bar');
-        if (bar) window.Volt.style.runtime.set(bar, 'width', used + '%');
-        if (standbyBar) window.Volt.style.runtime.set(standbyBar, 'width', standby + '%');
+        if (bar) bar.style.width = used + '%';
+        if (standbyBar) standbyBar.style.width = standby + '%';
     }
 
     const POLLERS = { power: pollPower, processes: pollProcesses, memory: pollMemory };
 
+    function setResolvedAnimationLevel(resolved) {
+        // widgets.css keys off data-animation-level; the shared motion.css tokens off data-anim.
+        document.documentElement.dataset.animationLevel = resolved;
+        document.documentElement.dataset.anim = resolved;
+    }
+
+    function applyAnimationLevel(level) {
+        animationSetting = ['auto', 'low', 'medium', 'high'].includes(level) ? level : 'auto';
+        if (animationSetting !== 'auto') {
+            setResolvedAnimationLevel(animationSetting);
+            return;
+        }
+        if (!animationHardwareTier || !window.VoltAnimationLevel) return;
+        setResolvedAnimationLevel(VoltAnimationLevel.resolveLevel(animationSetting, animationHardwareTier));
+    }
+
     function applyAnimationHardware(info) {
-        if (!info) return;
-        window.Volt?.style?.setHardwareInfo(info);
+        if (!info || !window.VoltAnimationLevel || !VoltAnimationLevel.classifyHardwareTier) return;
+        animationHardwareTier = VoltAnimationLevel.classifyHardwareTier(info.ramTotalGb, info.logicalCores);
+        document.documentElement.dataset.hwTier = animationHardwareTier;
+        applyAnimationLevel(animationSetting);
     }
 
     function applySettings(res) {
         if (!res || !res.settings) return;
-        window.Volt?.style?.hydrateSettings(res);
+        applyAnimationLevel(res.settings.animationLevel || 'auto');
         if (window.VoltFont && VoltFont.apply) {
             VoltFont.apply(res.settings.font || 'inter');
         }
         locale = (window.I18n && I18n.getLocale ? I18n.getLocale() : locale);
+        window.__voltThemeCatalog = res.themeCatalog || {};
+        if (res.theme && window.VoltTheme) {
+            VoltTheme.apply(res.theme.themeColor || res.settings.themeColor, res.theme.palette);
+        }
         const item = res.settings.widgets && Array.isArray(res.settings.widgets.items)
             ? res.settings.widgets.items.find(i => i.type === type)
             : null;
@@ -1131,10 +1156,19 @@
         reflectPin();
     }
 
+    Host.on('themeChanged', (data) => {
+        if (!data || !data.themeColor || !data.palette || !window.VoltTheme) return;
+        window.__voltThemeCatalog = window.__voltThemeCatalog || {};
+        window.__voltThemeCatalog[data.themeColor] = data.palette;
+        VoltTheme.apply(data.themeColor, data.palette);
+    });
     Host.on('fontChanged', (data) => {
         if (window.VoltFont && VoltFont.apply && data && data.font) {
             VoltFont.apply(data.font);
         }
+    });
+    Host.on('animationLevelChanged', (data) => {
+        applyAnimationLevel(data && data.level);
     });
     Host.on('widgetAppearanceChanged', applyWidgetAppearance);
     Host.on('widgetTopmostChanged', (data) => {
@@ -1176,10 +1210,15 @@
         Host.on('gamingModeChanged', applyGamingState);
         Host.on('scheduledPowerActionChanged', applySchedule);
     }
-    document.addEventListener('resourceprofilechange', event => {
-        const state = event.detail;
+    Host.on('resourceProfileChanged', state => {
         const profile = state && state.profile;
         if (!['full', 'balanced', 'gaming', 'workload', 'critical'].includes(profile)) return;
+        const reducedEffects = !!(state && state.reducedEffects);
+        if (profile === resourceProfile && reducedEffects === resourceReducedEffects) return;
+        resourceProfile = profile;
+        resourceReducedEffects = reducedEffects;
+        document.documentElement.dataset.resourceProfile = profile;
+        document.documentElement.dataset.perf = reducedEffects ? 'lite' : 'full';
         syncPolling();
     });
     document.addEventListener('visibilitychange', () => {
@@ -1195,7 +1234,6 @@
     }[type] || startClock)();
 
     if (Host.available) {
-        window.Volt?.style?.bindHost(Host);
         Host.call('getSystemInfo').then(applyAnimationHardware).catch(() => {});
         Host.call('getSettings').then(applySettings).catch(() => {});
     }

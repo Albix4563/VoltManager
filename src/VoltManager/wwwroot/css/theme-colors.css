@@ -1,4 +1,53 @@
-@layer components {
+:root {
+    --vm-bg: #0b1120;
+    --vm-bg-deep: #0b1120;
+    --vm-surface: #111827;
+    --vm-surface-low: #111827;
+    --vm-surface-high: #1e293b;
+    --vm-panel: #111827;
+    --vm-card: #1e293b;
+    --vm-border: #2f578b;
+    --vm-border-strong: #60a5fa;
+    --vm-text: #f8fafc;
+    --vm-muted: #cbd5e1;
+    --vm-muted-soft: #cbd5e1;
+    --vm-accent: #3b82f6;
+    --vm-accent-dim: #60a5fa;
+    --vm-accent-hover: #2563eb;
+    --vm-accent-text: #0f172a;
+    --vm-on-accent: #0f172a;
+    --vm-accent-rgb: 59 130 246;
+    --vm-control-shell-bg: color-mix(in srgb, var(--vm-surface) 76%, transparent);
+    --vm-control-shell-border: color-mix(in srgb, var(--vm-border) 78%, transparent);
+    --vm-control-text-muted: var(--vm-muted);
+    --vm-control-text: var(--vm-text);
+    --vm-control-active-bg: rgb(var(--vm-accent-rgb) / .12);
+    --vm-control-active-border: rgb(var(--vm-accent-rgb) / .40);
+    --vm-control-active-shadow: 0 0 16px rgb(var(--vm-accent-rgb) / .12), inset 0 0 0 1px rgb(var(--vm-accent-rgb) / .08);
+    --vm-pm-subnav-bg: color-mix(in srgb, var(--vm-surface-high) 92%, transparent);
+    --vm-pm-subnav-border: color-mix(in srgb, var(--vm-border) 72%, transparent);
+    --vm-scrim-bg: color-mix(in srgb, var(--vm-bg) 84%, transparent);
+
+    /* Compatibility bridge for the reorganized/legacy UI. These semantic
+       aliases must resolve through the active VoltManager palette instead of
+       falling back to the old navy/cyan prototype colors. */
+    --md-sys-color-background: var(--vm-bg);
+    --md-sys-color-surface: var(--vm-surface);
+    --md-sys-color-surface-container-lowest: var(--vm-bg-deep);
+    --md-sys-color-surface-container-low: var(--vm-surface-low);
+    --md-sys-color-surface-container: var(--vm-panel);
+    --md-sys-color-surface-container-high: var(--vm-surface-high);
+    --md-sys-color-surface-container-highest: var(--vm-card);
+    --md-sys-color-on-surface: var(--vm-text);
+    --md-sys-color-on-surface-variant: var(--vm-muted);
+    --md-sys-color-outline: var(--vm-border);
+    --md-sys-color-outline-variant: var(--vm-border);
+    --md-sys-color-secondary: var(--vm-accent-dim);
+    --md-sys-color-secondary-container: var(--vm-accent);
+    --md-sys-color-on-secondary-container: var(--vm-on-accent);
+    color-scheme: dark;
+}
+
 body,
 .bg-primary-container,
 .bg-background,
@@ -607,14 +656,6 @@ option {
     gap: 10px;
 }
 
-.theme-choice[data-theme-choice="blue"] { --theme-choice-color: var(--vm-theme-blue); }
-.theme-choice[data-theme-choice="red"] { --theme-choice-color: var(--vm-theme-red); }
-.theme-choice[data-theme-choice="green"] { --theme-choice-color: var(--vm-theme-green); }
-.theme-choice[data-theme-choice="orange"] { --theme-choice-color: var(--vm-theme-orange); }
-.theme-choice[data-theme-choice="purple"] { --theme-choice-color: var(--vm-theme-purple); }
-.theme-choice[data-theme-choice="pink"] { --theme-choice-color: var(--vm-theme-pink); }
-.theme-choice[data-theme-choice="gray"] { --theme-choice-color: var(--vm-theme-gray); }
-
 .theme-choice {
     position: relative;
     min-height: 72px;
@@ -861,5 +902,4 @@ option {
     .theme-choice:hover {
         transform: none;
     }
-}
 }

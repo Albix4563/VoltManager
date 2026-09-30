@@ -229,15 +229,15 @@
 
         const toast = document.createElement('div');
         toast.id = 'power-plan-conflict-toast';
-        toast.className = 'power-plan-conflict-toast';
+        toast.style.cssText = 'position:fixed;right:22px;bottom:22px;z-index:9999;max-width:390px;border:1px solid rgb(var(--vm-accent-rgb) / .32);background:linear-gradient(135deg,rgba(18,33,49,.96),rgba(10,17,40,.96));color:#d3deef;border-radius:16px;padding:14px 16px;box-shadow:0 18px 45px rgba(0,0,0,.38),0 0 0 1px rgb(var(--vm-accent-rgb) / .08);display:flex;gap:12px;align-items:flex-start;';
         toast.innerHTML =
-            '<span class="material-symbols-outlined text-secondary-container power-plan-conflict-toast__icon">admin_panel_settings</span>' +
-            '<div class="power-plan-conflict-toast__content">' +
-            '<strong class="power-plan-conflict-toast__title">' + esc(tt('planConflictTitle')) + '</strong>' +
-            '<span class="power-plan-conflict-toast__process">' + esc(processLine) + '</span>' +
-            '<span class="power-plan-conflict-toast__expected">' + esc(tt('planConflictExpected')) + ': ' + esc(expected) + '</span>' +
+            '<span class="material-symbols-outlined text-secondary-container" style="font-size:24px;line-height:1;">admin_panel_settings</span>' +
+            '<div style="min-width:0;flex:1;display:grid;gap:4px;">' +
+            '<strong style="color:var(--vm-accent-dim);font-size:14px;">' + esc(tt('planConflictTitle')) + '</strong>' +
+            '<span style="font-size:13px;line-height:1.35;color:rgba(211,222,239,.86);">' + esc(processLine) + '</span>' +
+            '<span style="font-size:12px;line-height:1.35;color:rgba(211,222,239,.66);">' + esc(tt('planConflictExpected')) + ': ' + esc(expected) + '</span>' +
             '</div>' +
-            '<button class="power-plan-conflict-toast__close" type="button" aria-label="close">x</button>';
+            '<button type="button" aria-label="close" style="background:none;border:0;color:#94a3b8;cursor:pointer;font-size:18px;line-height:1;padding:0;">x</button>';
         toast.querySelector('button')?.addEventListener('click', () => toast.remove());
         document.body.appendChild(toast);
         setTimeout(() => { if (toast.parentElement) toast.remove(); }, 12000);

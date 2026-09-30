@@ -7,7 +7,6 @@ const perfGuard = readFileSync(
   new URL('../src/VoltManager/wwwroot/js/perf-guard.js', import.meta.url),
   'utf8'
 );
-const styleController = readFileSync(new URL('../src/VoltManager/wwwroot/js/style-controller.js', import.meta.url), 'utf8');
 const bridge = readFileSync(
   new URL('../src/VoltManager/wwwroot/js/bridge.js', import.meta.url),
   'utf8'
@@ -39,7 +38,7 @@ test('same profile updates polling on focus and visibility changes without dupli
   };
   const Host = { on(name, callback) { handlers.set(name, callback); } };
   const window = { Host };
-  runInNewContext(styleController + '\n' + perfGuard, {
+  runInNewContext(perfGuard, {
     window, document, Host, console,
     CustomEvent: class { constructor(type, options) { this.type = type; this.detail = options.detail; } },
   });
@@ -58,19 +57,18 @@ test('same profile updates polling on focus and visibility changes without dupli
 });
 
 test('frontend consumes one host resource profile signal', () => {
-  assert.match(styleController, /safeOn\(['"]resourceProfileChanged['"], setResourceProfile\)/);
-  assert.match(styleController, /dataset\.resourceProfile/);
-  assert.match(styleController, /resourceprofilechange/);
-  assert.doesNotMatch(perfGuard, /\.on\(['"]resourceProfileChanged/);
+  assert.match(perfGuard, /Host\.on\(['"]resourceProfileChanged['"]/);
+  assert.match(perfGuard, /dataset\.resourceProfile/);
+  assert.match(perfGuard, /resourceprofilechange/);
 });
 
 test('gaming workload and critical profiles reuse the proven lite rendering path', () => {
-  assert.match(styleController, /normalized\.reducedEffects/);
-  assert.match(styleController, /profile === 'gaming' \|\| profile === 'workload' \|\| profile === 'critical'/);
-  assert.match(styleController, /dataset\.perf\s*=\s*state\.effectiveLite \? 'lite'/);
-  assert.match(effectsJs, /getState\(\)\.effects !== 'full'/);
+  assert.match(perfGuard, /state\.reducedEffects/);
+  assert.match(perfGuard, /profile === 'gaming' \|\| profile === 'workload' \|\| profile === 'critical'/);
+  assert.match(perfGuard, /dataset\.perf\s*=\s*effectiveLite \? 'lite'/);
+  assert.match(effectsJs, /dataset\.perf === 'lite'/);
   assert.match(effectsCss, /data-perf="lite"/);
-  assert.match(styleController, /VoltFx\.stopMotion/);
+  assert.match(perfGuard, /VoltFx\.stopMotion/);
 });
 
 test('top-process RPC is elastic while safety RPCs remain ungated', () => {

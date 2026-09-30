@@ -17,7 +17,6 @@ function loadWidget(type = 'clock', initialTime = new Date(2026, 8, 5, 12, 34, 1
   const powerReplies = [];
   let nextTimer = 1;
   let now = initialTime;
-  let resourceProfile = 'full';
   class ClockDate extends Date {
     constructor(...args) { super(...(args.length ? args : [now])); }
     static now() { return now; }
@@ -50,26 +49,7 @@ function loadWidget(type = 'clock', initialTime = new Date(2026, 8, 5, 12, 34, 1
       handlers.get(name).push(handler);
     },
   };
-  const window = {
-    Volt: {
-      style: {
-        getState: () => ({ resourceProfile }),
-        runtime: {
-          set(element, property, value) {
-            element.style ||= {};
-            element.style[property] = String(value);
-            return true;
-          },
-          setMany(element, declarations) {
-            for (const [property, value] of Object.entries(declarations || {}))
-              this.set(element, property, value);
-            return true;
-          },
-          release() { return true; },
-        },
-      },
-    },
-  };
+  const window = {};
   vm.runInContext(source, vm.createContext({
     window,
     document,
@@ -105,10 +85,7 @@ function loadWidget(type = 'clock', initialTime = new Date(2026, 8, 5, 12, 34, 1
     },
     setNow(value) { now = value; },
     setHidden(value) { document.hidden = value; events.get('visibilitychange')(); },
-    profile(profile) {
-      resourceProfile = profile;
-      events.get('resourceprofilechange')?.({ detail: { profile } });
-    },
+    profile(profile) { for (const handler of handlers.get('resourceProfileChanged') || []) handler({ profile }); },
     async finishPowerRead() {
       powerReplies.shift()({ available: false });
       await new Promise(setImmediate);

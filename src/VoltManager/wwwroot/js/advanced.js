@@ -47,6 +47,105 @@
     }
 
     // ── CSS injection (once) ──────────────────────────────────────────────────
+    function ensureAdvStyles() {
+        if (document.getElementById('adv-feature-styles')) return;
+        const style = document.createElement('style');
+        style.id = 'adv-feature-styles';
+        style.textContent = `
+/* ── Advanced params ─────────────────────────────────────────────── */
+.adv-panel{position:relative;overflow:hidden;}
+.adv-panel:before{content:"";position:absolute;inset:-40% auto auto -12%;width:300px;height:300px;
+  border-radius:999px;background:radial-gradient(circle,rgb(var(--vm-accent-rgb) / .12),transparent 66%);pointer-events:none;}
+.adv-param-row{border:1px solid rgba(255,255,255,.09);background:rgba(255,255,255,.03);
+  border-radius:16px;padding:16px 18px;transition:border-color var(--vm-motion-fast) var(--vm-ease-standard),background var(--vm-motion-fast) var(--vm-ease-standard);}
+.adv-param-row:hover{border-color:rgb(var(--vm-accent-rgb) / .22);background:rgba(255,255,255,.055);}
+.adv-slider-wrap{display:flex;align-items:center;gap:10px;margin-top:10px;}
+.adv-slider{-webkit-appearance:none;appearance:none;width:100%;height:4px;border-radius:999px;
+  background:linear-gradient(to right,var(--vm-accent) var(--pct,50%),rgba(255,255,255,.12) var(--pct,50%));
+  outline:none;cursor:pointer;}
+.adv-slider::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:18px;height:18px;
+  border-radius:999px;background:linear-gradient(135deg,#f4fbff,#9fb4c8);
+  box-shadow:0 4px 12px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.8);cursor:pointer;
+  transition:transform var(--vm-motion-fast) var(--vm-ease-standard),box-shadow var(--vm-motion-fast) var(--vm-ease-standard);}
+.adv-slider::-webkit-slider-thumb:hover{transform:scale(1.2);box-shadow:0 0 0 6px rgb(var(--vm-accent-rgb) / .18),0 4px 12px rgba(0,0,0,.35);}
+.adv-slider-val{min-width:42px;text-align:right;font-variant-numeric:tabular-nums;
+  color:var(--vm-accent);font-weight:700;font-size:14px;}
+.adv-select{background:rgba(18,33,49,.9);color:var(--vm-accent);font-weight:600;padding:8px 12px;
+  border-radius:10px;border:1px solid rgb(var(--vm-accent-rgb) / .3);cursor:pointer;outline:none;
+  font-size:14px;transition:border-color var(--vm-motion-fast) var(--vm-ease-standard),box-shadow var(--vm-motion-fast) var(--vm-ease-standard);}
+.adv-select:focus{border-color:var(--vm-accent);box-shadow:0 0 0 3px rgb(var(--vm-accent-rgb) / .15);}
+.adv-col-tag{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:999px;
+  font-size:11px;font-weight:700;letter-spacing:.06em;}
+.adv-col-ac{background:rgb(var(--vm-accent-rgb) / .1);color:var(--vm-accent);border:1px solid rgb(var(--vm-accent-rgb) / .25);}
+.adv-col-dc{background:rgba(120,180,255,.1);color:#78b4ff;border:1px solid rgba(120,180,255,.25);}
+.adv-status-bar{height:4px;border-radius:999px;margin-top:6px;transition:opacity .3s;}
+.adv-status-ok{background:var(--vm-accent);opacity:1;}
+.adv-status-err{background:#ff6b6b;opacity:1;}
+.adv-plan-badge{display:inline-flex;align-items:center;gap:7px;padding:5px 12px;
+  border-radius:999px;background:rgb(var(--vm-accent-rgb) / .08);border:1px solid rgb(var(--vm-accent-rgb) / .2);
+  color:var(--vm-accent);font-size:12px;font-weight:700;}
+.adv-toolbar,.power-timeout-toolbar{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;
+  padding:15px 16px;border:1px solid rgba(255,255,255,.09);border-radius:16px;
+  background:linear-gradient(135deg,rgba(255,255,255,.045),rgba(255,255,255,.018));}
+.adv-plan-field,.power-timeout-plan-field{display:flex;flex-direction:column;gap:7px;min-width:min(100%,300px);}
+.adv-plan-select,.power-timeout-select{width:100%;min-height:42px;padding:9px 38px 9px 12px;border-radius:11px;
+  border:1px solid rgb(var(--vm-accent-rgb) / .26);background:rgba(10,18,31,.94);color:var(--vm-text);
+  font:inherit;font-size:13px;font-weight:650;outline:none;cursor:pointer;}
+.adv-plan-select:focus,.power-timeout-select:focus{border-color:var(--vm-accent);box-shadow:0 0 0 3px rgb(var(--vm-accent-rgb) / .13);}
+.adv-group{display:flex;flex-direction:column;gap:10px;margin-top:18px;}
+.adv-group-head{display:flex;align-items:flex-start;gap:11px;padding:0 2px 2px;}
+.adv-group-icon{width:34px;height:34px;display:flex;align-items:center;justify-content:center;border-radius:11px;
+  background:rgb(var(--vm-accent-rgb) / .09);border:1px solid rgb(var(--vm-accent-rgb) / .18);color:var(--vm-accent);}
+.adv-group-title{font-size:14px;font-weight:800;color:var(--vm-text);}
+.adv-group-sub{margin-top:2px;font-size:12px;color:rgba(211,222,239,.62);line-height:1.4;}
+.adv-param-row[data-supported="false"]{display:none;}
+.power-timeout-panel{display:flex;flex-direction:column;gap:16px;}
+.power-timeout-heading{display:flex;align-items:flex-start;gap:12px;}
+.power-timeout-heading-icon{width:40px;height:40px;display:flex;align-items:center;justify-content:center;flex:0 0 40px;
+  border-radius:13px;background:rgb(var(--vm-accent-rgb) / .1);border:1px solid rgb(var(--vm-accent-rgb) / .2);color:var(--vm-accent);}
+.power-timeout-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;}
+.power-timeout-card{padding:16px;border:1px solid rgba(255,255,255,.09);border-radius:16px;background:rgba(255,255,255,.025);}
+.power-timeout-card-head{display:flex;align-items:flex-start;gap:10px;margin-bottom:14px;}
+.power-timeout-card-head>.material-symbols-outlined{color:var(--vm-accent);font-size:21px;}
+.power-timeout-side{display:grid;grid-template-columns:minmax(100px,.8fr) minmax(145px,1.2fr);align-items:center;gap:12px;padding-top:10px;}
+.power-timeout-side+.power-timeout-side{margin-top:10px;border-top:1px solid rgba(255,255,255,.07);}
+.power-timeout-side-label{display:flex;align-items:center;gap:7px;color:rgba(211,222,239,.72);font-size:12px;font-weight:700;}
+.power-timeout-status{min-height:18px;font-size:12px;color:rgba(211,222,239,.68);}
+.power-timeout-status.is-ok{color:var(--vm-accent);}.power-timeout-status.is-error{color:#ff8585;}
+@media(max-width:760px){.power-timeout-grid{grid-template-columns:1fr}.adv-toolbar,.power-timeout-toolbar{align-items:stretch;flex-direction:column}
+  .adv-plan-field,.power-timeout-plan-field{min-width:0;width:100%}.power-timeout-side{grid-template-columns:1fr;gap:7px}}
+@keyframes advSlideIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.adv-panel>*{animation:advSlideIn var(--vm-motion-enter) var(--vm-ease-emphasized) both;}
+
+/* ── RAM Cleaner ─────────────────────────────────────────────────── */
+.ram-panel{position:relative;overflow:hidden;}
+.ram-panel:before{content:"";position:absolute;top:-30%;right:-10%;width:260px;height:260px;
+  border-radius:999px;background:radial-gradient(circle,rgb(var(--vm-accent-rgb) / .1),transparent 65%);pointer-events:none;}
+.ram-bar-outer{width:100%;height:20px;border-radius:999px;overflow:hidden;background:rgba(255,255,255,.06);
+  border:1px solid rgba(255,255,255,.1);display:flex;}
+.ram-bar-inuse{height:100%;background:linear-gradient(90deg,var(--vm-accent-hover),var(--vm-accent));transition:width .8s ease;}
+.ram-bar-standby{height:100%;background:rgb(var(--vm-accent-rgb) / .28);transition:width .8s ease;}
+.ram-bar-free{height:100%;flex:1;background:rgba(255,255,255,.06);}
+.ram-legend{display:flex;align-items:center;gap:6px;font-size:12px;color:rgba(211,222,239,.72);}
+.ram-legend-dot{width:10px;height:10px;border-radius:999px;flex-shrink:0;}
+.ram-stat-card{border:1px solid rgba(255,255,255,.09);background:rgba(255,255,255,.03);
+  border-radius:14px;padding:14px 16px;text-align:center;}
+.ram-stat-val{font-size:22px;font-weight:800;color:var(--vm-accent);font-variant-numeric:tabular-nums;}
+.ram-stat-label{font-size:11px;color:rgba(211,222,239,.62);margin-top:2px;text-transform:uppercase;letter-spacing:.06em;}
+.ram-btn-clean{display:inline-flex;align-items:center;gap:8px;padding:12px 24px;border-radius:12px;
+  font-size:14px;font-weight:700;cursor:pointer;border:0;transition:all var(--vm-motion-fast) var(--vm-ease-standard);}
+.ram-btn-clean-active{background:linear-gradient(135deg,var(--vm-accent-hover),var(--vm-accent));color:var(--vm-on-accent);
+  box-shadow:0 0 24px rgb(var(--vm-accent-rgb) / .3);}
+.ram-btn-clean-active:hover{transform:translateY(-2px);box-shadow:0 0 32px rgb(var(--vm-accent-rgb) / .45);}
+.ram-btn-clean-idle{background:rgba(255,255,255,.06);color:rgba(211,222,239,.78);
+  border:1px solid rgba(255,255,255,.12);}
+.ram-btn-clean-idle:hover{background:rgba(255,255,255,.1);}
+.ram-btn-clean:disabled{opacity:.55;cursor:wait;transform:none!important;}
+@keyframes ramPulse{0%,100%{box-shadow:0 0 0 0 rgb(var(--vm-accent-rgb) / .4)}50%{box-shadow:0 0 0 8px rgb(var(--vm-accent-rgb) / 0)}}
+.ram-btn-cleaning{animation:ramPulse 1s ease infinite;}
+        `.trim();
+        document.head.appendChild(style);
+    }
 
     // ══════════════════════════════════════════════════════════════════════════
     // PLAN CATALOG + DISPLAY/SLEEP TIMEOUTS
@@ -114,6 +213,7 @@
 
     function mountTimeoutUi() {
         if (timeoutMounted) return;
+        ensureAdvStyles();
         const mount = document.getElementById('power-timeouts-mount');
         if (!mount) return;
         mount.innerHTML = `
@@ -295,6 +395,7 @@
     // ══════════════════════════════════════════════════════════════════════════
 
     function mountAdvancedUi() {
+        ensureAdvStyles();
         const mount = document.getElementById('vm-power-advanced') || document.getElementById('advanced-params-mount');
         const existing = document.getElementById('adv-panel');
         if (existing) {
@@ -372,14 +473,16 @@
     function buildParamRow(key, type, min, max, defVal, labelKey, subKey, unit, options) {
         const controlAc = type === 'slider'
             ? `<input type="range" class="adv-slider" id="adv-${key}-ac"
-                min="${min}" max="${max}" value="${defVal}">
+                min="${min}" max="${max}" value="${defVal}"
+                style="--pct:${Math.round((defVal-min)/(max-min)*100)}%">
                <span class="adv-slider-val" id="adv-${key}-ac-val">${defVal}${unit}</span>`
             : `<select class="adv-select" id="adv-${key}-ac">
                 ${(options||[]).map(o=>`<option value="${o.v}" id="adv-opt-${key}-ac-${o.v}"></option>`).join('')}
                </select>`;
         const controlDc = type === 'slider'
             ? `<input type="range" class="adv-slider" id="adv-${key}-dc"
-                min="${min}" max="${max}" value="${defVal}">
+                min="${min}" max="${max}" value="${defVal}"
+                style="--pct:${Math.round((defVal-min)/(max-min)*100)}%">
                <span class="adv-slider-val" id="adv-${key}-dc-val">${defVal}${unit}</span>`
             : `<select class="adv-select" id="adv-${key}-dc">
                 ${(options||[]).map(o=>`<option value="${o.v}" id="adv-opt-${key}-dc-${o.v}"></option>`).join('')}
@@ -524,7 +627,7 @@
         if (el.tagName === 'INPUT') {
             el.value = value;
             const pct = max > min ? Math.round((value - min) / (max - min) * 100) : 0;
-            window.Volt.style.runtime.set(el, '--pct', pct + '%');
+            el.style.setProperty('--pct', pct + '%');
             const valEl = document.getElementById(`adv-${key}-${side}-val`);
             if (valEl) valEl.textContent = value + unit;
         } else {
@@ -616,7 +719,7 @@
             const [, key, side] = match;
             const min = +el.min, max = +el.max, val = +el.value;
             const pct = max > min ? Math.round((val - min) / (max - min) * 100) : 0;
-            window.Volt.style.runtime.set(el, '--pct', pct + '%');
+            el.style.setProperty('--pct', pct + '%');
             const unit = ['processorMin','processorMax','processorEpp','coreParkingMin'].includes(key) ? '%' : '';
             const valEl = document.getElementById(`adv-${key}-${side}-val`);
             if (valEl) valEl.textContent = val + unit;
@@ -655,6 +758,7 @@
     // ══════════════════════════════════════════════════════════════════════════
 
     function mountRamUi() {
+        ensureAdvStyles();
         const mount = document.getElementById('vm-system-memory') || document.getElementById('ram-cleaner-mount');
         const existing = document.getElementById('ram-panel');
         if (existing) {
@@ -678,21 +782,21 @@
   <!-- Memory bar -->
   <div class="mb-md">
     <div class="ram-bar-outer" id="ram-bar-outer">
-      <div class="ram-bar-inuse" id="ram-bar-inuse"></div>
-      <div class="ram-bar-standby" id="ram-bar-standby"></div>
+      <div class="ram-bar-inuse" id="ram-bar-inuse" style="width:0%"></div>
+      <div class="ram-bar-standby" id="ram-bar-standby" style="width:0%"></div>
       <div class="ram-bar-free"></div>
     </div>
     <div class="flex items-center gap-lg mt-sm flex-wrap">
       <div class="ram-legend">
-        <div class="ram-legend-dot ram-legend-dot--inuse"></div>
+        <div class="ram-legend-dot" style="background:linear-gradient(90deg,var(--vm-accent-hover),var(--vm-accent))"></div>
         <span id="ram-legend-inuse"></span>
       </div>
       <div class="ram-legend">
-        <div class="ram-legend-dot ram-legend-dot--standby"></div>
+        <div class="ram-legend-dot" style="background:rgb(var(--vm-accent-rgb) / .36)"></div>
         <span id="ram-legend-standby"></span>
       </div>
       <div class="ram-legend">
-        <div class="ram-legend-dot ram-legend-dot--free"></div>
+        <div class="ram-legend-dot" style="background:rgba(255,255,255,.15)"></div>
         <span id="ram-legend-free"></span>
       </div>
     </div>
@@ -704,12 +808,12 @@
       <div class="ram-stat-val" id="ram-val-inuse">—</div>
       <div class="ram-stat-label" id="ram-lbl-inuse"></div>
     </div>
-    <div class="ram-stat-card ram-stat-card--standby">
-      <div class="ram-stat-val ram-stat-val--standby" id="ram-val-standby"></div>
+    <div class="ram-stat-card" style="border-color:rgb(var(--vm-accent-rgb) / .18);background:rgb(var(--vm-accent-rgb) / .04);">
+      <div class="ram-stat-val" id="ram-val-standby" style="color:var(--vm-accent);"></div>
       <div class="ram-stat-label" id="ram-lbl-standby"></div>
     </div>
     <div class="ram-stat-card">
-      <div class="ram-stat-val ram-stat-val--free" id="ram-val-free"></div>
+      <div class="ram-stat-val" id="ram-val-free" style="color:rgba(211,222,239,.7);"></div>
       <div class="ram-stat-label" id="ram-lbl-free"></div>
     </div>
   </div>
@@ -721,10 +825,10 @@
         <div class="mini-toggle-knob"></div>
       </div>
       <div class="flex-1 flex flex-wrap items-center gap-x-xs gap-y-2 text-body-md text-on-surface">
-        <span class="ram-auto-title" id="ram-auto-title-lbl">Auto Cleaner</span>
+        <span id="ram-auto-title-lbl" style="font-weight:600;margin-right:10px;">Auto Cleaner</span>
         <span id="ram-auto-threshold-lbl">Threshold (GB):</span>
         <input class="w-16 h-8 bg-surface-container-lowest border-b border-white/20 rounded text-center text-body-md text-secondary-container input-glow transition-all" id="ram-auto-threshold" min="0.5" max="128.0" step="0.5" type="number" value="2.0"/>
-        <span class="ram-auto-interval-label" id="ram-auto-interval-lbl">Interval (min):</span>
+        <span id="ram-auto-interval-lbl" style="margin-left:10px;">Interval (min):</span>
         <input class="w-16 h-8 bg-surface-container-lowest border-b border-white/20 rounded text-center text-body-md text-secondary-container input-glow transition-all" id="ram-auto-interval" min="5" max="1440" type="number" value="60"/>
         <span class="basis-full text-label-sm text-on-surface-variant mt-1" id="ram-auto-note"></span>
       </div>
@@ -798,8 +902,8 @@
 
         const barInUse   = document.getElementById('ram-bar-inuse');
         const barStandby = document.getElementById('ram-bar-standby');
-        if (barInUse) window.Volt.style.runtime.set(barInUse, 'width', pctInUse + '%');
-        if (barStandby) window.Volt.style.runtime.set(barStandby, 'width', pctStandby + '%');
+        if (barInUse)   barInUse.style.width   = pctInUse + '%';
+        if (barStandby) barStandby.style.width  = pctStandby + '%';
 
         const setVal = (id, gb) => {
             const el = document.getElementById(id);
@@ -838,7 +942,7 @@
         const statusEl = document.getElementById('ram-auto-status');
         if (statusEl) {
             statusEl.textContent = settings.enabled ? t('ram_auto_enabled') : t('ram_auto_disabled');
-            statusEl.classList.toggle('is-enabled', !!settings.enabled);
+            statusEl.style.color = settings.enabled ? 'var(--vm-accent)' : 'rgba(211,222,239,.62)';
         }
     }
 
@@ -861,7 +965,7 @@
         if (!el) return;
         el.textContent = msg;
         el.classList.remove('hidden');
-        el.classList.toggle('is-error', !!isError);
+        el.style.color = isError ? '#ff8a80' : 'var(--vm-accent)';
         setTimeout(() => el.classList.add('hidden'), 3500);
     }
 
@@ -912,7 +1016,7 @@
             const statusEl = document.getElementById('ram-auto-status');
             if (statusEl) {
                 statusEl.textContent = enable ? t('ram_auto_enabled') : t('ram_auto_disabled');
-                statusEl.classList.toggle('is-enabled', enable);
+                statusEl.style.color = enable ? 'var(--vm-accent)' : 'rgba(211,222,239,.62)';
             }
 
             try {
@@ -924,7 +1028,7 @@
                 ramAutoSettings.enabled = !enable;
                 if (statusEl) {
                     statusEl.textContent = (!enable) ? t('ram_auto_enabled') : t('ram_auto_disabled');
-                    statusEl.classList.toggle('is-enabled', !enable);
+                    statusEl.style.color = (!enable) ? 'var(--vm-accent)' : 'rgba(211,222,239,.62)';
                 }
             }
         });

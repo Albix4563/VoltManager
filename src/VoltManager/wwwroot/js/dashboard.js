@@ -40,7 +40,7 @@
 
     function setRing(circle, label, pct) {
         if (window.VoltFx) { window.VoltFx.animateRing(circle, label, pct); return; }
-        window.Volt.style.runtime.set(circle, 'stroke-dashoffset', (CIRC * (1 - pct / 100)).toFixed(1));
+        circle.style.strokeDashoffset = (CIRC * (1 - pct / 100)).toFixed(1);
         label.textContent = Math.round(pct) + '%';
     }
 
@@ -149,7 +149,7 @@
             window.VoltFx.animateBar(batteryHealthBar, health);
         } else {
             batteryHealthPct.textContent = Math.round(health) + '%';
-            window.Volt.style.runtime.set(batteryHealthBar, 'width', health + '%');
+            batteryHealthBar.style.width = health + '%';
         }
     }
 
@@ -335,7 +335,7 @@
 
         if (batteryHistorySourceStrip) {
             batteryHistorySourceStrip.innerHTML = pts.map(s =>
-                '<span class="battery-history-source" data-ac="' + (s.ac ? 'true' : 'false') + '" title="' +
+                '<span style="flex:1;background:' + (s.ac ? 'var(--vm-accent)' : 'rgba(255,255,255,.16)') + '" title="' +
                 (s.ac ? I18n.t('battery_history_ac') : I18n.t('battery_history_dc')) + '"></span>'
             ).join('');
         }
@@ -452,7 +452,7 @@
             if (m.gpuAvailable) {
                 setRing(gpuRing, gpuPct, m.gpu);
             } else {
-                window.Volt.style.runtime.set(gpuRing, 'stroke-dashoffset', CIRC);
+                gpuRing.style.strokeDashoffset = CIRC;
                 gpuPct.textContent = 'N/D';
                 if (!gpuUnavailableShown) {
                     gpuName.textContent = I18n.t('dash_gpu_unavailable');
@@ -466,9 +466,9 @@
                 window.VoltFx.animateBar(diskBar, m.disk);
             } else {
                 ramPct.textContent = Math.round(m.ramPct) + '%';
-                window.Volt.style.runtime.set(ramBar, 'width', m.ramPct + '%');
+                ramBar.style.width = m.ramPct + '%';
                 diskPct.textContent = Math.round(m.disk) + '%';
-                window.Volt.style.runtime.set(diskBar, 'width', m.disk + '%');
+                diskBar.style.width = m.disk + '%';
             }
             ramDetail.textContent = m.ramUsedGb.toFixed(1) + ' GB / ' + m.ramTotalGb.toFixed(1) + ' GB In Use';
             return;
@@ -511,7 +511,7 @@
     }
 
     function setProcessMeter(fill, pct) {
-        window.Volt.style.runtime.set(fill, 'transform', 'scaleX(' + (clampPercent(pct) / 100).toFixed(3) + ')');
+        fill.style.transform = 'scaleX(' + (clampPercent(pct) / 100).toFixed(3) + ')';
     }
 
     function getProcessLoad(cpu) {
@@ -782,10 +782,11 @@
         });
         if (index < 0) {
             // Unknown/custom plan active: park the pill out of view.
-            pill.dataset.planPosition = 'hidden';
+            pill.style.opacity = '0';
             return;
         }
-        pill.dataset.planPosition = String(index);
+        pill.style.opacity = '1';
+        pill.style.transform = 'translateX(' + (index * 102) + '%)';
         const btn = planButtons[index];
         btn.classList.add('text-secondary-container', 'font-semibold');
         btn.classList.remove('text-on-surface-variant');
@@ -937,6 +938,7 @@
     }
 
     function closeOverrideModal() {
+        overrideOverlay.style.display = 'none';
         overrideOverlay.classList.add('hidden');
         overrideOverlay.classList.remove('flex');
         pendingPlan = null;
@@ -947,6 +949,7 @@
         pendingPlan = plan;
         resetOverrideModal();
         overridePlanLabel.textContent = planName(plan);
+        overrideOverlay.style.display = 'flex';
         overrideOverlay.classList.remove('hidden');
         overrideOverlay.classList.add('flex');
     }
@@ -1104,9 +1107,9 @@
             stopPowerFlowPolling();
             stopBatteryHistoryPolling();
             powerFlowSection.classList.add('hidden');
-            powerFlowSection.hidden = true;
+            powerFlowSection.style.display = 'none';
             batteryHistorySection.classList.add('hidden');
-            batteryHistorySection.hidden = true;
+            batteryHistorySection.style.display = 'none';
         }
     }
 

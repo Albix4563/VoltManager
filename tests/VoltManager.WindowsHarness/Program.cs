@@ -242,17 +242,13 @@ internal static class Program
             new CoreWebView2EnvironmentOptions(
                 WebViewRuntimeOptions.BrowserArguments(WebViewRendererVariant.SwiftShader)));
 
-        string styleController = ReadRepositoryText("src", "VoltManager", "wwwroot", "js", "style-controller.js");
-        string layersCss = ReadRepositoryText("src", "VoltManager", "wwwroot", "css", "layers.css");
-        string tokensCss = ReadRepositoryText("src", "VoltManager", "wwwroot", "css", "tokens.css");
         string theme = ReadRepositoryText("src", "VoltManager", "wwwroot", "js", "theme.js");
         string search = ReadRepositoryText("src", "VoltManager", "wwwroot", "js", "global-search.js");
-        string html = "<!doctype html><html data-theme-color=\"blue\"><head><meta charset=\"utf-8\"><style>" + layersCss + tokensCss + "</style></head><body>" +
+        string html = "<!doctype html><html data-theme-color=\"blue\"><head><meta charset=\"utf-8\"></head><body>" +
             "<button id=\"vm-global-search-button\" type=\"button\">Search</button>" +
             "<script>window.__voltSmokeErrors=[];" +
             "window.addEventListener('error',e=>window.__voltSmokeErrors.push(String(e.message||e.error||'error')));" +
             "window.addEventListener('unhandledrejection',e=>window.__voltSmokeErrors.push(String(e.reason||'rejection')));</script>" +
-            "<script>" + EscapeInlineScript(styleController) + "</script>" +
             "<script>" + EscapeInlineScript(theme) + "</script>" +
             "<script>" + EscapeInlineScript(search) + "</script></body></html>";
 
@@ -273,7 +269,7 @@ internal static class Program
                 text:'#ffffff', mutedText:'#aaaaaa', primary:'#ff0000', secondary:'#cc0000',
                 hover:'#ee0000', onPrimary:'#000000'
               };
-              const applied = window.VoltTheme.apply('custom', palette);
+              const applied = window.VoltTheme.apply('red', palette);
               return {
                 opened, closed, accessible, applied,
                 theme: document.documentElement.dataset.themeColor,
@@ -287,7 +283,7 @@ internal static class Program
             new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
         bool passed = probe is not null
             && probe.Opened && probe.Closed && probe.Accessible
-            && probe.Applied == "custom" && probe.Theme == "custom" && probe.Accent == "#ff0000"
+            && probe.Applied == "red" && probe.Theme == "red" && probe.Accent == "#ff0000"
             && probe.Errors.Length == 0;
         report.Checks.Add(new HarnessCheck("ui_smoke_webview", passed ? "passed" : "failed",
             probe is null

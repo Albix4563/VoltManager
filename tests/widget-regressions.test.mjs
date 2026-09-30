@@ -7,7 +7,6 @@ const read = path => readFileSync(new URL(path, root), 'utf8');
 
 const app = read('src/VoltManager/wwwroot/js/app.js');
 const widgets = read('src/VoltManager/wwwroot/js/widgets.js');
-const styleController = read('src/VoltManager/wwwroot/js/style-controller.js');
 const widgetHtml = read('src/VoltManager/wwwroot/widgets.html');
 const widgetManager = read('src/VoltManager/Services/WidgetManager.cs');
 const bridgeEvents = read('src/VoltManager/Bridge/BridgeEventNames.cs');
@@ -26,17 +25,16 @@ test('launcher toast cancels a pending fade hide before showing a new result', (
 });
 
 test('widgets resolve auto animation level and receive live setting changes', () => {
-  const controllerIndex = widgetHtml.indexOf('js/style-controller.js');
+  const helperIndex = widgetHtml.indexOf('js/animation-level.js');
   const widgetsIndex = widgetHtml.indexOf('js/widgets.js');
-  assert.ok(controllerIndex >= 0 && controllerIndex < widgetsIndex);
-  assert.match(widgets, /window\.Volt\?\.style\?\.setHardwareInfo\(info\)/);
-  assert.match(widgets, /window\.Volt\?\.style\?\.hydrateSettings\(res\)/);
+  assert.ok(helperIndex >= 0 && helperIndex < widgetsIndex);
+  assert.match(widgets, /VoltAnimationLevel\.classifyHardwareTier\(info\.ramTotalGb, info\.logicalCores\)/);
+  assert.match(widgets, /VoltAnimationLevel\.resolveLevel\(animationSetting, animationHardwareTier\)/);
   assert.match(widgets, /Host\.call\('getSystemInfo'\)\.then\(applyAnimationHardware\)/);
-  assert.match(widgets, /window\.Volt\?\.style\?\.bindHost\(Host\)/);
-  assert.match(styleController, /safeOn\('animationLevelChanged', data => setAnimationLevel\(data && data\.level\)\)/);
+  assert.match(widgets, /Host\.on\('animationLevelChanged'/);
   // motion.css (shared timing tokens) keys off data-anim, widgets.css off data-animation-level.
-  assert.match(styleController, /html\.dataset\.anim = resolved/);
-  assert.match(styleController, /html\.dataset\.animationLevel = resolved/);
+  assert.match(widgets, /dataset\.anim = resolved/);
+  assert.match(widgets, /dataset\.animationLevel = resolved/);
   assert.match(widgetManager, /PushEvent\(BridgeEventNames\.AnimationLevelChanged, data\)/);
   assert.match(bridgeEvents, /AnimationLevelChanged = "animationLevelChanged"/);
 });

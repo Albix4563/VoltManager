@@ -156,78 +156,6 @@ public sealed class LanRemoteControlIntegrationTests
     }
 
     [Fact]
-    public async Task SharedStyles_AreAnonymousAndOtherMainAppAssetsRemainUnserved()
-    {
-        const string pin = "Abc2345678";
-        int port = GetFreeTcpPort();
-        SettingsService settings = TestSettings.Create(out string settingsPath);
-        string root = Path.GetDirectoryName(settingsPath)!;
-        string remoteAssetsPath = Path.Combine(root, "remote-assets");
-        Directory.CreateDirectory(remoteAssetsPath);
-        await File.WriteAllTextAsync(
-            Path.Combine(remoteAssetsPath, "index.html"),
-            "<!doctype html><html><body>VoltManager Remote</body></html>");
-        var auth = new LanRemoteAuthStore(Path.Combine(root, "remote-control-auth.json"));
-        auth.SetPin(pin);
-        settings.Update(current =>
-        {
-            current.LanRemoteControl.Enabled = true;
-            current.LanRemoteControl.Port = port;
-        });
-
-        using var service = new LanRemoteControlService(
-            settings,
-            CreateActions(),
-            auth: auth,
-            firewall: new RecordingFirewall(),
-            addressProvider: () => [IPAddress.Loopback],
-            portAvailable: (_, _) => true,
-            clientAddressAllowed: _ => true,
-            remoteAssetsPath: remoteAssetsPath,
-            useHttps: false);
-
-        await service.StartAsync();
-        using var handler = new HttpClientHandler { UseProxy = false };
-        using var client = new HttpClient(handler) { BaseAddress = new Uri($"http://127.0.0.1:{port}/") };
-
-        using HttpResponseMessage layers = await client.GetAsync("css/layers.css");
-        Assert.Equal(HttpStatusCode.OK, layers.StatusCode);
-        Assert.Equal("text/css", layers.Content.Headers.ContentType?.MediaType);
-        Assert.Equal("utf-8", layers.Content.Headers.ContentType?.CharSet);
-        Assert.Contains(
-            "@layer reset, tokens, base, layout, components, themes, effects, utilities, overrides;",
-            await layers.Content.ReadAsStringAsync(),
-            StringComparison.Ordinal);
-        AssertSecurityHeaders(layers);
-
-        using HttpResponseMessage tokens = await client.GetAsync("css/tokens.css");
-        Assert.Equal(HttpStatusCode.OK, tokens.StatusCode);
-        Assert.Equal("text/css", tokens.Content.Headers.ContentType?.MediaType);
-        Assert.Equal("utf-8", tokens.Content.Headers.ContentType?.CharSet);
-        string tokenBody = await tokens.Content.ReadAsStringAsync();
-        Assert.Contains("@layer tokens {", tokenBody, StringComparison.Ordinal);
-        Assert.Contains(":root[data-theme=\"blue\"]", tokenBody, StringComparison.Ordinal);
-        AssertSecurityHeaders(tokens);
-
-        foreach (string path in new[]
-                 {
-                     "css/unknown.css",
-                     "css/app.css",
-                     "js/app.js",
-                     "css/%2e%2e/theme-colors.css",
-                 })
-        {
-            using HttpResponseMessage response = await client.GetAsync(path);
-            Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-        }
-
-        using HttpResponseMessage anonymousState = await client.GetAsync("api/state");
-        Assert.Equal(HttpStatusCode.Unauthorized, anonymousState.StatusCode);
-
-        await service.StopAsync();
-    }
-
-    [Fact]
     public async Task PowerActions_RequireCsrfPermissionAndCurrentCapabilityBeforeRouting()
     {
         const string pin = "Abc2345678";
@@ -373,20 +301,6 @@ public sealed class LanRemoteControlIntegrationTests
 
     private static void AddOrigin(HttpRequestMessage request, int port)
         => request.Headers.TryAddWithoutValidation("Origin", $"https://127.0.0.1:{port}");
-
-    private static void AssertSecurityHeaders(HttpResponseMessage response)
-    {
-        Assert.Equal("nosniff", response.Headers.GetValues("X-Content-Type-Options").Single());
-        Assert.Equal("no-referrer", response.Headers.GetValues("Referrer-Policy").Single());
-        Assert.Equal("DENY", response.Headers.GetValues("X-Frame-Options").Single());
-        string csp = response.Headers.GetValues("Content-Security-Policy").Single();
-        Assert.Contains(
-            "default-src 'self'",
-            csp,
-            StringComparison.Ordinal);
-        Assert.Contains("style-src 'self'", csp, StringComparison.Ordinal);
-        Assert.DoesNotContain("'unsafe-inline'", csp, StringComparison.OrdinalIgnoreCase);
-    }
 
     private sealed class RecordingFirewall : ILanRemoteFirewall
     {

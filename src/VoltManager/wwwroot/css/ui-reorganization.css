@@ -1,10 +1,21 @@
-@layer components {
 /*
  * VoltManager navigation reorganization
  * Extends the existing glass/accent design without adding a framework.
  */
 
 .vm-reorg-view {
+    --vm-radius-panel: 16px;
+    --vm-radius-card: 12px;
+    --vm-radius-control: 10px;
+    --vm-radius-pill: 999px;
+    --vm-space-1: 4px;
+    --vm-space-2: 8px;
+    --vm-space-3: 12px;
+    --vm-space-4: 16px;
+    --vm-space-5: 24px;
+    --vm-space-6: 32px;
+    --vm-section-gap: 24px;
+    --vm-panel-padding: 24px;
     width: 100%;
     min-width: 0;
     max-width: 100%;
@@ -317,7 +328,12 @@
     border: 1px solid color-mix(in srgb, var(--md-sys-color-on-surface, #fff) 10%, transparent);
     border-radius: var(--vm-radius-card);
     background: color-mix(in srgb, var(--md-sys-color-surface-container-low, #10192c) 72%, transparent);
+    --vm-metric-accent: var(--vm-accent);
 }
+
+.vm-compact-metric:nth-child(2) { --vm-metric-accent: color-mix(in srgb, var(--vm-accent) 72%, #8aa8ff 28%); }
+.vm-compact-metric:nth-child(3) { --vm-metric-accent: color-mix(in srgb, var(--vm-accent) 62%, #9d8cff 38%); }
+.vm-compact-metric:nth-child(4) { --vm-metric-accent: color-mix(in srgb, var(--vm-accent) 72%, #62d7b5 28%); }
 
 .vm-compact-metric__top {
     display: grid;
@@ -580,12 +596,6 @@
     overflow: visible;
 }
 
-#vm-automation-rules .vm-automation-expanded {
-    max-height: none;
-    opacity: 1;
-    overflow: visible;
-}
-
 #vm-automation-profiles > *,
 #vm-automation-gaming > *,
 #vm-system-memory > * {
@@ -824,6 +834,14 @@
    its own copy of the design tokens (otherwise radii/spacing resolve to 0). */
 .vm-search-overlay,
 .vm-search-trigger {
+    --vm-radius-card: 16px;
+    --vm-radius-control: 10px;
+    --vm-radius-pill: 999px;
+    --vm-space-1: 4px;
+    --vm-space-2: 8px;
+    --vm-space-3: 12px;
+    --vm-space-4: 16px;
+    --vm-space-5: 24px;
 }
 
 .vm-search-overlay {
@@ -1358,6 +1376,11 @@ body[data-perf-tier="lite"] .vm-subview.active > * {
 }
 
 @media (max-width: 700px) {
+    .vm-reorg-view {
+        --vm-section-gap: 16px;
+        --vm-panel-padding: 16px;
+    }
+
     .vm-ui-panel,
     .vm-section-card {
         padding: var(--vm-panel-padding) !important;
@@ -1376,5 +1399,4 @@ body[data-perf-tier="lite"] .vm-subview.active > * {
         transition: none !important;
         transform: none !important;
     }
-}
 }
