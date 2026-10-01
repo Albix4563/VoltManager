@@ -82,6 +82,15 @@
   transition: opacity .35s ease;
   background: radial-gradient(280px circle at var(--mx,50%) var(--my,50%),
               rgb(var(--vm-accent-rgb) / .16), rgb(var(--vm-accent-rgb) / 0) 60%);
+  /* The radial paints only inside this pseudo-element box, so a cursor near
+     any border used to slice the glow flat — read as square outlines around
+     cards/panels. Two axis masks intersected dissolve the glow to zero
+     before the bounds. The mask is static per element, so pointermove still
+     repaints only this one pseudo-element layer. */
+  mask-image:
+    linear-gradient(to right, transparent, #000 min(40px, 22%), #000 calc(100% - min(40px, 22%)), transparent),
+    linear-gradient(to bottom, transparent, #000 min(40px, 22%), #000 calc(100% - min(40px, 22%)), transparent);
+  mask-composite: intersect;
   z-index: -1; /* above the card's own background fill, beneath all content */
 }
 .glass-card.fx-spot::after, .glass-panel.fx-spot::after{ opacity: 1; }

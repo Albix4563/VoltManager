@@ -135,6 +135,14 @@ test('navigation and card polish use compositor-friendly restrained feedback', (
   assert.match(reorg, /\.vm-divider\s*\{[^}]*linear-gradient/s);
 });
 
+test('card spotlight dissolves at card edges instead of clipping flat', () => {
+  const spot = effects.match(/\.glass-card::after, \.glass-panel::after\{[\s\S]*?\n\}/)?.[0] || '';
+  assert.ok(spot, 'spotlight ::after rule must exist');
+  assert.match(spot, /radial-gradient\(280px circle at var\(--mx,50%\)/);
+  assert.match(spot, /mask-image:[\s\S]*to right[\s\S]*to bottom/);
+  assert.match(spot, /mask-composite:\s*intersect/);
+});
+
 test('slower decorative loops keep the ambient glow restrained', () => {
   assert.match(effects, /\.vm-aurora__orb\s*\{[\s\S]*opacity:\s*\.34/s);
   assert.match(effects, /\.nav-indicator\s*\{[\s\S]*0 0 18px[^;]*\/ \.28\)/s);
