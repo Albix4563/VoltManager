@@ -159,6 +159,12 @@ public class HostBridge : IDisposable
             return;
         }
 
+#if VOLTMANAGER_VALIDATION_HOOKS
+        // The private startup probe uses WebMessageReceived, but is never an RPC.
+        if (ValidationEnvironment.IsActive && json.Contains("\"__voltStartupProbe\"", StringComparison.Ordinal))
+            return;
+#endif
+
         if (TryHandleLauncherDropMessage(json, e))
             return;
 

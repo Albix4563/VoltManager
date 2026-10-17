@@ -27,6 +27,8 @@ internal static class Program
             return RunGraphicsBenchmark(options);
         if (options.Mode == "app-benchmark")
             return AppBenchmarkRunner.Run(options);
+        if (options.Mode == "startup-benchmark")
+            return StartupBenchmarkRunner.Run(options);
         if (options.Mode == "soak")
             return SoakRunner.Run(options);
 
@@ -72,6 +74,9 @@ internal static class Program
             "mutating powercfg calls are classified while read-only calls remain allowed");
 
         SoakAnalyzerChecks.Add(report);
+        AddCheck(report, "startup_monotonic_marker_validation", () =>
+            StartupBenchmarkRunner.VerifyMarkerCalculation(options.OutputDirectory),
+            "session PID and monotonic launch correlation, incomplete/out-of-order readiness rejected");
 
         string swift = WebViewRuntimeOptions.BrowserArguments(WebViewRendererVariant.SwiftShader);
         string hardware = WebViewRuntimeOptions.BrowserArguments(WebViewRendererVariant.HardwareDefault);
@@ -1109,6 +1114,8 @@ internal sealed record HarnessOptions(
     public TimeSpan SoakSampleInterval { get; init; } = TimeSpan.FromSeconds(15);
     public TimeSpan SoakWarmup { get; init; } = TimeSpan.FromMinutes(2);
     public SoakThresholds SoakThresholds { get; init; } = SoakThresholds.Default;
+    public string ProfileMode { get; init; } = "fresh";
+    public string? ProfileRoot { get; init; }
 
     public static HarnessOptions Parse(string[] args)
     {
@@ -1154,6 +1161,8 @@ internal sealed record HarnessOptions(
             SoakSampleInterval = TimeSpan.FromSeconds(soakSampleSeconds),
             SoakWarmup = TimeSpan.FromMinutes(soakWarmupMinutes),
             SoakThresholds = soakThresholds,
+            ProfileMode = Value(args, "--profile-mode") ?? "fresh",
+            ProfileRoot = Value(args, "--profile-root"),
         };
     }
 

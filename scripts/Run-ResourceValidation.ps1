@@ -10,7 +10,9 @@ param(
     [ValidateRange(1, 3600)] [int] $MeasurementSeconds = 120,
     [ValidateRange(1, 100)] [int] $Repetitions = 5,
     [ValidateRange(0, 100)] [int] $UnstableExtraRepetitions = 2,
-    [switch] $Resume
+    [switch] $Resume,
+    [switch] $StartupComparison,
+    [ValidateRange(10, 1000)] [int] $StartupPairs = 10
 )
 
 $ErrorActionPreference = 'Stop'
@@ -46,6 +48,222 @@ $runs = [System.Collections.Generic.List[object]]::new()
 
 function Get-AppProductVersion([string] $App) {
     return [Diagnostics.FileVersionInfo]::GetVersionInfo($App).ProductVersion
+}
+
+if ($StartupComparison) {
+    if ($Resume) {
+        throw 'Startup comparison cannot be resumed: reused-profile cohorts must have a controlled warm-up.'
+    }
+
+    # Every invocation gets private, test-owned WebView2 profiles. Never touch a real user-data folder.
+    $sessionName = 'session-{0}-{1}' -f [DateTime]::UtcNow.ToString('yyyyMMddTHHmmssfff'), [guid]::NewGuid().ToString('N').Substring(0, 8)
+    $startupOutput = Join-Path (Join-Path $Output 'startup-comparison') $sessionName
+    New-Item -ItemType Directory -Force -Path $startupOutput | Out-Null
+    $startupRuns = [System.Collections.Generic.List[object]]::new()
+    $startupMetrics = @('StartupLatencyMs', 'FirstFrameLatencyMs', 'TrayLatencyMs')
+
+    function Get-StartupMetric($Run, [string] $Name) {
+        if ($null -eq $Run -or $null -eq $Run.$Name) { return $null }
+        try {
+            $value = [double]$Run.$Name
+            if ([double]::IsNaN($value) -or [double]::IsInfinity($value) -or $value -lt 0) { return $null }
+            return $value
+        }
+        catch { return $null }
+    }
+
+    function Invoke-StartupRun([string] $Label, [string] $ProfileMode, [int] $Iteration, [bool] $Warmup = $false) {
+        $phase = if ($Warmup) { 'warmup' } else { 'runs' }
+        $runDir = Join-Path $startupOutput ('{0}\{1}\{2:D2}\{3}' -f $phase, $ProfileMode, $Iteration, $Label)
+        $profileDir = if ($ProfileMode -eq 'reused') {
+            Join-Path $startupOutput ('profiles\reused\{0}' -f $Label)
+        } else {
+            Join-Path $startupOutput ('profiles\fresh\{0}\{1:D2}' -f $Label, $Iteration)
+        }
+        New-Item -ItemType Directory -Force -Path $runDir, $profileDir | Out-Null
+        $app = if ($Label -eq 'baseline') { $BaselineApp } else { $CandidateApp }
+        $supervisorPath = if ($Label -eq 'baseline') { $BaselineSupervisor } else { $CandidateSupervisor }
+        $jsonPath = Join-Path $runDir 'startup-run.json'
+        $csvPath = Join-Path $runDir 'startup-run.csv'
+        $exitCode = -1
+        $launchFailure = $null
+        try {
+            & $Harness --mode startup-benchmark --app $app --supervisor $supervisorPath `
+                --label $Label --iteration $Iteration --renderer hardware --profile-mode $ProfileMode `
+                --profile-root $profileDir --output $runDir
+            $exitCode = [int]$LASTEXITCODE
+        }
+        catch {
+            $launchFailure = $_.Exception.Message
+        }
+
+        $raw = $null
+        if (Test-Path -LiteralPath $jsonPath -PathType Leaf) {
+            try { $raw = Get-Content -LiteralPath $jsonPath -Raw | ConvertFrom-Json }
+            catch { $launchFailure = "Invalid startup-run.json: $($_.Exception.Message)" }
+        }
+        if ($null -eq $raw -and -not $launchFailure) { $launchFailure = 'Harness did not write startup-run.json.' }
+
+        $startupMs = Get-StartupMetric $raw 'StartupLatencyMs'
+        $status = 'passed'
+        $reason = $null
+        if ($null -ne $raw -and $raw.FailureReason) { $reason = [string]$raw.FailureReason }
+        if ($exitCode -ne 0 -or $launchFailure -or $null -eq $raw -or
+            $raw.Status -notin @('passed', 'success', 'ok') -or $null -eq $startupMs) {
+            $status = 'failed'
+            if ($launchFailure) { $reason = $launchFailure }
+            elseif (-not $reason -and $exitCode -ne 0) { $reason = "Harness exited with code $exitCode." }
+            elseif (-not $reason -and $null -eq $startupMs) { $reason = 'StartupLatencyMs is missing or invalid.' }
+            elseif (-not $reason) { $reason = "Harness reported status '$($raw.Status)'." }
+        }
+        if ($status -eq 'passed' -and $null -ne $raw) {
+            if (($raw.Label -and $raw.Label -ne $Label) -or
+                ($raw.ProfileMode -and $raw.ProfileMode -ne $ProfileMode) -or
+                ($raw.Renderer -and $raw.Renderer -ne 'hardware') -or
+                ($null -ne $raw.Iteration -and [int]$raw.Iteration -ne $Iteration)) {
+                $status = 'failed'
+                $reason = 'Harness output does not match the requested label, iteration, renderer or profile mode.'
+            }
+        }
+
+        $startupRuns.Add([pscustomobject]@{
+            ProfileMode = $ProfileMode
+            Label = $Label
+            Iteration = $Iteration
+            Warmup = $Warmup
+            Renderer = 'hardware'
+            Status = $status
+            FailureReason = $reason
+            ExitCode = $exitCode
+            StartupLatencyMs = $startupMs
+            FirstFrameLatencyMs = Get-StartupMetric $raw 'FirstFrameLatencyMs'
+            TrayLatencyMs = Get-StartupMetric $raw 'TrayLatencyMs'
+            ProfileRoot = $profileDir
+            JsonPath = $jsonPath
+            CsvPath = if (Test-Path -LiteralPath $csvPath -PathType Leaf) { $csvPath } else { $null }
+            Raw = $raw
+        })
+        Write-Host ('Startup {0}: {1}/{2}/iteration {3} ({4})' -f $status, $ProfileMode, $Label, $Iteration, $phase)
+    }
+
+    function Get-StartupStatistics($Values) {
+        $ordered = @($Values | Sort-Object)
+        if ($ordered.Count -eq 0) { return $null }
+        $count = $ordered.Count
+        $median = if (($count % 2) -eq 0) {
+            ([double]$ordered[($count / 2) - 1] + [double]$ordered[$count / 2]) / 2
+        } else {
+            [double]$ordered[[int][Math]::Floor($count / 2)]
+        }
+        $minimum = [double]$ordered[0]
+        $maximum = [double]$ordered[$count - 1]
+        return [pscustomobject]@{
+            Count = $count
+            MedianMs = $median
+            P95Ms = [double]$ordered[[int][Math]::Ceiling($count * 0.95) - 1]
+            MinMs = $minimum
+            MaxMs = $maximum
+            SpreadMs = $maximum - $minimum
+            SpreadPercent = if ($median -gt 0) { 100 * ($maximum - $minimum) / $median } else { $null }
+        }
+    }
+
+    function Get-StartupPercentChange($BaselineValue, $CandidateValue) {
+        if ($null -eq $BaselineValue -or $null -eq $CandidateValue -or $BaselineValue -le 0) { return $null }
+        return 100 * ([double]$CandidateValue / [double]$BaselineValue - 1)
+    }
+
+    foreach ($profileMode in @('fresh', 'reused')) {
+        # Reused profiles start warmed: the initial creation is excluded from the measured cohort.
+        if ($profileMode -eq 'reused') {
+            $warmupIteration = $StartupPairs + 1
+            Invoke-StartupRun 'baseline' $profileMode $warmupIteration $true
+            Invoke-StartupRun 'candidate' $profileMode $warmupIteration $true
+        }
+        for ($iteration = 1; $iteration -le $StartupPairs; $iteration++) {
+            $order = if (($iteration % 2) -eq 1) { @('baseline', 'candidate') } else { @('candidate', 'baseline') }
+            foreach ($label in $order) { Invoke-StartupRun $label $profileMode $iteration }
+        }
+    }
+
+    $startupRuns | ConvertTo-Json -Depth 20 | Set-Content -Encoding UTF8 (Join-Path $startupOutput 'startup-runs.json')
+    $startupRuns | Select-Object ProfileMode, Label, Iteration, Warmup, Renderer, Status, FailureReason, ExitCode,
+        StartupLatencyMs, FirstFrameLatencyMs, TrayLatencyMs, ProfileRoot, JsonPath, CsvPath |
+        Export-Csv -NoTypeInformation -Encoding UTF8 (Join-Path $startupOutput 'startup-runs.csv')
+
+    $startupComparisons = [System.Collections.Generic.List[object]]::new()
+    $metricRows = [System.Collections.Generic.List[object]]::new()
+    foreach ($profileMode in @('fresh', 'reused')) {
+        $cohort = @($startupRuns | Where-Object { $_.ProfileMode -eq $profileMode -and -not $_.Warmup })
+        $baselineFailures = @($cohort | Where-Object { $_.Label -eq 'baseline' -and $_.Status -ne 'passed' })
+        $candidateFailures = @($cohort | Where-Object { $_.Label -eq 'candidate' -and $_.Status -ne 'passed' })
+        $paired = [System.Collections.Generic.List[object]]::new()
+        for ($iteration = 1; $iteration -le $StartupPairs; $iteration++) {
+            $baseline = @($cohort | Where-Object { $_.Label -eq 'baseline' -and $_.Iteration -eq $iteration })[0]
+            $candidate = @($cohort | Where-Object { $_.Label -eq 'candidate' -and $_.Iteration -eq $iteration })[0]
+            if ($baseline.Status -eq 'passed' -and $candidate.Status -eq 'passed') {
+                $paired.Add([pscustomobject]@{ Baseline = $baseline; Candidate = $candidate })
+            }
+        }
+
+        $metrics = [System.Collections.Generic.List[object]]::new()
+        foreach ($metric in $startupMetrics) {
+            $complete = @($paired | Where-Object { $null -ne $_.Baseline.$metric -and $null -ne $_.Candidate.$metric })
+            $baselineStats = Get-StartupStatistics @($complete | ForEach-Object { $_.Baseline.$metric })
+            $candidateStats = Get-StartupStatistics @($complete | ForEach-Object { $_.Candidate.$metric })
+            $row = [pscustomobject]@{
+                ProfileMode = $profileMode
+                Metric = $metric
+                MatchedPairs = $complete.Count
+                BaselineMedianMs = if ($baselineStats) { $baselineStats.MedianMs } else { $null }
+                CandidateMedianMs = if ($candidateStats) { $candidateStats.MedianMs } else { $null }
+                MedianDeltaMs = if ($baselineStats -and $candidateStats) { $candidateStats.MedianMs - $baselineStats.MedianMs } else { $null }
+                MedianDeltaPercent = if ($baselineStats -and $candidateStats) { Get-StartupPercentChange $baselineStats.MedianMs $candidateStats.MedianMs } else { $null }
+                BaselineP95Ms = if ($baselineStats) { $baselineStats.P95Ms } else { $null }
+                CandidateP95Ms = if ($candidateStats) { $candidateStats.P95Ms } else { $null }
+                P95DeltaPercent = if ($baselineStats -and $candidateStats) { Get-StartupPercentChange $baselineStats.P95Ms $candidateStats.P95Ms } else { $null }
+                BaselineSpreadMs = if ($baselineStats) { $baselineStats.SpreadMs } else { $null }
+                CandidateSpreadMs = if ($candidateStats) { $candidateStats.SpreadMs } else { $null }
+                BaselineSpreadPercent = if ($baselineStats) { $baselineStats.SpreadPercent } else { $null }
+                CandidateSpreadPercent = if ($candidateStats) { $candidateStats.SpreadPercent } else { $null }
+            }
+            $metrics.Add($row)
+            $metricRows.Add($row)
+        }
+
+        $startupComparisons.Add([pscustomobject]@{
+            ProfileMode = $profileMode
+            RequestedPairs = $StartupPairs
+            SuccessfulPairs = $paired.Count
+            BaselineFailures = $baselineFailures.Count
+            CandidateFailures = $candidateFailures.Count
+            WarmupFailures = @($startupRuns | Where-Object {
+                $_.ProfileMode -eq $profileMode -and $_.Warmup -and $_.Status -ne 'passed'
+            }).Count
+            Metrics = $metrics
+        })
+    }
+    $metricRows | Export-Csv -NoTypeInformation -Encoding UTF8 (Join-Path $startupOutput 'startup-comparison.csv')
+
+    $failures = @($startupRuns | Where-Object Status -ne 'passed')
+    $startupSummary = [ordered]@{
+        Status = if ($failures.Count -gt 0 -or @($startupComparisons | Where-Object { $_.SuccessfulPairs -lt $StartupPairs }).Count -gt 0) { 'failed' } else { 'passed' }
+        GeneratedAtUtc = [DateTime]::UtcNow.ToString('o')
+        Renderer = 'hardware'
+        AlternatingAB = $true
+        PairedRepetitionsPerCohort = $StartupPairs
+        FreshProfilesAreUniquePerSample = $true
+        ReusedProfilesAreSeparatePerLabel = $true
+        ReusedProfilesWarmedBeforeMeasurement = $true
+        BaselineCommit = Get-AppProductVersion $BaselineApp
+        CandidateCommit = Get-AppProductVersion $CandidateApp
+        Comparisons = $startupComparisons
+        Failures = @($failures | Select-Object ProfileMode, Label, Iteration, Warmup, FailureReason, ExitCode, JsonPath)
+    }
+    $startupSummary | ConvertTo-Json -Depth 15 | Set-Content -Encoding UTF8 (Join-Path $startupOutput 'startup-summary.json')
+    Write-Host "Startup comparison $($startupSummary.Status): $startupOutput"
+    if ($startupSummary.Status -ne 'passed') { exit 1 }
+    exit 0
 }
 
 function Try-LoadExistingAppRun(

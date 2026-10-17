@@ -63,7 +63,7 @@ public sealed class SettingsRpcHandler : IBridgeRpcHandler
                 return new
                 {
                     settings = _settings.Current,
-                    startWithWindows = _actions.IsStartWithWindowsEnabled(),
+                    startWithWindows = await Task.Run(_actions.IsStartWithWindowsEnabled, cancellationToken),
                     theme = _actions.GetWebTheme(),
                     themeCatalog = _actions.GetWebThemeCatalog(),
                     resolvedLanguage = _loc.CurrentLanguage,

@@ -1023,6 +1023,7 @@
     powerSourcePlanHome?.addEventListener('click', async () => {
         if (!Host.available) return;
         const enable = powerSourcePlanHomeToggle?.dataset.on !== 'true';
+        powerSourcePlanRevision++;
         setMiniToggle(powerSourcePlanHomeToggle, enable);
         try {
             const state = await Host.call('setPowerSourcePlanSwitch', { enabled: enable });
@@ -1037,6 +1038,7 @@
         const value = Math.max(5, Math.min(50, Math.round(Number(lowBatteryThresholdInput.value) || 20)));
         lowBatteryThresholdInput.value = String(value);
         if (!window.__voltSettings) return;
+        powerSourcePlanRevision++;
         const settings = window.__voltSettings.get ? window.__voltSettings.get() : window.__voltSettings;
         normalizePowerSourcePlan(settings).lowBatteryThresholdPercent = value;
         window.__voltSettings.save?.();
@@ -1068,9 +1070,40 @@
         renderOverrideStatus(data.override);
     });
 
-    Host.on('powerSourcePlanChanged', renderPowerSourcePlanState);
-    Host.on('gamingModeChanged', renderGamingModeState);
+    let powerSourcePlanRevision = 0;
+    let lastPowerSourcePlanEvent = null;
+    let dashboardSettingsReady = false;
+
+    function applyDashboardSettings() {
+        if (dashboardSettingsReady) return;
+        const settings = window.__voltSettings?.get?.();
+        if (!settings) return;
+
+        dashboardSettingsReady = true;
+        renderOverrideStatus(settings.override);
+        renderPowerSourcePlanState(normalizePowerSourcePlan(settings));
+        if (powerSourcePlanRevision > 0 && lastPowerSourcePlanEvent)
+            renderPowerSourcePlanState(lastPowerSourcePlanEvent);
+
+        // The runtime switch is authoritative; query only after settings are ready.
+        if (!Host.available) return;
+        const revision = powerSourcePlanRevision;
+        Host.call('getPowerSourcePlanState').then(state => {
+            if (state && revision === powerSourcePlanRevision) renderPowerSourcePlanState(state);
+        }).catch(() => {});
+    }
+
+    Host.on('powerSourcePlanChanged', state => {
+        powerSourcePlanRevision++;
+        lastPowerSourcePlanEvent = state;
+        renderPowerSourcePlanState(state);
+    });
     document.addEventListener('gamingmodechanged', (event) => renderGamingModeState(event.detail));
+    document.addEventListener('settingsloaded', applyDashboardSettings);
+
+    const gamingMode = window.__voltGamingMode;
+    if (gamingMode?.isActive) renderGamingModeState({ active: gamingMode.isActive() });
+    applyDashboardSettings();
 
     document.addEventListener('langchanged', () => {
         renderOverrideStatus(activeOverride);
@@ -1120,14 +1153,6 @@
             if (p && p.planId) reflectPlan(p.planId);
         }).catch(() => {});
         Host.call('getActivePlanReason').then(renderActivePlanReason).catch(() => renderActivePlanReason(null));
-        Host.call('getSettings').then(res => {
-            if (res && res.settings) {
-                renderOverrideStatus(res.settings.override);
-                renderPowerSourcePlanState(normalizePowerSourcePlan(res.settings));
-            }
-        }).catch(() => {});
-        Host.call('getPowerSourcePlanState').then(renderPowerSourcePlanState).catch(() => {});
-        Host.call('getGamingMode').then(renderGamingModeState).catch(() => {});
         Host.call('getBatteryHealth').then(renderBatteryHealth).catch(() => {});
         syncDashboardVisibility();
     }

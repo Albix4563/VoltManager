@@ -237,8 +237,12 @@ public partial class MainWindow : Window
     {
         try
         {
+            StartupValidationProbe.Mark("webview_environment_requested");
             _webViewEnvironment ??= _app.WebViewEnvironment;
-            await WebView.EnsureCoreWebView2Async(await _webViewEnvironment);
+            CoreWebView2Environment environment = await _webViewEnvironment;
+            StartupValidationProbe.Mark("webview_environment_ready");
+            await WebView.EnsureCoreWebView2Async(environment);
+            StartupValidationProbe.Mark("webview_core_ready");
         }
         catch (Exception ex)
         {
@@ -321,6 +325,7 @@ public partial class MainWindow : Window
         }
 
         _webViewLifecycleBinding.Attach(core);
+        AttachStartupProbe(core);
 
         NavigateToAppDocument(core);
     }
@@ -382,6 +387,8 @@ public partial class MainWindow : Window
                 Logger.Info($"NavigationCompleted in {_navStopwatch.ElapsedMilliseconds}ms (source={src})");
                 _navStopwatch.Reset();
             }
+            StartupValidationProbe.Mark("navigation_completed");
+            StartStartupProbe(core);
             LoadUpdateSuspensionUi(core);
         }
 
@@ -394,6 +401,7 @@ public partial class MainWindow : Window
     private void NavigateToAppDocument(CoreWebView2 core)
     {
         _dashboardNavigationGuard.BeginAppNavigation();
+        StartupValidationProbe.Mark("navigation_started");
         _navStopwatch.Restart();
         core.Navigate("https://app.local/index.html?v=" + AppDocumentVersion);
     }

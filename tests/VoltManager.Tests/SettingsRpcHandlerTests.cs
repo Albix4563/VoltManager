@@ -28,7 +28,8 @@ public class SettingsRpcHandlerTests
         FakeDialogs? dialogs = null,
         Action? refreshProfiles = null,
         Action? refreshHeavy = null,
-        Func<bool, bool>? setStartup = null)
+        Func<bool, bool>? setStartup = null,
+        Func<bool>? isStartupEnabled = null)
     {
         var loc = new LocalizationService();
         var actions = new SettingsRpcActions(
@@ -37,7 +38,7 @@ public class SettingsRpcHandlerTests
             RefreshAppPowerProfiles: refreshProfiles ?? (() => { }),
             RefreshHeavyAppDetection: refreshHeavy ?? (() => { }),
             RebuildJumpList: () => { },
-            IsStartWithWindowsEnabled: () => false,
+            IsStartWithWindowsEnabled: isStartupEnabled ?? (() => false),
             SetStartWithWindows: setStartup ?? (enabled => enabled),
             UtcNow: () => new DateTime(2026, 9, 20, 12, 0, 0, DateTimeKind.Utc));
         return new SettingsRpcHandler(settings, loc, actions, dialogs ?? new FakeDialogs());
@@ -164,6 +165,78 @@ public class SettingsRpcHandlerTests
 
         Assert.True(requested);
         Assert.False(settings.Current.StartWithWindows);
+    }
+
+    [Fact]
+    public async Task GetSettings_waits_asynchronously_for_slow_startup_query_and_returns_its_value()
+    {
+        SettingsService settings = TestSettings.Create();
+        settings.Update(state => state.AutostartTaskSchemaVersion = 7);
+        var queryStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var releaseQuery = new ManualResetEventSlim(false);
+        var invocationReturned = new TaskCompletionSource<Task<object?>>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var handler = CreateHandler(settings, isStartupEnabled: () =>
+        {
+            queryStarted.TrySetResult();
+            releaseQuery.Wait();
+            return true;
+        });
+
+        try
+        {
+            _ = Task.Run(() =>
+                invocationReturned.TrySetResult(handler.HandleAsync("getSettings", default, CancellationToken.None)));
+
+            await queryStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Task<object?> responseTask = await invocationReturned.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.False(responseTask.IsCompleted);
+
+            releaseQuery.Set();
+            object? response = await responseTask.WaitAsync(TimeSpan.FromSeconds(5));
+            using var doc = JsonDocument.Parse(JsonSerializer.Serialize(response, BridgeRpc.JsonOpts));
+            Assert.True(doc.RootElement.GetProperty("startWithWindows").GetBoolean());
+            Assert.Equal("blue", doc.RootElement.GetProperty("theme").GetProperty("color").GetString());
+            Assert.False(settings.Current.StartWithWindows);
+            Assert.Equal(7, settings.Current.AutostartTaskSchemaVersion);
+        }
+        finally
+        {
+            releaseQuery.Set();
+        }
+    }
+
+    [Fact]
+    public async Task GetSettings_propagates_startup_query_error_without_changing_settings()
+    {
+        SettingsService settings = TestSettings.Create();
+        settings.Update(state => state.AutostartTaskSchemaVersion = 7);
+        var handler = CreateHandler(settings, isStartupEnabled: () =>
+            throw new InvalidOperationException("Startup query failed"));
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            handler.HandleAsync("getSettings", default, CancellationToken.None));
+
+        Assert.Equal("Startup query failed", exception.Message);
+        Assert.False(settings.Current.StartWithWindows);
+        Assert.Equal(7, settings.Current.AutostartTaskSchemaVersion);
+    }
+
+    [Fact]
+    public async Task GetSettings_pre_cancelled_request_does_not_run_startup_query()
+    {
+        int queryCalls = 0;
+        var handler = CreateHandler(TestSettings.Create(), isStartupEnabled: () =>
+        {
+            Interlocked.Increment(ref queryCalls);
+            return true;
+        });
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            handler.HandleAsync("getSettings", default, cancellation.Token));
+
+        Assert.Equal(0, Volatile.Read(ref queryCalls));
     }
 
     [Fact]

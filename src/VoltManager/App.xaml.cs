@@ -83,6 +83,7 @@ public partial class App : Application
 
     protected override void OnStartup(StartupEventArgs e)
     {
+        StartupValidationProbe.Mark("app_start");
         // Init logging + global handlers first so anything below is captured.
         Logger.Init();
         HookGlobalExceptionHandlers();
@@ -117,7 +118,11 @@ public partial class App : Application
         // Cumulative marks (one batched log after Show) — cold-path cost of each stage.
         var sw = Stopwatch.StartNew();
         var marks = new List<(string Name, long Ms)>(8);
-        void Mark(string name) => marks.Add((name, sw.ElapsedMilliseconds));
+        void Mark(string name)
+        {
+            marks.Add((name, sw.ElapsedMilliseconds));
+            StartupValidationProbe.Mark("host:" + name);
+        }
 
         string? startupCommand = RemoteCommandProtocol.ParseCommandArg(e.Args);
 
@@ -253,6 +258,7 @@ public partial class App : Application
         Mark("MainWindow");
         if (!startMinimized) _mainWindow.Show();
         Mark("Show");
+        StartupValidationProbe.Mark("tray_ready");
         // Widgets are best-effort: a broken widget must not abort startup.
         try { if (Settings.Current.Widgets.Enabled) Widgets.ShowEnabled(); }
         catch (Exception ex) { Logger.Error("Widget startup failed", ex); }
