@@ -118,7 +118,7 @@ test('advanced and RAM lazy views are lifecycle-owned instead of route-event own
   assert.match(advanced, /VoltViewLifecycle\.register\('power-timeouts'/);
   assert.match(advanced, /getElementById\('vm-power-advanced'\) \|\| document\.getElementById\('advanced-params-mount'\)/);
   assert.match(advanced, /getElementById\('vm-system-memory'\) \|\| document\.getElementById\('ram-cleaner-mount'\)/);
-  assert.match(advanced, /if \(!ramAutoRefresh\) ramAutoRefresh = setInterval\(loadRamStatus, 5000\)/);
+  assert.match(advanced, /if \(!ramAutoRefresh\) ramAutoRefresh = setInterval\(\(\) => \{\s*if \(!document\.hidden\) loadRamStatus\(\);\s*\}, 5000\)/);
   assert.doesNotMatch(advanced, /addEventListener\('viewchange'/);
   assert.doesNotMatch(advanced, /addEventListener\('voltuiviewchanged'/);
   assert.doesNotMatch(advanced, /addEventListener\('voltuisubviewchanged'/);

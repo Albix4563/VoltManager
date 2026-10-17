@@ -313,13 +313,15 @@
         const bar = document.getElementById(id + '-bar');
         if (!valueEl || !bar) return;
         if (value == null) {
-            valueEl.textContent = 'N/D';
-            bar.style.width = '0%';
+            if (valueEl.textContent !== 'N/D') valueEl.textContent = 'N/D';
+            if (bar.style.width !== '0%') bar.style.width = '0%';
             return;
         }
         const v = pct(value);
-        valueEl.textContent = Math.round(v) + '%';
-        bar.style.width = v + '%';
+        const text = Math.round(v) + '%';
+        const width = v + '%';
+        if (valueEl.textContent !== text) valueEl.textContent = text;
+        if (bar.style.width !== width) bar.style.width = width;
     }
 
     function startTemps() {
@@ -327,8 +329,12 @@
             '<div class="temp-row"><span class="widget-muted">CPU</span><strong id="temp-cpu">--</strong></div>' +
             '<div class="temp-row"><span class="widget-muted">GPU</span><strong id="temp-gpu">--</strong></div>');
         Host.on('metrics', (m) => {
-            document.getElementById('temp-cpu').textContent = temp(m.cpuTemp);
-            document.getElementById('temp-gpu').textContent = temp(m.gpuTemp);
+            const cpu = document.getElementById('temp-cpu');
+            const gpu = document.getElementById('temp-gpu');
+            const cpuValue = temp(m.cpuTemp);
+            const gpuValue = temp(m.gpuTemp);
+            if (cpu && cpu.textContent !== cpuValue) cpu.textContent = cpuValue;
+            if (gpu && gpu.textContent !== gpuValue) gpu.textContent = gpuValue;
         });
     }
 

@@ -1089,10 +1089,12 @@
     function activateRamPanel() {
         mountRamUi();
         wireRamUi();
-        loadRamStatus();
+        if (!document.hidden) loadRamStatus();
         loadRamAutoCleanSettings();
         // Auto-refresh every 5 s while panel is open
-        if (!ramAutoRefresh) ramAutoRefresh = setInterval(loadRamStatus, 5000);
+        if (!ramAutoRefresh) ramAutoRefresh = setInterval(() => {
+            if (!document.hidden) loadRamStatus();
+        }, 5000);
     }
 
     function stopRamRefresh() {

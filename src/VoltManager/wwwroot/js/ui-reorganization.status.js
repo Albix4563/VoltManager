@@ -198,7 +198,6 @@
         wireBridgeState();
         const ids = [
             'plan-control', 'manual-override-chip', 'monitoring-label',
-            'cpu-pct', 'gpu-pct', 'ram-pct', 'disk-pct',
             'power-flow-percent', 'power-flow-status', 'schedule-active',
             'master-toggle'
         ];
@@ -209,6 +208,8 @@
             subtree: true,
             characterData: true
         }));
+        // ponytail: metric events replace four high-frequency subtree observers.
+        if (window.Host?.on) Host.on('metrics', queue);
         document.addEventListener('change', queue);
         document.addEventListener('gamingmodechanged', queue);
         document.addEventListener('settingsloaded', queue);
@@ -278,13 +279,28 @@
     }
 
     function observeTour() {
-        const observer = new MutationObserver(adaptTourStep);
-        observer.observe(document.body, {
+        let tourObserver = null;
+        const attach = () => {
+            const root = document.getElementById('vm-tour-root');
+            if (!root || tourObserver) return !!root;
+            tourObserver = new MutationObserver(adaptTourStep);
+            tourObserver.observe(root, {
+                childList: true,
+                subtree: true,
+                characterData: true,
+                attributes: true,
+                attributeFilter: ['hidden']
+            });
+            adaptTourStep();
+            return true;
+        };
+        if (attach()) return;
+        const rootObserver = new MutationObserver(() => {
+            if (attach()) rootObserver.disconnect();
+        });
+        rootObserver.observe(document.body, {
             childList: true,
-            subtree: true,
-            characterData: true,
-            attributes: true,
-            attributeFilter: ['hidden']
+            subtree: true
         });
     }
 

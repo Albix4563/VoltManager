@@ -217,6 +217,12 @@ html[data-perf="lite"] #monitoring-dot,
 html[data-perf-tier="balanced"] #monitoring-dot,
 html[data-perf-tier="lite"] #monitoring-dot { animation: none !important; }
 
+/* Theme indicator is decorative and follows the same motion budget. */
+html:not([data-fx="rich"]) .theme-pulse-dot,
+html[data-perf="lite"] .theme-pulse-dot,
+html[data-perf-tier="balanced"] .theme-pulse-dot,
+html[data-perf-tier="lite"] .theme-pulse-dot { animation: none !important; }
+
 html:not([data-fx="rich"]) .fx-title {
   color: var(--vm-text, #d4e4fa);
   -webkit-text-fill-color: currentColor;
@@ -228,6 +234,7 @@ html:not([data-fx="rich"]) .fx-title {
   .nav-indicator,
   #monitoring-dot,
   #monitoring-dot.animate-pulse::after,
+  .theme-pulse-dot,
   .glass-card.fx-sheen::before{ animation: none !important; }
   .fx-title{ color: var(--vm-text,#d4e4fa); -webkit-text-fill-color: currentColor; }
   #cpu-ring, #gpu-ring{ transition: stroke .3s ease; will-change: auto; }

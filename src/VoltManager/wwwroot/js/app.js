@@ -514,6 +514,7 @@
             if (mode === 'relative' && state.executeAtUtc && state.remainingSeconds > 0) {
                 var countdownEl = document.getElementById('schedule-active-countdown');
                 var updateCountdown = function() {
+                    if (document.hidden) return;
                     if (!currentScheduleState || !currentScheduleState.executeAtUtc) return;
                     var remaining = Math.max(0, Math.floor((new Date(currentScheduleState.executeAtUtc).getTime() - Date.now()) / 1000));
                     currentScheduleState.remainingSeconds = remaining;

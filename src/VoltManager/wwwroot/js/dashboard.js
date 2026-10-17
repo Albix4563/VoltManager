@@ -117,7 +117,8 @@
     function renderSensors(m) {
         const sensors = m.sensorsAvailable && m.sensors ? m.sensors : [];
         // Nothing live to show -> whole section disappears.
-        tempSection.classList.toggle('hidden', sensors.length === 0);
+        if (tempSection.classList.contains('hidden') !== (sensors.length === 0))
+            tempSection.classList.toggle('hidden', sensors.length === 0);
         if (sensors.length === 0) {
             sensorKey = '';
             return;
@@ -192,7 +193,8 @@
     function renderPowerFlow(state) {
         lastPowerFlow = state;
         const ok = state && state.available;
-        powerFlowSection.classList.toggle('hidden', !ok);
+        if (powerFlowSection.classList.contains('hidden') !== !ok)
+            powerFlowSection.classList.toggle('hidden', !ok);
         if (!ok) return;
 
         const status = state.status || 'unknown';
@@ -341,10 +343,12 @@
         batteryHistoryTempLine?.setAttribute('d', tempPath.trim());
 
         if (batteryHistorySourceStrip) {
-            batteryHistorySourceStrip.innerHTML = pts.map(s =>
+            const sourceHtml = pts.map(s =>
                 '<span style="flex:1;background:' + (s.ac ? 'var(--vm-accent)' : 'rgba(255,255,255,.16)') + '" title="' +
                 (s.ac ? I18n.t('battery_history_ac') : I18n.t('battery_history_dc')) + '"></span>'
             ).join('');
+            if (batteryHistorySourceStrip.innerHTML !== sourceHtml)
+                batteryHistorySourceStrip.innerHTML = sourceHtml;
         }
 
         const cur = pts[pts.length - 1].pct;
