@@ -64,7 +64,11 @@
     function metric(source, target, meter) {
         const value = $(source)?.textContent.trim() || '--';
         set(target, value);
-        if ($(meter)) $(meter).style.width = percentage(value) + '%';
+        const meterNode = $(meter);
+        if (meterNode) {
+            const nextWidth = percentage(value) + '%';
+            if (meterNode.style.width !== nextWidth) meterNode.style.width = nextWidth;
+        }
     }
 
     function activeRules() {
@@ -113,20 +117,23 @@
     }
 
     function syncQuickButtons(plan) {
-        document.querySelectorAll('[data-vm-action]').forEach(button =>
-            button.classList.remove('active'));
-
         const value = plan.toLowerCase();
-        let action = null;
-        if (/saver|risparm|ahorro|节能/.test(value)) action = 'saver';
-        else if (/balanc|equilibr|平衡/.test(value)) action = 'balanced';
-        else if (/perform|prestaz|rendimiento|高性能/.test(value)) action = 'performance';
-        document.querySelector(`[data-vm-action="${action}"]`)?.classList.add('active');
+        let planAction = null;
+        if (/saver|risparm|ahorro|节能/.test(value)) planAction = 'saver';
+        else if (/balanc|equilibr|平衡/.test(value)) planAction = 'balanced';
+        else if (/perform|prestaz|rendimiento|高性能/.test(value)) planAction = 'performance';
+        const gaming = !!window.__voltGamingMode?.isActive?.();
+        const keepAwake = keepAwakeActive();
 
-        document.querySelector('[data-vm-action="gaming"]')?.classList.toggle(
-            'active', !!window.__voltGamingMode?.isActive?.());
-        document.querySelector('[data-vm-action="keep-awake"]')?.classList.toggle(
-            'active', keepAwakeActive());
+        document.querySelectorAll('[data-vm-action]').forEach(button => {
+            const kind = button.dataset.vmAction;
+            const active = kind === 'gaming' ? gaming
+                : kind === 'keep-awake' ? keepAwake
+                : kind === planAction;
+            if (button.classList.contains('active') !== active) {
+                button.classList.toggle('active', active);
+            }
+        });
     }
 
     function sync() {
@@ -149,11 +156,12 @@
         set('vm-top-automation', automation);
 
         const battery = $('power-flow-percent')?.textContent.trim() || '';
+        const batteryChip = $('vm-top-battery-chip');
         if (battery && battery !== '--' && battery !== '--%') {
             set('vm-top-battery', battery);
-            $('vm-top-battery-chip')?.classList.remove('hidden');
-        } else {
-            $('vm-top-battery-chip')?.classList.add('hidden');
+            if (batteryChip && batteryChip.classList.contains('hidden')) batteryChip.classList.remove('hidden');
+        } else if (batteryChip && !batteryChip.classList.contains('hidden')) {
+            batteryChip.classList.add('hidden');
         }
 
         metric('cpu-pct', 'ov-metric-cpu', 'ov-meter-cpu');
@@ -178,7 +186,7 @@
     }
 
     function queue() {
-        if (queued) return;
+        if (queued || document.hidden) return;
         queued = true;
         requestAnimationFrame(() => {
             queued = false;
@@ -207,7 +215,8 @@
         document.addEventListener('voltuiviewchanged', queue);
         document.addEventListener('voltuisubviewchanged', queue);
         document.addEventListener('voltuistranslated', queue);
-        setInterval(queue, 5000);
+        document.addEventListener('visibilitychange', () => { if (!document.hidden) queue(); });
+        setInterval(() => { if (!document.hidden) queue(); }, 5000);
         queue();
     }
 

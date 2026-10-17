@@ -141,13 +141,6 @@
             const el = document.getElementById(id);
             if (el) el.textContent = tt(key);
         });
-        renderAppPowerProfiles();
-        renderAppPowerProfileStatus(appProfileStatus);
-        renderHeavyAppStatus(heavyAppStatus);
-        renderHeavyAppRules();
-        renderKeepAwakeState(keepAwakeState);
-        renderThermalState(thermalState);
-        renderIdleState(idleState);
     }
 
     function loadIntoUi() {

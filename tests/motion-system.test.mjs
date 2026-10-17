@@ -147,3 +147,23 @@ test('slower decorative loops keep the ambient glow restrained', () => {
   assert.match(effects, /\.vm-aurora__orb\s*\{[\s\S]*opacity:\s*\.34/s);
   assert.match(effects, /\.nav-indicator\s*\{[\s\S]*0 0 18px[^;]*\/ \.28\)/s);
 });
+
+test('scroll containers stabilize layout gutter and suppress spotlight churn while scrolling', () => {
+  const effectsJs = read('../src/VoltManager/wwwroot/js/effects.js');
+  assert.match(polish, /#main-content\s*\{[^}]*overscroll-behavior-y:\s*contain[^}]*scrollbar-gutter:\s*stable/s);
+  assert.match(effects, /html\[data-scrolling="true"\]\s+\.glass-card\.fx-spot::after[\s\S]*opacity:\s*0\s*!important/);
+  assert.match(effectsJs, /document\.addEventListener\('scroll',\s*onScroll,\s*\{\s*capture:\s*true,\s*passive:\s*true\s*\}\)/);
+  assert.match(effectsJs, /if\s*\(!spotRect\)\s*spotRect\s*=\s*spotEl\.getBoundingClientRect\(\)/);
+  assert.doesNotMatch(effectsJs, /void\s+spotEl\.offsetWidth/);
+});
+
+test('entrance keyframes release transform and filter layers once settled', () => {
+  const effectsJs = read('../src/VoltManager/wwwroot/js/effects.js');
+  assert.match(redesign, /@keyframes\s+vmRiseHigh\s*\{[\s\S]*to\s*\{[^}]*transform:\s*none;[^}]*filter:\s*none/);
+  assert.match(reorg, /@keyframes\s+vmReorgViewIn\s*\{[\s\S]*to\s*\{[^}]*transform:\s*none/);
+  assert.match(reorg, /@keyframes\s+vmReorgPanelIn\s*\{[\s\S]*to\s*\{[^}]*transform:\s*none/);
+  assert.match(reorg, /@keyframes\s+vmReorgGroupIn\s*\{[\s\S]*to\s*\{[^}]*transform:\s*none/);
+  assert.match(app, /@keyframes\s+startupCardIn\{from\{[^}]*\}to\{opacity:1;transform:none\}\}/);
+  assert.match(advanced, /@keyframes\s+advSlideIn\{from\{[^}]*\}to\{opacity:1;transform:none\}\}/);
+  assert.match(effectsJs, /if\s*\(el\.textContent\s*!==\s*nextText\)\s*el\.textContent\s*=\s*nextText/);
+});

@@ -58,7 +58,7 @@
         const style = document.createElement('style');
         style.id = 'system-startup-switch-styles';
         style.textContent = `
-@keyframes startupCardIn{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes startupCardIn{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:none}}
 @keyframes startupSwitchPulse{0%{box-shadow:0 0 0 0 rgb(var(--vm-accent-rgb) / .34)}70%{box-shadow:0 0 0 12px rgb(var(--vm-accent-rgb) / 0)}100%{box-shadow:0 0 0 0 rgb(var(--vm-accent-rgb) / 0)}}
 @keyframes startupKnobPop{0%{transform:translateX(var(--knob-x)) scale(.92)}55%{transform:translateX(var(--knob-x)) scale(1.08)}100%{transform:translateX(var(--knob-x)) scale(1)}}
 @keyframes startupShimmer{0%{transform:translateX(-120%)}100%{transform:translateX(220%)}}
@@ -783,7 +783,8 @@
     function filterStartupApps(query) {
         const normalized = String(query || '').trim().toLowerCase();
         document.querySelectorAll('#startup-enabled-list .startup-card, #startup-disabled-list .startup-card').forEach(card => {
-            card.hidden = normalized !== '' && !card.textContent.toLowerCase().includes(normalized);
+            const haystack = card.dataset?.searchText || card.textContent.toLowerCase();
+            card.hidden = normalized !== '' && !haystack.includes(normalized);
         });
     }
 
@@ -799,6 +800,7 @@
             const source = app.source || '';
             const command = app.path || app.command || '';
             const nextEnabled = !isEnabled;
+            const searchText = (name + ' ' + source + ' ' + command).toLowerCase();
             const managedBadge = app.isManaged
                 ? '<span class="startup-managed-badge"><span class="material-symbols-outlined text-[13px]">verified</span>' + esc(t('managed')) + '</span>'
                 : '';
@@ -809,7 +811,7 @@
             const removeButton = app.isManaged
                 ? '<button class="startup-remove-btn" data-remove-startup-id="' + escAttr(app.id) + '" aria-label="' + escAttr(t('remove') + ' ' + name) + '" title="' + escAttr(t('remove')) + '" type="button"><span class="material-symbols-outlined text-[18px]">delete</span></button>'
                 : '';
-            return '<article class="startup-card" data-state="' + state + '">' +
+            return '<article class="startup-card" data-state="' + state + '" data-search-text="' + escAttr(searchText) + '">' +
                 '<div class="startup-card__accent"></div>' +
                 '<div class="startup-card__header"><div class="startup-card__title-wrap"><div class="startup-card__app-icon"><span class="material-symbols-outlined">apps</span></div><div class="startup-card__meta"><p class="startup-card__name">' + esc(name) + '</p><div class="startup-card__badges">' + statusChip + managedBadge + '</div></div></div>' +
                 '<div class="startup-actions">' + toggleButton + removeButton + '</div></div>' +
@@ -818,6 +820,12 @@
                 '<div class="startup-detail-line"><span class="startup-detail-label">' + esc(t('command')) + '</span><span class="startup-detail-value" title="' + escAttr(command) + '">' + esc(command) + '</span></div>' +
                 '</div></article>';
         }).join('');
+    }
+
+    if (mainContent) {
+        mainContent.addEventListener('animationend', (e) => {
+            if (e.target === mainContent) mainContent.classList.remove('animate-in');
+        }, { once: true });
     }
 
     navList.addEventListener('click', (e) => {
@@ -842,10 +850,15 @@
         if (activeLink) positionIndicator(activeLink);
     });
 
+    let resizeIndicatorRaf = 0;
     window.addEventListener('resize', () => {
-        const activeLink = document.querySelector('#nav-list a.text-secondary-container[data-view]');
-        if (activeLink) positionIndicator(activeLink);
-    });
+        if (resizeIndicatorRaf) return;
+        resizeIndicatorRaf = requestAnimationFrame(() => {
+            resizeIndicatorRaf = 0;
+            const activeLink = document.querySelector('#nav-list a.text-secondary-container[data-view]');
+            if (activeLink) positionIndicator(activeLink);
+        });
+    }, { passive: true });
 
     document.getElementById('btn-minimize-tray').addEventListener('click', () => {
         Host.call('minimizeToTray').catch(() => {});

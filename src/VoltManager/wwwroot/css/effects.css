@@ -94,6 +94,13 @@
   z-index: -1; /* above the card's own background fill, beneath all content */
 }
 .glass-card.fx-spot::after, .glass-panel.fx-spot::after{ opacity: 1; }
+html[data-scrolling="true"] .glass-card.fx-spot::after,
+html[data-scrolling="true"] .glass-panel.fx-spot::after{ opacity: 0 !important; }
+
+@keyframes fadeSlideUp{
+  0%{ opacity: 0; transform: translateY(20px); }
+  100%{ opacity: 1; transform: none; }
+}
 
 /* One-shot diagonal sheen on hover-in. */
 .glass-card{ overflow: hidden; }

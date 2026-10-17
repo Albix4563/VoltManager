@@ -485,11 +485,18 @@
         installBatteryCapabilityDetection();
 
         document.addEventListener('langchanged', applyLanguage);
+        let resizeRaf = 0;
         window.addEventListener('resize', () => {
-            api.positionIndicator?.(
-                document.querySelector(`#nav-list .nav-item[data-view="${state.view}"]`)
-            );
-        });
+            if (resizeRaf) return;
+            const reposition = () => {
+                resizeRaf = 0;
+                api.positionIndicator?.(
+                    document.querySelector(`#nav-list .nav-item[data-view="${state.view}"]`)
+                );
+            };
+            if (typeof requestAnimationFrame === 'function') resizeRaf = requestAnimationFrame(reposition);
+            else reposition();
+        }, { passive: true });
 
         api.activateView(initialView(), false);
         Object.entries(state.subviews).forEach(([group, name]) =>

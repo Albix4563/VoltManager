@@ -218,7 +218,9 @@
         input.addEventListener('keydown', onInputKeydown);
         resultList.addEventListener('mousemove', event => {
             const option = event.target.closest?.('[data-search-index]');
-            if (option) setSelected(Number(option.dataset.searchIndex));
+            if (!option) return;
+            const nextIndex = Number(option.dataset.searchIndex);
+            if (nextIndex !== selectedIndex) setSelected(nextIndex);
         });
         resultList.addEventListener('click', event => {
             const option = event.target.closest?.('[data-search-index]');

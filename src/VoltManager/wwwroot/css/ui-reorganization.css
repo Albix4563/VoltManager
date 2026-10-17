@@ -60,6 +60,7 @@
 }
 
 .vm-ui-panel {
+    contain: layout style;
     padding: var(--vm-panel-padding);
     border: 1px solid color-mix(in srgb, var(--md-sys-color-on-surface, #fff) 10%, transparent);
     border-radius: var(--vm-radius-panel);
@@ -68,6 +69,7 @@
 }
 
 .vm-ui-section {
+    contain: layout style;
     min-width: 0;
     max-width: 100%;
     padding: var(--vm-space-4);
@@ -482,7 +484,7 @@
 
 @keyframes vmReorgPanelIn {
     from { opacity: 0; transform: translateY(5px); }
-    to { opacity: 1; transform: translateY(0); }
+    to { opacity: 1; transform: none; }
 }
 
 /* The process panel is a live surface: eight rows refresh together and each
@@ -1295,12 +1297,12 @@
 
 @keyframes vmReorgViewIn {
     from { opacity: 0; transform: translateY(var(--vm-space-2)); }
-    to { opacity: 1; transform: translateY(0); }
+    to { opacity: 1; transform: none; }
 }
 
 @keyframes vmReorgGroupIn {
     from { opacity: 0; transform: translateY(var(--vm-space-2)); }
-    to { opacity: 1; transform: translateY(0); }
+    to { opacity: 1; transform: none; }
 }
 
 html[data-perf-tier="balanced"] .vm-reorg-view:not(.hidden),
@@ -1318,12 +1320,30 @@ body[data-perf-tier="balanced"] .vm-subview.active > * {
 
 html[data-perf-tier="lite"] .vm-reorg-view:not(.hidden),
 body[data-perf-tier="lite"] .vm-reorg-view:not(.hidden),
+html[data-perf="lite"] .vm-reorg-view:not(.hidden),
+html[data-anim="low"] .vm-reorg-view:not(.hidden),
 html[data-perf-tier="lite"] .vm-subview.active,
 body[data-perf-tier="lite"] .vm-subview.active,
+html[data-perf="lite"] .vm-subview.active,
+html[data-anim="low"] .vm-subview.active,
 html[data-perf-tier="lite"] .vm-subview.active > *,
-body[data-perf-tier="lite"] .vm-subview.active > * {
+body[data-perf-tier="lite"] .vm-subview.active > *,
+html[data-perf="lite"] .vm-subview.active > *,
+html[data-anim="low"] .vm-subview.active > * {
     animation-duration: .16s;
     animation-delay: 0s;
+}
+
+.vm-compact-metric,
+.vm-status-card,
+.vm-summary-row {
+    contain: layout style;
+}
+
+.process-row,
+.plan-history-entry,
+.launcher-manage-row {
+    contain: layout paint style;
 }
 
 .vm-subview[data-vm-panel-group="monitoring"][data-vm-panel="processes"].active,

@@ -51,6 +51,8 @@
    Animated readouts (effects.js tweens them) shifted width as digits
    changed. Lock figure advance so the numbers hold still. */
 #cpu-pct, #gpu-pct, #ram-pct, #disk-pct,
+#ov-metric-cpu, #ov-metric-gpu, #ov-metric-ram, #ov-metric-disk,
+#vm-top-battery, #schedule-active-countdown, #keep-awake-status, #thermal-peak-line,
 #battery-health-pct, #battery-history-current,
 #power-flow-watts, #power-flow-percent, #power-flow-voltage,
 #power-flow-time, #cpu-temp, #gpu-temp,
@@ -98,6 +100,15 @@
 }
 
 /* ---------- 5. Scrollbar — brand-tinted ---------- */
+#main-content{
+  overscroll-behavior-y: contain;
+  scrollbar-gutter: stable;
+}
+.changelog-scroll,
+.heavy-app-list,
+.heavy-rules-list{
+  overscroll-behavior: contain;
+}
 ::-webkit-scrollbar{ width: 8px; height: 8px; }
 ::-webkit-scrollbar-thumb{
   background: linear-gradient(180deg, rgb(var(--vm-accent-rgb) / .38), rgb(var(--vm-accent-rgb) / .14));

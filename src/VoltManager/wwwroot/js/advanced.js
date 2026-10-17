@@ -114,7 +114,7 @@
 .power-timeout-status.is-ok{color:var(--vm-accent);}.power-timeout-status.is-error{color:#ff8585;}
 @media(max-width:760px){.power-timeout-grid{grid-template-columns:1fr}.adv-toolbar,.power-timeout-toolbar{align-items:stretch;flex-direction:column}
   .adv-plan-field,.power-timeout-plan-field{min-width:0;width:100%}.power-timeout-side{grid-template-columns:1fr;gap:7px}}
-@keyframes advSlideIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes advSlideIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 .adv-panel>*{animation:advSlideIn var(--vm-motion-enter) var(--vm-ease-emphasized) both;}
 
 /* ── RAM Cleaner ─────────────────────────────────────────────────── */
@@ -907,14 +907,19 @@
 
         const setVal = (id, gb) => {
             const el = document.getElementById(id);
-            if (el) el.textContent = gb.toFixed(1) + ' GB';
+            if (!el) return;
+            const text = (Number.isFinite(Number(gb)) ? Number(gb).toFixed(1) : '--') + ' GB';
+            if (el.textContent !== text) el.textContent = text;
         };
         setVal('ram-val-inuse',   status.inUseGb);
         setVal('ram-val-standby', status.standbyGb);
         setVal('ram-val-free',    status.freeGb);
 
         const total = document.getElementById('ram-total-val');
-        if (total) total.textContent = status.totalGb.toFixed(1) + ' GB';
+        if (total) {
+            const totalText = (Number.isFinite(Number(status.totalGb)) ? Number(status.totalGb).toFixed(1) : '--') + ' GB';
+            if (total.textContent !== totalText) total.textContent = totalText;
+        }
 
         // Update the clean button style based on standby size
         const btn = document.getElementById('ram-btn-clean');

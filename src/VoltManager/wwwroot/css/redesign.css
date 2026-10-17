@@ -41,7 +41,7 @@ html[data-anim="high"]:not([data-perf="lite"]) .vm-stagger > *{
 }
 @keyframes vmRiseHigh{
   from{ opacity: 0; transform: translateY(14px); filter: blur(3px); }
-  to{ opacity: 1; transform: none; filter: blur(0); }
+  to{ opacity: 1; transform: none; filter: none; }
 }
 
 @media (prefers-reduced-motion: reduce){

@@ -19,8 +19,13 @@
   );
   const CIRC = 251.2; // 2*PI*r(40), matches dashboard ring geometry
 
+  let cachedAccent = '';
+  function invalidateAccent() { cachedAccent = ''; }
   function currentAccent() {
-    return getComputedStyle(document.documentElement).getPropertyValue('--vm-accent').trim() || '#3b82f6';
+    if (!cachedAccent) {
+      cachedAccent = getComputedStyle(document.documentElement).getPropertyValue('--vm-accent').trim() || '#3b82f6';
+    }
+    return cachedAccent;
   }
 
   // Theme accent -> amber -> red as utilization climbs. Mirrors effects.css halo tiers.
@@ -87,7 +92,8 @@
       if (!el) return;
       const eps = decimals > 0 ? 0.5 * Math.pow(10, -decimals) : 0.4;
       chase(el, target, (v) => {
-        el.textContent = (signed && v > 0 ? '+' : '') + v.toFixed(decimals) + suffix;
+        const nextText = (signed && v > 0 ? '+' : '') + v.toFixed(decimals) + suffix;
+        if (el.textContent !== nextText) el.textContent = nextText;
       }, eps, 0);
     },
 
@@ -102,18 +108,25 @@
         circle.dataset.fxRing = '1';
       }
       // Promote only while the chase runs; drop will-change when settled.
-      circle.style.willChange = reduce() ? 'auto' : 'stroke-dashoffset';
+      const nextWill = reduce() ? 'auto' : 'stroke-dashoffset';
+      if (circle.style.willChange !== nextWill) circle.style.willChange = nextWill;
       const toOff = CIRC * (1 - clamped / 100);
       chase(circle, toOff, (v) => {
-        circle.style.strokeDashoffset = v.toFixed(1);
-        if (Math.abs(toOff - v) <= 0.3) circle.style.willChange = 'auto';
+        const nextOff = v.toFixed(1);
+        if (circle.style.strokeDashoffset !== nextOff) circle.style.strokeDashoffset = nextOff;
+        if (Math.abs(toOff - v) <= 0.3 && circle.style.willChange !== 'auto') {
+          circle.style.willChange = 'auto';
+        }
       }, 0.3, CIRC);
       if (label) this.animateNumber(label, clamped, { suffix: '%' });
       const { stroke, load } = ringColor(clamped);
-      circle.style.stroke = stroke;
-      circle.style.filter = 'drop-shadow(0 0 6px ' + stroke + 'aa)';
+      if (circle.dataset.fxStroke !== stroke) {
+        circle.dataset.fxStroke = stroke;
+        circle.style.stroke = stroke;
+        circle.style.filter = 'drop-shadow(0 0 6px ' + stroke + 'aa)';
+      }
       const card = circle.closest('.glass-card');
-      if (card) card.dataset.load = load;
+      if (card && card.dataset.load !== load) card.dataset.load = load;
     },
 
     /** Fill a linear bar — compositor-only via scaleX (no per-frame layout).
@@ -127,10 +140,14 @@
         bar.style.transition = 'none';
         bar.dataset.fxBar = '1';
       }
-      bar.style.willChange = reduce() ? 'auto' : 'transform';
+      const nextWill = reduce() ? 'auto' : 'transform';
+      if (bar.style.willChange !== nextWill) bar.style.willChange = nextWill;
       chase(bar, clamped, (v) => {
-        bar.style.transform = 'scaleX(' + (v / 100).toFixed(4) + ')';
-        if (Math.abs(clamped - v) <= 0.15) bar.style.willChange = 'auto';
+        const nextTransform = 'scaleX(' + (v / 100).toFixed(4) + ')';
+        if (bar.style.transform !== nextTransform) bar.style.transform = nextTransform;
+        if (Math.abs(clamped - v) <= 0.15 && bar.style.willChange !== 'auto') {
+          bar.style.willChange = 'auto';
+        }
       }, 0.15, 0);
     },
 
@@ -177,15 +194,40 @@
   }
 
   // ---- Pointer-tracking spotlight (delegated + rAF throttled) ----
-  let spotEl = null, spotX = 0, spotY = 0, spotQueued = false;
+  let spotEl = null, spotRect = null, spotX = 0, spotY = 0, spotQueued = false;
+  let lastMx = '', lastMy = '';
+  let isScrolling = false, scrollIdleTimer = 0;
+
+  function invalidateSpotRect() {
+    spotRect = null;
+  }
+
+  function onScroll() {
+    spotRect = null;
+    if (!isScrolling) {
+      isScrolling = true;
+      document.documentElement.dataset.scrolling = 'true';
+    }
+    if (scrollIdleTimer) clearTimeout(scrollIdleTimer);
+    scrollIdleTimer = setTimeout(() => {
+      scrollIdleTimer = 0;
+      isScrolling = false;
+      delete document.documentElement.dataset.scrolling;
+    }, 120);
+  }
+
   function flushSpot() {
     spotQueued = false;
-    if (!spotEl) return;
-    const r = spotEl.getBoundingClientRect();
-    spotEl.style.setProperty('--mx', ((spotX - r.left) / r.width * 100).toFixed(1) + '%');
-    spotEl.style.setProperty('--my', ((spotY - r.top) / r.height * 100).toFixed(1) + '%');
+    if (!spotEl || isScrolling) return;
+    if (!spotRect) spotRect = spotEl.getBoundingClientRect();
+    if (!spotRect.width || !spotRect.height) return;
+    const mx = ((spotX - spotRect.left) / spotRect.width * 100).toFixed(1) + '%';
+    const my = ((spotY - spotRect.top) / spotRect.height * 100).toFixed(1) + '%';
+    if (mx !== lastMx) { spotEl.style.setProperty('--mx', mx); lastMx = mx; }
+    if (my !== lastMy) { spotEl.style.setProperty('--my', my); lastMy = my; }
   }
   function onPointerMove(e) {
+    if (isScrolling) return;
     let card = e.target.closest && e.target.closest('.glass-card, .glass-panel');
     // Processes is a large live surface: its rows and meters are refreshed while
     // the pointer moves. Rewriting spotlight coordinates on that same surface
@@ -196,12 +238,19 @@
     if (card !== spotEl) {
       if (spotEl) spotEl.classList.remove('fx-spot');
       spotEl = card;
+      spotRect = null;
+      lastMx = '';
+      lastMy = '';
       if (spotEl) {
         spotEl.classList.add('fx-spot');
-        if (spotEl.classList.contains('glass-card')) {
-          spotEl.classList.remove('fx-sheen');
-          void spotEl.offsetWidth;
+        if (spotEl.classList.contains('glass-card') && !spotEl.classList.contains('fx-sheen')) {
           spotEl.classList.add('fx-sheen');
+          spotEl.addEventListener('animationend', function clearSheen(ev) {
+            if (ev.animationName === 'vmSheen') {
+              ev.currentTarget.classList.remove('fx-sheen');
+              ev.currentTarget.removeEventListener('animationend', clearSheen);
+            }
+          });
         }
       }
     }
@@ -251,6 +300,7 @@
     document.removeEventListener('pointerdown', onRipple);
     if (spotEl) spotEl.classList.remove('fx-spot');
     spotEl = null;
+    spotRect = null;
     document.querySelector('.vm-aurora')?.classList.add('hidden');
     VoltFx.stopMotion();
   }
@@ -263,7 +313,18 @@
   function init() {
     decorateTitles();
     syncRichEffects();
+    document.addEventListener('scroll', onScroll, { capture: true, passive: true });
+    window.addEventListener('resize', invalidateSpotRect, { passive: true });
+    document.addEventListener('settingsloaded', invalidateAccent);
+    document.addEventListener('themeChanged', invalidateAccent);
+    if (typeof MutationObserver === 'function' && document.documentElement) {
+      new MutationObserver(invalidateAccent).observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: ['data-theme-color', 'style']
+      });
+    }
     document.addEventListener('viewchange', (event) => {
+      spotRect = null;
       decorateTitles();
       if (event.detail && event.detail.view === 'monitoring' && event.detail.reorganized) {
         VoltFx.replayIntro(document.querySelector('.vm-reorg-view[data-vm-view="monitoring"]'));

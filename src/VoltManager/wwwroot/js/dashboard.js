@@ -38,10 +38,15 @@
     const powerFlowVoltage = document.getElementById('power-flow-voltage');
     const powerFlowDetail = document.getElementById('power-flow-detail');
 
+    function setText(el, value) {
+        if (el && el.textContent !== value) el.textContent = value;
+    }
+
     function setRing(circle, label, pct) {
         if (window.VoltFx) { window.VoltFx.animateRing(circle, label, pct); return; }
-        circle.style.strokeDashoffset = (CIRC * (1 - pct / 100)).toFixed(1);
-        label.textContent = Math.round(pct) + '%';
+        const nextOff = (CIRC * (1 - pct / 100)).toFixed(1);
+        if (circle.style.strokeDashoffset !== nextOff) circle.style.strokeDashoffset = nextOff;
+        setText(label, Math.round(pct) + '%');
     }
 
     let gpuUnavailableShown = false;
@@ -51,13 +56,15 @@
 
     // No reading -> hide the badge entirely instead of showing a useless N/D.
     function setTempBadge(badge, label, value) {
-        badge.classList.toggle('hidden', value == null);
-        if (value != null) label.textContent = Math.round(value) + '°C';
+        const hide = value == null;
+        if (badge.classList.contains('hidden') !== hide) badge.classList.toggle('hidden', hide);
+        if (!hide) setText(label, Math.round(value) + '°C');
     }
 
     function setClockText(element, value) {
-        element.classList.toggle('hidden', value == null);
-        if (value != null) element.textContent = Math.round(value) + ' MHz';
+        const hide = value == null;
+        if (element.classList.contains('hidden') !== hide) element.classList.toggle('hidden', hide);
+        if (!hide) setText(element, Math.round(value) + ' MHz');
     }
 
     function formatSensor(s) {
@@ -121,7 +128,7 @@
             sensorKey = key;
             buildSensorList(sorted);
         }
-        sorted.forEach((s, i) => { sensorValueEls[i].textContent = formatSensor(s); });
+        sorted.forEach((s, i) => { setText(sensorValueEls[i], formatSensor(s)); });
     }
 
     document.addEventListener('langchanged', () => {
@@ -452,10 +459,11 @@
             if (m.gpuAvailable) {
                 setRing(gpuRing, gpuPct, m.gpu);
             } else {
-                gpuRing.style.strokeDashoffset = CIRC;
-                gpuPct.textContent = 'N/D';
+                const nextOff = String(CIRC);
+                if (gpuRing.style.strokeDashoffset !== nextOff) gpuRing.style.strokeDashoffset = nextOff;
+                setText(gpuPct, 'N/D');
                 if (!gpuUnavailableShown) {
-                    gpuName.textContent = I18n.t('dash_gpu_unavailable');
+                    setText(gpuName, I18n.t('dash_gpu_unavailable'));
                     gpuUnavailableShown = true;
                 }
             }
@@ -465,26 +473,26 @@
                 window.VoltFx.animateNumber(diskPct, m.disk, { suffix: '%' });
                 window.VoltFx.animateBar(diskBar, m.disk);
             } else {
-                ramPct.textContent = Math.round(m.ramPct) + '%';
+                setText(ramPct, Math.round(m.ramPct) + '%');
                 ramBar.style.width = m.ramPct + '%';
-                diskPct.textContent = Math.round(m.disk) + '%';
+                setText(diskPct, Math.round(m.disk) + '%');
                 diskBar.style.width = m.disk + '%';
             }
-            ramDetail.textContent = m.ramUsedGb.toFixed(1) + ' GB / ' + m.ramTotalGb.toFixed(1) + ' GB In Use';
+            setText(ramDetail, m.ramUsedGb.toFixed(1) + ' GB / ' + m.ramTotalGb.toFixed(1) + ' GB In Use');
             return;
         }
         // Lightweight path for overview KPI mirror.
-        cpuPct.textContent = Math.round(m.cpu) + '%';
-        if (m.gpuAvailable) gpuPct.textContent = Math.round(m.gpu) + '%';
+        setText(cpuPct, Math.round(m.cpu) + '%');
+        if (m.gpuAvailable) setText(gpuPct, Math.round(m.gpu) + '%');
         else {
-            gpuPct.textContent = 'N/D';
+            setText(gpuPct, 'N/D');
             if (!gpuUnavailableShown) {
-                gpuName.textContent = I18n.t('dash_gpu_unavailable');
+                setText(gpuName, I18n.t('dash_gpu_unavailable'));
                 gpuUnavailableShown = true;
             }
         }
-        ramPct.textContent = Math.round(m.ramPct) + '%';
-        diskPct.textContent = Math.round(m.disk) + '%';
+        setText(ramPct, Math.round(m.ramPct) + '%');
+        setText(diskPct, Math.round(m.disk) + '%');
     });
 
     // ----- Top Processes -----
@@ -511,7 +519,8 @@
     }
 
     function setProcessMeter(fill, pct) {
-        fill.style.transform = 'scaleX(' + (clampPercent(pct) / 100).toFixed(3) + ')';
+        var next = 'scaleX(' + (clampPercent(pct) / 100).toFixed(3) + ')';
+        if (fill.style.transform !== next) fill.style.transform = next;
     }
 
     function getProcessLoad(cpu) {
@@ -625,18 +634,19 @@
                 var cpu = Number(p.cpuPercent) || 0;
                 var ram = Number(p.ramMb) || 0;
                 var instances = Number(p.instances) || 1;
+                var load = getProcessLoad(cpu);
 
-                r.row.classList.remove('hidden');
-                r.row.dataset.load = getProcessLoad(cpu);
-                r.rankEl.textContent = '#' + (i + 1);
-                r.nameEl.textContent = p.name || 'Process';
-                r.metaEl.textContent = (instances > 1 ? instances + '× · ' : '') + 'PID ' + p.pid;
-                r.cpuEl.textContent = cpu.toFixed(1) + '%';
-                r.ramEl.textContent = formatRam(ram);
+                if (r.row.classList.contains('hidden')) r.row.classList.remove('hidden');
+                if (r.row.dataset.load !== load) r.row.dataset.load = load;
+                setText(r.rankEl, '#' + (i + 1));
+                setText(r.nameEl, p.name || 'Process');
+                setText(r.metaEl, (instances > 1 ? instances + '× · ' : '') + 'PID ' + p.pid);
+                setText(r.cpuEl, cpu.toFixed(1) + '%');
+                setText(r.ramEl, formatRam(ram));
                 setProcessMeter(r.cpuFill, cpu);
                 setProcessMeter(r.ramFill, (ram / maxRam) * 100);
             } else {
-                r.row.classList.add('hidden');
+                if (!r.row.classList.contains('hidden')) r.row.classList.add('hidden');
                 setProcessMeter(r.cpuFill, 0);
                 setProcessMeter(r.ramFill, 0);
             }
