@@ -173,6 +173,7 @@
     stopMotion() {
       channels.clear();
       if (rafId) { cancelAnimationFrame(rafId); rafId = 0; lastTs = 0; }
+      cancelSpotRaf();
     },
   };
   window.VoltFx = VoltFx;
@@ -193,10 +194,28 @@
     main.insertBefore(aurora, main.firstChild);
   }
 
-  // ---- Pointer-tracking spotlight (delegated + rAF throttled) ----
+  // ---- Pointer-tracking spotlight (delegated + rAF damped micro-glide) ----
+  const SPOT_HALF_LIFE = 28; // ms — tight cursor synchronization with silky micro-smoothing
+  const SPOT_EPS = 0.08;     // % threshold to park the rAF loop once settled
   let spotEl = null, spotRect = null, spotX = 0, spotY = 0, spotQueued = false;
+  let spotRaf = 0, spotLastTs = 0, spotCurX = 50, spotCurY = 50, spotSnap = true;
   let lastMx = '', lastMy = '';
   let isScrolling = false, scrollIdleTimer = 0;
+
+  function cancelSpotRaf() {
+    if (spotRaf) { cancelAnimationFrame(spotRaf); spotRaf = 0; }
+    spotQueued = false;
+    spotLastTs = 0;
+  }
+
+  function clearSpot() {
+    cancelSpotRaf();
+    if (spotEl) spotEl.classList.remove('fx-spot');
+    spotEl = null;
+    spotRect = null;
+    lastMx = '';
+    lastMy = '';
+  }
 
   function invalidateSpotRect() {
     spotRect = null;
@@ -204,6 +223,7 @@
 
   function onScroll() {
     spotRect = null;
+    cancelSpotRaf();
     if (!isScrolling) {
       isScrolling = true;
       document.documentElement.dataset.scrolling = 'true';
@@ -216,15 +236,41 @@
     }, 120);
   }
 
-  function flushSpot() {
+  function flushSpot(ts) {
     spotQueued = false;
-    if (!spotEl || isScrolling) return;
+    spotRaf = 0;
+    if (!spotEl || isScrolling) { spotLastTs = 0; return; }
     if (!spotRect) spotRect = spotEl.getBoundingClientRect();
-    if (!spotRect.width || !spotRect.height) return;
-    const mx = ((spotX - spotRect.left) / spotRect.width * 100).toFixed(1) + '%';
-    const my = ((spotY - spotRect.top) / spotRect.height * 100).toFixed(1) + '%';
+    if (!spotRect.width || !spotRect.height) { spotLastTs = 0; return; }
+    const targetX = Math.max(0, Math.min(100, (spotX - spotRect.left) / spotRect.width * 100));
+    const targetY = Math.max(0, Math.min(100, (spotY - spotRect.top) / spotRect.height * 100));
+    if (spotSnap) {
+      spotCurX = targetX;
+      spotCurY = targetY;
+      spotSnap = false;
+      spotLastTs = ts || 0;
+    } else {
+      const dt = spotLastTs && ts ? Math.min(64, Math.max(1, ts - spotLastTs)) : 16;
+      spotLastTs = ts || 0;
+      const alpha = 1 - Math.pow(2, -dt / SPOT_HALF_LIFE);
+      spotCurX += (targetX - spotCurX) * alpha;
+      spotCurY += (targetY - spotCurY) * alpha;
+    }
+    const settled = Math.abs(targetX - spotCurX) <= SPOT_EPS && Math.abs(targetY - spotCurY) <= SPOT_EPS;
+    if (settled) {
+      spotCurX = targetX;
+      spotCurY = targetY;
+    }
+    const mx = spotCurX.toFixed(1) + '%';
+    const my = spotCurY.toFixed(1) + '%';
     if (mx !== lastMx) { spotEl.style.setProperty('--mx', mx); lastMx = mx; }
     if (my !== lastMy) { spotEl.style.setProperty('--my', my); lastMy = my; }
+    if (!settled) {
+      spotQueued = true;
+      spotRaf = requestAnimationFrame(flushSpot);
+    } else {
+      spotLastTs = 0;
+    }
   }
   function onPointerMove(e) {
     if (isScrolling) return;
@@ -235,28 +281,33 @@
     // black compositor tiles when the window is maximized. Keep the static
     // theme/hover treatment, but opt this one high-churn card out of pointer FX.
     if (card && card.classList.contains('processes-card')) card = null;
+    spotX = e.clientX; spotY = e.clientY;
     if (card !== spotEl) {
       if (spotEl) spotEl.classList.remove('fx-spot');
       spotEl = card;
       spotRect = null;
+      spotSnap = true;
       lastMx = '';
       lastMy = '';
-      if (spotEl) {
-        spotEl.classList.add('fx-spot');
-        if (spotEl.classList.contains('glass-card') && !spotEl.classList.contains('fx-sheen')) {
-          spotEl.classList.add('fx-sheen');
-          spotEl.addEventListener('animationend', function clearSheen(ev) {
-            if (ev.animationName === 'vmSheen') {
-              ev.currentTarget.classList.remove('fx-sheen');
-              ev.currentTarget.removeEventListener('animationend', clearSheen);
-            }
-          });
-        }
+      if (!spotEl) {
+        cancelSpotRaf();
+        return;
       }
+      flushSpot(0);
+      spotEl.classList.add('fx-spot');
+      if (spotEl.classList.contains('glass-card') && !spotEl.classList.contains('fx-sheen')) {
+        spotEl.classList.add('fx-sheen');
+        spotEl.addEventListener('animationend', function clearSheen(ev) {
+          if (ev.animationName === 'vmSheen') {
+            ev.currentTarget.classList.remove('fx-sheen');
+            ev.currentTarget.removeEventListener('animationend', clearSheen);
+          }
+        });
+      }
+      return;
     }
     if (!spotEl) return;
-    spotX = e.clientX; spotY = e.clientY;
-    if (!spotQueued) { spotQueued = true; requestAnimationFrame(flushSpot); }
+    if (!spotQueued) { spotQueued = true; spotRaf = requestAnimationFrame(flushSpot); }
   }
 
   // ---- Button ripple ----
@@ -291,6 +342,8 @@
     mountAurora();
     document.addEventListener('pointermove', onPointerMove, { passive: true });
     document.addEventListener('pointerdown', onRipple, { passive: true });
+    document.documentElement.addEventListener('pointerleave', clearSpot, { passive: true });
+    window.addEventListener('blur', clearSpot, { passive: true });
   }
 
   function unmountRichEffects() {
@@ -298,9 +351,9 @@
     richEffectsMounted = false;
     document.removeEventListener('pointermove', onPointerMove);
     document.removeEventListener('pointerdown', onRipple);
-    if (spotEl) spotEl.classList.remove('fx-spot');
-    spotEl = null;
-    spotRect = null;
+    document.documentElement.removeEventListener('pointerleave', clearSpot);
+    window.removeEventListener('blur', clearSpot);
+    clearSpot();
     document.querySelector('.vm-aurora')?.classList.add('hidden');
     VoltFx.stopMotion();
   }

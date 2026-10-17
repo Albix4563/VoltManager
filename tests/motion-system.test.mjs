@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import vm from 'node:vm';
 
 const read = (path) => readFileSync(new URL(path, import.meta.url), 'utf8');
 
@@ -138,9 +139,99 @@ test('navigation and card polish use compositor-friendly restrained feedback', (
 test('card spotlight dissolves at card edges instead of clipping flat', () => {
   const spot = effects.match(/\.glass-card::after, \.glass-panel::after\{[\s\S]*?\n\}/)?.[0] || '';
   assert.ok(spot, 'spotlight ::after rule must exist');
+  assert.match(spot, /radial-gradient\(130px circle at var\(--mx,50%\)/);
   assert.match(spot, /radial-gradient\(280px circle at var\(--mx,50%\)/);
+  assert.match(spot, /--vm-accent-rgb/);
+  assert.match(spot, /transition:\s*opacity\s+var\(--vm-motion-slow/);
   assert.match(spot, /mask-image:[\s\S]*to right[\s\S]*to bottom/);
   assert.match(spot, /mask-composite:\s*intersect/);
+  assert.match(effects, /\.glass-card\.fx-spot::after,\s*\.glass-panel\.fx-spot::after\s*\{[\s\S]*transition:\s*opacity\s+var\(--vm-motion-enter/);
+});
+
+test('cursor halo uses damped micro-glide, initial snap and pointerleave cleanup', () => {
+  const effectsJs = read('../src/VoltManager/wwwroot/js/effects.js');
+  assert.match(effectsJs, /SPOT_HALF_LIFE\s*=\s*28/);
+  assert.match(effectsJs, /SPOT_EPS\s*=\s*0\.08/);
+  assert.match(effectsJs, /flushSpot\(0\);\s*\n\s*spotEl\.classList\.add\('fx-spot'\)/);
+  assert.match(effectsJs, /addEventListener\('pointerleave',\s*clearSpot/);
+  assert.match(effectsJs, /removeEventListener\('pointerleave',\s*clearSpot/);
+
+  const docListeners = new Map();
+  const rootListeners = new Map();
+  let rafQueue = [];
+  let nextRafId = 1;
+  const classes = new Set(['glass-card']);
+  const styles = new Map();
+  const card = {
+    classList: {
+      add: (c) => classes.add(c),
+      remove: (c) => classes.delete(c),
+      contains: (c) => classes.has(c),
+    },
+    style: { setProperty: (k, v) => styles.set(k, v) },
+    getBoundingClientRect: () => ({ left: 0, top: 0, width: 200, height: 100 }),
+    addEventListener() {},
+    removeEventListener() {},
+  };
+  const documentElement = {
+    dataset: { perfTier: 'full', fx: 'rich' },
+    addEventListener: (type, fn) => rootListeners.set(type, fn),
+    removeEventListener: (type) => rootListeners.delete(type),
+  };
+  const document = {
+    readyState: 'complete',
+    hidden: false,
+    documentElement,
+    querySelector: () => null,
+    querySelectorAll: () => [],
+    addEventListener: (type, fn) => docListeners.set(type, fn),
+    removeEventListener: (type) => docListeners.delete(type),
+  };
+  const window = {
+    matchMedia: () => ({ matches: false, addEventListener() {} }),
+    addEventListener() {},
+    removeEventListener() {},
+    getComputedStyle: () => ({ getPropertyValue: () => '#3b82f6' }),
+  };
+  vm.runInNewContext(effectsJs, {
+    window,
+    document,
+    getComputedStyle: window.getComputedStyle,
+    requestAnimationFrame: (cb) => { const id = nextRafId++; rafQueue.push({ id, cb }); return id; },
+    cancelAnimationFrame: (id) => { rafQueue = rafQueue.filter((item) => item.id !== id); },
+    setTimeout,
+    clearTimeout,
+  });
+
+  const onPointerMove = docListeners.get('pointermove');
+  assert.ok(onPointerMove, 'pointermove listener should be mounted in rich mode');
+
+  // First entry snaps immediately to cursor coordinates before fade-in
+  onPointerMove({ clientX: 50, clientY: 25, target: { closest: () => card } });
+  assert.equal(styles.get('--mx'), '25.0%');
+  assert.equal(styles.get('--my'), '25.0%');
+  assert.equal(classes.has('fx-spot'), true);
+  assert.equal(rafQueue.length, 0, 'settled entry snap should not queue extra frames');
+
+  // Subsequent move smoothly glides toward target and parks once settled
+  onPointerMove({ clientX: 150, clientY: 75, target: { closest: () => card } });
+  assert.equal(rafQueue.length, 1);
+  let ts = 16;
+  let ticks = 0;
+  while (rafQueue.length > 0 && ticks < 30) {
+    const next = rafQueue.shift();
+    next.cb(ts);
+    ts += 16;
+    ticks++;
+  }
+  assert.ok(ticks > 1, 'micro-glide should ease across multiple frames');
+  assert.equal(rafQueue.length, 0, 'loop must park once settled at target');
+  assert.equal(styles.get('--mx'), '75.0%');
+  assert.equal(styles.get('--my'), '75.0%');
+
+  // Leaving window clears active spotlight
+  rootListeners.get('pointerleave')();
+  assert.equal(classes.has('fx-spot'), false);
 });
 
 test('slower decorative loops keep the ambient glow restrained', () => {
