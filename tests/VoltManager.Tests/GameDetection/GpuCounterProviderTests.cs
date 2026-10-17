@@ -4,6 +4,13 @@ namespace VoltManager.Tests.GameDetection;
 
 public class GpuCounterProviderTests
 {
+    [Fact]
+    public void Counter_refresh_is_slower_without_per_process_detection()
+    {
+        Assert.Equal(TimeSpan.FromSeconds(10), GpuCounterProvider.CounterRefreshInterval(true));
+        Assert.Equal(TimeSpan.FromSeconds(60), GpuCounterProvider.CounterRefreshInterval(false));
+    }
+
     [Theory]
     [InlineData("pid_9184_luid_0x00000000_0x0000C1DA_phys_0_eng_0_engtype_3D", 9184)]
     [InlineData("pid_4_luid_0x00000000_0x00009C4A_phys_0_eng_3_engtype_High Priority 3D", 4)]

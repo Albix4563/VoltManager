@@ -479,19 +479,22 @@ public sealed class PowerRequestCoordinator : IDisposable
             ? null
             : settings.Rules.FirstOrDefault(r => r.Id == Automation.CandidateRuleId);
 
-        CpuAutomationState = new CpuAutomationState
+        var next = new CpuAutomationState
         {
             Enabled = settings.MasterAutomationEnabled && !manualOverrideActive,
             SampleIntervalSeconds = settings.CpuAutomation.SampleIntervalSeconds,
-            RawCpu = Automation.LastRawCpu,
-            AverageCpu = Automation.LastAverageCpu,
+            RawCpu = Math.Round(Automation.LastRawCpu, 1),
+            AverageCpu = Math.Round(Automation.LastAverageCpu, 1),
             SampledAtUtc = Automation.LastSampledAtUtc,
             CandidateRuleId = Automation.CandidateRuleId,
             CandidateTargetPlan = candidate?.TargetPlan,
             ActivePlan = ActivePlan?.PlanId,
             ManualOverrideActive = manualOverrideActive,
         };
-        CpuAutomationStateChanged?.Invoke(CpuAutomationState);
+        bool changed = next with { SampledAtUtc = null } != CpuAutomationState with { SampledAtUtc = null };
+        CpuAutomationState = next;
+        if (changed)
+            CpuAutomationStateChanged?.Invoke(next);
     }
 
     private bool HandleAppPowerProfiles(DateTime now)

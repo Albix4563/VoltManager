@@ -102,6 +102,16 @@ public sealed class AppPowerProfileService : IDisposable
     private void Scan()
     {
         var config = _settings.Current.AppPowerProfiles ?? new AppPowerProfileSettings();
+        if (!config.Enabled)
+        {
+            Publish(new AppPowerProfileState
+            {
+                Enabled = false,
+                Active = false,
+                LastScanUtc = DateTime.UtcNow,
+            });
+            return;
+        }
         var enabledRules = config.Rules
             .Where(r => r.Enabled && !string.IsNullOrWhiteSpace(r.Path))
             .ToList();
@@ -117,7 +127,7 @@ public sealed class AppPowerProfileService : IDisposable
             .Where(g => !string.IsNullOrWhiteSpace(g.Key))
             .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
 
-        if (!config.Enabled || rulesByPath.Count == 0)
+        if (rulesByPath.Count == 0)
         {
             Publish(new AppPowerProfileState
             {
@@ -130,6 +140,7 @@ public sealed class AppPowerProfileService : IDisposable
 
         var snapshot = ProcessSnapshotProvider.Get(SnapshotMaxAge);
         var detected = new List<DetectedAppPowerProfile>();
+        var fileExists = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
         foreach (var process in snapshot.Processes)
         {
             try
@@ -154,7 +165,7 @@ public sealed class AppPowerProfileService : IDisposable
                     Path = path,
                     TargetPlan = rule.TargetPlan,
                     KeepAwake = rule.KeepAwake,
-                    FileExists = File.Exists(rule.Path) || File.Exists(path),
+                    FileExists = FileExistsOnce(rule.Path, fileExists) || FileExistsOnce(path, fileExists),
                 });
             }
             catch
@@ -164,6 +175,16 @@ public sealed class AppPowerProfileService : IDisposable
         }
 
         Publish(BuildState(config.Enabled, detected, DateTime.UtcNow));
+    }
+
+    private static bool FileExistsOnce(string path, Dictionary<string, bool> cache)
+    {
+        if (!cache.TryGetValue(path, out bool exists))
+        {
+            exists = File.Exists(path);
+            cache[path] = exists;
+        }
+        return exists;
     }
 
     internal static AppPowerProfileState BuildState(

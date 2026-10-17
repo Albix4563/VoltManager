@@ -3,8 +3,6 @@ namespace VoltManager.Performance;
 public sealed record WebViewResourcePlan(
     TimeSpan MetricsInterval,
     bool PublishMetrics,
-    bool LowMemoryTarget,
-    bool SuspendRenderer,
     bool AllowProcessPolling,
     TimeSpan ProcessPollingInterval,
     bool ReducedEffects);
@@ -22,8 +20,6 @@ public sealed class WebViewResourceController
             return new WebViewResourcePlan(
                 TimeSpan.Zero,
                 PublishMetrics: false,
-                LowMemoryTarget: true,
-                SuspendRenderer: true,
                 AllowProcessPolling: false,
                 ProcessPollingInterval: Timeout.InfiniteTimeSpan,
                 ReducedEffects: true);
@@ -31,20 +27,20 @@ public sealed class WebViewResourceController
 
         if (!active && profile != ResourceProfile.Critical)
             return new WebViewResourcePlan(
-                TimeSpan.FromSeconds(3), true, true, false, true, TimeSpan.FromSeconds(10), true);
+                TimeSpan.FromSeconds(3), true, true, TimeSpan.FromSeconds(10), true);
 
         return profile switch
         {
             ResourceProfile.Critical => new WebViewResourcePlan(
-                TimeSpan.FromSeconds(5), true, true, false, false, Timeout.InfiniteTimeSpan, true),
+                TimeSpan.FromSeconds(5), true, false, Timeout.InfiniteTimeSpan, true),
             ResourceProfile.Gaming => new WebViewResourcePlan(
-                TimeSpan.FromSeconds(3), true, true, false, true, TimeSpan.FromSeconds(10), true),
+                TimeSpan.FromSeconds(3), true, true, TimeSpan.FromSeconds(10), true),
             ResourceProfile.Workload => new WebViewResourcePlan(
-                TimeSpan.FromSeconds(3), true, true, false, true, TimeSpan.FromSeconds(10), true),
+                TimeSpan.FromSeconds(3), true, true, TimeSpan.FromSeconds(10), true),
             ResourceProfile.Balanced => new WebViewResourcePlan(
-                TimeSpan.FromSeconds(2), true, true, false, true, TimeSpan.FromSeconds(6), true),
+                TimeSpan.FromSeconds(2), true, true, TimeSpan.FromSeconds(6), true),
             _ => new WebViewResourcePlan(
-                TimeSpan.FromSeconds(1), true, true, false, true, TimeSpan.FromSeconds(3), false),
+                TimeSpan.FromSeconds(1), true, true, TimeSpan.FromSeconds(3), false),
         };
     }
 }

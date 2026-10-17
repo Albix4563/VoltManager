@@ -92,8 +92,8 @@ internal static class Program
         AddCheck(report, "adaptive_hardware_demand", () =>
             full.VisualDetails && full.MinimumInterval == TimeSpan.FromSeconds(2)
             && thermal.Temperatures && !thermal.VisualDetails && thermal.MinimumInterval == TimeSpan.FromSeconds(2)
-            && parked.VisualDetails && parked.MinimumInterval == TimeSpan.FromSeconds(10),
-            "2s visible, 2s thermal-only, 10s parked accessory sample policy");
+            && parked.Temperatures && !parked.VisualDetails && parked.MinimumInterval == TimeSpan.FromSeconds(10),
+            "2s visible, 2s thermal-only, 10s parked temperature-only sample policy");
 
         using var release = new ManualResetEventSlim(false);
         var fake = new HarnessHardwareAccess();

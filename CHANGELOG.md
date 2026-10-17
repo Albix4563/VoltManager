@@ -7,6 +7,7 @@ Il formato segue [Keep a Changelog](https://keepachangelog.com/it/1.1.0/).
 
 ### Ottimizzato
 
+- **Host più efficiente in idle e nell'area di notifica.** Le notifiche di automazione CPU vengono emesse solo quando cambia lo stato operativo, il monitoraggio in tray richiede le temperature senza dettagli grafici, la lettura dei nomi dei piani custom evita chiamate ripetute a `powercfg` e il servizio hardware attende direttamente la chiusura del processo padre. Ridotti anche i polling, le enumerazioni GPU e le allocazioni superflue; rimossi due parametri WebView non utilizzati.
 - **Frontend più leggero durante il monitoraggio.** Le metriche aggiornano lo stato dell'interfaccia tramite gli eventi host, senza osservare ad ogni frame i contatori DOM; l'osservazione del tour si limita al relativo contenitore. Widget e cronologia batteria evitano riscritture identiche, i timer ignorano la pagina nascosta e le animazioni decorative rispettano i livelli prestazionali e le preferenze di movimento ridotto.
 
 ### Aggiunto

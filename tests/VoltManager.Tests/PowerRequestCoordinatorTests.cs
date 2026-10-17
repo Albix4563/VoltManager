@@ -33,6 +33,39 @@ public sealed class PowerRequestCoordinatorTests
     }
 
     [Fact]
+    public void Cpu_automation_publication_ignores_timestamp_and_sub_decimal_jitter()
+    {
+        var settings = TestSettings.Create();
+        var power = new PowerPlanService(settings, () => Guid.Parse(PowerPlanService.BalancedGuid), _ => "");
+        using var awake = new PowerAwakeService(settings, () => false, () => DateTime.UnixEpoch);
+        using var profiles = new AppPowerProfileService(settings);
+        using var heavy = new HeavyAppDetectionService(settings);
+        using var coordinator = new PowerRequestCoordinator(
+            settings, power, awake, new AutomationEngine(), profiles, heavy,
+            new PowerSourcePlanService(settings, () => new PowerSourceSnapshot(true, 100)),
+            new ThermalGuardService(settings),
+            new IdlePowerGuardService(settings, () => 0, () => false), () => null);
+        int published = 0;
+        coordinator.CpuAutomationStateChanged += _ => published++;
+        coordinator.Start();
+        int afterStart = published;
+
+        coordinator.ProcessMetrics(new MetricsSnapshot { Cpu = 0 }, DateTime.UnixEpoch);
+        int afterFirst = published;
+        coordinator.ProcessMetrics(new MetricsSnapshot { Cpu = 0 }, DateTime.UnixEpoch.AddSeconds(1));
+
+        Assert.Equal(afterFirst, published);
+        Assert.True(afterFirst >= afterStart);
+        Assert.Equal(DateTime.UnixEpoch.AddSeconds(1), coordinator.CpuAutomationState.SampledAtUtc);
+
+        settings.Update(state => state.MasterAutomationEnabled = !state.MasterAutomationEnabled);
+        coordinator.ProcessMetrics(new MetricsSnapshot { Cpu = 0 }, DateTime.UnixEpoch.AddSeconds(2));
+        Assert.Equal(afterFirst + 1, published);
+        coordinator.ProcessMetrics(new MetricsSnapshot { Cpu = 0 }, DateTime.UnixEpoch.AddSeconds(3));
+        Assert.Equal(afterFirst + 1, published);
+    }
+
+    [Fact]
     public void Manual_override_updates_settings_active_plan_and_publication()
     {
         var settings = TestSettings.Create();

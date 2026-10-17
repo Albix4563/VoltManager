@@ -56,6 +56,7 @@ public class MonitorService : IDisposable
     // scanner cadence so the heavy-app and app-profile loops ride along on the same
     // capture instead of enumerating the system again.
     private static readonly TimeSpan ProcessSnapshotMaxAge = TimeSpan.FromMilliseconds(2500);
+    private static readonly List<SensorReading> EmptySensorReadings = new(0);
 
     private TimeSpan _interval = TimeSpan.FromSeconds(1);
 
@@ -271,7 +272,7 @@ public class MonitorService : IDisposable
             return new HardwareSampleRequest(true, true, TimeSpan.FromSeconds(2));
         if (demand.ThermalProtection)
             return new HardwareSampleRequest(true, false, TimeSpan.FromSeconds(2));
-        return new HardwareSampleRequest(true, true, TimeSpan.FromSeconds(10));
+        return new HardwareSampleRequest(true, false, TimeSpan.FromSeconds(10));
     }
 
     private static TimeSpan NormalizeInterval(TimeSpan interval)
@@ -344,7 +345,7 @@ public class MonitorService : IDisposable
                 SensorsAvailable = _sensors.Available,
                 SensorSampledAtUtc = sensors.SampledAtUtc,
                 SensorDetailsAvailable = demand.VisualDetails && sensors.DetailsAvailable,
-                Sensors = demand.VisualDetails ? sensors.Readings : new List<SensorReading>(),
+                Sensors = demand.VisualDetails ? sensors.Readings : EmptySensorReadings,
                 Vram = vram,
             };
             MetricsUpdated?.Invoke(Latest);

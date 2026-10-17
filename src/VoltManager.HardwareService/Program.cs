@@ -118,23 +118,21 @@ internal static class Program
 
     private static async Task WatchParentAsync(int parentPid, CancellationToken token)
     {
-        while (!token.IsCancellationRequested)
-        {
-            try { await Task.Delay(1000, token); }
-            catch (OperationCanceledException) { return; }
-            if (ParentAlive(parentPid)) continue;
-            Environment.Exit(0);
-        }
-    }
-
-    private static bool ParentAlive(int pid)
-    {
         try
         {
-            using Process process = Process.GetProcessById(pid);
-            return !process.HasExited;
+            using Process process = Process.GetProcessById(parentPid);
+            await process.WaitForExitAsync(token);
+            Environment.Exit(0);
         }
-        catch { return false; }
+        catch (OperationCanceledException)
+        {
+            // Shutdown requested by the host.
+        }
+        catch (ArgumentException)
+        {
+            // Parent exited before its process handle could be opened.
+            Environment.Exit(0);
+        }
     }
 
     private static string? ReadArg(string[] args, string name)

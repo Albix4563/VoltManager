@@ -106,7 +106,7 @@ public sealed class ProtectedFullscreenCoverageTests
     [Theory]
     [InlineData(true, true, 2, true, true)]
     [InlineData(false, true, 2, true, false)]
-    [InlineData(false, false, 10, true, true)]
+    [InlineData(false, false, 10, true, false)]
     public void Hardware_sample_demand_preserves_thermal_reads_and_slows_accessories(
         bool visual,
         bool thermal,

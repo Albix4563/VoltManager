@@ -287,18 +287,17 @@ public sealed class ResourcePressureTests
         Assert.Equal(TimeSpan.FromSeconds(expectedSeconds), plan.MetricsInterval);
         Assert.Equal(publish, plan.PublishMetrics);
         Assert.Equal(allowProcessPolling, plan.AllowProcessPolling);
-        Assert.True(plan.LowMemoryTarget);
-        Assert.False(plan.SuspendRenderer);
+        Assert.Equal(profile != ResourceProfile.Full, plan.ReducedEffects);
     }
 
     [Fact]
-    public void HiddenWebView_PublishesNothingAndRequestsSuspend()
+    public void HiddenWebView_PublishesNothingAndStopsPolling()
     {
         var plan = new WebViewResourceController().Resolve(ResourceProfile.Full, visible: false);
         Assert.False(plan.PublishMetrics);
         Assert.False(plan.AllowProcessPolling);
-        Assert.True(plan.SuspendRenderer);
-        Assert.True(plan.LowMemoryTarget);
+        Assert.Equal(TimeSpan.Zero, plan.MetricsInterval);
+        Assert.Equal(Timeout.InfiniteTimeSpan, plan.ProcessPollingInterval);
     }
 
     [Fact]
@@ -314,7 +313,6 @@ public sealed class ResourcePressureTests
         Assert.True(plan.AllowProcessPolling);
         Assert.Equal(TimeSpan.FromSeconds(10), plan.ProcessPollingInterval);
         Assert.True(plan.ReducedEffects);
-        Assert.False(plan.SuspendRenderer);
     }
 
     [Fact]

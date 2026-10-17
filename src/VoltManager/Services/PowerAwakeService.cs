@@ -87,7 +87,11 @@ public sealed class PowerAwakeService : IDisposable
     public KeepAwakeState SetAutomationRequest(bool enabled)
     {
         lock (_lock)
+        {
+            if (_automationRequested == enabled)
+                return BuildStateLocked();
             _automationRequested = enabled;
+        }
         EvaluateSafetyAndApply(forceNotify: true);
         return GetState();
     }
@@ -139,13 +143,21 @@ public sealed class PowerAwakeService : IDisposable
 
         var cfg = _settings.Current.KeepAwake ?? new KeepAwakeSettings();
         cfg.Normalize();
+        bool automationRequested;
+        lock (_lock) automationRequested = _automationRequested;
+        if (!cfg.Enabled && !automationRequested)
+        {
+            bool cleared;
+            lock (_lock) cleared = ClearRequestLocked();
+            if (cleared || forceNotify)
+                StateChanged?.Invoke(GetState());
+            return;
+        }
+
         var now = _utcNow();
         bool? onBattery = null;
         try { onBattery = _onBatteryReader(); }
         catch { /* unknown power source: skip battery guard this tick */ }
-
-        bool automationRequested;
-        lock (_lock) automationRequested = _automationRequested;
         string? reason = SafetyBlockReason(cfg, automationRequested, onBattery, now);
         bool changed = false;
 

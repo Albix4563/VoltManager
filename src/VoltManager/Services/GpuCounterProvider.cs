@@ -10,6 +10,8 @@ namespace VoltManager.Services;
 public class GpuCounterProvider : IDisposable
 {
     private static readonly TimeSpan DefaultSampleInterval = TimeSpan.FromSeconds(2);
+    internal static TimeSpan CounterRefreshInterval(bool collectPerProcess)
+        => collectPerProcess ? TimeSpan.FromSeconds(10) : TimeSpan.FromSeconds(60);
     private Dictionary<string, PerformanceCounter>? _counters;
     private DateTime _lastRefresh = DateTime.MinValue;
     private DateTime _lastSampleUtc = DateTime.MinValue;
@@ -123,7 +125,7 @@ public class GpuCounterProvider : IDisposable
         DateTime nowUtc = DateTime.UtcNow;
         if (!force && IsSampleFresh(_lastSampleUtc, nowUtc, sampleInterval)) return _lastValue;
         ValidationMetrics.Increment(ValidationCounter.GpuSamples);
-        if ((nowUtc - _lastRefresh).TotalSeconds > 10)
+        if (nowUtc - _lastRefresh >= CounterRefreshInterval(collectPerProcess))
             RefreshCounters();
         if (_counters == null) return 0;
 

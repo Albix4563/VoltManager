@@ -32,6 +32,7 @@ public class PowerPlanService
     private PowerPlan? _lastObserved;
     private string? _pendingUnverifiedGuid;
     private bool _activeSchemeReadFaulted;
+    private readonly Dictionary<string, string> _customPlanNames = new(StringComparer.OrdinalIgnoreCase);
 
     public PlanHistoryService History { get; }
 
@@ -263,9 +264,16 @@ public class PowerPlanService
             string name = "";
             if (planId == null)
             {
-                var match = GuidRegex.Match(_runPowercfg("/getactivescheme"));
-                if (match.Success && match.Groups["guid"].Value.Equals(guid, StringComparison.OrdinalIgnoreCase))
-                    name = match.Groups["name"].Success ? match.Groups["name"].Value.Trim() : "";
+                if (!_customPlanNames.TryGetValue(guid, out name!))
+                {
+                    name = "";
+                    var match = GuidRegex.Match(_runPowercfg("/getactivescheme"));
+                    if (match.Success && match.Groups["guid"].Value.Equals(guid, StringComparison.OrdinalIgnoreCase))
+                    {
+                        name = match.Groups["name"].Success ? match.Groups["name"].Value.Trim() : "";
+                        _customPlanNames[guid] = name;
+                    }
+                }
             }
             return new PowerPlan
             {

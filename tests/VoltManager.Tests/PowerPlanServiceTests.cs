@@ -51,6 +51,49 @@ public sealed class PowerPlanServiceTests
     }
 
     [Fact]
+    public void GetActivePlan_CachesCustomFriendlyNamePerGuid()
+    {
+        const string firstGuid = "7ac7ce31-fbb1-4ab6-859d-9a74517dfcd4";
+        const string secondGuid = "8ac7ce31-fbb1-4ab6-859d-9a74517dfcd4";
+        Guid activeGuid = Guid.Parse(firstGuid);
+        int queries = 0;
+        var service = new PowerPlanService(TestSettings.Create(), () => activeGuid, args =>
+        {
+            Assert.Equal("/getactivescheme", args);
+            queries++;
+            return $"Power Scheme GUID: {activeGuid:D}  (Custom {queries})";
+        });
+
+        Assert.Equal("Custom 1", service.GetActivePlan()?.Name);
+        Assert.Equal("Custom 1", service.GetActivePlan()?.Name);
+        activeGuid = Guid.Parse(secondGuid);
+        Assert.Equal("Custom 2", service.GetActivePlan()?.Name);
+        activeGuid = Guid.Parse(firstGuid);
+        Assert.Equal("Custom 1", service.GetActivePlan()?.Name);
+        Assert.Equal(2, queries);
+    }
+
+    [Fact]
+    public void GetActivePlan_RetriesCustomFriendlyNameAfterTransientFailure()
+    {
+        const string customGuid = "7ac7ce31-fbb1-4ab6-859d-9a74517dfcd4";
+        int queries = 0;
+        var service = new PowerPlanService(TestSettings.Create(), () => Guid.Parse(customGuid), args =>
+        {
+            Assert.Equal("/getactivescheme", args);
+            queries++;
+            return queries == 1
+                ? "Power Scheme GUID: 00000000-0000-0000-0000-000000000000"
+                : $"Power Scheme GUID: {customGuid}  (Recovered Custom)";
+        });
+
+        Assert.Equal("", service.GetActivePlan()?.Name);
+        Assert.Equal("Recovered Custom", service.GetActivePlan()?.Name);
+        Assert.Equal("Recovered Custom", service.GetActivePlan()?.Name);
+        Assert.Equal(2, queries);
+    }
+
+    [Fact]
     public void GetActivePlan_NativeReadFailureDegradesToNoPlan()
     {
         var service = new PowerPlanService(

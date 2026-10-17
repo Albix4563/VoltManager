@@ -303,7 +303,7 @@ public partial class MainWindow : Window
             _app.Monitor.MetricsUpdated += OnMetricsUpdated;
             _app.ActivePlanChanged += p => _bridge?.PushEvent(BridgeEventNames.ActivePlanChanged, new { plan = p?.PlanId, guid = p?.Guid, name = p?.Name });
             _app.Settings.SettingsChanged += s => _bridge?.PushEvent(BridgeEventNames.AutomationStateChanged, new { masterEnabled = s.MasterAutomationEnabled, @override = s.Override });
-            _app.CpuAutomationStateChanged += s => _bridge?.PushEvent(BridgeEventNames.CpuAutomationStateChanged, s);
+            _app.CpuAutomationStateChanged += s => { if (_webViewVisible) _bridge?.PushEvent(BridgeEventNames.CpuAutomationStateChanged, s); };
             _app.ManualOverrideChanged += o =>
             {
                 _bridge?.PushEvent(BridgeEventNames.ManualOverrideChanged, new { @override = o });
