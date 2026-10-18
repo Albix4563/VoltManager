@@ -218,17 +218,11 @@
             denseShell('system-tools', [
                 { id: 'scheduled', icon: 'schedule', label: 'tab_scheduled' },
                 { id: 'startup', icon: 'rocket_launch', label: 'tab_startup' },
-                { id: 'memory', icon: 'memory', label: 'tab_memory' },
-                { id: 'apps', icon: 'apps', label: 'tab_apps' },
-                { id: 'registry', icon: 'cleaning_services', label: 'tab_registry' },
-                { id: 'backup', icon: 'settings_backup_restore', label: 'tab_backup' }
+                { id: 'memory', icon: 'memory', label: 'tab_memory' }
             ], `
                 ${panel('system-tools', 'scheduled', '<section class="vm-ui-panel vm-section-card"><div id="vm-system-scheduled" class="vm-ui-group"></div></section>', true)}
                 ${panel('system-tools', 'startup', '<section class="vm-ui-panel vm-section-card"><div id="vm-system-startup" class="vm-ui-group"></div></section>', false)}
                 ${panel('system-tools', 'memory', '<section class="vm-ui-panel vm-section-card"><div id="vm-system-memory" class="vm-ui-group"></div></section>', false)}
-                ${panel('system-tools', 'apps', '<section class="vm-ui-panel vm-section-card"><div id="vm-system-apps" class="vm-ui-group"></div></section>', false)}
-                ${panel('system-tools', 'registry', '<section class="vm-ui-panel vm-section-card"><div id="vm-system-registry" class="vm-ui-group"></div></section>', false)}
-                ${panel('system-tools', 'backup', '<section class="vm-ui-panel vm-section-card"><div id="vm-system-backup" class="vm-ui-group"></div></section>', false)}
             `));
     }
 

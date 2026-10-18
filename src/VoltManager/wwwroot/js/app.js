@@ -239,27 +239,6 @@
         if (needsPowerScripts(e.detail && e.detail.view)) ensurePowerScripts().catch(() => {});
     });
 
-    function ensureMaintenanceScript() {
-        return loadScriptOnce('js/maintenance.js');
-    }
-    window.__voltEnsureMaintenanceScript = ensureMaintenanceScript;
-    function needsMaintenanceScript(subview) {
-        return subview === 'apps' || subview === 'registry' || subview === 'backup';
-    }
-    document.addEventListener('voltuisubviewchanged', (e) => {
-        if (e.detail && e.detail.group === 'system-tools' && needsMaintenanceScript(e.detail.view)) {
-            ensureMaintenanceScript().catch(err => console.error('Failed to load maintenance script', err));
-        }
-    });
-    document.addEventListener('voltuiviewchanged', (e) => {
-        if (e.detail && e.detail.view === 'system-tools') {
-            const currentSubview = window.VoltUiReorg?.state?.subviews?.['system-tools'];
-            if (needsMaintenanceScript(currentSubview)) {
-                ensureMaintenanceScript().catch(err => console.error('Failed to load maintenance script', err));
-            }
-        }
-    });
-
     let viewTransitionEpoch = 0;
 
     function cssTimeListMax(value) {
@@ -816,26 +795,20 @@
             return;
         }
         container.innerHTML = apps.map(app => {
-            const isStateKnown = app.stateKnown !== false;
             const isEnabled = typeof app.enabled === 'boolean' ? app.enabled : !!fallbackEnabled;
-            const state = isStateKnown ? (isEnabled ? 'on' : 'off') : 'unknown';
+            const state = isEnabled ? 'on' : 'off';
             const name = app.name || t('unknown');
-            const viewSuffix = app.registryView ? ' (' + app.registryView + ')' : '';
-            const source = (app.source || '') + viewSuffix;
+            const source = app.source || '';
             const command = app.path || app.command || '';
             const nextEnabled = !isEnabled;
-            const searchText = (name + ' ' + source + ' ' + command + (app.registryView ? ' ' + app.registryView : '')).toLowerCase();
+            const searchText = (name + ' ' + source + ' ' + command).toLowerCase();
             const managedBadge = app.isManaged
                 ? '<span class="startup-managed-badge"><span class="material-symbols-outlined text-[13px]">verified</span>' + esc(t('managed')) + '</span>'
                 : '';
-            const statusChip = isStateKnown
-                ? '<span class="startup-status-chip">' + esc(isEnabled ? t('active') : t('inactive')) + '</span>'
-                : '<span class="startup-status-chip startup-status-chip--unknown">' + esc(t('unknownState')) + '</span>';
-            const toggleButton = isStateKnown
-                ? '<button class="startup-switch" data-state="' + state + '" aria-pressed="' + (isEnabled ? 'true' : 'false') + '" aria-label="' + escAttr((isEnabled ? t('disableStartup') : t('enableStartup')) + ' ' + name) + '" title="' + escAttr(t('switchHint')) + '" data-toggle-startup-id="' + escAttr(app.id) + '" data-toggle-startup-enabled="' + (nextEnabled ? 'true' : 'false') + '" type="button">' +
+            const statusChip = '<span class="startup-status-chip">' + esc(isEnabled ? t('active') : t('inactive')) + '</span>';
+            const toggleButton = '<button class="startup-switch" data-state="' + state + '" aria-pressed="' + (isEnabled ? 'true' : 'false') + '" aria-label="' + escAttr((isEnabled ? t('disableStartup') : t('enableStartup')) + ' ' + name) + '" title="' + escAttr(t('switchHint')) + '" data-toggle-startup-id="' + escAttr(app.id) + '" data-toggle-startup-enabled="' + (nextEnabled ? 'true' : 'false') + '" type="button">' +
                 '<span class="startup-switch__track"><span class="startup-switch__label startup-switch__label-on">' + esc(t('on')) + '</span><span class="startup-switch__label startup-switch__label-off">' + esc(t('off')) + '</span><span class="startup-switch__knob"><span class="material-symbols-outlined startup-switch__icon startup-switch__icon-on">check</span><span class="material-symbols-outlined startup-switch__icon startup-switch__icon-off">close</span></span></span>' +
-                '</button>'
-                : '';
+                '</button>';
             const removeButton = app.isManaged
                 ? '<button class="startup-remove-btn" data-remove-startup-id="' + escAttr(app.id) + '" aria-label="' + escAttr(t('remove') + ' ' + name) + '" title="' + escAttr(t('remove')) + '" type="button"><span class="material-symbols-outlined text-[18px]">delete</span></button>'
                 : '';

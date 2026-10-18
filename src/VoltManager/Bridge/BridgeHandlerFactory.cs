@@ -203,27 +203,6 @@ internal static class BridgeHandlerFactory
             app.LanRemoteControl.GeneratePin,
             app.LanRemoteControl.SetPin));
 
-        Func<string, CancellationToken, Task<bool>> confirmAction = async (msg, ct) =>
-        {
-            ct.ThrowIfCancellationRequested();
-            if (app.Dispatcher != null)
-            {
-                return await app.Dispatcher.InvokeAsync(() =>
-                {
-                    System.Windows.Window? activeWindow = System.Windows.Application.Current?.Windows.OfType<System.Windows.Window>().FirstOrDefault(w => w.IsActive);
-                    System.Windows.MessageBoxResult res = activeWindow != null
-                        ? System.Windows.MessageBox.Show(activeWindow, msg, loc.T("Dialog_VoltManagerTitle"), System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Question)
-                        : System.Windows.MessageBox.Show(msg, loc.T("Dialog_VoltManagerTitle"), System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Question);
-                    return res == System.Windows.MessageBoxResult.Yes;
-                });
-            }
-            return false;
-        };
-
-        Func<string, object[], string> localizer = (key, args) => loc.T(key, args);
-        var maintenanceService = new MaintenanceService(confirmAction: confirmAction, localizer: localizer);
-        var maintenanceHandler = new MaintenanceRpcHandler(maintenanceService);
-
         return
         [
             new BridgeHealthRpcHandler(requestFreshState),
@@ -235,7 +214,6 @@ internal static class BridgeHandlerFactory
             applicationHandler,
             lanRemoteHandler,
             launcherHandler,
-            maintenanceHandler,
         ];
     }
 
