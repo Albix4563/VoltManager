@@ -38,6 +38,12 @@ namespace VoltManager.Setup.Engine
 
         public async Task UpdateAsync(int waitPid, string version, CancellationToken ct = default)
         {
+            // Cache eviction is itself a filesystem side effect. Do not perform it
+            // until the installed target passes the same strict ownership gate
+            // required by the engine before stopping processes or replacing files.
+            ct.ThrowIfCancellationRequested();
+            _engine.ValidateUpdateTargetBeforeSideEffects();
+            ct.ThrowIfCancellationRequested();
             if (waitPid > 0)
             {
                 bool exited = await _processOperations.WaitForExitAsync(

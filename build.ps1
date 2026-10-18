@@ -125,9 +125,7 @@ if (Test-Path $iconSrc) { Copy-Item $iconSrc $iconDst -Force }
 Write-Host '    Zipping payload…' -ForegroundColor Cyan
 $zipPath = Join-Path $payloadDir 'payload.zip'
 if (Test-Path $zipPath) { Remove-Item -Force $zipPath }
-Add-Type -Assembly 'System.IO.Compression.FileSystem'
-[IO.Compression.ZipFile]::CreateFromDirectory($publishDir, $zipPath,
-    [IO.Compression.CompressionLevel]::Optimal, $false)
+& (Join-Path $root 'scripts\New-PayloadZip.ps1') -Source $publishDir -Destination $zipPath
 Write-Host ("Payload zip: " + $zipPath) -ForegroundColor Green
 
 # 4. Build WPF setup project

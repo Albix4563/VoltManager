@@ -229,6 +229,7 @@ public sealed class ScheduledPowerActionService : IDisposable
     private void ExecuteRelativeCallback(long generation)
     {
         ScheduledPowerActionType action;
+        long dispatchGeneration;
 
         lock (_sync)
         {
@@ -254,12 +255,20 @@ public sealed class ScheduledPowerActionService : IDisposable
             _relativeTimer?.Dispose();
             _relativeTimer = null;
 
-            ++_generation;
+            dispatchGeneration = ++_generation;
         }
 
         Logger.Info($"Executing scheduled action: action={action}");
 
         PublishState(GetState());
+
+        // A subscriber may cancel or replace the schedule while receiving StateChanged.
+        // Do not dispatch an action invalidated before this callback resumes.
+        lock (_sync)
+        {
+            if (!_started || dispatchGeneration != _generation)
+                return;
+        }
 
         // Execute outside _sync: sleep blocks inside SetSuspendState until resume,
         // and GetState/Stop callers on the UI thread must not wait on it.
@@ -296,7 +305,7 @@ public sealed class ScheduledPowerActionService : IDisposable
             if (scheduled.Mode != ScheduledPowerMode.Daily) return;
             if (!TimeOnly.TryParseExact(scheduled.Time, "HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.None, out var scheduledTime)) return;
 
-            var now = DateTime.Now;
+            var now = _clock.UtcNow.ToLocalTime();
             if (now.Hour != scheduledTime.Hour || now.Minute != scheduledTime.Minute) return;
 
             string today = now.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
@@ -313,6 +322,12 @@ public sealed class ScheduledPowerActionService : IDisposable
         // Publish outside _sync: a subscriber that marshals synchronously to the UI thread
         // would deadlock against a UI-thread Cancel/Schedule waiting for the same lock.
         PublishState(state);
+
+        lock (_sync)
+        {
+            if (!_started || generation != _generation)
+                return;
+        }
 
         // Same as the relative path: never hold _sync while sleep blocks until resume.
         try

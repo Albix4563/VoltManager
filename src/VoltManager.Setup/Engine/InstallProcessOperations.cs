@@ -7,6 +7,9 @@ namespace VoltManager.Setup.Engine
 {
     internal interface IInstallUpdateEngine
     {
+        // Must perform the read-only ownership/target gate before the coordinator
+        // waits for processes or clears any WebView2 profile state.
+        void ValidateUpdateTargetBeforeSideEffects();
         Task UpdateAsync(int waitPid, string version, CancellationToken ct = default);
     }
 

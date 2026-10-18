@@ -662,7 +662,7 @@ public sealed class PowerRequestCoordinator : IDisposable
             Settings.Current.MasterAutomationEnabled,
             now);
 
-        if (decision.State.Active)
+        if (decision.State.Active && !userOverrideActive)
             _planGuard.SetExpected(decision.State.TargetPlan, "thermal", decision.State.Message);
         else
             _planGuard.ClearExpected("thermal");
@@ -693,7 +693,7 @@ public sealed class PowerRequestCoordinator : IDisposable
             userOverrideActive,
             Settings.Current.MasterAutomationEnabled);
 
-        if (decision.State.Active)
+        if (decision.State.Active && !userOverrideActive)
             _planGuard.SetExpected(decision.State.TargetPlan, "idle", decision.State.Message);
         else
             _planGuard.ClearExpected("idle");

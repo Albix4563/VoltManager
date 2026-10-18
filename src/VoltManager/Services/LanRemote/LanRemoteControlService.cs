@@ -37,6 +37,7 @@ public sealed class LanRemoteControlService : IDisposable
 
     private readonly SettingsService _settings;
     private readonly LanRemoteControlActions _actions;
+    private readonly PowerRequestCoordinator? _powerRequests;
     private readonly LanRemoteAuthStore _auth;
     private readonly LanRemoteSessionStore _sessions = new();
     private readonly LanRemoteLoginRateLimiter _rateLimiter = new();
@@ -78,10 +79,9 @@ public sealed class LanRemoteControlService : IDisposable
                 scheduledPowerActions.ExecuteNow,
                 WindowsPowerCapabilities.Query,
                 ResolveVersion,
-                scheduledPowerActions.ExecuteNow))
-    {
-        powerRequests.ActivePlanChanged += OnActivePlanChanged;
-    }
+                scheduledPowerActions.ExecuteNow),
+            powerRequests: powerRequests)
+    { }
 
     internal LanRemoteControlService(
         SettingsService settings,
@@ -98,10 +98,12 @@ public sealed class LanRemoteControlService : IDisposable
         Func<CancellationToken, Task>? beforeStart = null,
         Func<CancellationToken, Task>? beforeStop = null,
         Action<string>? warningLogger = null,
-        Action<string>? auditLogger = null)
+        Action<string>? auditLogger = null,
+        PowerRequestCoordinator? powerRequests = null)
     {
         _settings = settings;
         _actions = actions;
+        _powerRequests = powerRequests;
         _auth = auth ?? new LanRemoteAuthStore();
         _firewall = firewall ?? new LanRemoteFirewall();
         _addressProvider = addressProvider ?? LanRemoteNetwork.GetEligibleAddresses;
@@ -122,6 +124,9 @@ public sealed class LanRemoteControlService : IDisposable
                 _settings.Update(state => state.LanRemoteControl.Enabled = false);
             _warningLogger("LAN remote-control authentication data is corrupt; remote control was disabled.");
         }
+
+        if (_powerRequests is not null)
+            _powerRequests.ActivePlanChanged += OnActivePlanChanged;
     }
 
     public LanRemoteControlState GetState()
@@ -408,6 +413,8 @@ public sealed class LanRemoteControlService : IDisposable
     public void Dispose()
     {
         if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
+        if (_powerRequests is not null)
+            _powerRequests.ActivePlanChanged -= OnActivePlanChanged;
         RemoveNetworkSubscription();
         Stop();
     }

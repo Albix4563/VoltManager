@@ -16,7 +16,6 @@
 
   let csrfToken = '';
   let eventSource = null;
-  let currentState = null;
   let loadStateSequence = 0;
   let appliedStateRevision = 0;
 
@@ -36,8 +35,9 @@
       eventSource = null;
     }
     csrfToken = '';
-    currentState = null;
     appliedStateRevision++;
+    actionsGrid.replaceChildren();
+    actionsEmpty.classList.remove('hidden');
     appView.classList.add('hidden');
     loginView.classList.remove('hidden');
     loginError.textContent = message;
@@ -53,13 +53,15 @@
     setConnection(true);
   }
 
-  async function api(path, options = {}) {
+  async function api(path, options = {}, shouldHandleUnauthorized = () => true) {
+    const sessionTokenAtStart = csrfToken;
     const request = { ...options, credentials: 'same-origin', headers: { ...(options.headers || {}) } };
     if (request.body && !request.headers['Content-Type']) request.headers['Content-Type'] = 'application/json';
     if (request.method === 'POST' && csrfToken) request.headers['X-CSRF-Token'] = csrfToken;
     const response = await fetch(path, request);
     if (response.status === 401) {
-      showLogin('Session expired. Enter the PIN again.');
+      if (csrfToken === sessionTokenAtStart && shouldHandleUnauthorized())
+        showLogin('Session expired. Enter the PIN again.');
       throw new Error('unauthorized');
     }
     if (!response.ok) {
@@ -146,7 +148,6 @@
 
   function renderState(state) {
     appliedStateRevision++;
-    currentState = state;
     $('device-name').textContent = state.device || 'PC';
     $('device-version').textContent = state.version || '—';
     $('active-plan').textContent = planLabel(state.plan);
@@ -190,7 +191,8 @@
     const requestSequence = ++loadStateSequence;
     const stateRevisionAtStart = appliedStateRevision;
     try {
-      const state = await api('/api/state');
+      const state = await api('/api/state', {}, () =>
+        requestSequence === loadStateSequence && stateRevisionAtStart === appliedStateRevision);
       if (requestSequence !== loadStateSequence || stateRevisionAtStart !== appliedStateRevision) return null;
       renderState(state);
       setConnection(true);
@@ -206,13 +208,21 @@
   }
 
   function connectEvents() {
-    if (eventSource) eventSource.close();
-    eventSource = new EventSource('/api/events');
-    eventSource.addEventListener('ready', () => setConnection(true));
-    eventSource.addEventListener('state', () => { loadState(); });
-    eventSource.onerror = () => {
+    if (eventSource || !csrfToken) return;
+    const source = new EventSource('/api/events');
+    eventSource = source;
+    source.addEventListener('ready', () => {
+      if (eventSource !== source || !csrfToken) return;
+      setConnection(true);
+      loadState();
+    });
+    source.addEventListener('state', () => {
+      if (eventSource === source && csrfToken) loadState();
+    });
+    source.onerror = () => {
+      if (eventSource !== source || !csrfToken) return;
       setConnection(false);
-      window.setTimeout(() => { if (csrfToken) loadState(); }, 800);
+      window.setTimeout(() => { if (eventSource === source && csrfToken) loadState(); }, 800);
     };
   }
 
@@ -251,8 +261,8 @@
       csrfToken = data.csrfToken || '';
       if (!csrfToken) throw new Error('missing_csrf');
       showApp();
+      connectEvents();
       await loadState();
-      if (currentState) connectEvents();
     } catch {
       loginError.textContent = 'Could not connect to VoltManager.';
       setConnection(false);

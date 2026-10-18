@@ -129,6 +129,30 @@ public sealed class PowerGuardRegressionTests
     }
 
     [Fact]
+    public void Scheduled_relative_callback_canceled_during_state_notification_does_not_execute()
+    {
+        SettingsService settings = TestSettings.Create();
+        var executor = new RecordingPowerActionExecutor();
+        using var service = new ScheduledPowerActionService(settings, executor, new FixedClock());
+        service.Start();
+        service.ScheduleAfter(TimeSpan.FromMinutes(1), ScheduledPowerActionType.Shutdown);
+        long generation = (long)Field(service, "_generation")!;
+        bool canceled = false;
+
+        service.StateChanged += _ =>
+        {
+            if (canceled) return;
+            canceled = true;
+            service.Cancel();
+        };
+
+        Invoke(service, "ExecuteRelativeCallback", generation);
+
+        Assert.True(canceled, "The relative callback must reach the state notification.");
+        Assert.Empty(executor.Actions);
+    }
+
+    [Fact]
     public void Scheduled_daily_callback_queued_before_stop_cannot_execute_after_stop()
     {
         SettingsService settings = TestSettings.Create();
@@ -143,6 +167,33 @@ public sealed class PowerGuardRegressionTests
         MethodInfo daily = service.GetType().GetMethod("DailyCheckCallback", BindingFlags.Instance | BindingFlags.NonPublic)!;
         daily.Invoke(service, daily.GetParameters().Length == 0 ? null : new object[] { generation });
 
+        Assert.Empty(executor.Actions);
+    }
+
+    [Fact]
+    public void Scheduled_daily_callback_canceled_during_state_notification_does_not_execute()
+    {
+        SettingsService settings = TestSettings.Create();
+        var executor = new RecordingPowerActionExecutor();
+        using var service = new ScheduledPowerActionService(settings, executor, new FixedClock());
+        service.Start();
+        // A fixed UTC clock yields an unchanging local schedule time, independent of test runtime.
+        TimeOnly scheduled = TimeOnly.FromDateTime(DateTime.UnixEpoch.ToLocalTime());
+        service.ScheduleDaily(scheduled, ScheduledPowerActionType.Shutdown);
+        long generation = (long)Field(service, "_generation")!;
+        bool canceled = false;
+
+        service.StateChanged += _ =>
+        {
+            if (canceled) return;
+            canceled = true;
+            service.Cancel();
+        };
+
+        Invoke(service, "DailyCheckCallback", generation);
+
+        Assert.True(canceled, "The daily callback must reach the state notification.");
+        Assert.False(settings.Current.AutoShutdown.Enabled);
         Assert.Empty(executor.Actions);
     }
 

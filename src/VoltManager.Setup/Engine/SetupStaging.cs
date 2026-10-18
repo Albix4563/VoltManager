@@ -23,24 +23,24 @@ namespace VoltManager.Setup.Engine
             if (string.IsNullOrWhiteSpace(updatesRoot))
                 throw new ArgumentException("Updates root is required.", nameof(updatesRoot));
 
-            // Junctions/symlinks would redirect the ACL and the extracted installer elsewhere.
-            string? parent = Path.GetDirectoryName(updatesRoot);
-            if (parent != null && Directory.Exists(parent))
-                ThrowIfReparsePoint(parent);
+            // Check the entire existing ancestry, not just the immediate parent:
+            // a junction further up could redirect ACL changes and staged payloads.
+            ThrowIfReparsePointInAncestry(updatesRoot);
             Directory.CreateDirectory(updatesRoot);
-            ThrowIfReparsePoint(updatesRoot);
+            ThrowIfReparsePointInAncestry(updatesRoot);
             ApplyProtectedAcl(updatesRoot);
             string runDirectory = Path.Combine(updatesRoot, Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(runDirectory);
             try
             {
-                ThrowIfReparsePoint(runDirectory);
+                ThrowIfReparsePointInAncestry(runDirectory);
                 ApplyProtectedAcl(runDirectory);
                 return runDirectory;
             }
             catch
             {
-                try { Directory.Delete(runDirectory, true); } catch { /* best-effort: stale staging cleanup must not block setup. */ }
+                // Nothing should have been extracted yet. Do not recurse into a substituted directory.
+                try { Directory.Delete(runDirectory, false); } catch { /* best-effort: stale staging cleanup must not block setup. */ }
                 throw;
             }
         }
@@ -52,6 +52,25 @@ namespace VoltManager.Setup.Engine
         {
             if (IsReparsePoint(path))
                 throw new InvalidDataException("Updates directory '" + path + "' is a reparse point (junction/symlink).");
+        }
+
+        private static void ThrowIfReparsePointInAncestry(string path)
+        {
+            string current = Path.GetFullPath(path);
+            while (true)
+            {
+                try
+                {
+                    ThrowIfReparsePoint(current);
+                }
+                catch (FileNotFoundException) { /* A new staging path may not exist yet. */ }
+                catch (DirectoryNotFoundException) { /* Check existing ancestors above it. */ }
+
+                string? parent = Path.GetDirectoryName(current);
+                if (string.IsNullOrEmpty(parent) || string.Equals(parent, current, StringComparison.OrdinalIgnoreCase))
+                    return;
+                current = parent;
+            }
         }
 
         internal static void ApplyProtectedAcl(string directory)
@@ -101,6 +120,7 @@ namespace VoltManager.Setup.Engine
             try
             {
                 string fullExecutable = Path.GetFullPath(executablePath);
+                ThrowIfReparsePointInAncestry(fullExecutable);
                 string fullRoot = Path.GetFullPath(updatesRoot)
                     .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
                 string? parent = Path.GetDirectoryName(fullExecutable);
@@ -158,6 +178,11 @@ namespace VoltManager.Setup.Engine
             if (string.IsNullOrWhiteSpace(runDirectory) || !Directory.Exists(runDirectory))
                 return;
 
+            // Directory.Delete and the reboot fallback must never traverse a junction
+            // that could direct recursive cleanup at files outside this run directory.
+            if (!CanSafelyTraverseCleanupTree(runDirectory!, logFailure))
+                return;
+
             try
             {
                 Directory.Delete(runDirectory, true);
@@ -169,7 +194,45 @@ namespace VoltManager.Setup.Engine
                     "Pulizia directory Setup differita per '" + runDirectory + "': " + ex.Message);
             }
 
+            if (!CanSafelyTraverseCleanupTree(runDirectory!, logFailure))
+                return;
             ScheduleTreeDeleteOnReboot(runDirectory!, logFailure);
+        }
+
+        internal static bool ContainsReparsePointInTree(string root)
+        {
+            var pending = new Stack<string>();
+            pending.Push(root);
+            while (pending.Count > 0)
+            {
+                string current = pending.Pop();
+                FileAttributes attributes = File.GetAttributes(current);
+                if ((attributes & FileAttributes.ReparsePoint) != 0)
+                    return true;
+                if ((attributes & FileAttributes.Directory) == 0)
+                    continue;
+
+                // Deliberately avoid SearchOption.AllDirectories: it follows junctions.
+                foreach (string entry in Directory.EnumerateFileSystemEntries(current))
+                    pending.Push(entry);
+            }
+            return false;
+        }
+
+        private static bool CanSafelyTraverseCleanupTree(string root, Action<string>? logFailure)
+        {
+            try
+            {
+                ThrowIfReparsePointInAncestry(root);
+                if (!ContainsReparsePointInTree(root))
+                    return true;
+                logFailure?.Invoke("Pulizia directory Setup rifiutata: reparse point presente in '" + root + "'.");
+            }
+            catch (Exception ex)
+            {
+                logFailure?.Invoke("Pulizia directory Setup rifiutata per '" + root + "': " + ex.Message);
+            }
+            return false;
         }
 
         private static void ScheduleTreeDeleteOnReboot(string root, Action<string>? logFailure)

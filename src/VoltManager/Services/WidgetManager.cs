@@ -46,6 +46,7 @@ public sealed class WidgetManager : IDisposable
     private readonly Func<Task<CoreWebView2Environment>> _envFactory;
     private readonly Action<bool> _refreshSamplingDemand;
     private readonly Func<WidgetManager, WidgetItem, Task<CoreWebView2Environment>, Size, WidgetPlacement, WidgetWindow> _windowFactory;
+    private readonly Func<DisplayService> _displayFactory;
     private readonly Action<AppSettings> _settingsChangedHandler;
     private readonly Action<AppThemeColor> _themeChangedHandler;
     private readonly Dictionary<string, WidgetWindow> _windows = new(StringComparer.OrdinalIgnoreCase);
@@ -67,6 +68,18 @@ public sealed class WidgetManager : IDisposable
         Func<Task<CoreWebView2Environment>> environmentFactory,
         Action<bool> refreshSamplingDemand,
         Func<WidgetManager, WidgetItem, Task<CoreWebView2Environment>, Size, WidgetPlacement, WidgetWindow> windowFactory)
+        : this(settings, theme, loc, environmentFactory, refreshSamplingDemand, windowFactory, () => new DisplayService())
+    {
+    }
+
+    internal WidgetManager(
+        SettingsService settings,
+        ThemeService theme,
+        LocalizationService loc,
+        Func<Task<CoreWebView2Environment>> environmentFactory,
+        Action<bool> refreshSamplingDemand,
+        Func<WidgetManager, WidgetItem, Task<CoreWebView2Environment>, Size, WidgetPlacement, WidgetWindow> windowFactory,
+        Func<DisplayService> displayFactory)
     {
         _settings = settings;
         _theme = theme;
@@ -74,6 +87,7 @@ public sealed class WidgetManager : IDisposable
         _envFactory = environmentFactory;
         _refreshSamplingDemand = refreshSamplingDemand;
         _windowFactory = windowFactory;
+        _displayFactory = displayFactory;
         // Defer DisplayService init: display enumeration queries monitor APIs
         // and subscribes SystemEvents — not needed if widgets are disabled.
         _snapshot = DisplaySnapshot.SyntheticPrimary();
@@ -103,9 +117,9 @@ public sealed class WidgetManager : IDisposable
 
     private void EnsureDisplayService()
     {
-        if (_displayInit) return;
+        if (_displayInit || _disposing) return;
         _displayInit = true;
-        _displays = new DisplayService();
+        _displays = _displayFactory();
         _snapshot = _displays.GetSnapshot();
         _displays.DisplaysChanged += OnDisplaysChanged;
     }
@@ -125,6 +139,7 @@ public sealed class WidgetManager : IDisposable
 
     public WidgetStateSnapshot SetMasterEnabled(bool enabled)
     {
+        if (_disposing) return GetSnapshot();
         _settings.Update(state => state.Widgets.Enabled = enabled);
         if (!enabled)
         {
@@ -139,6 +154,7 @@ public sealed class WidgetManager : IDisposable
 
     public WidgetStateSnapshot SetEnabled(string type, bool enabled)
     {
+        if (_disposing) return GetSnapshot();
         if (!WidgetSettings.IsKnownType(type))
             throw new ArgumentException(_loc.T("Error_UnknownWidget", type));
 
@@ -148,6 +164,7 @@ public sealed class WidgetManager : IDisposable
 
     public void ShowEnabled()
     {
+        if (_disposing) return;
         EnsureDisplayService();
         Relayout(save: true);
     }

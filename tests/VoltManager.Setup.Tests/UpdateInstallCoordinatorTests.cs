@@ -9,6 +9,23 @@ namespace VoltManager.Setup.Tests
     public sealed class UpdateInstallCoordinatorTests
     {
         [Fact]
+        public async Task Rejected_install_ownership_must_not_clear_webview_cache_or_wait_for_a_process()
+        {
+            var engine = new FakeEngine { PreflightFailure = new InvalidDataException("Synthetic forged install marker") };
+            var processes = new FakeProcessOperations { WaitResult = true };
+            int cacheCalls = 0;
+            var coordinator = new UpdateInstallCoordinator(engine, processes, () => { cacheCalls++; return null; });
+
+            InvalidDataException failure = await Assert.ThrowsAsync<InvalidDataException>(
+                () => coordinator.UpdateAsync(42, "test-version"));
+
+            Assert.Contains("forged", failure.Message, StringComparison.OrdinalIgnoreCase);
+            Assert.Equal(0, cacheCalls);
+            Assert.Equal(0, processes.WaitCalls);
+            Assert.Equal(0, engine.Calls);
+        }
+
+        [Fact]
         public async Task Timeout_is_logged_and_update_continues_so_installer_can_stop_the_app()
         {
             var engine = new FakeEngine();
@@ -64,6 +81,7 @@ namespace VoltManager.Setup.Tests
             await coordinator.UpdateAsync(42, "1.2.3");
 
             Assert.Equal(1, processes.WaitCalls);
+            Assert.Equal(1, engine.PreflightCalls);
             Assert.Equal(1, engine.Calls);
             Assert.Equal(0, engine.LastWaitPid);
             Assert.Equal("1.2.3", engine.LastVersion);
@@ -73,9 +91,18 @@ namespace VoltManager.Setup.Tests
         private sealed class FakeEngine : IInstallUpdateEngine
         {
             public int Calls { get; private set; }
+            public int PreflightCalls { get; private set; }
             public int LastWaitPid { get; private set; }
             public string LastVersion { get; private set; } = "";
             public Exception? Failure { get; set; }
+            public Exception? PreflightFailure { get; set; }
+
+            public void ValidateUpdateTargetBeforeSideEffects()
+            {
+                PreflightCalls++;
+                if (PreflightFailure != null)
+                    throw PreflightFailure;
+            }
 
             public Task UpdateAsync(int waitPid, string version, CancellationToken ct = default)
             {

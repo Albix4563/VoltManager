@@ -701,10 +701,11 @@
             if (startupToggle && Host.available) {
                 startupToggle.disabled = true;
                 try {
-                    await Host.call('setStartupAppEnabled', {
+                    var result = await Host.call('setStartupAppEnabled', {
                         id: startupToggle.dataset.toggleStartupId,
                         enabled: startupToggle.dataset.toggleStartupEnabled === 'true',
                     });
+                    if (result?.success !== true) throw new Error('Operation not confirmed by the host.');
                     setSystemStatus(t('toggled'), false);
                     await loadStartupApps(true);
                 } catch (err) { setSystemStatus(t('toggleErr') + err.message, true); }
@@ -716,7 +717,8 @@
             if (remove && Host.available) {
                 remove.disabled = true;
                 try {
-                    await Host.call('removeStartupApp', { id: remove.dataset.removeStartupId });
+                    var result = await Host.call('removeStartupApp', { id: remove.dataset.removeStartupId });
+                    if (result?.success !== true) throw new Error('Operation not confirmed by the host.');
                     setSystemStatus(t('removed'), false);
                     await loadStartupApps(true);
                 } catch (err) { setSystemStatus(t('removeErr') + err.message, true); }

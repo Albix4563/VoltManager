@@ -22,16 +22,19 @@ namespace VoltManager.Setup.Engine
 
         private readonly IUninstallSystemOperations _systemOperations;
         private readonly Func<string> _currentExecutable;
+        private readonly string? _trustedPayloadZipPath;
 
         public HardenedInstallEngine()
             : this(new SystemUninstallSystemOperations(), () => Assembly.GetExecutingAssembly().Location)
         {
         }
 
-        internal HardenedInstallEngine(IUninstallSystemOperations systemOperations, Func<string> currentExecutable)
+        internal HardenedInstallEngine(IUninstallSystemOperations systemOperations,
+            Func<string> currentExecutable, string? trustedPayloadZipPath = null)
         {
             _systemOperations = systemOperations ?? throw new ArgumentNullException(nameof(systemOperations));
             _currentExecutable = currentExecutable ?? throw new ArgumentNullException(nameof(currentExecutable));
+            _trustedPayloadZipPath = trustedPayloadZipPath;
         }
 
         public async Task<UninstallResult> UninstallAsync(string? targetDir = null, CancellationToken ct = default)
@@ -40,27 +43,106 @@ namespace VoltManager.Setup.Engine
             string installDir = ResolveInstallDir(targetDir);
             string currentExecutable = _currentExecutable();
 
-            Report(I18n.T("status_uninst_kill"), 5);
-            if (!await _systemOperations.StopRunningInstalledProcessesAsync(installDir, ct).ConfigureAwait(false))
-                result.Add("VoltManager process still running after graceful and forced shutdown");
+            ct.ThrowIfCancellationRequested();
+            try
+            {
+                // Even process shutdown is a side effect: an arbitrary directory with
+                // familiar executable names must not authorize stopping those processes
+                // (or clearing global LAN, AppData and registry state). Verify ownership
+                // against an independent trusted payload BEFORE any cleanup begins.
+                if (!Directory.Exists(installDir))
+                    throw new InvalidDataException("Install directory is missing.");
+
+                IReadOnlyCollection<string> verifiedNames =
+                    InstallManifest.GetOwnedNamesForUninstall(installDir, _trustedPayloadZipPath);
+                bool hasVerifiedInstalledFile = false;
+                foreach (string name in verifiedNames)
+                {
+                    if (File.Exists(Path.Combine(installDir, name)))
+                    {
+                        // GetOwnedNamesForUninstall already required a trusted hash
+                        // (or running setup identity for uninstall.exe) for this file.
+                        hasVerifiedInstalledFile = true;
+                        break;
+                    }
+                }
+
+                // A forged legacy marker with no installed payload matches no hashes.
+                // Its mere presence cannot authorize global uninstall side effects.
+                if (!hasVerifiedInstalledFile)
+                    throw new InvalidDataException(
+                        "Install tree contains no independently verified installed file.");
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                result.Add("Install directory: ownership verification failed: " + ex.Message);
+                foreach (string residual in _systemOperations.FindResidualArtifacts(
+                    installDir, _systemOperations.AppDataDirectory, currentExecutable))
+                    result.AddResidual(residual);
+                return result;
+            }
 
             ct.ThrowIfCancellationRequested();
-            _systemOperations.RemoveLanRemoteControlArtifacts(result);
+            // A self-hosted uninstaller cannot remove its own executable. Reject
+            // this before stopping otherwise healthy installed processes.
+            if (IsPathUnder(currentExecutable, installDir))
+            {
+                result.Add("Uninstaller is still running from the install directory");
+                foreach (string residual in _systemOperations.FindResidualArtifacts(
+                    installDir, _systemOperations.AppDataDirectory, currentExecutable))
+                    result.AddResidual(residual);
+                return result;
+            }
+
+            Report(I18n.T("status_uninst_kill"), 5);
+            bool stopped = await _systemOperations.StopRunningInstalledProcessesAsync(installDir, ct).ConfigureAwait(false);
+            ct.ThrowIfCancellationRequested();
+            if (!stopped)
+            {
+                result.Add("VoltManager process still running after graceful and forced shutdown");
+                // A running owned process may still be using installed files and user data.
+                // Report the remaining artifacts without starting destructive cleanup.
+                foreach (string residual in _systemOperations.FindResidualArtifacts(
+                    installDir, _systemOperations.AppDataDirectory, currentExecutable))
+                    result.AddResidual(residual);
+                return result;
+            }
+
+            if (_systemOperations.DirectoryExists(installDir) && IsPathUnder(currentExecutable, installDir))
+            {
+                result.Add("Uninstaller is still running from the install directory");
+                foreach (string residual in _systemOperations.FindResidualArtifacts(
+                    installDir, _systemOperations.AppDataDirectory, currentExecutable))
+                    result.AddResidual(residual);
+                return result;
+            }
 
             ct.ThrowIfCancellationRequested();
             Report(I18n.T("status_uninst_files"), 20);
-            if (!string.IsNullOrEmpty(installDir) && _systemOperations.DirectoryExists(installDir))
+            if (string.IsNullOrWhiteSpace(installDir) ||
+                !_systemOperations.DirectoryExists(installDir) || !Directory.Exists(installDir))
             {
-                if (IsPathUnder(currentExecutable, installDir))
-                {
-                    result.Add("Uninstaller is still running from the install directory");
-                }
-                else
-                {
-                    foreach (string failure in InstallManifest.DeleteOwnedEntries(installDir))
-                        result.Add("Install directory: " + failure);
-                }
+                result.Add("Install directory: ownership cannot be verified because the installation is missing.");
+                foreach (string residual in _systemOperations.FindResidualArtifacts(
+                    installDir, _systemOperations.AppDataDirectory, currentExecutable))
+                    result.AddResidual(residual);
+                return result;
             }
+
+            IReadOnlyList<string> installFailures = InstallManifest.DeleteOwnedEntries(installDir, _trustedPayloadZipPath);
+            foreach (string failure in installFailures)
+                result.Add("Install directory: " + failure);
+            if (installFailures.Count > 0)
+            {
+                // Rejected ownership must not trigger global firewall/certificate cleanup.
+                foreach (string residual in _systemOperations.FindResidualArtifacts(
+                    installDir, _systemOperations.AppDataDirectory, currentExecutable))
+                    result.AddResidual(residual);
+                return result;
+            }
+
+            ct.ThrowIfCancellationRequested();
+            _systemOperations.RemoveLanRemoteControlArtifacts(result);
 
             ct.ThrowIfCancellationRequested();
             Report(I18n.T("status_uninst_files"), 42);
@@ -271,9 +353,12 @@ namespace VoltManager.Setup.Engine
         }
 
         internal static void DeleteStartupTask(UninstallResult result)
+            => DeleteStartupTask(result, () => SchtasksRunner.Run(
+                "/delete /f /tn \"" + VoltManagerArtifacts.StartupTaskName + "\""));
+
+        internal static void DeleteStartupTask(UninstallResult result, Func<SchtasksResult> runDelete)
         {
-            SchtasksResult taskResult = SchtasksRunner.Run(
-                "/delete /f /tn \"" + VoltManagerArtifacts.StartupTaskName + "\"");
+            SchtasksResult taskResult = runDelete();
             if (taskResult.Success || SchtasksRunner.IsTaskNotFound(taskResult))
                 return;
 
@@ -283,6 +368,7 @@ namespace VoltManager.Setup.Engine
             if (!string.IsNullOrWhiteSpace(taskResult.Output))
                 detail += " " + taskResult.Output;
             SetupUpdateLog.Warn("Startup task delete failed: " + detail);
+            result.Add("Startup task delete: " + detail);
         }
 
         internal static void RemoveShortcuts(UninstallResult result)

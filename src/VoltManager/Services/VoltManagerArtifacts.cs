@@ -34,7 +34,6 @@ namespace VoltManager.Services
             "VoltManagerPreviewSetup.exe",
             "VoltManagerPreviewPayload.zip",
             "VoltManagerPayload.zip",
-            "MicrosoftEdgeWebview2Setup.exe",
             "vmgr_update_cleanup.bat",
             "vmgr_uninstall_cleanup.bat",
         };
@@ -124,9 +123,9 @@ namespace VoltManager.Services
         }
 
         /// <summary>
-        /// Deletes only exact, known VoltManager temp artifacts. The executable
-        /// currently running the uninstall is deliberately skipped and is deleted
-        /// by the setup's exit-time self-cleanup helper.
+        /// Reports legacy temp artifact candidates without deleting them: a file
+        /// name alone cannot establish provenance and may identify someone else's
+        /// data. The running uninstaller is handled by its own exit-time helper.
         /// </summary>
         public static string[] CleanupOwnedTempArtifacts(string tempDirectory, string currentExecutablePath)
         {
@@ -147,8 +146,11 @@ namespace VoltManager.Services
                 if (SamePath(path, currentExecutablePath))
                     continue;
 
-                if (!TryDeleteFile(path, out string error))
-                    failures.Add(fileName + ": " + error);
+                // Historical cleanup filenames are not an ownership record. In
+                // particular never reset attributes or remove arbitrary files
+                // that another process could have placed at these names.
+                if (File.Exists(path) || Directory.Exists(path))
+                    failures.Add(fileName + ": unverified temp artifact retained; filename does not prove ownership.");
             }
 
             if (SamePath(root, Path.GetFullPath(Path.GetTempPath())) &&
@@ -200,58 +202,45 @@ namespace VoltManager.Services
         private static bool TryDeleteDirectoryTree(string path, out string error)
         {
             error = string.Empty;
-            if (!Directory.Exists(path)) return true;
-
-            for (int attempt = 1; attempt <= 5; attempt++)
+            try
             {
-                try
+                string fullPath = Path.GetFullPath(path);
+                // Never recursively remove a tree based only on a known folder
+                // name. Only this application's exact update path is eligible
+                // for removal, and then only if the directory is already empty.
+                if (!SamePath(fullPath, UpdatesDirectory))
                 {
-                    if (!Directory.Exists(path)) return true;
-                    Directory.Delete(path, recursive: true);
-                    if (!Directory.Exists(path)) return true;
-                    error = "directory still exists after delete";
-                }
-                catch (Exception ex)
-                {
-                    error = ex.Message;
+                    error = "unverified directory retained: expected the configured updates directory.";
+                    return false;
                 }
 
-                if (attempt < 5)
-                    Thread.Sleep(100 * attempt);
-            }
-
-            return !Directory.Exists(path);
-        }
-
-        private static bool TryDeleteFile(string path, out string error)
-        {
-            error = string.Empty;
-            if (!File.Exists(path)) return true;
-
-            for (int attempt = 1; attempt <= 5; attempt++)
-            {
-                try
+                if (!Directory.Exists(fullPath)) return true;
+                string? current = fullPath;
+                while (!string.IsNullOrEmpty(current))
                 {
-                    if (!File.Exists(path)) return true;
-                    FileAttributes attributes = File.GetAttributes(path);
-                    if ((attributes & (FileAttributes.ReadOnly | FileAttributes.Hidden | FileAttributes.System)) != 0)
+                    if (Directory.Exists(current) &&
+                        (File.GetAttributes(current) & FileAttributes.ReparsePoint) != 0)
                     {
-                        File.SetAttributes(path, attributes & ~(FileAttributes.ReadOnly | FileAttributes.Hidden | FileAttributes.System));
+                        error = "unverified directory retained: path or parent is a reparse point.";
+                        return false;
                     }
-                    File.Delete(path);
-                    if (!File.Exists(path)) return true;
-                    error = "file still exists after delete";
+                    string? parent = Path.GetDirectoryName(current);
+                    if (string.Equals(parent, current, StringComparison.OrdinalIgnoreCase)) break;
+                    current = parent;
                 }
-                catch (Exception ex)
+                if (Directory.GetFileSystemEntries(fullPath).Length != 0)
                 {
-                    error = ex.Message;
+                    error = "unverified nonempty updates directory retained for manual review.";
+                    return false;
                 }
-
-                if (attempt < 5)
-                    Thread.Sleep(100 * attempt);
+                Directory.Delete(fullPath, recursive: false);
+                return true;
             }
-
-            return !File.Exists(path);
+            catch (Exception ex)
+            {
+                error = "unverified updates directory retained: " + ex.Message;
+                return false;
+            }
         }
 
         private static bool SamePath(string left, string right)

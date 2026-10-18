@@ -47,7 +47,11 @@ public sealed class ApplicationRpcHandler : IBridgeRpcHandler
             {
                 string? selected = await _actions.PickStartupExecutable(cancellationToken);
                 if (string.IsNullOrWhiteSpace(selected))
+                {
+                    lock (_startupPickGate)
+                        _pendingStartupExecutable = null;
                     return new { path = (string?)null };
+                }
 
                 string fullPath = Path.GetFullPath(selected);
                 lock (_startupPickGate)

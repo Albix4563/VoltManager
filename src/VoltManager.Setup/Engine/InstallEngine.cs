@@ -46,6 +46,11 @@ namespace VoltManager.Setup.Engine
 
         private readonly IInstallProcessOperations _processOperations;
         private readonly IPreviewReleaseClient _previewReleaseClient;
+        private readonly Func<string?> _findLegacyInnoUninstaller;
+        private readonly Func<string, CancellationToken, Task<(bool Exited, int ExitCode)?>> _runLegacyInnoUninstaller;
+        private readonly Func<string?> _readInstallLocation;
+        private readonly Action<string> _requireProtectedInstallLocation;
+        private readonly Func<string?> _trustedInstalledPayloadZipPath;
         private readonly SetupWorkflowRunner _workflowRunner = new SetupWorkflowRunner();
         private readonly List<string> _operationWarnings = new List<string>();
 
@@ -64,14 +69,45 @@ namespace VoltManager.Setup.Engine
         }
 
         internal InstallEngine(IInstallProcessOperations processOperations, IPreviewReleaseClient previewReleaseClient)
+            : this(processOperations, previewReleaseClient, FindLegacyInnoUninstaller, RunLegacyInnoUninstallerAsync)
+        {
+        }
+
+        internal InstallEngine(
+            IInstallProcessOperations processOperations,
+            IPreviewReleaseClient previewReleaseClient,
+            Func<string?> findLegacyInnoUninstaller,
+            Func<string, CancellationToken, Task<(bool Exited, int ExitCode)?>> runLegacyInnoUninstaller)
+            : this(processOperations, previewReleaseClient, findLegacyInnoUninstaller, runLegacyInnoUninstaller,
+                ReadInstallLocation, InstallDirectorySecurity.RequireProtectedElevatedUninstallerLocation,
+                () => null)
+        {
+        }
+
+        // Test-only dependency seam: production always uses the HKLM reader,
+        // protected elevated-location check and locally embedded trusted inventory.
+        internal InstallEngine(
+            IInstallProcessOperations processOperations,
+            IPreviewReleaseClient previewReleaseClient,
+            Func<string?> findLegacyInnoUninstaller,
+            Func<string, CancellationToken, Task<(bool Exited, int ExitCode)?>> runLegacyInnoUninstaller,
+            Func<string?> readInstallLocation,
+            Action<string> requireProtectedInstallLocation,
+            Func<string?> trustedInstalledPayloadZipPath)
         {
             _processOperations = processOperations ?? throw new ArgumentNullException(nameof(processOperations));
             _previewReleaseClient = previewReleaseClient ?? throw new ArgumentNullException(nameof(previewReleaseClient));
+            _findLegacyInnoUninstaller = findLegacyInnoUninstaller ?? throw new ArgumentNullException(nameof(findLegacyInnoUninstaller));
+            _runLegacyInnoUninstaller = runLegacyInnoUninstaller ?? throw new ArgumentNullException(nameof(runLegacyInnoUninstaller));
+            _readInstallLocation = readInstallLocation ?? throw new ArgumentNullException(nameof(readInstallLocation));
+            _requireProtectedInstallLocation = requireProtectedInstallLocation ?? throw new ArgumentNullException(nameof(requireProtectedInstallLocation));
+            _trustedInstalledPayloadZipPath = trustedInstalledPayloadZipPath ?? throw new ArgumentNullException(nameof(trustedInstalledPayloadZipPath));
         }
 
         public async Task InstallAsync(InstallOptions opts, string version, CancellationToken ct = default)
         {
             _operationWarnings.Clear();
+            LastOperationResult = null;
             opts.InstallDir = InstallOptions.NormalizeInstallDir(opts.InstallDir);
             InstallTargetValidationResult targetValidation = InstallTargetValidator.ValidateInstallTarget(opts.InstallDir);
             if (!targetValidation.Ok)
@@ -83,8 +119,31 @@ namespace VoltManager.Setup.Engine
 
             string effectiveVersion = version;
             string? previewPayloadZip = null;
+            PreviewReleaseDownload? previewRelease = null;
             var steps = new List<SetupWorkflowStep>
             {
+                new SetupWorkflowStep("validate-elevated-install-location", token =>
+                {
+                    // Even process termination and legacy migration have effects.
+                    // Reject unsafe destinations before either can run.
+                    _requireProtectedInstallLocation(opts.InstallDir);
+                    token.ThrowIfCancellationRequested();
+                    return Task.CompletedTask;
+                }),
+                new SetupWorkflowStep("validate-install-ownership", token =>
+                {
+                    // A forged marker or same-named file must never authorize
+                    // process termination or execution of a legacy uninstaller.
+                    InstallManifest.ValidateExistingInstallBeforeSideEffects(
+                        opts.InstallDir, _trustedInstalledPayloadZipPath(), _requireProtectedInstallLocation);
+                    // An HKLM uninstall path is not authenticated provenance for
+                    // arbitrary legacy code. Require explicit manual migration.
+                    if (_findLegacyInnoUninstaller() != null)
+                        throw new InvalidDataException(
+                            "Legacy Inno uninstaller cannot be independently authenticated; manual migration required.");
+                    token.ThrowIfCancellationRequested();
+                    return Task.CompletedTask;
+                }),
                 new SetupWorkflowStep("stop-processes", token =>
                 {
                     Report(I18n.T("status_kill"), 0);
@@ -103,37 +162,22 @@ namespace VoltManager.Setup.Engine
                     if (!IsPreviewChannel(opts))
                         return;
                     Report(I18n.T("status_download_preview"), 8);
-                    PreviewReleaseDownload release = await _previewReleaseClient.DownloadLatestAsync(
+                    previewRelease = await _previewReleaseClient.DownloadLatestAsync(
                         pct => Report(I18n.T("status_download_preview"), 8 + pct * 0.06), token).ConfigureAwait(false);
-                    try
-                    {
-                        token.ThrowIfCancellationRequested();
-                        previewPayloadZip = ExtractPreviewPayloadZip(release.ExePath, token);
-                        effectiveVersion = release.Version;
-                    }
-                    finally
-                    {
-                        release.Dispose();
-                        SetupStaging.DeleteRunDirectoryBestEffort(
-                            release.StagingDirectory,
-                            SetupUpdateLog.Warn);
-                    }
+                    token.ThrowIfCancellationRequested();
+                    // Keep the SHA256-verified Preview installer (and its held read-only
+                    // file handle) until the matching uninstaller is registered.
+                    previewPayloadZip = ExtractPreviewPayloadZipIntoDirectory(
+                        previewRelease.ExePath, previewRelease.StagingDirectory, token);
+                    effectiveVersion = previewRelease.Version;
                 }),
                 new SetupWorkflowStep("extract-payload", async token =>
                 {
                     Report(I18n.T("status_extract"), 15);
-                    try
-                    {
-                        await ExtractPayloadAsync(opts.InstallDir, token, previewPayloadZip).ConfigureAwait(false);
-                    }
-                    finally
-                    {
-                        if (!string.IsNullOrWhiteSpace(previewPayloadZip))
-                        {
-                            TryDeleteTempDirectory(Path.GetDirectoryName(previewPayloadZip));
-                            previewPayloadZip = null;
-                        }
-                    }
+                    string? backupWarning = await ExtractPayloadAsync(
+                        opts.InstallDir, token, previewPayloadZip, _requireProtectedInstallLocation).ConfigureAwait(false);
+                    if (backupWarning != null && backupWarning.Length > 0)
+                        _operationWarnings.Add(backupWarning);
                 }),
                 new SetupWorkflowStep("ensure-webview2", async token =>
                 {
@@ -162,8 +206,10 @@ namespace VoltManager.Setup.Engine
                 new SetupWorkflowStep("register-installation", token =>
                 {
                     Report(I18n.T("status_registry"), 88);
-                    WriteArpEntry(opts.InstallDir, effectiveVersion);
-                    CopyUninstaller(opts.InstallDir, _operationWarnings);
+                    string uninstallerSource = ResolveUninstallerSource(IsPreviewChannel(opts), previewRelease);
+                    _requireProtectedInstallLocation(opts.InstallDir);
+                    RegisterUninstallerAndArp(opts.InstallDir, _operationWarnings,
+                        uninstallerSource, () => WriteArpEntry(opts.InstallDir, effectiveVersion));
                     WriteInitialAppSettings(opts);
                     token.ThrowIfCancellationRequested();
                     Report("", 100);
@@ -171,15 +217,29 @@ namespace VoltManager.Setup.Engine
                 }),
             };
 
-            CompleteWorkflow(await _workflowRunner.RunAsync(steps, ct).ConfigureAwait(false), ct);
+            try
+            {
+                CompleteWorkflow(await _workflowRunner.RunAsync(steps, ct).ConfigureAwait(false), ct);
+            }
+            finally
+            {
+                CleanupPreviewRelease(previewRelease, previewPayloadZip);
+            }
         }
 
         public async Task UpdateAsync(int waitPid, string version, CancellationToken ct = default)
         {
             _operationWarnings.Clear();
+            LastOperationResult = null;
             string? installDir = null;
             var steps = new List<SetupWorkflowStep>
             {
+                new SetupWorkflowStep("validate-install-ownership", token =>
+                {
+                    installDir = ResolveValidatedUpdateInstallDirectory();
+                    token.ThrowIfCancellationRequested();
+                    return Task.CompletedTask;
+                }),
                 new SetupWorkflowStep("wait-main-process", async token =>
                 {
                     if (waitPid <= 0)
@@ -191,12 +251,9 @@ namespace VoltManager.Setup.Engine
                 }),
                 new SetupWorkflowStep("resolve-installation", token =>
                 {
-                    installDir = ReadInstallLocation();
-                    if (string.IsNullOrEmpty(installDir) || !Directory.Exists(installDir))
-                        throw new InvalidOperationException("VoltManager install directory not found in registry.");
-                    InstallTargetValidationResult validation = InstallTargetValidator.ValidateInstallTarget(installDir);
-                    if (!validation.Ok)
-                        throw new InvalidOperationException("Unsafe registered install directory: " + validation.Reason);
+                    // Verify again before StopInstalled to narrow the gap from
+                    // the earlier read-only preflight. No path snapshot is atomic.
+                    installDir = ResolveValidatedUpdateInstallDirectory();
                     token.ThrowIfCancellationRequested();
                     return Task.CompletedTask;
                 }),
@@ -210,13 +267,17 @@ namespace VoltManager.Setup.Engine
                 new SetupWorkflowStep("extract-payload", async token =>
                 {
                     Report(I18n.T("status_extract"), 0);
-                    await ExtractPayloadAsync(installDir!, token).ConfigureAwait(false);
+                    string? backupWarning = await ExtractPayloadAsync(
+                        installDir!, token, null, _requireProtectedInstallLocation).ConfigureAwait(false);
+                    if (backupWarning != null && backupWarning.Length > 0)
+                        _operationWarnings.Add(backupWarning);
                 }),
                 new SetupWorkflowStep("register-update", token =>
                 {
                     Report(I18n.T("status_registry"), 90);
-                    WriteArpEntry(installDir!, version);
-                    CopyUninstaller(installDir!, _operationWarnings);
+                    _requireProtectedInstallLocation(installDir!);
+                    RegisterUninstallerAndArp(installDir!, _operationWarnings,
+                        Assembly.GetExecutingAssembly().Location, () => WriteArpEntry(installDir!, version));
                     token.ThrowIfCancellationRequested();
                     return Task.CompletedTask;
                 }),
@@ -233,6 +294,27 @@ namespace VoltManager.Setup.Engine
             };
 
             CompleteWorkflow(await _workflowRunner.RunAsync(steps, ct).ConfigureAwait(false), ct);
+        }
+
+        /// <summary>
+        /// Read-only preflight for UpdateInstallCoordinator, which may clear
+        /// WebView2 cache before UpdateAsync runs. UpdateAsync repeats it.
+        /// </summary>
+        public void ValidateUpdateTargetBeforeSideEffects()
+            => ResolveValidatedUpdateInstallDirectory();
+
+        private string ResolveValidatedUpdateInstallDirectory()
+        {
+            string? installDir = _readInstallLocation();
+            if (string.IsNullOrEmpty(installDir) || !Directory.Exists(installDir))
+                throw new InvalidOperationException("VoltManager install directory not found in registry.");
+            InstallTargetValidationResult validation = InstallTargetValidator.ValidateInstallTarget(installDir);
+            if (!validation.Ok)
+                throw new InvalidOperationException("Unsafe registered install directory: " + validation.Reason);
+            _requireProtectedInstallLocation(installDir!);
+            InstallManifest.ValidateExistingInstallBeforeSideEffects(
+                installDir!, _trustedInstalledPayloadZipPath(), _requireProtectedInstallLocation);
+            return installDir!;
         }
 
         private void CompleteWorkflow(SetupWorkflowResult result, CancellationToken cancellationToken)
@@ -395,6 +477,14 @@ namespace VoltManager.Setup.Engine
         private static bool IsPreviewChannel(InstallOptions opts)
             => InstallOptions.NormalizeChannel(opts?.UpdateChannel) == "preview";
 
+        internal static string ResolveUninstallerSource(bool previewChannel, PreviewReleaseDownload? previewRelease)
+        {
+            if (!previewChannel)
+                return Assembly.GetExecutingAssembly().Location;
+            return previewRelease?.ExePath
+                ?? throw new InvalidOperationException("Verified Preview uninstaller is missing.");
+        }
+
         /// <summary>
         /// Reads the payload.zip embedded resource out of the downloaded Preview
         /// setup exe in a temporary AppDomain so the downloaded VoltManagerSetup
@@ -402,13 +492,26 @@ namespace VoltManager.Setup.Engine
         /// </summary>
         private static string ExtractPreviewPayloadZip(string previewSetupExe, CancellationToken ct)
         {
-            string? tempDir = null;
+            string tempDir = CreateUniqueTempDirectory();
+            try
+            {
+                return ExtractPreviewPayloadZipIntoDirectory(previewSetupExe, tempDir, ct);
+            }
+            catch
+            {
+                TryDeleteTempDirectory(tempDir);
+                throw;
+            }
+        }
+
+        private static string ExtractPreviewPayloadZipIntoDirectory(
+            string previewSetupExe, string extractionDirectory, CancellationToken ct)
+        {
             AppDomain? extractionDomain = null;
             try
             {
                 ct.ThrowIfCancellationRequested();
-                tempDir = CreateUniqueTempDirectory();
-                string zipPath = Path.Combine(tempDir, "VoltManagerPreviewPayload.zip");
+                string zipPath = Path.Combine(extractionDirectory, "VoltManagerPreviewPayload.zip");
 
                 extractionDomain = AppDomain.CreateDomain(
                     "VoltManagerPreviewPayload-" + Guid.NewGuid().ToString("N"),
@@ -426,17 +529,14 @@ namespace VoltManager.Setup.Engine
             }
             catch (OperationCanceledException)
             {
-                TryDeleteTempDirectory(tempDir);
                 throw;
             }
             catch (InvalidOperationException)
             {
-                TryDeleteTempDirectory(tempDir);
                 throw;
             }
             catch (Exception ex)
             {
-                TryDeleteTempDirectory(tempDir);
                 throw new InvalidOperationException(
                     I18n.T("err_preview_payload") + " " + ex.Message, ex);
             }
@@ -445,6 +545,54 @@ namespace VoltManager.Setup.Engine
                 if (extractionDomain != null)
                     AppDomain.Unload(extractionDomain);
             }
+        }
+
+        private static void CleanupPreviewRelease(PreviewReleaseDownload? release, string? extractedZip)
+        {
+            if (release == null) return;
+            release.Dispose();
+            string runDirectory = release.StagingDirectory;
+            try
+            {
+                if (!Directory.Exists(runDirectory)) return;
+                string? current = Path.GetFullPath(runDirectory);
+                while (!string.IsNullOrEmpty(current))
+                {
+                    if (Directory.Exists(current) &&
+                        (File.GetAttributes(current) & FileAttributes.ReparsePoint) != 0)
+                        throw new InvalidOperationException("Preview staging ancestry contains a link: " + current);
+                    string? parent = Path.GetDirectoryName(current);
+                    if (string.Equals(parent, current, StringComparison.OrdinalIgnoreCase)) break;
+                    current = parent;
+                }
+
+                // Only the two files created/verified during this download belong to
+                // the current run; unknown files are retained for manual review.
+                if (!string.IsNullOrWhiteSpace(extractedZip))
+                    DeletePreviewOwnedFile(extractedZip!, runDirectory);
+                DeletePreviewOwnedFile(release.ExePath, runDirectory);
+                if (!Directory.EnumerateFileSystemEntries(runDirectory).Any())
+                    Directory.Delete(runDirectory, recursive: false);
+                else
+                    SetupUpdateLog.Warn("Preview staging retained for manual review: " + runDirectory);
+            }
+            catch (Exception ex)
+            {
+                SetupUpdateLog.Warn("Preview staging cleanup could not be verified: " + ex.Message);
+            }
+        }
+
+        private static void DeletePreviewOwnedFile(string filePath, string runDirectory)
+        {
+            string fullFile = Path.GetFullPath(filePath);
+            if (!string.Equals(Path.GetDirectoryName(fullFile), Path.GetFullPath(runDirectory), StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException("Preview artifact is outside its download directory: " + fullFile);
+            if (Directory.Exists(fullFile))
+                throw new InvalidOperationException("Preview artifact was replaced with a directory: " + fullFile);
+            if (!File.Exists(fullFile)) return;
+            if ((File.GetAttributes(fullFile) & FileAttributes.ReparsePoint) != 0)
+                throw new InvalidOperationException("Preview artifact is a link: " + fullFile);
+            File.Delete(fullFile);
         }
 
         public sealed class PreviewPayloadExtractor : MarshalByRefObject
@@ -458,30 +606,64 @@ namespace VoltManager.Setup.Engine
                     return false;
 
                 using (var src = asm.GetManifestResourceStream(resName)!)
-                using (var dst = File.Create(zipPath))
+                using (var dst = new FileStream(zipPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
                     src.CopyTo(dst, 81920);
 
                 return true;
             }
         }
 
+        // Legge il payload precedente solo come dati: il dominio reflection-only
+        // viene scaricato senza eseguire initializer o dipendenze del vecchio setup.
+        internal static byte[]? ReadEmbeddedPayloadWithoutExecution(byte[] setupImage)
+        {
+            AppDomain domain = AppDomain.CreateDomain(
+                "VoltManagerInstalledPayload-" + Guid.NewGuid().ToString("N"),
+                null,
+                new AppDomainSetup { ApplicationBase = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) });
+            try
+            {
+                var reader = (InstalledPayloadReader)domain.CreateInstanceFromAndUnwrap(
+                    Assembly.GetExecutingAssembly().Location, typeof(InstalledPayloadReader).FullName);
+                return reader.Read(setupImage);
+            }
+            finally
+            {
+                AppDomain.Unload(domain);
+            }
+        }
+
+        public sealed class InstalledPayloadReader : MarshalByRefObject
+        {
+            public byte[]? Read(byte[] setupImage)
+            {
+                Assembly image = Assembly.ReflectionOnlyLoad(setupImage);
+                string[] names = Array.FindAll(image.GetManifestResourceNames(),
+                    n => n.EndsWith("payload.zip", StringComparison.OrdinalIgnoreCase));
+                if (names.Length == 0)
+                    return null;
+                if (names.Length > 1)
+                    throw new InvalidDataException("Installed uninstaller declares multiple payload archives.");
+                using (Stream source = image.GetManifestResourceStream(names[0])!)
+                {
+                    if (source.Length > int.MaxValue)
+                        throw new InvalidDataException("Installed payload exceeds safety limits.");
+                    using (var copy = new MemoryStream((int)source.Length))
+                    {
+                        source.CopyTo(copy, 81920);
+                        return copy.ToArray();
+                    }
+                }
+            }
+        }
+
         protected void Report(string msg, double pct) => Progress?.Invoke(msg, pct);
 
         internal static bool StopProcessesForInstall(string installDir)
-        {
-            string existingInstallDir = ResolveInstallDir();
-            if (Directory.Exists(existingInstallDir) &&
-                !string.Equals(
-                    Path.GetFullPath(existingInstallDir).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
-                    Path.GetFullPath(installDir).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
-                    StringComparison.OrdinalIgnoreCase) &&
-                !StopRunningInstalledProcesses(existingInstallDir))
-            {
-                return false;
-            }
-
-            return StopRunningInstalledProcesses(installDir);
-        }
+            // Only the caller's independently validated install root is in
+            // scope. Never stop a second, HKLM-discovered tree without its own
+            // verified ownership preflight.
+            => StopRunningInstalledProcesses(installDir);
 
         internal static bool StopRunningInstalledProcesses(string installDir)
         {
@@ -555,24 +737,66 @@ namespace VoltManager.Setup.Engine
             return "\"" + value.Replace("\"", "\\\"") + "\"";
         }
 
-        private static async Task RemoveLegacyInnoInstallAsync(CancellationToken ct)
+        private Task RemoveLegacyInnoInstallAsync(CancellationToken ct)
         {
-            using var key = Registry.LocalMachine.OpenSubKey(INNO_ARP_KEY);
-            if (key == null) return;
+            ct.ThrowIfCancellationRequested();
+            string? unins = _findLegacyInnoUninstaller();
+            if (unins == null) return Task.CompletedTask;
 
-            string? loc = key.GetValue("InstallLocation") as string;
-            if (string.IsNullOrEmpty(loc)) return;
-
-            string unins = Path.Combine(loc, "unins000.exe");
-            if (!File.Exists(unins)) return;
-
-            var psi = new ProcessStartInfo(unins, "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART")
-            { UseShellExecute = true };
-            var p = Process.Start(psi)!;
-            await Task.Run(() => p.WaitForExit(60_000), ct);
+            // Rechecking this mutable HKLM path does NOT authenticate the
+            // executable. Even if the early ownership gate observed no entry,
+            // a new/changed legacy path must never be executed implicitly.
+            throw new InvalidDataException(
+                "Legacy Inno uninstaller cannot be independently authenticated; manual migration required.");
         }
 
-        private static async Task ExtractPayloadAsync(string destDir, CancellationToken ct, string? payloadZipPath = null)
+        private static string? FindLegacyInnoUninstaller()
+        {
+            using var key = Registry.LocalMachine.OpenSubKey(INNO_ARP_KEY);
+            if (key == null) return null;
+
+            string? loc = key.GetValue("InstallLocation") as string;
+            if (string.IsNullOrWhiteSpace(loc))
+                throw new InvalidOperationException("Legacy Inno uninstall location is missing.");
+
+            string unins = Path.Combine(loc, "unins000.exe");
+            if (!File.Exists(unins))
+                throw new InvalidOperationException("Legacy Inno uninstaller was not found at '" + unins + "'.");
+            return unins;
+        }
+
+        private static async Task<(bool Exited, int ExitCode)?> RunLegacyInnoUninstallerAsync(string unins, CancellationToken ct)
+        {
+            ct.ThrowIfCancellationRequested();
+            var psi = new ProcessStartInfo(unins, "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART")
+            { UseShellExecute = true };
+            using var process = Process.Start(psi);
+            if (process == null)
+                return null;
+
+            // Wait in short slices so cancellation is observed without leaving the workflow
+            // blocked for 60 seconds. Do not kill a legacy uninstaller mid-operation.
+            bool exited = await Task.Run(() =>
+            {
+                var elapsed = Stopwatch.StartNew();
+                while (true)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    long remaining = 60_000 - elapsed.ElapsedMilliseconds;
+                    if (remaining <= 0)
+                        return false;
+                    if (process.WaitForExit((int)Math.Min(250, remaining)))
+                    {
+                        ct.ThrowIfCancellationRequested();
+                        return true;
+                    }
+                }
+            }).ConfigureAwait(false);
+            return (exited, exited ? process.ExitCode : 0);
+        }
+
+        private static async Task<string?> ExtractPayloadAsync(string destDir, CancellationToken ct, string? payloadZipPath = null,
+            Action<string>? requireProtectedInstallLocation = null)
         {
             Directory.CreateDirectory(destDir);
 
@@ -589,7 +813,8 @@ namespace VoltManager.Setup.Engine
                     string? resName = Array.Find(asm.GetManifestResourceNames(),
                         n => n.EndsWith("payload.zip", StringComparison.OrdinalIgnoreCase));
 
-                    if (resName == null) return; // dev build without payload
+                    if (resName == null)
+                        throw new InvalidDataException("Embedded install payload.zip resource is missing; installation cannot proceed.");
 
                     ownedTempDir = CreateUniqueTempDirectory();
                     tempZip = Path.Combine(ownedTempDir, "VoltManagerPayload.zip");
@@ -607,7 +832,7 @@ namespace VoltManager.Setup.Engine
                 // One background thread for the whole locked block: the mutex is thread-affine
                 // (no await inside), and waiting for it must not freeze the setup window.
                 string zipPath = tempZip;
-                await Task.Run(() =>
+                return await Task.Run(() =>
                 {
                     using (InstallDirectoryLock.Acquire(fullDest, InstallLockTimeout, ct))
                     {
@@ -620,19 +845,70 @@ namespace VoltManager.Setup.Engine
 
                         string backupDir = Path.Combine(parent,
                             "." + installName + ".backup-" + Path.GetRandomFileName());
-                        ReplaceInstallDirectoryContents(destDir, stagingDir, backupDir);
+                        // Stable: derive hashes from the setup assembly's embedded,
+                        // independently trusted ZIP, never from its mutable TEMP copy.
+                        // Preview: use the explicitly supplied verified release ZIP.
+                        string? backupWarning = ReplaceInstallDirectoryContentsCore(
+                            destDir, stagingDir, backupDir, payloadZipPath, MoveEntry, requireProtectedInstallLocation);
 
-                        // Only after the new files are in place: an older backup kept by a failed
-                        // rollback is no longer needed, and holding the lock guarantees no other
-                        // live installer owns any of these directories.
+                        // Inspect only empty leftovers while this installer holds the lock.
+                        // Nonempty backups are retained for explicit review.
                         DeleteLeftoverSwapDirectories(parent, installName);
+                        return backupWarning;
                     }
                 }, ct);
             }
+            catch (Exception installFailure)
+            {
+                bool stagingRetained = false;
+                try
+                {
+                    if (!string.IsNullOrWhiteSpace(stagingDir) && Directory.Exists(stagingDir))
+                    {
+                        stagingRetained = (File.GetAttributes(stagingDir) & FileAttributes.ReparsePoint) != 0 ||
+                            Directory.EnumerateFileSystemEntries(stagingDir).Any();
+                    }
+                }
+                catch (Exception probeFailure)
+                {
+                    // If staging cannot be inspected, retain and report its location.
+                    stagingRetained = true;
+                    SetupUpdateLog.Warn("Cannot inspect failed install staging: " + probeFailure.Message);
+                }
+
+                if (stagingRetained)
+                {
+                    string detail = "Installation failed; retained staging requires manual review at " + stagingDir +
+                        ". Original error: " + installFailure.Message;
+                    SetupUpdateLog.Warn(detail);
+                    if (installFailure is OperationCanceledException)
+                        throw new OperationCanceledException(detail, installFailure, ct);
+                    throw new InvalidOperationException(detail, installFailure);
+                }
+                throw;
+            }
             finally
             {
-                TryDeleteTempDirectory(stagingDir);
+                // A failed swap may have moved new files back into staging for
+                // manual recovery. Never recursively delete that directory.
+                TryDeleteEmptyStagingDirectory(stagingDir);
                 TryDeleteTempDirectory(ownedTempDir);
+            }
+        }
+
+        private static void TryDeleteEmptyStagingDirectory(string? path)
+        {
+            if (string.IsNullOrWhiteSpace(path)) return;
+            try
+            {
+                if (Directory.Exists(path) &&
+                    (File.GetAttributes(path) & FileAttributes.ReparsePoint) == 0 &&
+                    !Directory.EnumerateFileSystemEntries(path).Any())
+                    Directory.Delete(path, recursive: false);
+            }
+            catch (Exception ex)
+            {
+                SetupUpdateLog.Warn("Could not remove empty install staging directory " + path + ": " + ex.Message);
             }
         }
 
@@ -648,10 +924,31 @@ namespace VoltManager.Setup.Engine
             if (string.IsNullOrWhiteSpace(path)) return;
             try
             {
-                if (Directory.Exists(path))
-                    Directory.Delete(path, true);
+                // The random name is not proof that this still is our directory.
+                // It may have been replaced with a junction or arbitrary files;
+                // never traverse or remove such content by path.
+                string fullPath = Path.GetFullPath(path);
+                string tempRoot = Path.GetFullPath(Path.GetTempPath())
+                    .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                if (!string.Equals(Path.GetDirectoryName(fullPath), tempRoot,
+                    StringComparison.OrdinalIgnoreCase))
+                {
+                    SetupUpdateLog.Warn("Unverified setup temporary directory retained: " + fullPath);
+                    return;
+                }
+                if (!Directory.Exists(fullPath)) return;
+                if ((File.GetAttributes(fullPath) & FileAttributes.ReparsePoint) != 0 ||
+                    Directory.EnumerateFileSystemEntries(fullPath).Any())
+                {
+                    SetupUpdateLog.Warn("Nonempty or linked setup temporary directory retained for manual review: " + fullPath);
+                    return;
+                }
+                Directory.Delete(fullPath, recursive: false);
             }
-            catch { /* best-effort: rollback probing must not mask the primary install result. */ }
+            catch (Exception ex)
+            {
+                SetupUpdateLog.Warn("Could not verify/remove empty setup temporary directory: " + ex.Message);
+            }
         }
 
         /// <summary>
@@ -659,18 +956,47 @@ namespace VoltManager.Setup.Engine
         /// renamed into <paramref name="backupDir"/> (same volume) instead of being deleted, so a
         /// locked file or a failed move rolls back to the previous installation.
         /// </summary>
-        internal static void ReplaceInstallDirectoryContents(string destDir, string stagingDir, string backupDir)
+        internal static string? ReplaceInstallDirectoryContents(
+            string destDir, string stagingDir, string backupDir, string? trustedPayloadZipPath = null)
+            => ReplaceInstallDirectoryContentsCore(destDir, stagingDir, backupDir, trustedPayloadZipPath, MoveEntry);
+
+        // Internal mover seam permits deterministic rollback-failure tests; production
+        // always supplies MoveEntry and uses the same move semantics as before.
+        internal static string? ReplaceInstallDirectoryContentsCore(
+            string destDir, string stagingDir, string backupDir, string? trustedPayloadZipPath,
+            Action<string, string> moveEntry, Action<string>? requireProtectedInstallLocation = null)
         {
-            Directory.CreateDirectory(destDir);
-            Directory.CreateDirectory(backupDir);
-            var backedUp = new List<string>();
-            var installed = new List<string>();
+            if (moveEntry == null) throw new ArgumentNullException(nameof(moveEntry));
+            // A matching path may already contain unrelated files or be a reparse point.
+            // A backup must be new for this invocation: never merge into a preexisting tree.
+            if (Directory.Exists(backupDir) || File.Exists(backupDir))
+                throw new InvalidOperationException("Install backup directory already exists: " + backupDir);
+
+            if (Directory.Exists(stagingDir) &&
+                (File.GetAttributes(stagingDir) & FileAttributes.ReparsePoint) != 0)
+                throw new InvalidOperationException("Install staging directory is a reparse point: " + stagingDir);
+            if (Directory.Exists(destDir) &&
+                (File.GetAttributes(destDir) & FileAttributes.ReparsePoint) != 0)
+                throw new InvalidOperationException("Install destination directory is a reparse point: " + destDir);
+
             string[] stagedNames = Directory.GetFileSystemEntries(stagingDir)
                 .Select(Path.GetFileName)
                 .Where(name => !string.IsNullOrWhiteSpace(name))
                 .Cast<string>()
                 .ToArray();
-            HashSet<string> ownedNames = InstallManifest.GetOwnedNamesForReplacement(destDir, stagedNames);
+            // An untrusted/mutable extracted ZIP cannot authenticate itself.
+            // Null means use the embedded assembly resource as authority.
+            InstallManifest.ValidateStagedPayload(stagingDir, trustedPayloadZipPath);
+            // Ogni vecchio file è verificato contro A: ciò permette rimozioni e rinomine
+            // in B senza spostare dati estranei presenti nelle directory possedute.
+            HashSet<string> ownedNames = InstallManifest.GetOwnedNamesForReplacement(
+                destDir, stagedNames, trustedPayloadZipPath,
+                requireProtectedInstallLocation: requireProtectedInstallLocation);
+
+            Directory.CreateDirectory(destDir);
+            Directory.CreateDirectory(backupDir);
+            var backedUp = new List<string>();
+            var installed = new List<string>();
 
             try
             {
@@ -679,53 +1005,96 @@ namespace VoltManager.Setup.Engine
                     string name = Path.GetFileName(path);
                     if (!ownedNames.Contains(name))
                         continue;
-                    MoveEntry(path, Path.Combine(backupDir, name));
+                    moveEntry(path, Path.Combine(backupDir, name));
                     backedUp.Add(name);
                 }
 
-                foreach (string entry in Directory.GetFileSystemEntries(stagingDir))
+                foreach (string entry in Directory.GetFileSystemEntries(stagingDir)
+                    .OrderBy(path => Path.GetFileName(path), StringComparer.OrdinalIgnoreCase))
                 {
                     string name = Path.GetFileName(entry);
-                    MoveEntry(entry, Path.Combine(destDir, name));
+                    moveEntry(entry, Path.Combine(destDir, name));
                     installed.Add(name);
                 }
 
-                installed.Add(InstallManifest.FileName);
-                InstallManifest.Write(destDir, stagedNames);
-            }
-            catch
-            {
-                foreach (string name in installed)
+                string marker = Path.Combine(destDir, InstallManifest.FileName);
+                try { InstallManifest.Write(destDir, stagedNames); }
+                finally
                 {
-                    try { DeleteEntry(Path.Combine(destDir, name)); }
-                    catch (Exception ex) { SetupUpdateLog.Warn("Rollback: could not remove new entry " + name + ": " + ex.Message); }
+                    // A failed manifest write may still have created a partial file;
+                    // track only an entry that actually exists for reverse rollback.
+                    if (File.Exists(marker) || Directory.Exists(marker))
+                        installed.Add(InstallManifest.FileName);
                 }
-
-                bool restored = true;
-                foreach (string name in backedUp)
+            }
+            catch (Exception installFailure)
+            {
+                var rollbackFailures = new List<Exception>();
+                for (int i = installed.Count - 1; i >= 0; i--)
                 {
-                    try { MoveEntry(Path.Combine(backupDir, name), Path.Combine(destDir, name)); }
+                    string name = installed[i];
+                    try { MoveInstalledEntryBackToStaging(destDir, stagingDir, name, moveEntry); }
                     catch (Exception ex)
                     {
-                        restored = false;
+                        rollbackFailures.Add(new IOException("Could not return new entry " + name + " to staging.", ex));
+                        SetupUpdateLog.Warn("Rollback: could not return new entry " + name + " to staging: " + ex.Message);
+                    }
+                }
+
+                for (int i = backedUp.Count - 1; i >= 0; i--)
+                {
+                    string name = backedUp[i];
+                    try { moveEntry(Path.Combine(backupDir, name), Path.Combine(destDir, name)); }
+                    catch (Exception ex)
+                    {
+                        rollbackFailures.Add(new IOException("Could not restore previous entry " + name + ".", ex));
                         SetupUpdateLog.Warn("Rollback: could not restore " + name + ": " + ex.Message);
                     }
                 }
 
                 // Keep the backup on disk if anything could not be put back.
-                if (restored)
+                if (rollbackFailures.Count == 0)
                     TryDeleteBackupDirectory(backupDir);
                 else
+                {
                     SetupUpdateLog.Warn("Previous installation kept in " + backupDir);
+                    throw new InvalidOperationException(
+                        "Installation failed and rollback is incomplete. Previous installation backup retained at " + backupDir +
+                        ". Rollback errors: " + string.Join("; ", rollbackFailures.Select(ex => ex.Message)),
+                        new AggregateException(new[] { installFailure }.Concat(rollbackFailures)));
+                }
                 throw;
             }
 
-            TryDeleteBackupDirectory(backupDir);
+            return TryDeleteBackupDirectory(backupDir);
+        }
+
+        private static void MoveInstalledEntryBackToStaging(
+            string destDir, string stagingDir, string name, Action<string, string> moveEntry)
+        {
+            string installedPath = Path.Combine(destDir, name);
+            string stagedPath = Path.Combine(stagingDir, name);
+            if (File.Exists(stagedPath) || Directory.Exists(stagedPath))
+                throw new IOException("Original staged path is already occupied: " + stagedPath);
+
+            foreach (string directory in new[] { destDir, stagingDir })
+                if (!Directory.Exists(directory) ||
+                    (File.GetAttributes(directory) & FileAttributes.ReparsePoint) != 0)
+                    throw new IOException("Rollback directory is missing or linked: " + directory);
+
+            if (!File.Exists(installedPath) && !Directory.Exists(installedPath))
+                throw new IOException("New install entry is missing: " + installedPath);
+            if ((File.GetAttributes(installedPath) & FileAttributes.ReparsePoint) != 0)
+                throw new IOException("New install entry is a link: " + installedPath);
+
+            // Rename back into the original staging tree. A directory can contain
+            // newly created or unverified children, so do not delete it recursively.
+            moveEntry(installedPath, stagedPath);
         }
 
         /// <summary>
-        /// A backup can outlive its install when a still-running process kept a renamed file
-        /// open; remove what previous runs left behind (best effort).
+        /// A swap directory can outlive its install. Its predictable name cannot
+        /// establish ownership, even if the directory happens to be empty.
         /// </summary>
         internal static void DeleteLeftoverSwapDirectories(string parent, string installName)
         {
@@ -733,12 +1102,7 @@ namespace VoltManager.Setup.Engine
             {
                 foreach (string pattern in new[] { "." + installName + ".backup-*", "." + installName + ".staging-*" })
                     foreach (string dir in Directory.GetDirectories(parent, pattern))
-                    {
-                        bool isBackup = Path.GetFileName(dir).StartsWith("." + installName + ".backup-", StringComparison.OrdinalIgnoreCase);
-                        // Backups left by older setups may hold user files: only remove app-owned or empty ones.
-                        if (!isBackup || InstallManifest.HasOwnedArtifacts(dir) || !Directory.EnumerateFileSystemEntries(dir).Any())
-                            TryDeleteBackupDirectory(dir);
-                    }
+                        SetupUpdateLog.Warn("Unverified install swap directory retained for manual review: " + dir);
             }
             catch (Exception ex)
             {
@@ -816,31 +1180,28 @@ namespace VoltManager.Setup.Engine
                 Directory.Move(source, target);
         }
 
-        private static void DeleteEntry(string path)
-        {
-            if (File.Exists(path))
-            {
-                MakeWritable(path);
-                File.Delete(path);
-            }
-            else if (Directory.Exists(path))
-            {
-                MakeWritableTree(path);
-                Directory.Delete(path, true);
-            }
-        }
-
-        private static void TryDeleteBackupDirectory(string backupDir)
+        private static string? TryDeleteBackupDirectory(string backupDir)
         {
             try
             {
-                if (!Directory.Exists(backupDir)) return;
-                MakeWritableTree(backupDir);
-                Directory.Delete(backupDir, true);
+                if (!Directory.Exists(backupDir)) return null;
+                // Manifest ownership is only tracked at the top level. A moved directory
+                // may contain user data, reparse points or hardlinks; never recursively
+                // delete a backup based solely on its generated name.
+                if (Directory.EnumerateFileSystemEntries(backupDir).Any())
+                {
+                    string warning = "Previous installation backup retained for manual review: " + backupDir;
+                    SetupUpdateLog.Warn(warning);
+                    return warning;
+                }
+                Directory.Delete(backupDir, recursive: false);
+                return null;
             }
             catch (Exception ex)
             {
-                SetupUpdateLog.Warn("Could not delete install backup " + backupDir + ": " + ex.Message);
+                string warning = "Could not delete install backup " + backupDir + ": " + ex.Message;
+                SetupUpdateLog.Warn(warning);
+                return warning;
             }
         }
 
@@ -1045,14 +1406,8 @@ namespace VoltManager.Setup.Engine
             string settingsPath = Path.Combine(settingsDir, "settings.json");
             string json = File.Exists(settingsPath) ? File.ReadAllText(settingsPath) : "{}";
             var root = SettingsJsonUpdater.ParseRootOrEmpty(json, out bool malformed);
-            if (malformed)
-            {
-                string backupPath = settingsPath + ".setup-corrupt";
-                if (File.Exists(settingsPath))
-                {
-                    try { File.Copy(settingsPath, backupPath, overwrite: true); } catch { /* best-effort: settings backup is optional during uninstall. */ }
-                }
-            }
+            if (malformed && File.Exists(settingsPath))
+                BackupMalformedSettingsSafely(settingsPath);
 
             SettingsJsonUpdater.SetWidgetsState(root, opts.EnableWidgets, opts.EnabledWidgetTypes);
             SettingsJsonUpdater.SetUpdateChannelState(root, IsPreviewChannel(opts) ? "preview" : "stable");
@@ -1073,19 +1428,52 @@ namespace VoltManager.Setup.Engine
             }
         }
 
-        private static void CopyUninstaller(string installDir, ICollection<string> warnings)
+        private static string BackupMalformedSettingsSafely(string settingsPath)
         {
-            string self = Assembly.GetExecutingAssembly().Location;
+            // A fixed '.setup-corrupt' pathname may already contain someone's
+            // previous recovery data. Never overwrite it, and never proceed to
+            // replace malformed settings unless the current bytes were backed up.
+            string backup = settingsPath + ".setup-corrupt";
+            if (File.Exists(backup) || Directory.Exists(backup))
+                backup += "-" + Guid.NewGuid().ToString("N");
+            using (var original = new FileStream(settingsPath, FileMode.Open, FileAccess.Read, FileShare.Read))
+            using (var copy = new FileStream(backup, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+                original.CopyTo(copy);
+            return backup;
+        }
+
+        private static void CopyUninstaller(string installDir, ICollection<string> warnings)
+            => CopyUninstallerFromSource(installDir, warnings, Assembly.GetExecutingAssembly().Location);
+
+        // ARP must never publish an UninstallString before its executable exists.
+        // A failed copy is a reported failure with no registry side effects.
+        // If ARP later fails, retain the newly copied uninstaller: deleting a
+        // pathname after an external side-effect fails is not a safe rollback.
+        internal static void RegisterUninstallerAndArp(
+            string installDir, ICollection<string> warnings, string verifiedInstallerPath, Action writeArpEntry)
+        {
+            if (writeArpEntry == null) throw new ArgumentNullException(nameof(writeArpEntry));
+            CopyUninstallerFromSource(installDir, warnings, verifiedInstallerPath);
+            writeArpEntry();
+        }
+
+        private static void CopyUninstallerFromSource(
+            string installDir, ICollection<string> warnings, string verifiedInstallerPath)
+        {
             string dest = Path.Combine(installDir, "uninstall.exe");
             try
             {
-                File.Copy(self, dest, true);
+                // The replacement step has already moved the previous uninstaller
+                // into its backup. A remaining target may be foreign or hardlinked;
+                // CREATE_NEW semantics must reject it rather than overwriting it.
+                File.Copy(verifiedInstallerPath, dest, overwrite: false);
             }
             catch (Exception ex)
             {
-                string warning = "Could not copy the uninstaller: " + ex.Message;
-                SetupUpdateLog.Error(warning);
-                warnings.Add(warning);
+                string failure = "Could not safely copy the uninstaller: " + ex.Message;
+                SetupUpdateLog.Error(failure);
+                warnings.Add(failure);
+                throw new InvalidOperationException(failure, ex);
             }
         }
 

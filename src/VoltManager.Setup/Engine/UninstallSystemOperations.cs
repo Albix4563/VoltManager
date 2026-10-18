@@ -26,6 +26,9 @@ namespace VoltManager.Setup.Engine
 
     internal sealed class SystemUninstallSystemOperations : IUninstallSystemOperations
     {
+        // HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND); only this denotes an absent rule.
+        private const int FirewallRuleNotFoundHResult = unchecked((int)0x80070002);
+
         public string AppDataDirectory => VoltManagerArtifacts.AppDataDirectory;
 
         public Task<bool> StopRunningInstalledProcessesAsync(string installDir, CancellationToken cancellationToken)
@@ -69,7 +72,7 @@ namespace VoltManager.Setup.Engine
                 if (policy == null) return;
                 rules = policyType.InvokeMember("Rules", BindingFlags.GetProperty, null, policy, null);
                 if (rules == null) return;
-                try
+                TryRemoveFirewallRule(result, () =>
                 {
                     rules.GetType().InvokeMember(
                         "Remove",
@@ -77,15 +80,7 @@ namespace VoltManager.Setup.Engine
                         null,
                         rules,
                         new object[] { "VoltManager LAN Remote Control" });
-                }
-                catch (TargetInvocationException ex) when (ex.InnerException is COMException)
-                {
-                    // Removing an already absent rule is idempotent.
-                }
-                catch (COMException)
-                {
-                    // Removing an already absent rule is idempotent.
-                }
+                });
             }
             catch (Exception ex)
             {
@@ -95,6 +90,26 @@ namespace VoltManager.Setup.Engine
             {
                 ReleaseCom(rules);
                 ReleaseCom(policy);
+            }
+        }
+
+        internal static void TryRemoveFirewallRule(UninstallResult result, Action removeRule)
+        {
+            try { removeRule(); }
+            catch (TargetInvocationException ex) when (ex.InnerException is COMException com && com.ErrorCode == FirewallRuleNotFoundHResult)
+            {
+                // Removing an already absent rule is idempotent.
+            }
+            catch (COMException ex) when (ex.ErrorCode == FirewallRuleNotFoundHResult)
+            {
+                // Removing an already absent rule is idempotent.
+            }
+            catch (Exception ex)
+            {
+                Exception detail = ex is TargetInvocationException { InnerException: COMException com }
+                    ? com
+                    : ex;
+                result.Add("LAN remote firewall cleanup: " + detail.Message);
             }
         }
 

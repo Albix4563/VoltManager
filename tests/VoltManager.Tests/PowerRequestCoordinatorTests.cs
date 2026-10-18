@@ -105,6 +105,105 @@ public sealed class PowerRequestCoordinatorTests
     }
 
     [Fact]
+    public void Active_thermal_session_does_not_replace_manual_plan_expectation()
+    {
+        var settings = TestSettings.Create();
+        settings.Update(state =>
+        {
+            state.MasterAutomationEnabled = true;
+            state.PowerSourcePlan.Enabled = false;
+            state.ThermalGuard.Enabled = true;
+            state.ThermalGuard.TargetPlan = PlanId.PowerSaver;
+            state.ThermalGuard.ThresholdCelsius = 80;
+            state.ThermalGuard.CoolThresholdCelsius = 70;
+            state.ThermalGuard.HoldSeconds = ThermalGuardSettings.MinHoldSeconds;
+        });
+
+        Guid activeGuid = Guid.Parse(PowerPlanService.BalancedGuid);
+        string RunPowercfg(string args)
+        {
+            if (args.StartsWith("/setactive ", StringComparison.OrdinalIgnoreCase))
+                activeGuid = Guid.Parse(args.Split(' ', StringSplitOptions.RemoveEmptyEntries)[1]);
+            return "";
+        }
+
+        var power = new PowerPlanService(settings, () => activeGuid, RunPowercfg);
+        using var awake = new PowerAwakeService(settings, () => false, () => DateTime.UnixEpoch);
+        using var profiles = new AppPowerProfileService(settings);
+        using var heavy = new HeavyAppDetectionService(settings);
+        using var coordinator = new PowerRequestCoordinator(
+            settings, power, awake, new AutomationEngine(), profiles, heavy,
+            new PowerSourcePlanService(settings, () => new PowerSourceSnapshot(false, 100)),
+            new ThermalGuardService(settings),
+            new IdlePowerGuardService(settings, () => 0, () => false), () => null);
+
+        coordinator.Start();
+        DateTime start = DateTime.UnixEpoch;
+        coordinator.RefreshActivePlanFromSystem(start);
+        var hot = new MetricsSnapshot { CpuTemp = 90 };
+        coordinator.ProcessMetrics(hot, start);
+        coordinator.ProcessMetrics(hot, start.AddSeconds(ThermalGuardSettings.MinHoldSeconds));
+        Assert.Equal(PlanId.PowerSaver, coordinator.ActivePlan?.PlanId);
+
+        Assert.True(coordinator.SetManualOverride(PlanId.Performance, null));
+        Assert.Equal("manualOverride", coordinator.GetActivePlanReason().Source);
+        coordinator.ProcessMetrics(hot, start.AddSeconds(ThermalGuardSettings.MinHoldSeconds + 1));
+
+        Assert.Equal("manualOverride", coordinator.GetActivePlanReason().Source);
+        coordinator.RefreshActivePlanFromSystem(start.AddSeconds(ThermalGuardSettings.MinHoldSeconds + 2));
+        Assert.Equal(PlanId.Performance, coordinator.ActivePlan?.PlanId);
+        Assert.Equal(Guid.Parse(PowerPlanService.PerformanceGuid), activeGuid);
+    }
+
+    [Fact]
+    public void Active_idle_session_does_not_replace_manual_plan_expectation()
+    {
+        var settings = TestSettings.Create();
+        settings.Update(state =>
+        {
+            state.MasterAutomationEnabled = true;
+            state.PowerSourcePlan.Enabled = false;
+            state.IdlePowerGuard.Enabled = true;
+            state.IdlePowerGuard.TargetPlan = PlanId.PowerSaver;
+            state.IdlePowerGuard.IdleMinutes = 1;
+        });
+
+        Guid activeGuid = Guid.Parse(PowerPlanService.BalancedGuid);
+        string RunPowercfg(string args)
+        {
+            if (args.StartsWith("/setactive ", StringComparison.OrdinalIgnoreCase))
+                activeGuid = Guid.Parse(args.Split(' ', StringSplitOptions.RemoveEmptyEntries)[1]);
+            return "";
+        }
+
+        var power = new PowerPlanService(settings, () => activeGuid, RunPowercfg);
+        using var awake = new PowerAwakeService(settings, () => false, () => DateTime.UnixEpoch);
+        using var profiles = new AppPowerProfileService(settings);
+        using var heavy = new HeavyAppDetectionService(settings);
+        using var coordinator = new PowerRequestCoordinator(
+            settings, power, awake, new AutomationEngine(), profiles, heavy,
+            new PowerSourcePlanService(settings, () => new PowerSourceSnapshot(false, 100)),
+            new ThermalGuardService(settings),
+            new IdlePowerGuardService(settings, () => 120_000, () => true), () => null);
+
+        coordinator.Start();
+        DateTime start = DateTime.UnixEpoch;
+        coordinator.RefreshActivePlanFromSystem(start);
+        var metrics = new MetricsSnapshot();
+        coordinator.ProcessMetrics(metrics, start);
+        Assert.Equal(PlanId.PowerSaver, coordinator.ActivePlan?.PlanId);
+
+        Assert.True(coordinator.SetManualOverride(PlanId.Performance, null));
+        Assert.Equal("manualOverride", coordinator.GetActivePlanReason().Source);
+        coordinator.ProcessMetrics(metrics, start.AddSeconds(1));
+
+        Assert.Equal("manualOverride", coordinator.GetActivePlanReason().Source);
+        coordinator.RefreshActivePlanFromSystem(start.AddSeconds(2));
+        Assert.Equal(PlanId.Performance, coordinator.ActivePlan?.PlanId);
+        Assert.Equal(Guid.Parse(PowerPlanService.PerformanceGuid), activeGuid);
+    }
+
+    [Fact]
     public void Failed_manual_override_preserves_heavy_app_session_restore_plan()
     {
         var settings = TestSettings.Create();

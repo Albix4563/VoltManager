@@ -83,6 +83,28 @@ public class ApplicationRpcHandlerTests
         Assert.Equal(1, calls);
     }
 
+    [Fact]
+    public async Task Canceled_startup_file_picker_invalidates_a_previous_selection()
+    {
+        const string stale = @"C:\Tools\PreviouslySelected.exe";
+        int picks = 0;
+        int addCalls = 0;
+        var handler = Create(
+            pickStartup: _ => Task.FromResult<string?>(++picks == 1 ? stale : null),
+            addStartup: _ => { addCalls++; return new { success = true }; });
+
+        object? first = await handler.HandleAsync("pickStartupExecutable", default, CancellationToken.None);
+        Assert.Equal(Path.GetFullPath(stale),
+            first?.GetType().GetProperty("path")?.GetValue(first));
+
+        object? canceled = await handler.HandleAsync("pickStartupExecutable", default, CancellationToken.None);
+        Assert.Null(canceled?.GetType().GetProperty("path")?.GetValue(canceled));
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            handler.HandleAsync("addStartupApp", Payload(new { path = stale }), CancellationToken.None));
+        Assert.Equal(0, addCalls);
+    }
+
     private static ApplicationRpcHandler Create(
         Action<string>? openExternal = null,
         Action? exit = null,

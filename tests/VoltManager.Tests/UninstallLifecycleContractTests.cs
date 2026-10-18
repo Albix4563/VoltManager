@@ -31,13 +31,15 @@ public sealed class UninstallLifecycleContractTests
         Assert.Contains("VoltManagerUninstall.exe", tempNames);
         Assert.Contains("VoltManagerUpdate.exe", tempNames);
         Assert.Contains("VoltManagerPayload.zip", tempNames);
-        Assert.Contains("MicrosoftEdgeWebview2Setup.exe", tempNames);
+        // The WebView2 installer is staged in a unique subdirectory, so a root-level
+        // file with this generic name is not an owned VoltManager artifact.
+        Assert.DoesNotContain("MicrosoftEdgeWebview2Setup.exe", tempNames);
         Assert.Contains("vmgr_update_cleanup.bat", tempNames);
         Assert.Contains("vmgr_uninstall_cleanup.bat", tempNames);
     }
 
     [Fact]
-    public void Temp_cleanup_removes_owned_artifacts_but_preserves_unrelated_files_and_current_uninstaller()
+    public void Temp_cleanup_reports_ambiguous_legacy_artifacts_without_removing_any_files()
     {
         Type type = RequireArtifactsType();
         MethodInfo? method = type.GetMethod(
@@ -57,27 +59,119 @@ public sealed class UninstallLifecycleContractTests
             string updateCleanup = Path.Combine(root, "vmgr_update_cleanup.bat");
             string uninstallCleanup = Path.Combine(root, "vmgr_uninstall_cleanup.bat");
             string unrelated = Path.Combine(root, "keep-me.txt");
+            string unrelatedWebViewBootstrapper = Path.Combine(root, "MicrosoftEdgeWebview2Setup.exe");
             string currentUninstaller = Path.Combine(root, "VoltManagerUninstall.exe");
             File.WriteAllText(update, "stale");
             File.WriteAllText(payload, "stale");
             File.WriteAllText(updateCleanup, "stale");
             File.WriteAllText(uninstallCleanup, "stale");
             File.WriteAllText(unrelated, "user-owned");
+            File.WriteAllText(unrelatedWebViewBootstrapper, "unrelated bootstrapper");
             File.WriteAllText(currentUninstaller, "running-self-placeholder");
 
             object? result = method!.Invoke(null, new object?[] { root, currentUninstaller });
             Assert.NotNull(result);
 
-            Assert.False(File.Exists(update));
-            Assert.False(File.Exists(payload));
-            Assert.False(File.Exists(updateCleanup));
-            Assert.False(File.Exists(uninstallCleanup));
+            string[] failures = Assert.IsType<string[]>(result);
+            Assert.Equal("stale", File.ReadAllText(update));
+            Assert.Equal("stale", File.ReadAllText(payload));
+            Assert.Equal("stale", File.ReadAllText(updateCleanup));
+            Assert.Equal("stale", File.ReadAllText(uninstallCleanup));
+            Assert.Contains(failures, failure => failure.Contains("VoltManagerUpdate.exe") && failure.Contains("unverified"));
+            Assert.Contains(failures, failure => failure.Contains("VoltManagerPayload.zip") && failure.Contains("unverified"));
+            Assert.Contains(failures, failure => failure.Contains("vmgr_update_cleanup.bat") && failure.Contains("unverified"));
+            Assert.Contains(failures, failure => failure.Contains("vmgr_uninstall_cleanup.bat") && failure.Contains("unverified"));
             Assert.True(File.Exists(unrelated));
+            Assert.Equal("unrelated bootstrapper", File.ReadAllText(unrelatedWebViewBootstrapper));
             Assert.True(File.Exists(currentUninstaller));
         }
         finally
         {
             try { Directory.Delete(root, recursive: true); } catch { }
+        }
+    }
+
+    [Fact]
+    public void Temp_cleanup_never_deletes_unverified_foreign_files_with_reserved_names()
+    {
+        string root = Path.Combine(Path.GetTempPath(), "VoltManagerTests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        string[] names =
+        {
+            "VoltManagerUpdate.exe", "VoltManagerUninstall.exe", "VoltManagerPayload.zip",
+            "VoltManagerPreviewSetup.exe", "VoltManagerPreviewPayload.zip",
+            "vmgr_update_cleanup.bat", "vmgr_uninstall_cleanup.bat",
+        };
+        var before = new Dictionary<string, byte[]>();
+        var attributes = new Dictionary<string, FileAttributes>();
+
+        try
+        {
+            for (int index = 0; index < names.Length; index++)
+            {
+                string path = Path.Combine(root, names[index]);
+                byte[] content = { 0, 255, (byte)index, 17, 29 };
+                File.WriteAllBytes(path, content);
+                if (index == 0)
+                    File.SetAttributes(path, File.GetAttributes(path) | FileAttributes.ReadOnly);
+                before.Add(path, content);
+                attributes.Add(path, File.GetAttributes(path));
+            }
+
+            string current = Path.Combine(root, "current-uninstaller.exe");
+            File.WriteAllText(current, "keep running process image");
+            string[] failures = VoltManagerArtifacts.CleanupOwnedTempArtifacts(root, current);
+
+            foreach (var entry in before)
+            {
+                Assert.True(File.Exists(entry.Key), "Unverified file removed: " + entry.Key);
+                Assert.Equal(entry.Value, File.ReadAllBytes(entry.Key));
+                Assert.Equal(attributes[entry.Key], File.GetAttributes(entry.Key));
+            }
+            Assert.Equal("keep running process image", File.ReadAllText(current));
+            Assert.All(names, name => Assert.Contains(failures, failure => failure.Contains(name)));
+            Assert.All(failures, failure => Assert.Contains("unverified", failure, StringComparison.OrdinalIgnoreCase));
+            string[] remaining = VoltManagerArtifacts.FindOwnedTempArtifacts(root, current);
+            Assert.All(names, name => Assert.Contains(remaining, path =>
+                string.Equals(Path.GetFileName(path), name, StringComparison.OrdinalIgnoreCase)));
+        }
+        finally
+        {
+            // Synthetic directory created by this test only; restore own fixture attributes.
+            foreach (string name in names)
+            {
+                string path = Path.Combine(root, name);
+                try { if (File.Exists(path)) File.SetAttributes(path, FileAttributes.Normal); } catch { }
+            }
+            try { if (Directory.Exists(root)) Directory.Delete(root, recursive: true); } catch { }
+        }
+    }
+
+    [Fact]
+    public void Directory_cleanup_must_not_recursively_delete_unverified_synthetic_updates_tree()
+    {
+        string root = Path.Combine(Path.GetTempPath(), "VoltManagerTests", Guid.NewGuid().ToString("N"));
+        string updates = Path.Combine(root, "Updates");
+        string privateDir = Path.Combine(updates, "private", "nested");
+        Directory.CreateDirectory(privateDir);
+        string sentinel = Path.Combine(privateDir, "document.bin");
+        File.WriteAllBytes(sentinel, new byte[] { 45, 33, 255, 0, 7 });
+
+        try
+        {
+            MethodInfo delete = RequireArtifactsType().GetMethod("TryDeleteDirectoryTree",
+                BindingFlags.Static | BindingFlags.NonPublic)!;
+            Assert.NotNull(delete);
+            object?[] args = { updates, string.Empty };
+            bool success = Assert.IsType<bool>(delete.Invoke(null, args));
+            Assert.False(success);
+            Assert.Contains("unverified", Assert.IsType<string>(args[1]), StringComparison.OrdinalIgnoreCase);
+            Assert.Equal(new byte[] { 45, 33, 255, 0, 7 }, File.ReadAllBytes(sentinel));
+            Assert.True(Directory.Exists(privateDir));
+        }
+        finally
+        {
+            try { if (Directory.Exists(root)) Directory.Delete(root, recursive: true); } catch { }
         }
     }
 

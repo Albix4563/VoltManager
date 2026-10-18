@@ -34,6 +34,43 @@ public sealed class SetupStagingTests
     }
 
     [Fact]
+    public void Junction_run_directory_cannot_authorize_deferred_deletion_of_external_executable()
+    {
+        string sandbox = Path.Combine(Path.GetTempPath(), "VoltManagerStagingPathTests", Guid.NewGuid().ToString("N"));
+        string updatesRoot = Path.Combine(sandbox, "Updates");
+        string unrelated = Path.Combine(sandbox, "unrelated");
+        string runDirectory = Path.Combine(updatesRoot, Guid.NewGuid().ToString("N"));
+        string externalExecutable = Path.Combine(unrelated, "personal.exe");
+        Directory.CreateDirectory(updatesRoot);
+        Directory.CreateDirectory(unrelated);
+        File.WriteAllText(externalExecutable, "sentinel");
+
+        try
+        {
+            using var mklink = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(
+                "cmd.exe", "/c mklink /J \"" + runDirectory + "\" \"" + unrelated + "\"")
+            {
+                UseShellExecute = false,
+                CreateNoWindow = true,
+            });
+            mklink!.WaitForExit();
+            Assert.Equal(0, mklink.ExitCode);
+            Assert.True(SetupStaging.IsReparsePoint(runDirectory));
+
+            // The path looks like a staging child, but resolves to an unrelated file.
+            // This validation must not authorize MoveFileEx(delete-on-reboot).
+            Assert.False(SetupStaging.IsStagedUpdateExecutable(
+                Path.Combine(runDirectory, "personal.exe"), updatesRoot));
+            Assert.Equal("sentinel", File.ReadAllText(externalExecutable));
+        }
+        finally
+        {
+            try { if (Directory.Exists(runDirectory)) Directory.Delete(runDirectory, false); } catch { }
+            try { Directory.Delete(sandbox, true); } catch { }
+        }
+    }
+
+    [Fact]
     public void Protected_acl_disables_inheritance_and_grants_only_admins_and_system()
     {
         string root = Path.Combine(
@@ -120,6 +157,76 @@ public sealed class SetupStagingTests
         finally
         {
             try { if (Directory.Exists(root)) Directory.Delete(root, false); } catch { }
+            try { Directory.Delete(sandbox, true); } catch { }
+        }
+    }
+
+    [Fact]
+    public void Junction_above_updates_root_is_rejected_without_creating_or_resecuring_directories()
+    {
+        string sandbox = Path.Combine(Path.GetTempPath(), "VoltManagerStagingAncestryTests", Guid.NewGuid().ToString("N"));
+        string outside = Path.Combine(sandbox, "outside");
+        string alias = Path.Combine(sandbox, "alias");
+        string updatesRoot = Path.Combine(alias, "VoltManager", "Updates");
+        Directory.CreateDirectory(outside);
+
+        try
+        {
+            using var mklink = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(
+                "cmd.exe", "/c mklink /J \"" + alias + "\" \"" + outside + "\"")
+            {
+                UseShellExecute = false,
+                CreateNoWindow = true,
+            });
+            mklink!.WaitForExit();
+            Assert.Equal(0, mklink.ExitCode);
+
+            Assert.Throws<InvalidDataException>(() => SetupStaging.CreateProtectedRunDirectory(updatesRoot));
+            Assert.Empty(Directory.GetFileSystemEntries(outside));
+        }
+        finally
+        {
+            try { if (Directory.Exists(alias)) Directory.Delete(alias, false); } catch { }
+            try { Directory.Delete(sandbox, true); } catch { }
+        }
+    }
+
+    [Fact]
+    public void Deferred_cleanup_rejects_nested_junction_without_scheduling_or_removing_external_content()
+    {
+        string sandbox = Path.Combine(Path.GetTempPath(), "VoltManagerStagingCleanupTests", Guid.NewGuid().ToString("N"));
+        string run = Path.Combine(sandbox, "run");
+        string outside = Path.Combine(sandbox, "outside");
+        string junction = Path.Combine(run, "nested-junction");
+        string externalFile = Path.Combine(outside, "personal.txt");
+        Directory.CreateDirectory(run);
+        Directory.CreateDirectory(outside);
+        File.WriteAllText(externalFile, "unrelated sentinel");
+
+        try
+        {
+            using var mklink = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(
+                "cmd.exe", "/c mklink /J \"" + junction + "\" \"" + outside + "\"")
+            {
+                UseShellExecute = false,
+                CreateNoWindow = true,
+            });
+            mklink!.WaitForExit();
+            Assert.Equal(0, mklink.ExitCode);
+
+            // Unlike Directory.EnumerateFiles(..., AllDirectories), the cleanup preflight
+            // must find the junction without descending into the external target.
+            Assert.True(SetupStaging.ContainsReparsePointInTree(run));
+            var warnings = new List<string>();
+            SetupStaging.DeleteRunDirectoryBestEffort(run, warnings.Add);
+
+            Assert.True(Directory.Exists(run)); // fail closed, never call MoveFileEx
+            Assert.Contains(warnings, warning => warning.IndexOf("reparse point", StringComparison.OrdinalIgnoreCase) >= 0);
+            Assert.Equal("unrelated sentinel", File.ReadAllText(externalFile));
+        }
+        finally
+        {
+            try { if (Directory.Exists(junction)) Directory.Delete(junction, false); } catch { }
             try { Directory.Delete(sandbox, true); } catch { }
         }
     }

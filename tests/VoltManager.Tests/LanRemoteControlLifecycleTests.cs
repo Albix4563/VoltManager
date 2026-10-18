@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
+using System.Reflection;
 using VoltManager.Models;
 using VoltManager.Services;
 using VoltManager.Services.LanRemote;
@@ -235,6 +236,43 @@ public sealed class LanRemoteControlLifecycleTests
 
         service.Dispose();
         Assert.Null(Record.Exception(service.Dispose));
+    }
+
+    [Fact]
+    public void Dispose_detaches_active_plan_changed_handler()
+    {
+        using var coordinator = PowerRequestCoordinator.ForPolicyTest(new PowerPolicyPipeline(
+            _ => false, (_, _) => false, _ => false, _ => false, _ => false, (_, _) => { }));
+        SettingsService settings = TestSettings.Create(out string settingsPath);
+        string authPath = Path.Combine(Path.GetDirectoryName(settingsPath)!, "synthetic-lan-auth.json");
+        var service = new LanRemoteControlService(
+            settings,
+            new LanRemoteControlActions(
+                () => null, _ => true, _ => { },
+                () => new WindowsPowerCapabilityState(true, true), () => "test"),
+            auth: new LanRemoteAuthStore(authPath),
+            firewall: new NoopFirewall(),
+            addressProvider: () => [],
+            useHttps: false,
+            powerRequests: coordinator);
+
+        // The same subscription path as the public constructor, with fully synthetic
+        // actions, auth store and firewall (no listener or real system operations).
+        Assert.Contains(ActivePlanSubscribers(coordinator), handler => ReferenceEquals(handler.Target, service));
+
+        service.Dispose();
+
+        Assert.DoesNotContain(ActivePlanSubscribers(coordinator), handler => ReferenceEquals(handler.Target, service));
+    }
+
+    private static Delegate[] ActivePlanSubscribers(PowerRequestCoordinator coordinator)
+        => (typeof(PowerRequestCoordinator).GetField("ActivePlanChanged", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(coordinator) as Delegate)?.GetInvocationList() ?? [];
+
+    private sealed class NoopFirewall : ILanRemoteFirewall
+    {
+        public void Apply(int port) { }
+        public void Remove() { }
     }
 
     private static TaskCompletionSource NewSignal()
