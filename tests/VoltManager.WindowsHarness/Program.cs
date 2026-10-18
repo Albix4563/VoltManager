@@ -296,14 +296,13 @@ internal static class Program
                 : $"search={probe.Opened}/{probe.Closed}; accessible={probe.Accessible}; " +
                   $"theme={probe.Theme}; accent={probe.Accent}; errors={probe.Errors.Length}"));
 
-        string wwwroot = Path.Combine(Directory.GetCurrentDirectory(), "src", "VoltManager", "wwwroot");
-        if (!Directory.Exists(wwwroot))
-            throw new DirectoryNotFoundException("Required UI smoke wwwroot was not found: " + wwwroot);
+        string wwwroot = ResolveWwwroot();
 
         const string cspListenerScript = """
             document.addEventListener('securitypolicyviolation', e => (window.__vmCspViolations ||= []).push(e.violatedDirective + ' ' + e.blockedURI));
             """;
         await surface.ConfigureVirtualHostAsync("app.local", wwwroot, cspListenerScript);
+        surface.EnableReadonlyHostBridge();
 
         var cspViolations = new List<string>();
         var cspMetaMissing = new List<string>();
@@ -333,10 +332,289 @@ internal static class Program
         report.Checks.Add(new HarnessCheck("ui_smoke_csp", cspPassed ? "passed" : "failed",
             $"violations={cspViolations.Count}; metaMissing={(cspMetaMissing.Count == 0 ? "none" : string.Join(",", cspMetaMissing))}; " +
             $"first={firstViolations}"));
+
+        await RunSystemToolsMaintenanceSmokeAsync(report, surface, options);
+    }
+
+    private static async Task RunSystemToolsMaintenanceSmokeAsync(
+        HarnessReport report,
+        WebViewSurface surface,
+        HarnessOptions options)
+    {
+        surface.Resize(1024, 720);
+        await surface.NavigateAsync("https://app.local/index.html");
+
+        bool ready = false;
+        for (int i = 0; i < 40; i++)
+        {
+            string readyJson = await surface.ExecuteAsync("Boolean(window.VoltUiReorg && window.VoltUiReorg.ready)");
+            if (readyJson.Contains("true", StringComparison.OrdinalIgnoreCase))
+            {
+                ready = true;
+                break;
+            }
+            await Task.Delay(100);
+        }
+
+        if (!ready)
+        {
+            report.Checks.Add(new HarnessCheck("ui_smoke_system_tools_maintenance", "failed",
+                "VoltUiReorg non è diventato pronto entro 4 secondi"));
+            return;
+        }
+
+        // Assicura che eventuali modali di onboarding/setup siano chiusi per il test
+        await surface.ExecuteAsync("""
+            (() => {
+                document.getElementById('setup-overlay')?.classList.add('hidden');
+                document.getElementById('setup-overlay')?.classList.remove('flex');
+                document.getElementById('welcome-overlay')?.classList.add('hidden');
+                document.getElementById('welcome-overlay')?.classList.remove('flex');
+            })()
+        """);
+
+        // Attiva vista system-tools e subview apps per avviare il caricamento dell'inventario
+        await surface.ExecuteAsync("""
+            (() => {
+                window.VoltUiReorg.activateView('system-tools');
+                window.VoltUiReorg.activateSubview('system-tools', 'apps');
+            })()
+        """);
+
+        // Attendi che le card delle applicazioni siano renderizzate nel DOM
+        for (int i = 0; i < 40; i++)
+        {
+            string countStr = await surface.ExecuteAsync("document.querySelectorAll('#vm-system-apps .vm-app-card').length");
+            if (int.TryParse(countStr, out int c) && c >= 3)
+                break;
+            await Task.Delay(100);
+        }
+
+        // 1. Probe interazione Applicazioni: focus, digitazione consecutiva 3 caratteri, filtro, blur/focus e sort
+        const string appsProbeScript = """
+            (() => {
+                const tabApps = document.getElementById('vm-tab-system-tools-apps');
+                const panelApps = document.getElementById('vm-panel-system-tools-apps');
+                const appsTabActive = !!tabApps?.classList.contains('active') && tabApps?.getAttribute('aria-selected') === 'true';
+                const appsPanelVisible = !!panelApps && !panelApps.classList.contains('hidden');
+
+                const input = document.getElementById('vm-apps-search');
+                const sortSelect = document.getElementById('vm-apps-sort');
+                const refreshBtn = document.getElementById('vm-apps-refresh');
+                const initialCardCount = document.querySelectorAll('#vm-system-apps .vm-app-card').length;
+
+                // Digitazione consecutiva di almeno 3 caratteri verificando che il focus non venga perso
+                input.focus();
+                const f0 = (document.activeElement === input);
+                input.value = 'B';
+                input.dispatchEvent(new Event('input', { bubbles: true }));
+                const f1 = (document.activeElement === document.getElementById('vm-apps-search'));
+
+                const inp2 = document.getElementById('vm-apps-search');
+                inp2.value = 'Be';
+                inp2.dispatchEvent(new Event('input', { bubbles: true }));
+                const f2 = (document.activeElement === document.getElementById('vm-apps-search'));
+
+                const inp3 = document.getElementById('vm-apps-search');
+                inp3.value = 'Bet';
+                inp3.dispatchEvent(new Event('input', { bubbles: true }));
+                const f3 = (document.activeElement === document.getElementById('vm-apps-search'));
+
+                const focusMaintained = f0 && f1 && f2 && f3;
+                const filteredCount = document.querySelectorAll('#vm-system-apps .vm-app-card').length;
+                const onlyBetaFound = (filteredCount === 1) && (document.querySelector('#vm-system-apps .vm-app-card .vm-app-name')?.textContent || '').includes('Beta');
+
+                // Verifica blur e refocus
+                const inp4 = document.getElementById('vm-apps-search');
+                inp4.blur();
+                const blurred = (document.activeElement !== inp4);
+                inp4.focus();
+                const refocused = (document.activeElement === inp4);
+                const blurFocusOk = blurred && refocused;
+
+                // Reset ricerca
+                inp4.value = '';
+                inp4.dispatchEvent(new Event('input', { bubbles: true }));
+                const resetCount = document.querySelectorAll('#vm-system-apps .vm-app-card').length;
+
+                // Ordinamento per dimensione decrescente (size_desc)
+                sortSelect.value = 'size_desc';
+                sortSelect.dispatchEvent(new Event('change', { bubbles: true }));
+                const sortSizeDescFirst = document.querySelector('#vm-system-apps .vm-app-card .vm-app-name')?.textContent || '';
+
+                // Ordinamento per nome decrescente (name_desc)
+                sortSelect.value = 'name_desc';
+                sortSelect.dispatchEvent(new Event('change', { bubbles: true }));
+                const sortNameDescFirst = document.querySelector('#vm-system-apps .vm-app-card .vm-app-name')?.textContent || '';
+
+                return {
+                    appsTabActive,
+                    appsPanelVisible,
+                    hasSearch: !!input,
+                    hasSort: !!sortSelect,
+                    hasRefresh: !!refreshBtn,
+                    initialCardCount,
+                    focusMaintained,
+                    filteredCount,
+                    onlyBetaFound,
+                    blurFocusOk,
+                    resetCount,
+                    sortNameDescFirst,
+                    sortSizeDescFirst
+                };
+            })()
+            """;
+        string appsJson = await surface.ExecuteAsync(appsProbeScript).WaitAsync(TimeSpan.FromSeconds(10));
+        var appsProbe = JsonSerializer.Deserialize<UiSmokeSystemToolsProbe>(appsJson,
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        // 2. Navigazione a Registro: verifica resa markup, isolamento pannelli e avvio operazione per misura polling
+        await surface.ExecuteAsync("""
+            (() => {
+                document.querySelector('[data-vm-subnav-group="system-tools"][data-vm-subnav-target="registry"]')?.click();
+            })()
+        """);
+        await Task.Delay(150);
+
+        const string regProbeScript = """
+            (() => {
+                const tabReg = document.getElementById('vm-tab-system-tools-registry');
+                const panelReg = document.getElementById('vm-panel-system-tools-registry');
+                const panelApps = document.getElementById('vm-panel-system-tools-apps');
+                const regTabActive = !!tabReg?.classList.contains('active') && tabReg?.getAttribute('aria-selected') === 'true';
+                const regPanelVisible = !!panelReg && !panelReg.classList.contains('hidden');
+                const appsHiddenOnReg = !!panelApps?.classList.contains('hidden');
+                const scanBtn = !!document.getElementById('vm-registry-scan-btn');
+                const regDisclaimer = !!document.querySelector('#vm-system-registry .vm-maintenance-notice');
+
+                // Avvia scansione fittizia per misurare polling reale mentre è in corso
+                document.getElementById('vm-registry-scan-btn')?.click();
+
+                return {
+                    regTabActive,
+                    regPanelVisible,
+                    appsHiddenOnReg,
+                    scanBtn,
+                    regDisclaimer
+                };
+            })()
+            """;
+        string regJson = await surface.ExecuteAsync(regProbeScript).WaitAsync(TimeSpan.FromSeconds(10));
+        var regProbe = JsonSerializer.Deserialize<UiSmokeSystemToolsProbe>(regJson,
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        // Attendi che il polling si attivi su operazione running
+        await Task.Delay(1200);
+        int activePollCalls = surface.StatusCallCount;
+        bool pollingActive = activePollCalls > 0;
+
+        // 3. Verifica disattivazione polling quando la vista è nascosta (switching a widgets)
+        await surface.ExecuteAsync("""
+            (() => {
+                window.VoltUiReorg.activateView('widgets');
+            })()
+        """);
+        await Task.Delay(200);
+        int callsAtHide = surface.StatusCallCount;
+        await Task.Delay(1500);
+        int callsAfterHide = surface.StatusCallCount;
+        bool zeroPollingHidden = (callsAfterHide == callsAtHide);
+
+        // Segnala al bridge di completare l'operazione al prossimo ciclo
+        surface.SimulateScanCompleted = true;
+
+        // 4. Riattiva system-tools e naviga a Backup: verifica disclaimer e caricamento lista readonly
+        await surface.ExecuteAsync("""
+            (() => {
+                window.VoltUiReorg.activateView('system-tools');
+                document.querySelector('[data-vm-subnav-group="system-tools"][data-vm-subnav-target="backup"]')?.click();
+            })()
+        """);
+        for (int i = 0; i < 30; i++)
+        {
+            string bks = await surface.ExecuteAsync("document.querySelectorAll('#vm-system-backup .vm-app-card').length");
+            if (int.TryParse(bks, out int b) && b >= 1) break;
+            await Task.Delay(100);
+        }
+
+        const string bkProbeScript = """
+            (() => {
+                const tabBk = document.getElementById('vm-tab-system-tools-backup');
+                const panelBk = document.getElementById('vm-panel-system-tools-backup');
+                const panelReg = document.getElementById('vm-panel-system-tools-registry');
+                const bkTabActive = !!tabBk?.classList.contains('active') && tabBk?.getAttribute('aria-selected') === 'true';
+                const bkPanelVisible = !!panelBk && !panelBk.classList.contains('hidden');
+                const regHiddenOnBk = !!panelReg?.classList.contains('hidden');
+                const bkDisclaimer = !!document.querySelector('#vm-system-backup .vm-maintenance-notice');
+                const bkCardCount = document.querySelectorAll('#vm-system-backup .vm-app-card').length;
+
+                return {
+                    bkTabActive,
+                    bkPanelVisible,
+                    regHiddenOnBk,
+                    bkDisclaimer,
+                    bkCardCount
+                };
+            })()
+            """;
+        string bkJson = await surface.ExecuteAsync(bkProbeScript).WaitAsync(TimeSpan.FromSeconds(10));
+        var bkProbe = JsonSerializer.Deserialize<UiSmokeSystemToolsProbe>(bkJson,
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        // 5. Ripristina vista Applicazioni per osservazione screenshot reale
+        await surface.ExecuteAsync("""
+            (() => {
+                window.VoltUiReorg.activateView('system-tools');
+                window.VoltUiReorg.activateSubview('system-tools', 'apps');
+            })()
+        """);
+        await Task.Delay(300);
+
+        string screenshotPath = await surface.CaptureScreenshotAsync("system-tools-smoke");
+
+        bool passed = appsProbe is not null && regProbe is not null && bkProbe is not null
+            && appsProbe.AppsTabActive && appsProbe.AppsPanelVisible
+            && appsProbe.HasSearch && appsProbe.HasSort && appsProbe.HasRefresh
+            && appsProbe.InitialCardCount == 3
+            && appsProbe.FocusMaintained
+            && appsProbe.OnlyBetaFound
+            && appsProbe.BlurFocusOk
+            && appsProbe.ResetCount == 3
+            && appsProbe.SortSizeDescFirst.Contains("Beta", StringComparison.OrdinalIgnoreCase)
+            && regProbe.RegTabActive && regProbe.RegPanelVisible && regProbe.AppsHiddenOnReg && regProbe.ScanBtn && regProbe.RegDisclaimer
+            && pollingActive && zeroPollingHidden
+            && bkProbe.BkTabActive && bkProbe.BkPanelVisible && bkProbe.RegHiddenOnBk && bkProbe.BkDisclaimer && bkProbe.BkCardCount >= 1;
+
+        string detail = $"apps={appsProbe?.AppsTabActive}/{appsProbe?.AppsPanelVisible}(cards={appsProbe?.InitialCardCount},focus={appsProbe?.FocusMaintained},filter={appsProbe?.FilteredCount},sort={appsProbe?.SortSizeDescFirst}); " +
+            $"reg={regProbe?.RegTabActive}/{regProbe?.RegPanelVisible}(scan={regProbe?.ScanBtn}); " +
+            $"polling=(active={pollingActive},zeroHidden={zeroPollingHidden},hiddenDelta={callsAfterHide - callsAtHide}); " +
+            $"bk={bkProbe?.BkTabActive}/{bkProbe?.BkPanelVisible}(items={bkProbe?.BkCardCount}); " +
+            $"screenshot={screenshotPath}";
+
+        report.Checks.Add(new HarnessCheck("ui_smoke_system_tools_maintenance", passed ? "passed" : "failed", detail));
+    }
+
+    private static string ResolveWwwroot()
+    {
+        string? envPath = Environment.GetEnvironmentVariable("VOLT_SMOKE_WWWROOT");
+        if (!string.IsNullOrWhiteSpace(envPath) && Directory.Exists(envPath))
+            return Path.GetFullPath(envPath);
+
+        string local = Path.Combine(Directory.GetCurrentDirectory(), "src", "VoltManager", "wwwroot");
+        if (Directory.Exists(local))
+            return Path.GetFullPath(local);
+
+        throw new DirectoryNotFoundException("Required UI smoke wwwroot was not found: " + local);
     }
 
     private static string ReadRepositoryText(params string[] segments)
     {
+        if (segments.Length >= 4 && segments[0] == "src" && segments[1] == "VoltManager" && segments[2] == "wwwroot")
+        {
+            string subPath = Path.Combine(segments.Skip(3).ToArray());
+            string resolved = Path.Combine(ResolveWwwroot(), subPath);
+            if (File.Exists(resolved)) return File.ReadAllText(resolved);
+        }
         string path = Path.Combine(new[] { Directory.GetCurrentDirectory() }.Concat(segments).ToArray());
         if (!File.Exists(path))
             throw new FileNotFoundException("Required UI smoke asset was not found", path);
@@ -919,7 +1197,7 @@ internal static class Program
         catch { return "unknown"; }
     }
 
-    private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
+    internal static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
 }
 
 internal sealed class WebViewSurface : IDisposable, IAsyncDisposable
@@ -946,6 +1224,12 @@ internal sealed class WebViewSurface : IDisposable, IAsyncDisposable
     }
 
     public IntPtr WindowHandle => new WindowInteropHelper(_window).Handle;
+
+    public void Resize(double width, double height)
+    {
+        _window.Width = width;
+        _window.Height = height;
+    }
 
     public async Task OpenAsync()
         => await OpenHtmlAsync($"<html><body><h1>{_name}</h1><script>window.__ticks=0;</script></body></html>");
@@ -1016,6 +1300,168 @@ internal sealed class WebViewSurface : IDisposable, IAsyncDisposable
         catch { return json; }
     }
 
+    public int StatusCallCount => _statusCallCount;
+    private int _statusCallCount;
+    public bool SimulateScanCompleted { get; set; }
+
+    public async Task<string> CaptureScreenshotAsync(string prefix = "system-tools-smoke")
+    {
+        string tempDir = Path.Combine(Path.GetTempPath(), "voltmanager-smoke");
+        Directory.CreateDirectory(tempDir);
+        string uniqueFile = $"{prefix}-{DateTime.UtcNow:yyyyMMdd-HHmmss-fff}-{Guid.NewGuid().ToString("N")[..6]}.png";
+        string path = Path.Combine(tempDir, uniqueFile);
+        await using var stream = File.Create(path);
+        await _webView.CoreWebView2.CapturePreviewAsync(CoreWebView2CapturePreviewImageFormat.Png, stream);
+        return path;
+    }
+
+    public void EnableReadonlyHostBridge()
+    {
+        _webView.CoreWebView2.WebMessageReceived += (sender, args) =>
+        {
+            try
+            {
+                using var doc = JsonDocument.Parse(args.WebMessageAsJson);
+                var root = doc.RootElement;
+                if (!root.TryGetProperty("id", out var idProp)) return;
+                string id = idProp.GetString() ?? "";
+                string method = root.TryGetProperty("method", out var mProp) ? (mProp.GetString() ?? "") : "";
+                var payload = root.TryGetProperty("payload", out var pProp) ? pProp : default;
+
+                if (method == "maintenance.status")
+                    Interlocked.Increment(ref _statusCallCount);
+
+                object result = GetDefaultReadonlyBridgeResponse(method, payload);
+
+                string response = JsonSerializer.Serialize(new { id, ok = true, result }, Program.JsonOptions);
+                _webView.CoreWebView2.PostWebMessageAsJson(response);
+            }
+            catch
+            {
+                // Ignora messaggi non JSON o malformati
+            }
+        };
+    }
+
+    private object GetDefaultReadonlyBridgeResponse(string method, JsonElement payload)
+    {
+        switch (method)
+        {
+            case "maintenance.getApps":
+                return new
+                {
+                    apps = new object[]
+                    {
+                        new
+                        {
+                            id = "app-alpha",
+                            name = "Alpha Office Suite",
+                            publisher = "Alpha Corp",
+                            version = "1.2.3",
+                            estimatedSizeKb = 45000,
+                            canUninstall = true,
+                            reason = "",
+                            installLocation = @"C:\Program Files\AlphaOffice"
+                        },
+                        new
+                        {
+                            id = "app-beta",
+                            name = "Beta Development Tools",
+                            publisher = "Beta Soft",
+                            version = "2.0.0",
+                            estimatedSizeKb = 120000,
+                            canUninstall = true,
+                            reason = "",
+                            installLocation = @"C:\Program Files\BetaTools"
+                        },
+                        new
+                        {
+                            id = "app-gamma",
+                            name = "Gamma System Runtime",
+                            publisher = "Microsoft",
+                            version = "10.0.1",
+                            estimatedSizeKb = 8000,
+                            canUninstall = false,
+                            reason = "Componente protetto",
+                            installLocation = @"C:\Windows\System32"
+                        }
+                    },
+                    warnings = Array.Empty<string>()
+                };
+
+            case "maintenance.getBackups":
+                return new
+                {
+                    backups = new[]
+                    {
+                        new
+                        {
+                            id = "bk-sample-1",
+                            description = "Backup manutenzione automatica",
+                            createdAt = DateTime.UtcNow.AddDays(-1).ToString("o"),
+                            itemCount = 2,
+                            status = "completed"
+                        }
+                    }
+                };
+
+            case "maintenance.getBackup":
+                return new
+                {
+                    id = "bk-sample-1",
+                    description = "Backup manutenzione automatica",
+                    createdAt = DateTime.UtcNow.AddDays(-1).ToString("o"),
+                    items = new[]
+                    {
+                        new { id = "it-1", path = @"HKCU\Software\SampleOldKey", kind = "registry", reason = "Chiave orfana", status = "backed_up" },
+                        new { id = "it-2", path = @"C:\Users\Test\AppData\Local\Temp\sample.tmp", kind = "file", reason = "File residuo", status = "backed_up" }
+                    }
+                };
+
+            case "maintenance.start":
+                string kind = payload.ValueKind == JsonValueKind.Object && payload.TryGetProperty("kind", out var kProp)
+                    ? (kProp.GetString() ?? "")
+                    : "";
+                if (kind == "registry")
+                {
+                    return new
+                    {
+                        id = "op-reg-smoke",
+                        kind = "registry",
+                        status = "running",
+                        processed = 1,
+                        total = 3,
+                        message = "Scansione registro in corso..."
+                    };
+                }
+                return new { id = "op-noop", status = "completed", processed = 0, total = 0, message = "Modalità test readonly" };
+
+            case "maintenance.status":
+                return new
+                {
+                    id = "op-reg-smoke",
+                    kind = "registry",
+                    status = SimulateScanCompleted ? "completed" : "running",
+                    processed = SimulateScanCompleted ? 3 : 2,
+                    total = 3,
+                    message = SimulateScanCompleted ? "Scansione registro completata" : "Analisi chiavi in corso...",
+                    items = new[]
+                    {
+                        new { id = "reg-1", path = @"HKCU\Software\SampleOrphanKey", kind = "registry", reason = "Chiave orfana", selectable = true, containsUserData = false }
+                    }
+                };
+
+            case "checkDefaultPlans":
+                return new { allPresent = true, installed = Array.Empty<object>(), missing = Array.Empty<string>() };
+
+            case "getSettings":
+                return new { welcomeCompleted = true, firstRun = false, theme = "blue" };
+
+            default:
+                return new { };
+        }
+    }
+
     public void Close()
     {
         if (_closed) return;
@@ -1055,6 +1501,33 @@ internal sealed class UiSmokeCspProbe
 {
     public bool MetaPresent { get; set; }
     public string[] Violations { get; set; } = Array.Empty<string>();
+}
+
+internal sealed class UiSmokeSystemToolsProbe
+{
+    public bool AppsTabActive { get; set; }
+    public bool AppsPanelVisible { get; set; }
+    public bool HasSearch { get; set; }
+    public bool HasSort { get; set; }
+    public bool HasRefresh { get; set; }
+    public int InitialCardCount { get; set; }
+    public bool FocusMaintained { get; set; }
+    public int FilteredCount { get; set; }
+    public bool OnlyBetaFound { get; set; }
+    public bool BlurFocusOk { get; set; }
+    public int ResetCount { get; set; }
+    public string SortNameDescFirst { get; set; } = "";
+    public string SortSizeDescFirst { get; set; } = "";
+    public bool RegTabActive { get; set; }
+    public bool RegPanelVisible { get; set; }
+    public bool AppsHiddenOnReg { get; set; }
+    public bool ScanBtn { get; set; }
+    public bool RegDisclaimer { get; set; }
+    public bool BkTabActive { get; set; }
+    public bool BkPanelVisible { get; set; }
+    public bool RegHiddenOnBk { get; set; }
+    public bool BkDisclaimer { get; set; }
+    public int BkCardCount { get; set; }
 }
 
 internal sealed class HarnessReport

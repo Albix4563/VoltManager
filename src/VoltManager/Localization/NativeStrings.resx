@@ -125,4 +125,8 @@
   <data name="JumpList_Sleep60Desc" xml:space="preserve"><value>Schedule sleep in 1 hour</value></data>
   <data name="JumpList_OpenSchedulerDesc" xml:space="preserve"><value>Open the scheduler window</value></data>
   <data name="JumpList_CategorySchedule" xml:space="preserve"><value>Timer PC</value></data>
+  <data name="Maintenance_ConfirmUninstall" xml:space="preserve"><value>Proceed with uninstallation of '{0}'?\n\nPublisher: {1}\nCommand: {2}</value></data>
+  <data name="Maintenance_ConfirmApply" xml:space="preserve"><value>Permanently delete {0} selected item(s)? A safety backup will be created.</value></data>
+  <data name="Maintenance_ConfirmRestore" xml:space="preserve"><value>Restore backup '{0}' ({1} item(s))?</value></data>
+  <data name="Maintenance_ConfirmDeleteBackup" xml:space="preserve"><value>Permanently delete backup '{0}'?</value></data>
 </root>

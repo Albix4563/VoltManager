@@ -125,4 +125,8 @@
   <data name="JumpList_Sleep60Desc" xml:space="preserve"><value>Programma la sospensione tra 1 ora</value></data>
   <data name="JumpList_OpenSchedulerDesc" xml:space="preserve"><value>Apri la finestra di pianificazione</value></data>
   <data name="JumpList_CategorySchedule" xml:space="preserve"><value>Timer PC</value></data>
+  <data name="Maintenance_ConfirmUninstall" xml:space="preserve"><value>Procedere con la disinstallazione di '{0}'?\n\nProduttore: {1}\nComando: {2}</value></data>
+  <data name="Maintenance_ConfirmApply" xml:space="preserve"><value>Eliminare definitivamente {0} elemento/i selezionato/i? Verrà creato un backup di sicurezza.</value></data>
+  <data name="Maintenance_ConfirmRestore" xml:space="preserve"><value>Ripristinare il backup '{0}' ({1} elemento/i)?</value></data>
+  <data name="Maintenance_ConfirmDeleteBackup" xml:space="preserve"><value>Eliminare definitivamente il backup '{0}'?</value></data>
 </root>

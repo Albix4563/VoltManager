@@ -125,4 +125,8 @@
   <data name="JumpList_Sleep60Desc" xml:space="preserve"><value>在 1 小时后计划睡眠</value></data>
   <data name="JumpList_OpenSchedulerDesc" xml:space="preserve"><value>打开计划窗口</value></data>
   <data name="JumpList_CategorySchedule" xml:space="preserve"><value>定时电脑</value></data>
+  <data name="Maintenance_ConfirmUninstall" xml:space="preserve"><value>是否继续卸载“{0}”？\n\n发布者：{1}\n命令：{2}</value></data>
+  <data name="Maintenance_ConfirmApply" xml:space="preserve"><value>是否永久删除 {0} 个所选项目？将创建安全备份。</value></data>
+  <data name="Maintenance_ConfirmRestore" xml:space="preserve"><value>是否恢复备份“{0}”（{1} 个项目）？</value></data>
+  <data name="Maintenance_ConfirmDeleteBackup" xml:space="preserve"><value>是否永久删除备份“{0}”？</value></data>
 </root>

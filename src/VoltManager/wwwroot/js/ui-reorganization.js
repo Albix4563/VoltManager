@@ -315,6 +315,11 @@
         });
         if (group === 'settings' && name === 'updates') loadChangelog();
         if (group === 'system-tools' && name === 'startup') dispatchView('system');
+        if (group === 'system-tools' && ['apps', 'registry', 'backup'].includes(name)) {
+            if (typeof window.__voltEnsureMaintenanceScript === 'function') {
+                window.__voltEnsureMaintenanceScript().catch(() => {});
+            }
+        }
 
         syncLifecycle();
         document.dispatchEvent(new CustomEvent('voltuisubviewchanged', {
