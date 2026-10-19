@@ -6,6 +6,7 @@ namespace VoltManager.Services;
 
 public sealed class UpdateService : IDisposable
 {
+    internal const string InteractiveUpdateProtocolMarker = "VoltManagerUpdateUiProtocol-v1.txt";
     private readonly SettingsService _settings;
     private readonly HttpClient _http;
     private readonly GitHubUpdateClient _github;
@@ -106,7 +107,11 @@ public sealed class UpdateService : IDisposable
                 _knownReleaseDownloadUrls.Add(downloadUrl);
                 _knownInstallerAssets[downloadUrl] = new KnownInstallerAsset(
                     installerAsset!.Name,
-                    release.Sha256SumsAssetUrl);
+                    release.Sha256SumsAssetUrl,
+                    !string.IsNullOrWhiteSpace(release.Sha256SumsAssetUrl) &&
+                    release.Assets.Any(asset =>
+                        string.Equals(asset.Name, InteractiveUpdateProtocolMarker, StringComparison.Ordinal) &&
+                        !string.IsNullOrWhiteSpace(asset.DownloadUrl)));
                 if (!string.IsNullOrWhiteSpace(release.Sha256SumsAssetUrl))
                     _knownReleaseDownloadUrls.Add(release.Sha256SumsAssetUrl);
             }
@@ -191,7 +196,7 @@ public sealed class UpdateService : IDisposable
     public Task<VerifiedUpdateDownload> DownloadUpdateAsync(string url)
         => DownloadUpdateAsync(url, CancellationToken.None);
 
-    public Task<VerifiedUpdateDownload> DownloadUpdateAsync(string url, CancellationToken cancellationToken)
+    public async Task<VerifiedUpdateDownload> DownloadUpdateAsync(string url, CancellationToken cancellationToken)
     {
         ThrowIfDisposed();
         KnownInstallerAsset asset;
@@ -201,12 +206,14 @@ public sealed class UpdateService : IDisposable
                 throw new InvalidOperationException("URL aggiornamento non autorizzato o metadati release mancanti.");
             asset = known;
         }
-        return _downloader.DownloadAsync(
+        VerifiedUpdateDownload download = await _downloader.DownloadAsync(
             url,
             asset.AssetName,
             asset.Sha256SumsUrl,
             progress => DownloadProgress?.Invoke(progress),
             cancellationToken);
+        download.SupportsInteractiveUpdate = asset.SupportsInteractiveUpdate;
+        return download;
     }
 
     public bool IsKnownReleaseAssetUrl(string url)
@@ -318,7 +325,8 @@ public sealed class UpdateService : IDisposable
 
     private void ThrowIfDisposed() => ObjectDisposedException.ThrowIf(_disposed != 0, this);
 
-    private sealed record KnownInstallerAsset(string AssetName, string? Sha256SumsUrl);
+    private sealed record KnownInstallerAsset(
+        string AssetName, string? Sha256SumsUrl, bool SupportsInteractiveUpdate);
 
     private static HttpClient CreateHttpClient()
     {

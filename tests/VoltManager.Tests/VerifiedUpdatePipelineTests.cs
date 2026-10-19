@@ -140,6 +140,144 @@ public sealed class VerifiedUpdatePipelineTests
     }
 
     [Fact]
+    public async Task Interactive_launcher_waits_for_acceptance_and_preserves_staging_after_ack()
+    {
+        var download = UpdateTestHelpers.CreateVerifiedDownload();
+        download.SupportsInteractiveUpdate = true;
+        ProcessStartInfo? observed = null;
+        var launcher = new UpdateInstallerLauncher(startProcess: info =>
+        {
+            observed = info;
+            string[] args = info.Arguments.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            string id = args[Array.IndexOf(args, UpdateSessionProtocol.SessionArgument) + 1].Trim('"');
+            using UpdateSessionChannels setup = UpdateSessionProtocol.OpenSetup(id);
+            setup.SignalVisible();
+            setup.SignalAccepted();
+            return Process.GetCurrentProcess();
+        });
+
+        await launcher.LaunchOrLegacyAsync(download, "/update --pid 123 --lang it", null);
+
+        Assert.NotNull(observed);
+        Assert.Contains(UpdateSessionProtocol.SessionArgument, observed.Arguments);
+        Assert.Throws<ObjectDisposedException>(() => download.VerifyOrThrow());
+    }
+
+    [Fact]
+    public async Task Interactive_launcher_aborts_when_setup_does_not_accept_after_proceed()
+    {
+        var fs = new TestUpdateFileSystem();
+        using VerifiedUpdateDownload download = UpdateTestHelpers.CreateVerifiedDownload(fs);
+        download.SupportsInteractiveUpdate = true;
+        UpdateSessionChannels? setup = null;
+        using var cts = new CancellationTokenSource();
+        var launcher = new UpdateInstallerLauncher(startProcess: info =>
+        {
+            string[] args = info.Arguments.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            setup = UpdateSessionProtocol.OpenSetup(args[Array.IndexOf(args, UpdateSessionProtocol.SessionArgument) + 1].Trim('"'));
+            setup.SignalVisible();
+            return Process.GetCurrentProcess();
+        });
+
+        Task update = launcher.LaunchVerifiedAsync(download, "/update", null, cts.Token);
+        Assert.NotNull(setup);
+        Assert.True(await setup.WaitProceedAsync(TimeSpan.FromSeconds(5)));
+        Assert.False(update.IsCompleted);
+        cts.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => update);
+        Assert.True(setup.IsAborted);
+        Assert.False(fs.HasRunDirectories);
+        setup.Dispose();
+    }
+
+    [Fact]
+    public async Task Interactive_launcher_rejects_setup_abort_before_acceptance()
+    {
+        using VerifiedUpdateDownload download = UpdateTestHelpers.CreateVerifiedDownload();
+        download.SupportsInteractiveUpdate = true;
+        UpdateSessionChannels? setup = null;
+        var launcher = new UpdateInstallerLauncher(startProcess: info =>
+        {
+            string[] args = info.Arguments.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            setup = UpdateSessionProtocol.OpenSetup(args[Array.IndexOf(args, UpdateSessionProtocol.SessionArgument) + 1].Trim('"'));
+            setup.SignalVisible();
+            setup.SignalAbort();
+            return Process.GetCurrentProcess();
+        });
+
+        await Assert.ThrowsAnyAsync<Exception>(() =>
+            launcher.LaunchVerifiedAsync(download, "/update", null));
+        Assert.NotNull(setup);
+        Assert.True(setup.IsAborted);
+        setup.Dispose();
+    }
+
+    [Fact]
+    public async Task Existing_release_still_uses_legacy_update_arguments()
+    {
+        using VerifiedUpdateDownload download = UpdateTestHelpers.CreateVerifiedDownload();
+        ProcessStartInfo? observed = null;
+        var launcher = new UpdateInstallerLauncher(startProcess: info =>
+        {
+            observed = info;
+            return Process.GetCurrentProcess();
+        });
+
+        await launcher.LaunchOrLegacyAsync(download, "/update --pid 123 --lang it", null);
+
+        Assert.NotNull(observed);
+        Assert.Equal("/update --pid 123 --lang it", observed.Arguments);
+    }
+
+    [Fact]
+    public async Task Interactive_launcher_signals_abort_on_start_failure()
+    {
+        using VerifiedUpdateDownload download = UpdateTestHelpers.CreateVerifiedDownload();
+        download.SupportsInteractiveUpdate = true;
+        UpdateSessionChannels? setup = null;
+        var launcher = new UpdateInstallerLauncher(startProcess: info =>
+        {
+            string[] args = info.Arguments.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            setup = UpdateSessionProtocol.OpenSetup(args[Array.IndexOf(args, UpdateSessionProtocol.SessionArgument) + 1].Trim('"'));
+            throw new InvalidOperationException("UAC denied");
+        });
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            launcher.LaunchVerifiedAsync(download, "/update", null));
+        try
+        {
+            Assert.NotNull(setup);
+            Assert.True(setup.IsAborted);
+        }
+        finally { setup?.Dispose(); }
+    }
+
+    [Fact]
+    public async Task Interactive_launcher_signals_abort_when_cancelled_before_visibility()
+    {
+        using VerifiedUpdateDownload download = UpdateTestHelpers.CreateVerifiedDownload();
+        download.SupportsInteractiveUpdate = true;
+        using var cts = new CancellationTokenSource();
+        UpdateSessionChannels? setup = null;
+        var launcher = new UpdateInstallerLauncher(startProcess: info =>
+        {
+            string[] args = info.Arguments.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            setup = UpdateSessionProtocol.OpenSetup(args[Array.IndexOf(args, UpdateSessionProtocol.SessionArgument) + 1].Trim('"'));
+            cts.Cancel();
+            return Process.GetCurrentProcess();
+        });
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            launcher.LaunchVerifiedAsync(download, "/update", null, cts.Token));
+        try
+        {
+            Assert.NotNull(setup);
+            Assert.True(setup.IsAborted);
+        }
+        finally { setup?.Dispose(); }
+    }
+
+    [Fact]
     public async Task Launcher_rechecks_hash_and_rejects_tampered_open_file()
     {
         byte[] payload = [10, 20, 30, 40];

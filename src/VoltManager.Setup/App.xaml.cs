@@ -5,7 +5,9 @@ using System.Windows.Media;
 using System.IO;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using System.Threading;
 using VoltManager.Models;
+using VoltManager.Services;
 using VoltManager.Setup.Engine;
 using VoltManager.Setup.Windows;
 
@@ -16,8 +18,10 @@ namespace VoltManager.Setup
         protected override void OnStartup(StartupEventArgs e)
         {
             base.OnStartup(e);
-            ApplyThemeFromSettings();
             var args = SetupArgs.Parse(e.Args);
+            ApplyThemeFromSettings();
+            if (args.Mode == SetupMode.Update)
+                ApplyUpdatePalette(args.UpdatePalette);
             var savedLang = I18n.TryReadSavedLanguage();
             I18n.Initialize(args.Language, savedLang);
 
@@ -31,11 +35,14 @@ namespace VoltManager.Setup
                     break;
 
                 case SetupMode.Update:
-                    _ = RunAndExitAsync(
-                        () => RunUpdate(args.WaitPid),
-                        code => Shutdown(code),
-                        "Update",
-                        ex => string.Format(I18n.T("update_failed"), ex.Message, SetupUpdateLog.FilePath));
+                    var window = new UpdateWindow();
+                    window.SetVersion(GetVersion());
+                    MainWindow = window;
+                    if (args.HasUpdateSessionFlag)
+                        _ = RunInteractiveUpdateAsync(args, window);
+                    else
+                        _ = RunLegacyUpdateWindowAsync(args, window);
+                    window.Show();
                     break;
 
                 case SetupMode.Uninstall:
@@ -102,8 +109,164 @@ namespace VoltManager.Setup
             string version = GetVersion();
             SetupUpdateLog.Info($"Update to {version} started (waiting for pid {pid}).");
             await new UpdateInstallCoordinator(engine).UpdateAsync(pid, version);
+            engine.RelaunchUpdatedApp();
             SetupUpdateLog.Info($"Update to {version} completed.");
             return 0;
+        }
+
+        private async Task RunLegacyUpdateWindowAsync(SetupArgs args, UpdateWindow window)
+        {
+            var engine = new InstallEngine();
+            try
+            {
+                var rendered = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+                window.FirstRendered += (_, __) => rendered.TrySetResult(true);
+                window.SetUpdateStarted();
+                await rendered.Task;
+                string version = GetVersion();
+                SetupUpdateLog.Info($"Legacy update to {version} started; app pid {args.WaitPid}.");
+                await new UpdateInstallCoordinator(engine).UpdateAsync(args.WaitPid, version,
+                    onStage: (name, complete) => ReportUpdateStage(window, name, complete));
+                window.ReportStage(3);
+                engine.RelaunchUpdatedApp();
+                SetupUpdateLog.Info($"Legacy update to {version} launched.");
+                window.ShowLegacyCompleted();
+                await Task.Delay(1200);
+                window.Close();
+                Shutdown(0);
+            }
+            catch (Exception ex)
+            {
+                SetupUpdateLog.Error("Legacy update failed: " + ex);
+                window.ShowFailure(ex, engine.UpdatePayloadInstalled
+                    ? new Func<Task>(() => { engine.RelaunchUpdatedApp(); return Task.CompletedTask; }) : null);
+            }
+        }
+
+        private static void ReportUpdateStage(UpdateWindow window, string name, bool complete)
+        {
+            int stage = name == "extract-payload" ? 1
+                : name == "register-update" || name == "complete-installation" ? 2 : 0;
+            if (complete && name == "extract-payload") stage = 2;
+            if (complete && name == "complete-installation") stage = 3;
+            window.ReportStage(stage);
+        }
+
+        private async Task RunInteractiveUpdateAsync(SetupArgs args, UpdateWindow window)
+        {
+            UpdateSessionChannels? channels = null;
+            bool installed = false;
+            bool closing = false;
+            bool userAborted = false;
+            bool retainChannelsForRetry = false;
+            bool channelsDisposed = false;
+            var engine = new InstallEngine();
+            try
+            {
+                if (!UpdateSessionProtocol.TryValidateId(args.UpdateSessionToken, out string sessionId))
+                    throw new ArgumentException("Invalid update session identifier.");
+                if (args.HasUpdatePaletteFlag &&
+                    !UpdateSessionProtocol.TryDecodePalette(args.UpdatePalette, out _))
+                    throw new ArgumentException("Invalid update palette.");
+
+                channels = UpdateSessionProtocol.OpenSetup(sessionId);
+                UpdateSessionChannels activeChannels = channels;
+                window.Closed += (_, __) => {
+                    closing = true;
+                    // Closing before the handoff must only wake the waiter. Disposing
+                    // its wait handles while WaitProceedAsync is pending races WaitAny.
+                    if (!installed)
+                        activeChannels.SignalAbort();
+                    else if (retainChannelsForRetry && !channelsDisposed)
+                    {
+                        activeChannels.Dispose();
+                        channelsDisposed = true;
+                    }
+                };
+                var rendered = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+                window.FirstRendered += (_, __) => {
+                    channels.SignalVisible();
+                    rendered.TrySetResult(true);
+                };
+                window.UpdateAborted += (_, __) => { userAborted = true; channels.SignalAbort(); };
+                window.SetWaitingForProceed();
+                await rendered.Task;
+                if (!await channels.WaitProceedAsync(TimeSpan.FromSeconds(90)))
+                    throw new TimeoutException("The original application did not authorize proceeding with the update.");
+                if (userAborted || channels.IsAborted)
+                    throw new OperationCanceledException("Update canceled before installation.");
+                window.SetUpdateStarted();
+                // The host must not exit until the setup has committed to update.
+                channels.SignalAccepted();
+
+                string version = GetVersion();
+                SetupUpdateLog.Info($"Interactive update to {version} began; app pid {args.WaitPid}.");
+                await new UpdateInstallCoordinator(engine).UpdateAsync(args.WaitPid, version,
+                    CancellationToken.None, requireProcessExit: true,
+                    onStage: (name, complete) => ReportUpdateStage(window, name, complete),
+                    updateSessionId: sessionId,
+                    isHandoffAborted: () => channels.IsAborted);
+                installed = true;
+                window.ReportStage(3);
+                engine.RelaunchUpdatedApp(sessionId);
+                if (!await channels.WaitReadyAsync(TimeSpan.FromSeconds(90)))
+                    throw new TimeoutException(I18n.T("update_ready_timeout"));
+
+                SetupUpdateLog.Info($"Interactive update to {version} confirmed ready.");
+                window.ShowCompleted();
+                await Task.Delay(1200);
+                window.Close();
+                Shutdown(0);
+            }
+            catch (Exception ex)
+            {
+                SetupUpdateLog.Error("Interactive update failed: " + ex);
+                if (!installed && channels != null && !channelsDisposed)
+                    channels.SignalAbort();
+                retainChannelsForRetry = installed && channels != null && !closing;
+                if (!closing)
+                    window.ShowFailure(ex, retainChannelsForRetry ? new Func<Task>(async () => {
+                    if (closing) return;
+                    engine.RelaunchUpdatedApp(args.UpdateSessionToken);
+                    if (!await channels!.WaitReadyAsync(TimeSpan.FromSeconds(90)))
+                        throw new TimeoutException(I18n.T("update_ready_timeout"));
+                    SetupUpdateLog.Info("Updated application restart confirmed after retry.");
+                    window.ShowCompleted();
+                    await Task.Delay(1200);
+                    if (!closing) window.Close();
+                    Shutdown(0);
+                    }) : null);
+            }
+            finally
+            {
+                // Retry owns the channels until Window.Closed. All other paths,
+                // including pre-Proceed cancellation, release them only after
+                // the awaited operation has completed.
+                if (channels != null && !retainChannelsForRetry && !channelsDisposed)
+                {
+                    channels.Dispose();
+                    channelsDisposed = true;
+                }
+            }
+        }
+
+        private void ApplyUpdatePalette(string? paletteArgument)
+        {
+            if (!UpdateSessionProtocol.TryDecodePalette(paletteArgument!, out string[] colors))
+                return;
+
+            Resources["WindowBgGradient"] = Brush(colors[0]);
+            Resources["SidebarGradient"] = Brush(colors[1]);
+            Resources["C.Accent"] = ParseColor(colors[3]);
+            Resources["C.Accent.Dim"] = ParseColor(colors[4]);
+            Resources["C.Accent.Glow"] = ParseColor(colors[4]);
+            Resources["C.Accent.Deep"] = ParseColor(colors[5]);
+            Resources["AccentBrush"] = Brush(colors[3]);
+            Resources["AccentDimBrush"] = Brush(colors[4]);
+            Resources["TextPrimaryBrush"] = Brush(colors[6]);
+            Resources["TextSecondaryBrush"] = Brush(colors[7]);
+            Resources["TextMutedBrush"] = Brush(colors[7]);
+            Resources["BorderBrush"] = Brush(colors[8]);
         }
 
         private static void RedirectUninstallLogToRunDirectory()

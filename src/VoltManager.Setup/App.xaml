@@ -485,6 +485,61 @@
             </Setter>
         </Style>
 
+        <!-- Accessible animated marquee for update operations with unknown duration. -->
+        <Style x:Key="UpdateMarquee" TargetType="ProgressBar">
+            <Setter Property="Height" Value="7"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ProgressBar">
+                        <Grid ClipToBounds="True">
+                            <Border Background="{StaticResource ProgressTrackGradient}" CornerRadius="4"/>
+                            <Border x:Name="MarqueeBar" Width="95" HorizontalAlignment="Left"
+                                    CornerRadius="4" Background="{DynamicResource AccentBrush}">
+                                <Border.RenderTransform>
+                                    <TranslateTransform X="-95"/>
+                                </Border.RenderTransform>
+                            </Border>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsIndeterminate" Value="True">
+                                <Trigger.EnterActions>
+                                    <BeginStoryboard x:Name="MoveMarquee">
+                                        <Storyboard RepeatBehavior="Forever">
+                                            <DoubleAnimation Storyboard.TargetName="MarqueeBar"
+                                                Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)"
+                                                From="-95" To="520" Duration="0:0:2"/>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.EnterActions>
+                                <Trigger.ExitActions>
+                                    <StopStoryboard BeginStoryboardName="MoveMarquee"/>
+                                </Trigger.ExitActions>
+                            </Trigger>
+                            <Trigger Property="IsIndeterminate" Value="False">
+                                <Setter TargetName="MarqueeBar" Property="Width" Value="520"/>
+                                <Setter TargetName="MarqueeBar" Property="RenderTransform" Value="{x:Null}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="UpdateStaticProgress" TargetType="ProgressBar">
+            <Setter Property="Height" Value="7"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ProgressBar">
+                        <Grid ClipToBounds="True">
+                            <Border Background="{StaticResource ProgressTrackGradient}" CornerRadius="4"/>
+                            <Border Width="110" HorizontalAlignment="Center" CornerRadius="4"
+                                    Background="{DynamicResource AccentBrush}"/>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <!-- ═══════════════════════════════════════════════════════════════
              VECTOR ICONS (Lucide-style, 24-unit grid)
              ═══════════════════════════════════════════════════════════════ -->

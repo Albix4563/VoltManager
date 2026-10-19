@@ -13,8 +13,12 @@ namespace VoltManager.Setup.Engine
         public string Language { get; }
         public bool FromTemp { get; }
         public bool PurgeUserData { get; }
+        public string UpdateSessionToken { get; }
+        public string UpdatePalette { get; }
+        public bool HasUpdateSessionFlag { get; }
+        public bool HasUpdatePaletteFlag { get; }
 
-        public SetupArgs(SetupMode mode, int waitPid = 0, string targetDir = "", bool silentUninstall = false, string language = "", bool fromTemp = false, bool purgeUserData = false)
+        public SetupArgs(SetupMode mode, int waitPid = 0, string targetDir = "", bool silentUninstall = false, string language = "", bool fromTemp = false, bool purgeUserData = false, string updateSessionToken = "", string updatePalette = "", bool hasUpdateSessionFlag = false, bool hasUpdatePaletteFlag = false)
         {
             PurgeUserData = purgeUserData;
             Mode = mode;
@@ -23,6 +27,10 @@ namespace VoltManager.Setup.Engine
             SilentUninstall = silentUninstall;
             Language = language ?? "";
             FromTemp = fromTemp;
+            UpdateSessionToken = updateSessionToken ?? "";
+            UpdatePalette = updatePalette ?? "";
+            HasUpdateSessionFlag = hasUpdateSessionFlag;
+            HasUpdatePaletteFlag = hasUpdatePaletteFlag;
         }
 
         public static SetupArgs Parse(string[] args)
@@ -38,7 +46,11 @@ namespace VoltManager.Setup.Engine
             if (update)
             {
                 int pid = GetIntParam(args, "--pid");
-                return new SetupArgs(SetupMode.Update, pid, language: lang);
+                return new SetupArgs(SetupMode.Update, pid, language: lang,
+                    updateSessionToken: GetParam(args, "--update-session"),
+                    updatePalette: GetParam(args, "--update-palette"),
+                    hasUpdateSessionFlag: HasFlag(args, "--update-session"),
+                    hasUpdatePaletteFlag: HasFlag(args, "--update-palette"));
             }
 
             if (uninstall)

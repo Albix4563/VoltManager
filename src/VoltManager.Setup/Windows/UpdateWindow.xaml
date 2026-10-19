@@ -1,0 +1,61 @@
+<Window x:Class="VoltManager.Setup.Windows.UpdateWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="VoltManager Update" Width="520" SizeToContent="Height"
+        Icon="/VoltManagerSetup;component/Assets/voltmanager.ico"
+        MinWidth="440" MaxWidth="680"
+        WindowStartupLocation="CenterScreen" ResizeMode="CanMinimize"
+        Background="{StaticResource WindowBgGradient}" Foreground="{StaticResource TextPrimaryBrush}"
+        FontFamily="Segoe UI" UseLayoutRounding="True" SnapsToDevicePixels="True"
+        ContentRendered="UpdateWindow_ContentRendered" Closing="UpdateWindow_Closing">
+    <Border Margin="14" Padding="25,22" CornerRadius="14" BorderThickness="1"
+            BorderBrush="{StaticResource BorderBrush}" Background="{StaticResource SidebarGradient}">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <StackPanel Grid.Row="0" Margin="0,0,0,17">
+                <TextBlock x:Name="HeadingText" FontSize="21" FontWeight="SemiBold"/>
+                <TextBlock x:Name="VersionText" Margin="0,3,0,0" FontSize="11"
+                           Foreground="{StaticResource TextMutedBrush}"/>
+                <TextBlock x:Name="DescriptionText" Margin="0,5,0,0" FontSize="12"
+                           Foreground="{StaticResource TextSecondaryBrush}" TextWrapping="Wrap"/>
+            </StackPanel>
+
+            <StackPanel Grid.Row="1" Margin="0,0,0,14">
+                <ProgressBar x:Name="BusyIndicator" IsIndeterminate="True" Height="7" Style="{StaticResource UpdateMarquee}"
+                             AutomationProperties.Name="Update in progress"/>
+                <TextBlock x:Name="CurrentStatusText" Margin="0,9,0,0" FontSize="12"
+                           Foreground="{StaticResource TextSecondaryBrush}" TextWrapping="Wrap"
+                           AutomationProperties.LiveSetting="Polite"/>
+            </StackPanel>
+
+            <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                          MaxHeight="260" CanContentScroll="True">
+                <StackPanel x:Name="StagesPanel" VerticalAlignment="Top"/>
+            </ScrollViewer>
+
+            <StackPanel Grid.Row="3">
+                <ScrollViewer MaxHeight="90" VerticalScrollBarVisibility="Auto">
+                    <TextBlock x:Name="ErrorText" Visibility="Collapsed" TextWrapping="Wrap"
+                               Foreground="{StaticResource DangerBrush}" Margin="0,3,0,10"
+                               AutomationProperties.LiveSetting="Assertive"/>
+                </ScrollViewer>
+                <DockPanel LastChildFill="False">
+                    <Button x:Name="LogButton" Content="Log" Click="LogButton_Click"
+                            Style="{StaticResource GhostBtn}" DockPanel.Dock="Left"/>
+                    <StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
+                        <Button x:Name="RetryLaunchButton" Visibility="Collapsed"
+                                Margin="0,0,8,0" Click="RetryLaunchButton_Click"
+                                Style="{StaticResource GhostBtn}"/>
+                        <Button x:Name="CloseButton" Visibility="Collapsed" Click="CloseButton_Click"
+                                Style="{StaticResource PrimaryBtn}"/>
+                    </StackPanel>
+                </DockPanel>
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>

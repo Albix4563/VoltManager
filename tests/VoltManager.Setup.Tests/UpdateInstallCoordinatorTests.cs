@@ -9,6 +9,44 @@ namespace VoltManager.Setup.Tests
     public sealed class UpdateInstallCoordinatorTests
     {
         [Fact]
+        public async Task Interactive_handoff_aborted_after_pid_exit_prevents_cache_and_install()
+        {
+            var engine = new FakeEngine();
+            var processes = new FakeProcessOperations { WaitResult = true };
+            int cacheCalls = 0;
+            int abortChecks = 0;
+            var coordinator = new UpdateInstallCoordinator(engine, processes, () => { cacheCalls++; return null; });
+
+            await Assert.ThrowsAsync<OperationCanceledException>(() => coordinator.UpdateAsync(
+                42, "2.0.0", requireProcessExit: true,
+                isHandoffAborted: () => ++abortChecks > 1));
+
+            Assert.Equal(1, engine.PreflightCalls);
+            Assert.Equal(1, processes.WaitCalls);
+            Assert.Equal(0, cacheCalls);
+            Assert.Equal(0, engine.Calls);
+        }
+
+        [Fact]
+        public async Task Strict_process_exit_timeout_rejects_update_before_cache_clear()
+        {
+            var engine = new FakeEngine();
+            var processes = new FakeProcessOperations { WaitResult = false };
+            int cacheCalls = 0;
+            var stages = new List<string>();
+            var coordinator = new UpdateInstallCoordinator(engine, processes, () => { cacheCalls++; return null; });
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() => coordinator.UpdateAsync(
+                42, "2.0.0", requireProcessExit: true,
+                onStage: (name, complete) => stages.Add(name + ":" + complete)));
+
+            Assert.Equal(0, cacheCalls);
+            Assert.Equal(0, engine.Calls);
+            Assert.Equal(1, engine.PreflightCalls);
+            Assert.Equal(new[] { "waiting-for-exit:False" }, stages);
+        }
+
+        [Fact]
         public async Task Rejected_install_ownership_must_not_clear_webview_cache_or_wait_for_a_process()
         {
             var engine = new FakeEngine { PreflightFailure = new InvalidDataException("Synthetic forged install marker") };

@@ -11,6 +11,35 @@ namespace VoltManager.Setup.Tests
     public sealed class SetupWorkflowTests
     {
         [Fact]
+        public async Task Runner_notifies_each_step_start_and_completion_in_order()
+        {
+            var transitions = new List<string>();
+            var runner = new SetupWorkflowRunner();
+            SetupWorkflowResult result = await runner.RunAsync(new[]
+            {
+                new SetupWorkflowStep("validate", _ => Task.CompletedTask),
+                new SetupWorkflowStep("install", _ => Task.CompletedTask),
+            }, CancellationToken.None, (name, complete) => transitions.Add(name + ":" + complete));
+
+            Assert.True(result.Success);
+            Assert.Equal(new[] { "validate:False", "validate:True", "install:False", "install:True" }, transitions);
+        }
+
+        [Fact]
+        public async Task Runner_does_not_report_failed_step_as_completed()
+        {
+            var transitions = new List<string>();
+            var runner = new SetupWorkflowRunner();
+            SetupWorkflowResult result = await runner.RunAsync(new[]
+            {
+                new SetupWorkflowStep("broken", _ => throw new IOException("synthetic")),
+            }, CancellationToken.None, (name, complete) => transitions.Add(name + ":" + complete));
+
+            Assert.False(result.Success);
+            Assert.Equal(new[] { "broken:False" }, transitions);
+        }
+
+        [Fact]
         public async Task Runner_stops_at_first_failure_and_records_diagnostic()
         {
             var calls = new List<string>();

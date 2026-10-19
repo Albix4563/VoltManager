@@ -7,6 +7,7 @@ namespace VoltManager.Bridge.Handlers;
 
 public sealed class UpdateRpcHandler : IBridgeRpcHandler
 {
+    private readonly SemaphoreSlim _installGate = new(1, 1);
     private static readonly string[] RegisteredMethods =
     [
         "checkForUpdates", "getReleaseHistory", "downloadUpdate",
@@ -43,19 +44,32 @@ public sealed class UpdateRpcHandler : IBridgeRpcHandler
         if (!_actions.IsDownloadUrlAllowed(url))
             throw new InvalidOperationException("URL aggiornamento non autorizzato.");
 
-        if (_actions.IsHeavyAppSessionActive())
-            return Deferred(url);
+        // A second RPC must never start another installer while the first one awaits readiness.
+        if (!await _installGate.WaitAsync(0, cancellationToken))
+            throw new InvalidOperationException("Un aggiornamento è già in preparazione.");
+        try
+        {
+            if (_actions.IsHeavyAppSessionActive())
+                return Deferred(url);
 
-        using VerifiedUpdateDownload download = await _actions.DownloadUpdate(url, cancellationToken);
-        cancellationToken.ThrowIfCancellationRequested();
-        if (_actions.IsHeavyAppSessionActive())
-            return Deferred(url);
+            using VerifiedUpdateDownload download = await _actions.DownloadUpdate(url, cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+            if (_actions.IsHeavyAppSessionActive())
+                return Deferred(url);
 
-        _actions.LaunchInstaller(
-            download,
-            $"/update --pid {Environment.ProcessId} --lang {_loc.CurrentLanguage}");
-        _actions.RequestExit();
-        return new { success = true };
+            await _actions.LaunchInstaller(
+                download,
+                $"/update --pid {Environment.ProcessId} --lang {_loc.CurrentLanguage}",
+                cancellationToken);
+            // The launcher has received Accepted. RPC cancellation can no longer
+            // unwind the handoff: Setup is now waiting for the host to shut down.
+            _actions.RequestExit();
+            return new { success = true };
+        }
+        finally
+        {
+            _installGate.Release();
+        }
     }
 
     private object Deferred(string url)

@@ -377,6 +377,7 @@ public partial class MainWindow : Window
         }
 
         _webViewTray.NotifyNavigationSucceeded();
+        NotifyUpdateNavigationCompleted(core, args);
         string src = core.Source ?? "";
         if (!src.StartsWith("about:", StringComparison.OrdinalIgnoreCase))
         {
@@ -668,7 +669,7 @@ public partial class MainWindow : Window
         });
 
     private void OnCoordinatorInstallRequested(VerifiedUpdateDownload download)
-        => _ = Dispatcher.InvokeAsync(() => LaunchDownloadedInstaller(download));
+        => _ = Dispatcher.InvokeAsync(async () => await LaunchDownloadedInstallerAsync(download));
 
     private void OnHeavyAppActivityChangedForUpdates(HeavyAppDetectionState state)
     {
@@ -755,13 +756,14 @@ public partial class MainWindow : Window
         }
     }
 
-    private void LaunchDownloadedInstaller(VerifiedUpdateDownload download)
+    private async Task LaunchDownloadedInstallerAsync(VerifiedUpdateDownload download)
     {
         try
         {
-            _app.UpdateInstallerLauncher.Launch(
+            await _app.UpdateInstallerLauncher.LaunchOrLegacyAsync(
                 download,
-                $"/update --pid {Environment.ProcessId} --lang {_app.Loc.CurrentLanguage}");
+                $"/update --pid {Environment.ProcessId} --lang {_app.Loc.CurrentLanguage}",
+                BridgeHandlerFactory.GetUpdatePalette(_app));
             _exiting = true;
             _app.ExitApp();
         }

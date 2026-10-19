@@ -76,7 +76,12 @@ public class UpdateRpcHandlerTests
         string? launchedPath = null, launchedArgs = null;
         int exits = 0;
         var handler = Create(
-            launch: (download, args) => { launchedPath = download.Path; launchedArgs = args; },
+            launch: (download, args, _) =>
+            {
+                launchedPath = download.Path;
+                launchedArgs = args;
+                return Task.CompletedTask;
+            },
             exit: () => exits++);
 
         object? result = await handler.HandleAsync(
@@ -90,12 +95,85 @@ public class UpdateRpcHandlerTests
         Assert.True(doc.RootElement.GetProperty("success").GetBoolean());
     }
 
+    [Fact]
+    public async Task DownloadUpdate_waits_for_setup_readiness_before_exit()
+    {
+        var ready = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        int exits = 0;
+        var handler = Create(
+            launch: (_, _, _) => ready.Task,
+            exit: () => exits++);
+
+        Task<object?> update = handler.HandleAsync(
+            "downloadUpdate", Payload(new { url = "https://example/update.exe" }), CancellationToken.None);
+
+        Assert.False(update.IsCompleted);
+        Assert.Equal(0, exits);
+        ready.SetResult();
+        await update;
+        Assert.Equal(1, exits);
+    }
+
+    [Fact]
+    public async Task DownloadUpdate_failed_or_cancelled_setup_does_not_exit()
+    {
+        int exits = 0;
+        var handler = Create(
+            launch: (_, _, _) => Task.FromException(new TimeoutException("Setup not ready")),
+            exit: () => exits++);
+
+        await Assert.ThrowsAsync<TimeoutException>(() => handler.HandleAsync(
+            "downloadUpdate", Payload(new { url = "https://example/update.exe" }), CancellationToken.None));
+        Assert.Equal(0, exits);
+    }
+
+    [Fact]
+    public async Task DownloadUpdate_committed_handoff_exits_even_if_rpc_is_cancelled()
+    {
+        using var cts = new CancellationTokenSource();
+        int exits = 0;
+        var handler = Create(
+            launch: (_, _, _) =>
+            {
+                cts.Cancel();
+                return Task.CompletedTask;
+            },
+            exit: () => exits++);
+
+        await handler.HandleAsync("downloadUpdate",
+            Payload(new { url = "https://example/update.exe" }), cts.Token);
+        Assert.Equal(1, exits);
+    }
+
+    [Fact]
+    public async Task DownloadUpdate_rejects_parallel_install_attempt()
+    {
+        var ready = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        int downloads = 0;
+        var handler = Create(
+            download: (_, _) =>
+            {
+                downloads++;
+                return Task.FromResult(UpdateTestHelpers.CreateVerifiedDownload());
+            },
+            launch: (_, _, _) => ready.Task);
+
+        Task<object?> first = handler.HandleAsync(
+            "downloadUpdate", Payload(new { url = "https://example/update.exe" }), CancellationToken.None);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => handler.HandleAsync(
+            "downloadUpdate", Payload(new { url = "https://example/update.exe" }), CancellationToken.None));
+        Assert.Equal(1, downloads);
+
+        ready.SetResult();
+        await first;
+    }
+
     private static UpdateRpcHandler Create(
         Func<bool>? heavy = null,
         Func<string, bool>? allowed = null,
         Func<string, CancellationToken, Task<VerifiedUpdateDownload>>? download = null,
         Action<string>? defer = null,
-        Action<VerifiedUpdateDownload, string>? launch = null,
+        Func<VerifiedUpdateDownload, string, CancellationToken, Task>? launch = null,
         Action? exit = null)
         => new(new LocalizationService(), new UpdateRpcActions(
             CheckForUpdates: () => Task.FromResult(new UpdateInfo()),
@@ -104,6 +182,6 @@ public class UpdateRpcHandlerTests
             DownloadUpdate: download ?? ((_, _) => Task.FromResult(UpdateTestHelpers.CreateVerifiedDownload())),
             IsHeavyAppSessionActive: heavy ?? (() => false),
             DeferUpdateUntilGameEnds: defer ?? (_ => { }),
-            LaunchInstaller: launch ?? ((_, _) => { }),
+            LaunchInstaller: launch ?? ((_, _, _) => Task.CompletedTask),
             RequestExit: exit ?? (() => { })));
 }

@@ -147,7 +147,8 @@ internal static class BridgeHandlerFactory
                 updates.DownloadUpdateAsync,
                 app.IsHeavyAppSessionActive,
                 app.DeferUpdateUntilGameEnds,
-                app.UpdateInstallerLauncher.Launch,
+                (download, arguments, token) => app.UpdateInstallerLauncher.LaunchOrLegacyAsync(
+                    download, arguments, GetUpdatePalette(app), token),
                 requestExit));
 
         var applicationHandler = new ApplicationRpcHandler(
@@ -227,6 +228,24 @@ internal static class BridgeHandlerFactory
         try { history = app.BatteryHistory.GetHistory(); }
         catch { /* best-effort: optional shell integration probing is non-fatal. */ }
         return smoother.Apply(raw, history, DateTime.UtcNow);
+    }
+
+    internal static string GetUpdatePalette(App app)
+    {
+        ThemeWebPalette palette = app.Theme.GetWebTheme().Palette;
+        return UpdateSessionProtocol.EncodePalette(
+        [
+            palette.Background,
+            palette.Surface,
+            palette.SurfaceElevated,
+            palette.Primary,
+            palette.Secondary,
+            palette.Hover,
+            palette.Text,
+            palette.MutedText,
+            palette.Border,
+            palette.OnPrimary,
+        ]);
     }
 
     private static (bool success, string? path, string? error) OpenLogFolder()

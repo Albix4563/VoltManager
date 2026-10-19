@@ -57,7 +57,8 @@ namespace VoltManager.Setup.Engine
     {
         internal async Task<SetupWorkflowResult> RunAsync(
             IEnumerable<SetupWorkflowStep> steps,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            Action<string, bool>? onStepTransition = null)
         {
             var diagnostics = new List<SetupStepDiagnostic>();
             foreach (SetupWorkflowStep step in steps)
@@ -65,8 +66,10 @@ namespace VoltManager.Setup.Engine
                 try
                 {
                     cancellationToken.ThrowIfCancellationRequested();
+                    onStepTransition?.Invoke(step.Name, false);
                     await step.Execute(cancellationToken).ConfigureAwait(false);
                     diagnostics.Add(new SetupStepDiagnostic { Name = step.Name, Success = true });
+                    onStepTransition?.Invoke(step.Name, true);
                 }
                 catch (OperationCanceledException ex) when (cancellationToken.IsCancellationRequested)
                 {

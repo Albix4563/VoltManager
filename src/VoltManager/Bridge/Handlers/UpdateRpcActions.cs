@@ -10,5 +10,5 @@ public sealed record UpdateRpcActions(
     Func<string, CancellationToken, Task<VerifiedUpdateDownload>> DownloadUpdate,
     Func<bool> IsHeavyAppSessionActive,
     Action<string> DeferUpdateUntilGameEnds,
-    Action<VerifiedUpdateDownload, string> LaunchInstaller,
+    Func<VerifiedUpdateDownload, string, CancellationToken, Task> LaunchInstaller,
     Action RequestExit);

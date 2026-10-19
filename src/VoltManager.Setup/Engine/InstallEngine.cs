@@ -66,6 +66,9 @@ namespace VoltManager.Setup.Engine
         public event Action<string, double>? Progress; // (statusText, 0-100)
         public SetupWorkflowResult? LastOperationResult { get; private set; }
         public IReadOnlyList<string> LastWarnings => _operationWarnings;
+        public bool UpdatePayloadInstalled { get; private set; }
+        public bool UpdateRelaunchRequested { get; private set; }
+        public event Action<string, bool>? UpdateStepTransition;
 
         public InstallEngine()
             : this(new SystemInstallProcessOperations(), GitHubPreviewReleaseClient.CreateDefault())
@@ -240,6 +243,8 @@ namespace VoltManager.Setup.Engine
         {
             _operationWarnings.Clear();
             LastOperationResult = null;
+            UpdatePayloadInstalled = false;
+            UpdateRelaunchRequested = false;
             string? installDir = null;
             var steps = new List<SetupWorkflowStep>
             {
@@ -290,20 +295,46 @@ namespace VoltManager.Setup.Engine
                     token.ThrowIfCancellationRequested();
                     return Task.CompletedTask;
                 }),
-                new SetupWorkflowStep("cleanup-and-relaunch", token =>
+                new SetupWorkflowStep("complete-installation", token =>
                 {
                     Report("", 100);
                     ScheduleDownloadedUpdateDelete();
-                    string exe = Path.Combine(installDir!, AppExe);
-                    if (File.Exists(exe))
-                        _processOperations.Start(exe, "--updated");
                     token.ThrowIfCancellationRequested();
                     return Task.CompletedTask;
                 }),
             };
 
-            CompleteWorkflow(await _workflowRunner.RunAsync(steps, ct).ConfigureAwait(false), ct);
+            CompleteWorkflow(await _workflowRunner.RunAsync(steps, ct,
+                (name, completed) => UpdateStepTransition?.Invoke(name, completed)).ConfigureAwait(false), ct);
+            UpdatePayloadInstalled = true;
         }
+
+        /// <summary>
+        /// Requests application relaunch after a completed installation; retrying this
+        /// operation does not reinstall any files. Readiness is acknowledged separately.
+        /// </summary>
+        public void RelaunchUpdatedApp(string? updateSessionId = null)
+        {
+            if (!UpdatePayloadInstalled)
+                throw new InvalidOperationException("Update payload has not completed installation.");
+            string installDir = ResolveValidatedUpdateInstallDirectory();
+            string exe = Path.Combine(installDir, AppExe);
+            if (!File.Exists(exe))
+                throw new FileNotFoundException("Installed VoltManager executable is missing.", exe);
+            UpdateRelaunchRequested = false;
+            string args = "--updated";
+            if (!string.IsNullOrEmpty(updateSessionId))
+            {
+                if (!Guid.TryParseExact(updateSessionId, "N", out _))
+                    throw new ArgumentException("Invalid update session identifier.", nameof(updateSessionId));
+                args += " --update-session " + updateSessionId;
+            }
+            _processOperations.Start(exe, args);
+            UpdateRelaunchRequested = true;
+        }
+
+        public void RetryUpdateRelaunch(string? updateSessionId = null)
+            => RelaunchUpdatedApp(updateSessionId);
 
         /// <summary>
         /// Read-only preflight for UpdateInstallCoordinator, which may clear

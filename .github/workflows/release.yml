@@ -97,13 +97,26 @@ jobs:
             [IO.Compression.CompressionLevel]::Optimal, $false)
           Write-Host "Portable zip: $zip"
 
+      - name: Declare interactive update protocol
+        shell: pwsh
+        run: |
+          # Capability belongs to this released Setup build. Older release assets
+          # omit this marker, so hosts use their existing legacy handoff.
+          if (-not (Test-Path -LiteralPath 'dist/VoltManagerSetup-${{ steps.ver.outputs.version }}.exe')) {
+            throw 'The protocol marker requires a built Setup installer.'
+          }
+          [IO.File]::WriteAllText(
+            (Join-Path (Resolve-Path 'dist').Path 'VoltManagerUpdateUiProtocol-v1.txt'),
+            "VoltManager interactive update protocol v1`n")
+
       - name: Compute SHA256SUMS
         shell: pwsh
         run: |
           # Formato sha256sum ("<hex>  <nome>"): l'app e il Setup verificano l'installer prima di avviarlo.
           $assets = @(
             'dist/VoltManagerSetup-${{ steps.ver.outputs.version }}.exe',
-            'dist/VoltManager-portable-${{ steps.ver.outputs.version }}-win-x64.zip'
+            'dist/VoltManager-portable-${{ steps.ver.outputs.version }}-win-x64.zip',
+            'dist/VoltManagerUpdateUiProtocol-v1.txt'
           )
           $lines = foreach ($asset in $assets) {
             $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $asset).Hash.ToLowerInvariant()
@@ -123,4 +136,5 @@ jobs:
           files: |
             dist/VoltManagerSetup-${{ steps.ver.outputs.version }}.exe
             dist/VoltManager-portable-${{ steps.ver.outputs.version }}-win-x64.zip
+            dist/VoltManagerUpdateUiProtocol-v1.txt
             dist/SHA256SUMS

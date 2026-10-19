@@ -31,6 +31,9 @@ public sealed class VerifiedUpdateDownload : IDisposable
     internal string RunDirectory { get; }
     internal string AssetName { get; }
     internal string ExpectedSha256 { get; }
+    // Set only when the corresponding GitHub release explicitly publishes support
+    // for the interactive update-session handoff protocol.
+    internal bool SupportsInteractiveUpdate { get; set; }
 
     internal void VerifyOrThrow()
     {

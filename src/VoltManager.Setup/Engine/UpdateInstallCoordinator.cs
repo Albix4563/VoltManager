@@ -36,26 +36,46 @@ namespace VoltManager.Setup.Engine
             _warn = warn ?? (_ => { });
         }
 
-        public async Task UpdateAsync(int waitPid, string version, CancellationToken ct = default)
+        public async Task UpdateAsync(
+            int waitPid, string version, CancellationToken ct = default,
+            bool requireProcessExit = false,
+            Action<string, bool>? onStage = null,
+            string? updateSessionId = null,
+            Func<bool>? isHandoffAborted = null)
         {
+            void ThrowIfHandoffAborted()
+            {
+                if (requireProcessExit && isHandoffAborted?.Invoke() == true)
+                    throw new OperationCanceledException("The interactive update handoff was aborted.");
+            }
+
             // Cache eviction is itself a filesystem side effect. Do not perform it
             // until the installed target passes the same strict ownership gate
             // required by the engine before stopping processes or replacing files.
             ct.ThrowIfCancellationRequested();
+            ThrowIfHandoffAborted();
             _engine.ValidateUpdateTargetBeforeSideEffects();
             ct.ThrowIfCancellationRequested();
+            onStage?.Invoke("waiting-for-exit", false);
             if (waitPid > 0)
             {
                 bool exited = await _processOperations.WaitForExitAsync(
                     waitPid, MainProcessExitTimeout, ct).ConfigureAwait(false);
-                // Not fatal: InstallEngine's stop-processes step terminates the supervisor
-                // before the app, so a hung instance is closed without being restarted.
+                ThrowIfHandoffAborted();
                 if (!exited)
+                {
+                    if (requireProcessExit)
+                        throw new InvalidOperationException($"VoltManager (pid {waitPid}) did not exit within {MainProcessExitTimeout.TotalSeconds:0}s; the update was not started.");
+                    // Legacy /update --pid has historically continued after timeout.
                     _warn($"VoltManager (pid {waitPid}) did not exit within {MainProcessExitTimeout.TotalSeconds:0}s; it will be stopped by the installer.");
+                }
             }
+            ThrowIfHandoffAborted();
+            onStage?.Invoke("waiting-for-exit", true);
 
             // The profile is only a cache: a locked file (for instance a WebView2 helper
             // still shutting down) must not block the update itself.
+            ThrowIfHandoffAborted();
             string? cacheError = _clearWebView2Cache();
             if (!string.IsNullOrWhiteSpace(cacheError))
                 _warn("Unable to reset VoltManager WebView2 data before update: " + cacheError);
@@ -63,7 +83,25 @@ namespace VoltManager.Setup.Engine
             // The main process has already been awaited above. InstallEngine still performs
             // its own process-safety checks for the supervisor/hardware service before files
             // are replaced, so pass 0 to avoid waiting on the same PID twice.
-            await _engine.UpdateAsync(0, version, ct);
+            ThrowIfHandoffAborted();
+            if (_engine is InstallEngine installEngine)
+            {
+                if (onStage != null)
+                    installEngine.UpdateStepTransition += onStage;
+                try
+                {
+                    await _engine.UpdateAsync(0, version, ct).ConfigureAwait(false);
+                }
+                finally
+                {
+                    if (onStage != null)
+                        installEngine.UpdateStepTransition -= onStage;
+                }
+            }
+            else
+            {
+                await _engine.UpdateAsync(0, version, ct).ConfigureAwait(false);
+            }
         }
 
         private static string? ClearWebView2Cache()
