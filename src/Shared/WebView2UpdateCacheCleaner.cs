@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 
@@ -34,6 +35,19 @@ namespace VoltManager.Services
             if (!Directory.Exists(userDataDirectory))
                 return true;
 
+            // A linked parent can redirect an otherwise ordinary profile directory.
+            string? ancestor = Path.GetFullPath(userDataDirectory);
+            while (!string.IsNullOrEmpty(ancestor))
+            {
+                if (Directory.Exists(ancestor) &&
+                    (File.GetAttributes(ancestor) & FileAttributes.ReparsePoint) != 0)
+                {
+                    error = "WebView2 user-data directory or parent is a reparse point.";
+                    return false;
+                }
+                ancestor = Path.GetDirectoryName(ancestor);
+            }
+
             for (int attempt = 1; attempt <= MaxAttempts; attempt++)
             {
                 if (!Directory.Exists(userDataDirectory))
@@ -62,20 +76,50 @@ namespace VoltManager.Services
 
         private static void MakeWritableTree(string directory)
         {
-            foreach (string file in Directory.GetFiles(directory, "*", SearchOption.AllDirectories))
-                MakeWritable(file);
+            // ponytail: iterative non-reparse attribute clearing; skipped: transactional rollback of file attributes, add when attribute restore on cancel is required.
+            var pending = new Stack<string>();
+            pending.Push(directory);
+            while (pending.Count > 0)
+            {
+                string current = pending.Pop();
+                FileAttributes attributes;
+                try
+                {
+                    attributes = File.GetAttributes(current);
+                }
+                catch (FileNotFoundException) { continue; }
+                catch (DirectoryNotFoundException) { continue; }
 
-            foreach (string childDirectory in Directory.GetDirectories(directory, "*", SearchOption.AllDirectories))
-                MakeWritable(childDirectory);
+                if ((attributes & FileAttributes.ReparsePoint) != 0)
+                    continue;
 
-            MakeWritable(directory);
+                MakeWritable(current);
+
+                if ((attributes & FileAttributes.Directory) != 0)
+                {
+                    // Deliberately avoid SearchOption.AllDirectories: it follows junctions.
+                    try
+                    {
+                        foreach (string entry in Directory.EnumerateFileSystemEntries(current))
+                            pending.Push(entry);
+                    }
+                    catch (DirectoryNotFoundException) { /* Entry removed concurrently. */ }
+                    catch (UnauthorizedAccessException) { /* Locked or restricted entry. */ }
+                }
+            }
         }
 
         private static void MakeWritable(string path)
         {
-            FileAttributes attributes = File.GetAttributes(path);
-            if ((attributes & FileAttributes.ReadOnly) != 0)
-                File.SetAttributes(path, attributes & ~FileAttributes.ReadOnly);
+            try
+            {
+                FileAttributes attributes = File.GetAttributes(path);
+                if ((attributes & FileAttributes.ReadOnly) != 0)
+                    File.SetAttributes(path, attributes & ~FileAttributes.ReadOnly);
+            }
+            catch (FileNotFoundException) { /* Entry removed concurrently. */ }
+            catch (DirectoryNotFoundException) { /* Entry removed concurrently. */ }
+            catch (UnauthorizedAccessException) { /* Insufficient permissions to modify attributes. */ }
         }
     }
 }

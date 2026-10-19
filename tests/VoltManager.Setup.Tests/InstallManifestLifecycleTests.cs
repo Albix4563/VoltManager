@@ -72,18 +72,14 @@ public sealed class InstallManifestLifecycleTests
             Assert.Equal("version one", File.ReadAllText(Path.Combine(destination, "VoltManager.dll")));
             string unrelated = Path.Combine(destination, "wwwroot", "js", "private-notes.txt");
             File.WriteAllText(unrelated, "foreign fixture content");
-            IReadOnlyList<string> refused = InstallManifest.DeleteOwnedEntries(destination, repairZip);
-            Assert.NotEmpty(refused);
-            Assert.Contains(refused, reason => reason.IndexOf("Unverified", StringComparison.OrdinalIgnoreCase) >= 0
-                || reason.IndexOf("Unverifiable", StringComparison.OrdinalIgnoreCase) >= 0);
+            // A foreign file no longer blocks uninstall: verified files go, the foreign one stays.
+            UninstallCleanupResult cleanup = InstallManifest.DeleteOwnedEntriesTolerant(destination, repairZip);
+            Assert.Empty(cleanup.Failures);
+            Assert.Equal(new[] { "wwwroot/js/private-notes.txt" }, cleanup.Retained);
             Assert.Equal("foreign fixture content", File.ReadAllText(unrelated));
-            Assert.Equal("version one", File.ReadAllText(Path.Combine(destination, "VoltManager.dll")));
-            Assert.True(File.Exists(Path.Combine(destination, InstallManifest.FileName)));
-
-            // The unexpected file is synthetic and belongs to this test only.
-            File.Delete(unrelated);
-            Assert.Empty(InstallManifest.DeleteOwnedEntries(destination, repairZip));
-            Assert.False(Directory.Exists(destination));
+            Assert.False(File.Exists(Path.Combine(destination, "VoltManager.dll")));
+            Assert.False(File.Exists(Path.Combine(destination, InstallManifest.FileName)));
+            Assert.Equal(new[] { unrelated }, Directory.GetFiles(destination, "*", SearchOption.AllDirectories));
         }
         finally
         {
@@ -152,10 +148,8 @@ public sealed class InstallManifestLifecycleTests
             Assert.DoesNotContain("retired-library.dll", InstallManifest.ReadOwnedEntries(destination));
             Assert.DoesNotContain("plugins", InstallManifest.ReadOwnedEntries(destination));
 
-            string backup = Assert.Single(Directory.GetDirectories(root, ".VoltManager.backup-*"));
-            Assert.Contains(backup, warning);
-            Assert.Equal("retired in B", File.ReadAllText(Path.Combine(backup, "retired-library.dll")));
-            Assert.True(File.Exists(Path.Combine(backup, "uninstall.exe")));
+            Assert.Null(warning);
+            Assert.Empty(Directory.GetDirectories(root, ".VoltManager.backup-*"));
             Assert.Empty(Directory.GetDirectories(root, ".VoltManager.staging-*"));
             // L'immagine di A è stata letta solo come dati in un dominio poi scaricato.
             Assert.DoesNotContain(AppDomain.CurrentDomain.ReflectionOnlyGetAssemblies(),
@@ -165,12 +159,11 @@ public sealed class InstallManifestLifecycleTests
 
             // Simula la registrazione dell'uninstaller B prima di verificarne la pulizia.
             File.Copy(typeof(InstallManifest).Assembly.Location, Path.Combine(destination, "uninstall.exe"));
-            Assert.NotEmpty(InstallManifest.DeleteOwnedEntries(destination, zipB));
+            UninstallCleanupResult cleanup = InstallManifest.DeleteOwnedEntriesTolerant(destination, zipB);
+            Assert.Empty(cleanup.Failures);
+            Assert.Equal(new[] { "user-notes.txt" }, cleanup.Retained);
             Assert.Equal("user data outside the payload", File.ReadAllText(notes));
-            Assert.Equal("version B", File.ReadAllText(Path.Combine(destination, "VoltManager.dll")));
-            File.Delete(notes);
-            Assert.Empty(InstallManifest.DeleteOwnedEntries(destination, zipB));
-            Assert.False(Directory.Exists(destination));
+            Assert.Equal(new[] { notes }, Directory.GetFileSystemEntries(destination));
         }
         finally
         {

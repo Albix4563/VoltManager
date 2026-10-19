@@ -18,6 +18,9 @@ namespace VoltManager.Setup.Engine
     {
         public List<string> Failures { get; } = new List<string>();
         public List<string> Residuals { get; } = new List<string>();
+        // Non-blocking notes (kept user data, removals pending a restart).
+        public List<string> Warnings { get; } = new List<string>();
+        internal List<string> PendingReboot { get; } = new List<string>();
         public bool HasResiduals => Residuals.Count > 0;
         public bool Success => Failures.Count == 0 && Residuals.Count == 0;
         public string Summary => string.Join("; ", Failures.Concat(Residuals));
@@ -32,6 +35,12 @@ namespace VoltManager.Setup.Engine
         {
             if (!string.IsNullOrWhiteSpace(residual))
                 Residuals.Add(residual);
+        }
+
+        public void AddWarning(string warning)
+        {
+            if (!string.IsNullOrWhiteSpace(warning))
+                Warnings.Add(warning);
         }
     }
 
@@ -401,6 +410,7 @@ namespace VoltManager.Setup.Engine
 
             var parts = new List<string> { "/uninstall", "--from-temp", "--target", installDir };
             if (args.SilentUninstall) parts.Add("/SILENT");
+            if (args.PurgeUserData) parts.Add("/PURGE");
             if (!string.IsNullOrEmpty(args.Language))
             {
                 parts.Add("--lang");
@@ -499,6 +509,7 @@ namespace VoltManager.Setup.Engine
             }
             catch
             {
+                DeleteOwnedTempFile(Path.Combine(tempDir, "VoltManagerPreviewPayload.zip"), tempDir);
                 TryDeleteTempDirectory(tempDir);
                 throw;
             }
@@ -892,6 +903,7 @@ namespace VoltManager.Setup.Engine
                 // A failed swap may have moved new files back into staging for
                 // manual recovery. Never recursively delete that directory.
                 TryDeleteEmptyStagingDirectory(stagingDir);
+                DeleteOwnedTempFile(tempZip, ownedTempDir);
                 TryDeleteTempDirectory(ownedTempDir);
             }
         }
@@ -917,6 +929,31 @@ namespace VoltManager.Setup.Engine
             string path = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
             Directory.CreateDirectory(path);
             return path;
+        }
+
+        internal static void DeleteOwnedTempFile(string? filePath, string? ownedTempDir)
+        {
+            // ponytail: single-file owned temp cleanup; skipped: multi-process shared temp tracker, add when background workers share temp trees.
+            if (string.IsNullOrWhiteSpace(filePath) || string.IsNullOrWhiteSpace(ownedTempDir))
+                return;
+            try
+            {
+                string fullFile = Path.GetFullPath(filePath);
+                string fullDir = Path.GetFullPath(ownedTempDir)
+                    .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                if (!string.Equals(Path.GetDirectoryName(fullFile), fullDir, StringComparison.OrdinalIgnoreCase))
+                    return;
+                if (!File.Exists(fullFile) || Directory.Exists(fullFile))
+                    return;
+                if ((File.GetAttributes(fullFile) & FileAttributes.ReparsePoint) != 0 ||
+                    UninstallAppData.HasLinkedAncestor(fullDir))
+                    return;
+                File.Delete(fullFile);
+            }
+            catch (Exception ex)
+            {
+                SetupUpdateLog.Warn("Could not remove setup temporary file " + filePath + ": " + ex.Message);
+            }
         }
 
         private static void TryDeleteTempDirectory(string? path)
@@ -993,6 +1030,7 @@ namespace VoltManager.Setup.Engine
                 destDir, stagedNames, trustedPayloadZipPath,
                 requireProtectedInstallLocation: requireProtectedInstallLocation);
 
+            Dictionary<string, string> backupSnapshot = InstallManifest.SnapshotBackupFiles(destDir, ownedNames);
             Directory.CreateDirectory(destDir);
             Directory.CreateDirectory(backupDir);
             var backedUp = new List<string>();
@@ -1066,7 +1104,74 @@ namespace VoltManager.Setup.Engine
                 throw;
             }
 
-            return TryDeleteBackupDirectory(backupDir);
+            return TryDeleteVerifiedBackupDirectory(backupDir, backedUp, backupSnapshot);
+        }
+
+        private static string? TryDeleteVerifiedBackupDirectory(string backupDir, IEnumerable<string> backedUp,
+            IReadOnlyDictionary<string, string> backupSnapshot)
+        {
+            // ponytail: hash snapshot narrows path races; use handle-bound deletion if concurrent
+            // replacement of protected setup directories must be supported.
+            try
+            {
+                if (!Directory.Exists(backupDir)) return null;
+
+                // Refuse if the backup root or any entry/subtree contains a reparse point.
+                if (SetupStaging.ContainsReparsePointInTree(backupDir))
+                {
+                    string warning = "Previous installation backup retained for manual review: " + backupDir;
+                    SetupUpdateLog.Warn(warning);
+                    return warning;
+                }
+
+                // Refuse if the backup contains entries not in backedUp.
+                var backedUpSet = new HashSet<string>(backedUp, StringComparer.OrdinalIgnoreCase);
+                foreach (string entry in Directory.GetFileSystemEntries(backupDir))
+                {
+                    string name = Path.GetFileName(entry);
+                    if (!backedUpSet.Contains(name))
+                    {
+                        string warning = "Previous installation backup retained for manual review: " + backupDir;
+                        SetupUpdateLog.Warn(warning);
+                        return warning;
+                    }
+                }
+
+                InstallManifest.ValidateBackupSnapshot(backupDir, backupSnapshot);
+                // Delete only the names in backedUp, clearing ReadOnly only on non-reparse entries.
+                foreach (string name in backedUpSet)
+                {
+                    string target = Path.Combine(backupDir, name);
+                    if (File.Exists(target))
+                    {
+                        FileAttributes attrs = File.GetAttributes(target);
+                        if ((attrs & FileAttributes.ReparsePoint) == 0)
+                            MakeWritable(target);
+                        File.Delete(target);
+                    }
+                    else if (Directory.Exists(target))
+                    {
+                        MakeWritableTree(target);
+                        Directory.Delete(target, recursive: true);
+                    }
+                }
+
+                if (Directory.EnumerateFileSystemEntries(backupDir).Any())
+                {
+                    string warning = "Previous installation backup retained for manual review: " + backupDir;
+                    SetupUpdateLog.Warn(warning);
+                    return warning;
+                }
+
+                Directory.Delete(backupDir, recursive: false);
+                return null;
+            }
+            catch (Exception ex)
+            {
+                string warning = "Could not delete install backup " + backupDir + ": " + ex.Message;
+                SetupUpdateLog.Warn(warning);
+                return warning;
+            }
         }
 
         private static void MoveInstalledEntryBackToStaging(
@@ -1207,18 +1312,51 @@ namespace VoltManager.Setup.Engine
 
         private static void MakeWritableTree(string dir)
         {
-            foreach (string file in Directory.GetFiles(dir, "*", SearchOption.AllDirectories))
-                MakeWritable(file);
-            foreach (string subdir in Directory.GetDirectories(dir, "*", SearchOption.AllDirectories))
-                MakeWritable(subdir);
-            MakeWritable(dir);
+            // ponytail: iterative non-reparse attribute clearing; skipped: transactional rollback of file attributes, add when attribute restore on cancel is required.
+            var pending = new Stack<string>();
+            pending.Push(dir);
+            while (pending.Count > 0)
+            {
+                string current = pending.Pop();
+                FileAttributes attrs;
+                try
+                {
+                    attrs = File.GetAttributes(current);
+                }
+                catch (FileNotFoundException) { continue; }
+                catch (DirectoryNotFoundException) { continue; }
+
+                if ((attrs & FileAttributes.ReparsePoint) != 0)
+                    continue;
+
+                MakeWritable(current);
+
+                if ((attrs & FileAttributes.Directory) != 0)
+                {
+                    // Deliberately avoid SearchOption.AllDirectories: it follows junctions.
+                    try
+                    {
+                        foreach (string entry in Directory.EnumerateFileSystemEntries(current))
+                            pending.Push(entry);
+                    }
+                    catch (DirectoryNotFoundException) { /* Entry removed concurrently. */ }
+                    catch (UnauthorizedAccessException) { /* Locked or restricted entry. */ }
+                }
+            }
         }
 
         private static void MakeWritable(string path)
         {
-            FileAttributes attrs = File.GetAttributes(path);
-            attrs &= ~(FileAttributes.ReadOnly | FileAttributes.Hidden | FileAttributes.System);
-            File.SetAttributes(path, attrs);
+            try
+            {
+                FileAttributes attrs = File.GetAttributes(path);
+                FileAttributes stripped = attrs & ~(FileAttributes.ReadOnly | FileAttributes.Hidden | FileAttributes.System);
+                if (stripped != attrs)
+                    File.SetAttributes(path, stripped);
+            }
+            catch (FileNotFoundException) { /* Entry removed concurrently. */ }
+            catch (DirectoryNotFoundException) { /* Entry removed concurrently. */ }
+            catch (UnauthorizedAccessException) { /* Insufficient permissions to modify attributes. */ }
         }
 
         private static bool WebView2Missing()
@@ -1278,6 +1416,7 @@ namespace VoltManager.Setup.Engine
             }
             finally
             {
+                DeleteOwnedTempFile(tmp, tempDir);
                 TryDeleteTempDirectory(tempDir);
             }
         }

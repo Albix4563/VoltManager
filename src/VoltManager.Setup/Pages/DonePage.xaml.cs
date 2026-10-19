@@ -43,7 +43,7 @@ namespace VoltManager.Setup.Pages
                         System.Windows.Media.Color.FromRgb(0x30, 0x27, 0x16));
                     ErrCard.BorderBrush = (System.Windows.Media.Brush)FindResource("WarningBrush");
                     ErrText.Foreground = (System.Windows.Media.Brush)FindResource("WarningBrush");
-                    ErrText.Text = I18n.T("done_warning") + "\n" + warningMsg;
+                    ErrText.Text = I18n.T(uninstall ? "uninst_notes" : "done_warning") + "\n" + warningMsg;
                     ErrCard.Visibility = Visibility.Visible;
                 }
             }

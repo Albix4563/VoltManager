@@ -36,6 +36,9 @@
                 </StackPanel>
             </Border>
 
+            <CheckBox x:Name="ChkPurge" Style="{StaticResource OptionSwitch}" IsChecked="False"
+                      Width="450" HorizontalAlignment="Center" Margin="0,12,0,0"/>
+
             <Border Background="#1A1508" BorderBrush="#5A3F1F" BorderThickness="1" CornerRadius="8"
                     Padding="14,10" MaxWidth="450" HorizontalAlignment="Center" Margin="0,12,0,0">
                 <StackPanel Orientation="Horizontal">

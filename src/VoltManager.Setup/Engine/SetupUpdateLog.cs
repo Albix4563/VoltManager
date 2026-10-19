@@ -12,7 +12,9 @@ namespace VoltManager.Setup.Engine
     {
         private static readonly object Gate = new object();
 
-        public static string FilePath { get; } = Path.Combine(
+        // Uninstall redirects it into its own run directory so that logging after
+        // cleanup cannot recreate the AppData folder it has just removed.
+        public static string FilePath { get; internal set; } = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "VoltManager", "logs", "setup-update.log");
 

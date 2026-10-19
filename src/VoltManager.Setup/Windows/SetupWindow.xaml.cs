@@ -23,6 +23,9 @@ namespace VoltManager.Setup.Windows
         private enum Step { Welcome, Options, Progress, Done }
         private Step _current;
         private bool _isUninstall;
+        private UninstallConfirmPage? _uninstallConfirm;
+        // Closing mid-operation would leave a half-removed install with no uninstaller.
+        private bool _operationRunning;
         private string[] _stepLabels = Array.Empty<string>();
 
         public SetupWindow(SetupArgs args)
@@ -30,6 +33,7 @@ namespace VoltManager.Setup.Windows
             _args = args;
             _isUninstall = args.Mode == SetupMode.Uninstall;
             InitializeComponent();
+            Closing += (_, e) => e.Cancel = _operationRunning;
             LoadLogo();
             VersionText.Text = "v" + App.GetVersion();
             BuildSteps();
@@ -236,7 +240,8 @@ namespace VoltManager.Setup.Windows
             switch (step)
             {
                 case Step.Welcome:
-                    PageHost.Content = new UninstallConfirmPage();
+                    _uninstallConfirm = new UninstallConfirmPage();
+                    PageHost.Content = _uninstallConfirm;
                     HighlightStep(0);
                     BtnCancel.Content = I18n.T("btn_cancel");
                     BtnCancel.Visibility = Visibility.Visible;
@@ -271,6 +276,7 @@ namespace VoltManager.Setup.Windows
                     Dispatcher.Invoke(() => _progress?.SetStatus(msg, pct));
                 bool ok = true;
                 string? errMsg = null;
+                _operationRunning = true;
                 try
                 {
                     _opts.InstallDir = InstallOptions.NormalizeInstallDir(_options?.GetInstallDir() ?? _opts.InstallDir);
@@ -290,6 +296,10 @@ namespace VoltManager.Setup.Windows
                     ok = false;
                     errMsg = ex.Message;
                     SetupUpdateLog.Error("Interactive install failed: " + ex);
+                }
+                finally
+                {
+                    _operationRunning = false;
                 }
                 string? warningMsg = ok && _engine.LastOperationResult?.HasWarnings == true
                     ? _engine.LastOperationResult.WarningSummary
@@ -316,11 +326,15 @@ namespace VoltManager.Setup.Windows
                     Dispatcher.Invoke(() => _progress?.SetStatus(msg, pct));
                 bool ok = true;
                 string? err = null;
+                string? notes = null;
+                _operationRunning = true;
                 try
                 {
+                    _engine.PurgeUserData = _args.PurgeUserData || _uninstallConfirm?.PurgeUserData == true;
                     var result = await _engine.UninstallAsync(_args.TargetDir);
                     ok = result.Success;
                     if (!ok) err = result.Summary;
+                    if (result.Warnings.Count > 0) notes = string.Join("\n", result.Warnings);
                 }
                 catch (Exception ex)
                 {
@@ -328,7 +342,11 @@ namespace VoltManager.Setup.Windows
                     err = ex.Message;
                     SetupUpdateLog.Error("Interactive uninstall failed: " + ex);
                 }
-                _done = new DonePage(null, ok, err, uninstall: true);
+                finally
+                {
+                    _operationRunning = false;
+                }
+                _done = new DonePage(null, ok, err, uninstall: true, warningMsg: notes);
                 BtnNext.IsEnabled = true;
                 BtnNext.Content = I18n.T("btn_close");
                 _current = Step.Done;

@@ -39,6 +39,7 @@ namespace VoltManager.Setup
                     break;
 
                 case SetupMode.Uninstall:
+                    RedirectUninstallLogToRunDirectory();
                     if (!string.IsNullOrWhiteSpace(args.TargetDir))
                     {
                         InstallTargetValidationResult targetValidation =
@@ -105,14 +106,23 @@ namespace VoltManager.Setup
             return 0;
         }
 
+        private static void RedirectUninstallLogToRunDirectory()
+        {
+            string self = System.Reflection.Assembly.GetExecutingAssembly().Location;
+            if (SetupStaging.IsStagedUpdateExecutable(self, SetupStaging.DefaultUpdatesRoot))
+                SetupUpdateLog.FilePath = Path.Combine(Path.GetDirectoryName(self)!, "uninstall.log");
+        }
+
         private async Task<int> RunSilentUninstall(SetupArgs args)
         {
-            var engine = new HardenedInstallEngine();
+            var engine = new HardenedInstallEngine { PurgeUserData = args.PurgeUserData };
             UninstallResult result = await engine.UninstallAsync(args.TargetDir);
             foreach (string failure in result.Failures)
                 SetupUpdateLog.Error("Silent uninstall partial failure: " + failure);
             foreach (string residual in result.Residuals)
                 SetupUpdateLog.Error("Silent uninstall residual: " + residual);
+            foreach (string warning in result.Warnings)
+                SetupUpdateLog.Warn("Silent uninstall note: " + warning);
             foreach (string warning in engine.LastWarnings)
                 SetupUpdateLog.Warn("Silent uninstall warning: " + warning);
 

@@ -215,10 +215,13 @@ namespace VoltManager.Setup.Tests
 
                 Assert.Throws<InvalidDataException>(() => InstallManifest.GetOwnedNamesForReplacement(
                     root, new[] { "VoltManager.dll", "VoltManager.exe" }, zip));
-                Assert.NotEmpty(InstallManifest.DeleteOwnedEntries(root, zip));
+                UninstallCleanupResult cleanup = InstallManifest.DeleteOwnedEntriesTolerant(root, zip);
+                Assert.Empty(cleanup.Failures);
+                Assert.Equal(new[] { "VoltManager.exe" }, cleanup.Retained);
                 Assert.Equal("foreign but byte-identical to release",
                     File.ReadAllText(Path.Combine(root, "VoltManager.exe")));
-                Assert.True(File.Exists(Path.Combine(root, InstallManifest.FileName)));
+                Assert.False(File.Exists(Path.Combine(root, "VoltManager.dll")));
+                Assert.False(File.Exists(Path.Combine(root, InstallManifest.FileName)));
             }
             finally
             {
@@ -594,9 +597,11 @@ namespace VoltManager.Setup.Tests
                 File.WriteAllText(foreign, "private nested data");
                 InstallManifest.Write(root, new[] { "wwwroot" });
 
-                Assert.NotEmpty(InstallManifest.DeleteOwnedEntries(root, zip));
+                UninstallCleanupResult cleanup = InstallManifest.DeleteOwnedEntriesTolerant(root, zip);
+                Assert.Empty(cleanup.Failures);
+                Assert.Equal(new[] { "wwwroot/family.txt" }, cleanup.Retained);
                 Assert.Equal("private nested data", File.ReadAllText(foreign));
-                Assert.True(File.Exists(Path.Combine(root, InstallManifest.FileName)));
+                Assert.False(File.Exists(Path.Combine(root, "wwwroot", "index.html")));
 
                 File.WriteAllText(Path.Combine(root, InstallManifest.FileName),
                     "{\"entries\":[\"wwwroot\",\"family.txt\"]}");
@@ -764,14 +769,39 @@ namespace VoltManager.Setup.Tests
                 File.Copy(typeof(InstallManifest).Assembly.Location, copiedUninstaller);
                 Assert.Contains("uninstall.exe", InstallManifest.GetOwnedNamesForUninstall(root, zip));
 
-                File.WriteAllText(copiedUninstaller, "wrong version of the uninstaller");
-                Assert.NotEmpty(InstallManifest.DeleteOwnedEntries(root, zip));
-                Assert.Equal("preview-payload-v2", File.ReadAllText(installedDll));
-                Assert.True(File.Exists(Path.Combine(root, InstallManifest.FileName)));
-
-                File.Copy(typeof(InstallManifest).Assembly.Location, copiedUninstaller, overwrite: true);
                 Assert.Empty(InstallManifest.DeleteOwnedEntries(root, zip));
                 Assert.False(Directory.Exists(root));
+            }
+            finally
+            {
+                Cleanup(root);
+                Cleanup(payload);
+                Cleanup(reference);
+            }
+        }
+
+        [Fact]
+        public void Mismatched_uninstaller_is_kept_while_verified_payload_is_removed()
+        {
+            string root = CreateTempDirectory();
+            string payload = CreateTempDirectory();
+            string reference = CreateTempDirectory();
+            string zip = Path.Combine(reference, "payload.zip");
+            try
+            {
+                File.WriteAllText(Path.Combine(root, "VoltManager.dll"), "payload");
+                File.WriteAllText(Path.Combine(payload, "VoltManager.dll"), "payload");
+                ZipFile.CreateFromDirectory(payload, zip);
+                InstallManifest.Write(root, new[] { "VoltManager.dll" });
+                string uninstaller = Path.Combine(root, "uninstall.exe");
+                File.WriteAllText(uninstaller, "wrong version of the uninstaller");
+
+                UninstallCleanupResult cleanup = InstallManifest.DeleteOwnedEntriesTolerant(root, zip);
+
+                Assert.Empty(cleanup.Failures);
+                Assert.Equal(new[] { "uninstall.exe" }, cleanup.Retained);
+                Assert.Equal("wrong version of the uninstaller", File.ReadAllText(uninstaller));
+                Assert.False(File.Exists(Path.Combine(root, "VoltManager.dll")));
             }
             finally
             {

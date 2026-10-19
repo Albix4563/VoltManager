@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
@@ -50,28 +51,11 @@ namespace VoltManager.Setup.Engine
                 // familiar executable names must not authorize stopping those processes
                 // (or clearing global LAN, AppData and registry state). Verify ownership
                 // against an independent trusted payload BEFORE any cleanup begins.
-                if (!Directory.Exists(installDir))
-                    throw new InvalidDataException("Install directory is missing.");
-
-                IReadOnlyCollection<string> verifiedNames =
-                    InstallManifest.GetOwnedNamesForUninstall(installDir, _trustedPayloadZipPath);
-                bool hasVerifiedInstalledFile = false;
-                foreach (string name in verifiedNames)
-                {
-                    if (File.Exists(Path.Combine(installDir, name)))
-                    {
-                        // GetOwnedNamesForUninstall already required a trusted hash
-                        // (or running setup identity for uninstall.exe) for this file.
-                        hasVerifiedInstalledFile = true;
-                        break;
-                    }
-                }
-
                 // A forged legacy marker with no installed payload matches no hashes.
                 // Its mere presence cannot authorize global uninstall side effects.
-                if (!hasVerifiedInstalledFile)
-                    throw new InvalidDataException(
-                        "Install tree contains no independently verified installed file.");
+                if (_trustedPayloadZipPath == null)
+                    InstallDirectorySecurity.RequireProtectedElevatedUninstallerLocation(installDir);
+                InstallManifest.RequireUninstallOwnership(installDir, _trustedPayloadZipPath);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
@@ -129,49 +113,94 @@ namespace VoltManager.Setup.Engine
                 return result;
             }
 
-            IReadOnlyList<string> installFailures = InstallManifest.DeleteOwnedEntries(installDir, _trustedPayloadZipPath);
-            foreach (string failure in installFailures)
-                result.Add("Install directory: " + failure);
-            if (installFailures.Count > 0)
+            // Shutdown can take several seconds. Repeat the ownership gate before any
+            // global cleanup in case the target changed while processes were stopping.
+            try
             {
-                // Rejected ownership must not trigger global firewall/certificate cleanup.
-                foreach (string residual in _systemOperations.FindResidualArtifacts(
-                    installDir, _systemOperations.AppDataDirectory, currentExecutable))
-                    result.AddResidual(residual);
+                if (_trustedPayloadZipPath == null)
+                    InstallDirectorySecurity.RequireProtectedElevatedUninstallerLocation(installDir);
+                InstallManifest.RequireUninstallOwnership(installDir, _trustedPayloadZipPath);
+            }
+            catch (Exception ex)
+            {
+                result.Add("Install directory: ownership verification failed after shutdown: " + ex.Message);
                 return result;
             }
+
+            // Launch sources go first: a later failure must not leave a task, shortcut
+            // or Apps & features entry pointing at an already deleted executable.
+            ct.ThrowIfCancellationRequested();
+            Report(I18n.T("status_startup"), 25);
+            _systemOperations.DeleteStartupTask(result);
+            _systemOperations.RemoveShortcuts(result);
+
+            ct.ThrowIfCancellationRequested();
+            Report(I18n.T("status_uninst_reg"), 35);
+            _systemOperations.RemoveRegistryEntries(result);
 
             ct.ThrowIfCancellationRequested();
             _systemOperations.RemoveLanRemoteControlArtifacts(result);
 
             ct.ThrowIfCancellationRequested();
-            Report(I18n.T("status_uninst_files"), 42);
+            Report(I18n.T("status_uninst_files"), 45);
             string appData = _systemOperations.AppDataDirectory;
-            if (_systemOperations.DirectoryExists(appData) && !_systemOperations.TryDeleteDirectoryTree(appData, out string appDataError))
-                result.Add("AppData: " + appDataError);
+            // Read before AppData goes away: the plan map lives in settings.json.
+            _systemOperations.RestoreDefaultPowerPlan(appData, result);
 
-            ct.ThrowIfCancellationRequested();
-            Report(I18n.T("status_startup"), 58);
-            _systemOperations.DeleteStartupTask(result);
+            UninstallCleanupResult installCleanup = _systemOperations.DeleteInstallFiles(installDir, _trustedPayloadZipPath);
+            foreach (string failure in installCleanup.Failures)
+                result.Add("Install directory: " + failure);
+            if (installCleanup.Retained.Count > 0)
+                result.AddResidual("Kept in " + installDir + " (not installed by VoltManager or modified): " +
+                                   string.Join(", ", installCleanup.Retained));
+            foreach (string pending in installCleanup.PendingReboot)
+                result.AddWarning(string.Format(I18n.T("uninst_reboot"), pending));
+            foreach (string retained in _systemOperations.DeleteSwapLeftovers(installDir, _trustedPayloadZipPath))
+                result.AddResidual("Update leftover retained for manual review: " + retained);
 
             ct.ThrowIfCancellationRequested();
             Report(I18n.T("status_uninst_files"), 70);
-            _systemOperations.RemoveShortcuts(result);
-
-            ct.ThrowIfCancellationRequested();
-            Report(I18n.T("status_uninst_reg"), 82);
-            _systemOperations.RemoveRegistryEntries(result);
+            DeleteAppData(appData, result);
 
             ct.ThrowIfCancellationRequested();
             Report(I18n.T("status_uninst_files"), 92);
             foreach (string failure in _systemOperations.CleanupOwnedTempArtifacts(currentExecutable))
                 result.Add("Temp artifact: " + failure);
 
+            _systemOperations.KeptAppDataEntries = PurgeUserData ? Array.Empty<string>() : KeptUserDataEntries;
             foreach (string residual in _systemOperations.FindResidualArtifacts(installDir, appData, currentExecutable))
+            {
+                // Report scheduled removals separately from unexpected residuals.
+                if (installCleanup.PendingReboot.Count > 0 &&
+                    residual == OwnedInstallResidualPrefix + installDir)
+                    continue;
+                if (result.PendingReboot.Any(path => residual == "AppData entry still exists: " + path))
+                    continue;
                 result.AddResidual(residual);
+            }
+
             Report("", 100);
             return result;
         }
+
+        /// <summary>When false (default), settings and history survive a reinstall; credentials, caches and logs never do.</summary>
+        public bool PurgeUserData { get; set; }
+
+        internal static readonly string[] KeptUserDataEntries =
+        {
+            "settings.json", "settings.json.bak", "battery-history.json", "launcher-shortcuts",
+        };
+
+        private void DeleteAppData(string appData, UninstallResult result)
+        {
+            if (!_systemOperations.DirectoryExists(appData)) return;
+            IReadOnlyList<string> kept = _systemOperations.DeleteAppDataEntries(
+                appData, PurgeUserData ? Array.Empty<string>() : KeptUserDataEntries, result);
+            if (kept.Count > 0)
+                result.AddWarning(string.Format(I18n.T("uninst_kept"), appData));
+        }
+
+        private const string OwnedInstallResidualPrefix = "Owned install artifacts still exist in: ";
 
         /// <summary>
         /// Schedules deletion of the temp uninstaller after the setup process exits.
@@ -185,10 +214,16 @@ namespace VoltManager.Setup.Engine
                 string self = Path.GetFullPath(Assembly.GetExecutingAssembly().Location);
                 if (SetupStaging.IsStagedUpdateExecutable(self, SetupStaging.DefaultUpdatesRoot))
                 {
-                    SetupStaging.ScheduleDeleteOnReboot(self, SetupUpdateLog.Warn);
+                    // Children before parents: MoveFileEx on a directory that is not empty
+                    // at boot simply fails, so the shared roots survive other run dirs.
                     string? selfDirectory = Path.GetDirectoryName(self);
-                    if (!string.IsNullOrWhiteSpace(selfDirectory))
-                        SetupStaging.ScheduleDeleteOnReboot(selfDirectory, SetupUpdateLog.Warn);
+                    string? updatesRoot = Path.GetDirectoryName(selfDirectory);
+                    if (selfDirectory != null && SetupUpdateLog.FilePath.StartsWith(
+                            selfDirectory + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+                        SetupStaging.ScheduleDeleteOnReboot(SetupUpdateLog.FilePath, SetupUpdateLog.Warn);
+                    foreach (string? path in new[] { self, selfDirectory, updatesRoot, Path.GetDirectoryName(updatesRoot) })
+                        if (!string.IsNullOrWhiteSpace(path))
+                            SetupStaging.ScheduleDeleteOnReboot(path!, SetupUpdateLog.Warn);
                     return;
                 }
 
@@ -377,14 +412,21 @@ namespace VoltManager.Setup.Engine
             {
                 if (Directory.Exists(VoltManagerArtifacts.StartMenuDirectory))
                     Directory.Delete(VoltManagerArtifacts.StartMenuDirectory, true);
+            }
+            catch (Exception ex)
+            {
+                result.Add("Start menu shortcut: " + ex.Message);
+            }
+
+            try
+            {
                 if (File.Exists(VoltManagerArtifacts.DesktopShortcutPath))
                     File.Delete(VoltManagerArtifacts.DesktopShortcutPath);
             }
             catch (Exception ex)
             {
-                result.Add("Shortcuts: " + ex.Message);
+                result.Add("Desktop shortcut: " + ex.Message);
             }
-
         }
 
         internal static void RemoveRegistryEntries(UninstallResult result)
@@ -448,15 +490,24 @@ namespace VoltManager.Setup.Engine
         internal static IReadOnlyList<string> FindResidualArtifacts(
             string installDir,
             string appData,
-            string currentExecutable)
+            string currentExecutable,
+            IReadOnlyCollection<string> keptAppDataEntries, bool checkCurrentUserCertificate = true)
         {
             var residuals = new List<string>();
             if (AnyOwnedProcessRunningFromDirectory(installDir))
                 residuals.Add("Owned VoltManager process remains after uninstall");
             if (!string.IsNullOrWhiteSpace(installDir) && InstallManifest.HasOwnedArtifacts(installDir))
-                residuals.Add("Owned install artifacts still exist in: " + installDir);
-            if (Directory.Exists(appData))
-                residuals.Add("AppData still exists: " + appData);
+                residuals.Add(OwnedInstallResidualPrefix + installDir);
+            foreach (string entry in RemainingAppDataEntries(appData, keptAppDataEntries))
+                residuals.Add("AppData entry still exists: " + entry);
+            foreach (string swap in FindSwapLeftovers(installDir))
+                residuals.Add("Update leftover still exists: " + swap);
+            foreach (string stale in FindProgramDataLeftovers(currentExecutable))
+                residuals.Add("ProgramData leftover still exists: " + stale);
+            if (SystemUninstallSystemOperations.LanRemoteFirewallRuleExists())
+                residuals.Add("LAN remote firewall rule still present");
+            if (checkCurrentUserCertificate && SystemUninstallSystemOperations.LanRemoteCertificateExists())
+                residuals.Add("LAN remote certificate still present");
             if (StartupTaskExists())
                 residuals.Add("Startup task still present: " + VoltManagerArtifacts.StartupTaskName);
             if (Directory.Exists(VoltManagerArtifacts.StartMenuDirectory))
@@ -472,6 +523,61 @@ namespace VoltManager.Setup.Engine
                 residuals.Add("Temp artifact still exists: " + path);
 
             return residuals;
+        }
+
+        internal static IEnumerable<string> RemainingAppDataEntries(string appData, IReadOnlyCollection<string> kept)
+        {
+            if (!Directory.Exists(appData)) yield break;
+            var keep = new HashSet<string>(kept, StringComparer.OrdinalIgnoreCase);
+            foreach (string entry in Directory.GetFileSystemEntries(appData))
+                if (!keep.Contains(Path.GetFileName(entry)))
+                    yield return entry;
+        }
+
+        private static IEnumerable<string> FindSwapLeftovers(string installDir)
+        {
+            string? parent;
+            string name;
+            try
+            {
+                string full = Path.GetFullPath(installDir).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                parent = Path.GetDirectoryName(full);
+                name = Path.GetFileName(full);
+                if (string.IsNullOrEmpty(parent) || !Directory.Exists(parent)) return Array.Empty<string>();
+                return Directory.GetDirectories(parent, "." + name + ".backup-*")
+                    .Concat(Directory.GetDirectories(parent, "." + name + ".staging-*"))
+                    .ToArray();
+            }
+            catch
+            {
+                return Array.Empty<string>();
+            }
+        }
+
+        // The running uninstaller's own run dir is scheduled for reboot deletion, not a residual.
+        private static IEnumerable<string> FindProgramDataLeftovers(string currentExecutable)
+        {
+            try
+            {
+                string updates = VoltManagerArtifacts.UpdatesDirectory;
+                string? root = Path.GetDirectoryName(updates);
+                if (root == null || !Directory.Exists(root)) return Array.Empty<string>();
+                string? ownRunDir = Path.GetDirectoryName(Path.GetFullPath(currentExecutable));
+                var leftovers = new List<string>();
+                foreach (string entry in Directory.GetFileSystemEntries(root))
+                {
+                    if (!string.Equals(entry, updates, StringComparison.OrdinalIgnoreCase))
+                        leftovers.Add(entry);
+                    else if (Directory.Exists(updates))
+                        leftovers.AddRange(Directory.GetFileSystemEntries(updates).Where(child =>
+                            !string.Equals(child, ownRunDir, StringComparison.OrdinalIgnoreCase)));
+                }
+                return leftovers;
+            }
+            catch
+            {
+                return Array.Empty<string>();
+            }
         }
     }
 }

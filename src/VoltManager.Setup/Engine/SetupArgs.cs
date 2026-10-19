@@ -12,9 +12,11 @@ namespace VoltManager.Setup.Engine
         public bool SilentUninstall { get; }
         public string Language { get; }
         public bool FromTemp { get; }
+        public bool PurgeUserData { get; }
 
-        public SetupArgs(SetupMode mode, int waitPid = 0, string targetDir = "", bool silentUninstall = false, string language = "", bool fromTemp = false)
+        public SetupArgs(SetupMode mode, int waitPid = 0, string targetDir = "", bool silentUninstall = false, string language = "", bool fromTemp = false, bool purgeUserData = false)
         {
+            PurgeUserData = purgeUserData;
             Mode = mode;
             WaitPid = waitPid;
             TargetDir = targetDir ?? "";
@@ -42,7 +44,8 @@ namespace VoltManager.Setup.Engine
             if (uninstall)
             {
                 string target = GetParam(args, "--target").Trim();
-                return new SetupArgs(SetupMode.Uninstall, 0, target, silent, lang, fromTemp);
+                return new SetupArgs(SetupMode.Uninstall, 0, target, silent, lang, fromTemp,
+                    HasFlag(args, "/PURGE"));
             }
 
             if (silent) return new SetupArgs(SetupMode.Silent, language: lang);

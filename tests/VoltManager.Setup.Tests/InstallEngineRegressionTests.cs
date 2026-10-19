@@ -313,8 +313,8 @@ public sealed class InstallEngineRegressionTests
             Assert.Equal("verified", File.ReadAllText(Path.Combine(dest, "VoltManager.exe")));
             Assert.Equal("new payload", File.ReadAllText(Path.Combine(dest, "VoltManager.Supervisor.exe")));
             Assert.True(File.Exists(Path.Combine(dest, "wwwroot", "index.html")));
-            Assert.Equal("verified", File.ReadAllText(Path.Combine(backup, "VoltManager.exe")));
-            Assert.Contains(backup, backupWarning);
+            Assert.Null(backupWarning);
+            Assert.False(Directory.Exists(backup));
         }
         finally
         {
@@ -763,19 +763,17 @@ public sealed class InstallEngineRegressionTests
 
             string? warning = InstallEngine.ReplaceInstallDirectoryContents(
                 dest, repair, Path.Combine(root, "backup-repair"), repairZip);
-            Assert.Contains("backup-repair", warning);
+            Assert.Null(warning);
+            Assert.False(Directory.Exists(Path.Combine(root, "backup-repair")));
             Assert.Equal("private content", File.ReadAllText(foreign));
             Assert.Equal("old bundled asset", File.ReadAllText(Path.Combine(dest, "wwwroot", "removed.js")));
 
-            IReadOnlyList<string> guardedUninstall = InstallManifest.DeleteOwnedEntries(dest, firstZip);
-            Assert.NotEmpty(guardedUninstall);
+            UninstallCleanupResult guardedUninstall = InstallManifest.DeleteOwnedEntriesTolerant(dest, firstZip);
+            Assert.Empty(guardedUninstall.Failures);
+            Assert.Equal(new[] { "personal.txt" }, guardedUninstall.Retained);
             Assert.Equal("private content", File.ReadAllText(foreign));
-            Assert.True(File.Exists(Path.Combine(dest, "VoltManager.exe")));
-
-            File.Move(foreign, Path.Combine(root, "personal.txt"));
-            Assert.Empty(InstallManifest.DeleteOwnedEntries(dest, firstZip));
-            Assert.False(Directory.Exists(dest));
-            Assert.Equal("private content", File.ReadAllText(Path.Combine(root, "personal.txt")));
+            Assert.False(File.Exists(Path.Combine(dest, "VoltManager.exe")));
+            Assert.Equal(new[] { foreign }, Directory.GetFileSystemEntries(dest));
         }
         finally
         {
@@ -896,6 +894,245 @@ public sealed class InstallEngineRegressionTests
         finally
         {
             try { Directory.Delete(root, recursive: true); } catch { }
+        }
+    }
+
+    [Fact]
+    public void Replace_retains_backup_when_unexpected_extra_entry_is_present()
+    {
+        string root = Path.Combine(Path.GetTempPath(), "VoltManagerSetupTests", Guid.NewGuid().ToString("N"));
+        string dest = Path.Combine(root, "VoltManager");
+        string staging = Path.Combine(root, "staging");
+        string backup = Path.Combine(root, "backup");
+        Directory.CreateDirectory(dest);
+        Directory.CreateDirectory(staging);
+        File.WriteAllText(Path.Combine(dest, "VoltManager.exe"), "verified");
+        InstallManifest.Write(dest, new[] { "VoltManager.exe" });
+        File.WriteAllText(Path.Combine(staging, "VoltManager.exe"), "verified");
+        string zip = CreateSyntheticPayloadZip(root, staging);
+
+        try
+        {
+            string? backupWarning = InstallEngine.ReplaceInstallDirectoryContentsCore(
+                dest, staging, backup, zip,
+                (source, target) =>
+                {
+                    File.Move(source, target);
+                    File.WriteAllText(Path.Combine(backup, "unexpected.txt"), "foreign");
+                });
+
+            Assert.NotNull(backupWarning);
+            Assert.Contains(backup, backupWarning);
+            Assert.True(Directory.Exists(backup));
+            Assert.True(File.Exists(Path.Combine(backup, "VoltManager.exe")));
+            Assert.True(File.Exists(Path.Combine(backup, "unexpected.txt")));
+        }
+        finally
+        {
+            try { Directory.Delete(root, true); } catch { /* best-effort cleanup */ }
+        }
+    }
+
+    [Fact]
+    public void Replace_retains_backup_when_a_verified_file_changes_after_it_was_moved()
+    {
+        string root = Path.Combine(Path.GetTempPath(), "VoltManagerSetupTests", Guid.NewGuid().ToString("N"));
+        string dest = Path.Combine(root, "VoltManager");
+        string staging = Path.Combine(root, "staging");
+        string backup = Path.Combine(root, "backup");
+        Directory.CreateDirectory(dest);
+        Directory.CreateDirectory(staging);
+        File.WriteAllText(Path.Combine(dest, "VoltManager.exe"), "verified");
+        InstallManifest.Write(dest, new[] { "VoltManager.exe" });
+        File.WriteAllText(Path.Combine(staging, "VoltManager.exe"), "verified");
+        string zip = CreateSyntheticPayloadZip(root, staging);
+        try
+        {
+            string? warning = InstallEngine.ReplaceInstallDirectoryContentsCore(dest, staging, backup, zip,
+                (source, target) =>
+                {
+                    File.Move(source, target);
+                    if (string.Equals(target, Path.Combine(backup, "VoltManager.exe"), StringComparison.OrdinalIgnoreCase))
+                        File.WriteAllText(target, "foreign replacement");
+                });
+
+            Assert.NotNull(warning);
+            Assert.Equal("foreign replacement", File.ReadAllText(Path.Combine(backup, "VoltManager.exe")));
+            Assert.Equal("verified", File.ReadAllText(Path.Combine(dest, "VoltManager.exe")));
+        }
+        finally
+        {
+            try { Directory.Delete(root, true); } catch { /* synthetic fixture cleanup */ }
+        }
+    }
+
+    [Fact]
+    public void Replace_retains_backup_and_preserves_target_when_backup_contains_junction()
+    {
+        string root = Path.Combine(Path.GetTempPath(), "VoltManagerSetupTests", Guid.NewGuid().ToString("N"));
+        string dest = Path.Combine(root, "VoltManager");
+        string staging = Path.Combine(root, "staging");
+        string backup = Path.Combine(root, "backup");
+        string outside = Path.Combine(root, "outside");
+        Directory.CreateDirectory(dest);
+        Directory.CreateDirectory(staging);
+        Directory.CreateDirectory(outside);
+        string outsideFile = Path.Combine(outside, "target.txt");
+        File.WriteAllText(outsideFile, "survive");
+        File.WriteAllText(Path.Combine(dest, "VoltManager.exe"), "verified");
+        InstallManifest.Write(dest, new[] { "VoltManager.exe" });
+        File.WriteAllText(Path.Combine(staging, "VoltManager.exe"), "verified");
+        string zip = CreateSyntheticPayloadZip(root, staging);
+
+        string junction = Path.Combine(backup, "linked");
+        try
+        {
+            string? backupWarning = InstallEngine.ReplaceInstallDirectoryContentsCore(
+                dest, staging, backup, zip,
+                (source, target) =>
+                {
+                    File.Move(source, target);
+                    if (!Directory.Exists(junction))
+                    {
+                        using var mklink = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(
+                            "cmd.exe", "/c mklink /J \"" + junction + "\" \"" + outside + "\"")
+                        {
+                            UseShellExecute = false,
+                            CreateNoWindow = true,
+                        });
+                        mklink!.WaitForExit();
+                        Assert.Equal(0, mklink.ExitCode);
+                    }
+                });
+
+            Assert.NotNull(backupWarning);
+            Assert.Contains(backup, backupWarning);
+            Assert.True(Directory.Exists(backup));
+            Assert.True(File.Exists(outsideFile));
+            Assert.Equal("survive", File.ReadAllText(outsideFile));
+        }
+        finally
+        {
+            try { if (Directory.Exists(junction)) Directory.Delete(junction, false); } catch { /* best-effort */ }
+            try { Directory.Delete(root, true); } catch { /* best-effort cleanup */ }
+        }
+    }
+
+    [Fact]
+    public void TryDeleteDirectoryTree_does_not_modify_or_delete_junction_target_with_readonly_file()
+    {
+        string root = Path.Combine(Path.GetTempPath(), "VoltManagerSetupTests", Guid.NewGuid().ToString("N"));
+        string tree = Path.Combine(root, "tree");
+        string outside = Path.Combine(root, "outside");
+        Directory.CreateDirectory(tree);
+        Directory.CreateDirectory(outside);
+        string outsideFile = Path.Combine(outside, "important.txt");
+        File.WriteAllText(outsideFile, "protect me");
+        File.SetAttributes(outsideFile, FileAttributes.ReadOnly);
+
+        string internalFile = Path.Combine(tree, "internal.txt");
+        File.WriteAllText(internalFile, "delete me");
+        File.SetAttributes(internalFile, FileAttributes.ReadOnly);
+
+        string junction = Path.Combine(tree, "junction");
+        try
+        {
+            using (var mklink = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(
+                "cmd.exe", "/c mklink /J \"" + junction + "\" \"" + outside + "\"")
+            {
+                UseShellExecute = false,
+                CreateNoWindow = true,
+            }))
+            {
+                mklink!.WaitForExit();
+                Assert.Equal(0, mklink.ExitCode);
+            }
+
+            bool deleted = InstallEngine.TryDeleteDirectoryTree(tree, out string error);
+
+            Assert.True(deleted, "Expected tree deletion to succeed: " + error);
+            Assert.False(Directory.Exists(tree));
+            Assert.True(Directory.Exists(outside));
+            Assert.True(File.Exists(outsideFile));
+            Assert.Equal("protect me", File.ReadAllText(outsideFile));
+            FileAttributes outsideAttrs = File.GetAttributes(outsideFile);
+            Assert.True((outsideAttrs & FileAttributes.ReadOnly) != 0, "Expected ReadOnly attribute to be preserved on junction target file.");
+        }
+        finally
+        {
+            try { File.SetAttributes(outsideFile, FileAttributes.Normal); } catch { /* best-effort */ }
+            try { if (Directory.Exists(junction)) Directory.Delete(junction, false); } catch { /* best-effort */ }
+            try { Directory.Delete(root, true); } catch { /* best-effort cleanup */ }
+        }
+    }
+
+    [Fact]
+    public void DeleteOwnedTempFile_removes_owned_zip_allowing_temp_dir_removal_and_preserves_unowned_or_foreign_files()
+    {
+        string tempDir = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+        Directory.CreateDirectory(tempDir);
+        string zip = Path.Combine(tempDir, "VoltManagerPayload.zip");
+        File.WriteAllText(zip, "fake payload zip");
+
+        try
+        {
+            // When ownedTempDir is null, external file is preserved
+            string externalDir = Path.Combine(Path.GetTempPath(), "VoltManagerSetupTests", Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(externalDir);
+            string externalZip = Path.Combine(externalDir, "external.zip");
+            File.WriteAllText(externalZip, "keep external");
+            try
+            {
+                InstallEngine.DeleteOwnedTempFile(externalZip, null);
+                Assert.True(File.Exists(externalZip));
+            }
+            finally
+            {
+                try { Directory.Delete(externalDir, true); } catch { /* best-effort cleanup */ }
+            }
+
+            // Normal owned cleanup deletes the zip and allows TryDeleteTempDirectory to remove tempDir
+            InstallEngine.DeleteOwnedTempFile(zip, tempDir);
+            Assert.False(File.Exists(zip));
+
+            MethodInfo tryDelete = typeof(InstallEngine).GetMethod(
+                "TryDeleteTempDirectory", BindingFlags.NonPublic | BindingFlags.Static)!;
+            tryDelete.Invoke(null, new object?[] { tempDir });
+            Assert.False(Directory.Exists(tempDir));
+        }
+        finally
+        {
+            if (Directory.Exists(tempDir))
+                try { Directory.Delete(tempDir, true); } catch { /* best-effort cleanup */ }
+        }
+    }
+
+    [Fact]
+    public void DeleteOwnedTempFile_with_foreign_file_leaves_temp_dir_retained()
+    {
+        string tempDir = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+        Directory.CreateDirectory(tempDir);
+        string zip = Path.Combine(tempDir, "VoltManagerPayload.zip");
+        string foreign = Path.Combine(tempDir, "foreign.txt");
+        File.WriteAllText(zip, "payload");
+        File.WriteAllText(foreign, "foreign");
+
+        try
+        {
+            InstallEngine.DeleteOwnedTempFile(zip, tempDir);
+            Assert.False(File.Exists(zip));
+            Assert.True(File.Exists(foreign));
+
+            MethodInfo tryDelete = typeof(InstallEngine).GetMethod(
+                "TryDeleteTempDirectory", BindingFlags.NonPublic | BindingFlags.Static)!;
+            tryDelete.Invoke(null, new object?[] { tempDir });
+            Assert.True(Directory.Exists(tempDir));
+            Assert.True(File.Exists(foreign));
+        }
+        finally
+        {
+            if (Directory.Exists(tempDir))
+                try { Directory.Delete(tempDir, true); } catch { /* best-effort cleanup */ }
         }
     }
 

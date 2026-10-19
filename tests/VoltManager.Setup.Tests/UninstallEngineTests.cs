@@ -560,8 +560,69 @@ namespace VoltManager.Setup.Tests
             try { if (Directory.Exists(path)) Directory.Delete(path, true); } catch { }
         }
 
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task Purge_flag_selects_the_AppData_keep_list_and_launch_sources_go_first(bool purge)
+        {
+            string root = CreateTempDirectory();
+            try
+            {
+                (string installDir, string trustedZip) = CreateVerifiedSyntheticInstall(root);
+                var operations = new FakeUninstallOperations();
+                var engine = new HardenedInstallEngine(
+                    operations, () => Path.Combine(root, "synthetic-uninstaller.exe"), trustedZip)
+                {
+                    PurgeUserData = purge,
+                };
+
+                UninstallResult result = await engine.UninstallAsync(installDir);
+
+                Assert.True(result.Success, result.Summary);
+                Assert.Equal(1, operations.RestorePowerPlanCalls);
+                Assert.Equal(purge ? Array.Empty<string>() : HardenedInstallEngine.KeptUserDataEntries, operations.LastKeep);
+                Assert.Equal(operations.LastKeep, operations.KeptAppDataEntries);
+                // Task, shortcuts and ARP are removed before any install file.
+                Assert.Equal(new[] { "task", "shortcuts", "registry", "files" }, operations.Order);
+            }
+            finally { Cleanup(root); }
+        }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task Foreign_or_modified_file_is_retained_without_blocking_global_cleanup(bool modified)
+        {
+            string root = CreateTempDirectory();
+            try
+            {
+                (string installDir, string zip) = CreateVerifiedSyntheticInstall(root);
+                string retained = Path.Combine(installDir, modified ? "VoltManager.exe" : "notes.txt");
+                File.WriteAllText(retained, "personal content");
+                if (modified)
+                    InstallManifest.Write(installDir, new[] { "VoltManager.dll", "VoltManager.exe" });
+                var operations = new FakeUninstallOperations();
+                var engine = new HardenedInstallEngine(operations,
+                    () => Path.Combine(root, "synthetic-uninstaller.exe"), zip);
+
+                UninstallResult result = await engine.UninstallAsync(installDir);
+
+                Assert.Empty(result.Failures);
+                Assert.False(result.Success);
+                Assert.Contains(result.Residuals, residual => residual.Contains(Path.GetFileName(retained)));
+                Assert.Equal("personal content", File.ReadAllText(retained));
+                Assert.False(File.Exists(Path.Combine(installDir, "VoltManager.dll")));
+                Assert.Equal(1, operations.RemoveRegistryEntriesCalls);
+                Assert.Equal(1, operations.DeleteStartupTaskCalls);
+                Assert.Equal(1, operations.RemoveLanRemoteControlArtifactsCalls);
+                Assert.Equal(1, operations.DeleteDirectoryCalls);
+            }
+            finally { Cleanup(root); }
+        }
+
         private sealed class FakeUninstallOperations : IUninstallSystemOperations
         {
+            public List<string> Order { get; } = new List<string>();
             public bool StopProcessesResult { get; set; } = true;
             public int StopProcessesCalls { get; private set; }
             public Action? BeforeStopReturn { get; set; }
@@ -591,9 +652,9 @@ namespace VoltManager.Setup.Tests
                 return true;
             }
 
-            public void DeleteStartupTask(UninstallResult result) => DeleteStartupTaskCalls++;
-            public void RemoveShortcuts(UninstallResult result) { }
-            public void RemoveRegistryEntries(UninstallResult result) => RemoveRegistryEntriesCalls++;
+            public void DeleteStartupTask(UninstallResult result) { DeleteStartupTaskCalls++; Order.Add("task"); }
+            public void RemoveShortcuts(UninstallResult result) => Order.Add("shortcuts");
+            public void RemoveRegistryEntries(UninstallResult result) { RemoveRegistryEntriesCalls++; Order.Add("registry"); }
             public void RemoveLanRemoteControlArtifacts(UninstallResult result)
             {
                 RemoveLanRemoteControlArtifactsCalls++;
@@ -601,6 +662,24 @@ namespace VoltManager.Setup.Tests
                     result.Add("LAN remote certificate cleanup: " + LanRemoteCleanupError);
             }
             public IEnumerable<string> CleanupOwnedTempArtifacts(string currentExecutable) => Array.Empty<string>();
+            public int RestorePowerPlanCalls { get; private set; }
+            public void RestoreDefaultPowerPlan(string appData, UninstallResult result) => RestorePowerPlanCalls++;
+            public UninstallCleanupResult DeleteInstallFiles(string installDir, string? trustedPayloadZipPath)
+            {
+                Order.Add("files");
+                return InstallManifest.DeleteOwnedEntriesTolerant(installDir, trustedPayloadZipPath);
+            }
+            public IReadOnlyList<string> DeleteSwapLeftovers(string installDir, string? trustedPayloadZipPath)
+                => Array.Empty<string>();
+            public IReadOnlyCollection<string>? LastKeep { get; private set; }
+            public IReadOnlyList<string> DeleteAppDataEntries(
+                string appData, IReadOnlyCollection<string> keep, UninstallResult result)
+            {
+                DeleteDirectoryCalls++;
+                LastKeep = keep;
+                return Array.Empty<string>();
+            }
+            public IReadOnlyCollection<string> KeptAppDataEntries { get; set; } = Array.Empty<string>();
 
             public IReadOnlyList<string> FindResidualArtifacts(string installDir, string appData, string currentExecutable)
                 => Residuals;

@@ -14,6 +14,9 @@ namespace VoltManager.Setup.Pages
             Item1.Text     = I18n.T("uninst_item1");
             Item2.Text     = I18n.T("uninst_item2");
             Item3.Text     = I18n.T("uninst_item3");
+            ChkPurge.Content = I18n.T("uninst_purge");
         }
+
+        public bool PurgeUserData => ChkPurge.IsChecked == true;
     }
 }

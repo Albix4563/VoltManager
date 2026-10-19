@@ -154,12 +154,28 @@ namespace VoltManager.Services
             }
 
             if (SamePath(root, Path.GetFullPath(Path.GetTempPath())) &&
+                !IsRunningFromOwnRunDirectory(currentExecutablePath) &&
                 !TryDeleteDirectoryTree(UpdatesDirectory, out string updatesError))
             {
                 failures.Add("Updates directory: " + updatesError);
             }
 
             return failures.ToArray();
+        }
+
+        // A staged uninstaller lives in Updates\{run}\ and cannot remove that tree while
+        // running; it schedules Updates and its parent for deletion at reboot instead.
+        private static bool IsRunningFromOwnRunDirectory(string currentExecutablePath)
+        {
+            try
+            {
+                string? runDirectory = Path.GetDirectoryName(Path.GetFullPath(currentExecutablePath));
+                return runDirectory != null && SamePath(Path.GetDirectoryName(runDirectory) ?? "", UpdatesDirectory);
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         public static string[] FindOwnedTempArtifacts(string tempDirectory, string currentExecutablePath)
@@ -187,7 +203,8 @@ namespace VoltManager.Services
                 catch { /* best-effort: artifact probing skips inaccessible entries. */ }
             }
 
-            if (SamePath(root, Path.GetFullPath(Path.GetTempPath())))
+            if (SamePath(root, Path.GetFullPath(Path.GetTempPath())) &&
+                !IsRunningFromOwnRunDirectory(currentExecutablePath))
             {
                 try
                 {
