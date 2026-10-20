@@ -437,7 +437,6 @@ option {
 }
 
 .processes-card::before,
-.widgets-category-card::before,
 .app-profile-panel::before {
     background: radial-gradient(circle, rgb(var(--vm-accent-rgb) / .14), transparent 68%) !important;
 }

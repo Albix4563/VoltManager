@@ -68,6 +68,12 @@
     box-shadow: inset 0 1px 0 color-mix(in srgb, var(--vm-accent) 8%, transparent);
 }
 
+.vm-ui-panel:has(#adv-panel, #ram-panel, #widgets-card) {
+    background:
+        radial-gradient(360px circle at 0 0, rgb(var(--vm-accent-rgb) / .10), transparent 70%),
+        color-mix(in srgb, var(--md-sys-color-surface-container-low, #10192c) 78%, transparent);
+}
+
 .vm-ui-section {
     contain: layout style;
     min-width: 0;

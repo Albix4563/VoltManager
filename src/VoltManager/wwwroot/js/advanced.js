@@ -54,8 +54,6 @@
         style.textContent = `
 /* ── Advanced params ─────────────────────────────────────────────── */
 .adv-panel{position:relative;overflow:hidden;}
-.adv-panel:before{content:"";position:absolute;inset:-40% auto auto -12%;width:300px;height:300px;
-  border-radius:999px;background:radial-gradient(circle,rgb(var(--vm-accent-rgb) / .12),transparent 66%);pointer-events:none;}
 .adv-param-row{border:1px solid rgba(255,255,255,.09);background:rgba(255,255,255,.03);
   border-radius:16px;padding:16px 18px;transition:border-color var(--vm-motion-fast) var(--vm-ease-standard),background var(--vm-motion-fast) var(--vm-ease-standard);}
 .adv-param-row:hover{border-color:rgb(var(--vm-accent-rgb) / .22);background:rgba(255,255,255,.055);}
@@ -119,8 +117,6 @@
 
 /* ── RAM Cleaner ─────────────────────────────────────────────────── */
 .ram-panel{position:relative;overflow:hidden;}
-.ram-panel:before{content:"";position:absolute;top:-30%;right:-10%;width:260px;height:260px;
-  border-radius:999px;background:radial-gradient(circle,rgb(var(--vm-accent-rgb) / .1),transparent 65%);pointer-events:none;}
 .ram-bar-outer{width:100%;height:20px;border-radius:999px;overflow:hidden;background:rgba(255,255,255,.06);
   border:1px solid rgba(255,255,255,.1);display:flex;}
 .ram-bar-inuse{height:100%;background:linear-gradient(90deg,var(--vm-accent-hover),var(--vm-accent));transition:width .8s ease;}

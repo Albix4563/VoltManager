@@ -85,6 +85,22 @@ public class UiReorganizationContractTests
     }
 
     [Fact]
+    public void Embedded_legacy_panels_render_accent_glow_on_the_rounded_parent_card()
+    {
+        string advancedStyles = LocateWebAsset("js", "advanced.js");
+        string appStyles = LocateWebAsset("css", "app.css");
+        string themeStyles = LocateWebAsset("css", "theme-colors.css");
+        string reorganizationStyles = LocateWebAsset("css", "ui-reorganization.css");
+
+        Assert.DoesNotContain(".adv-panel:before", advancedStyles);
+        Assert.DoesNotContain(".ram-panel:before", advancedStyles);
+        Assert.DoesNotContain(".widgets-category-card:before", appStyles);
+        Assert.DoesNotContain(".widgets-category-card::before", themeStyles);
+        Assert.Contains(".vm-ui-panel:has(#adv-panel, #ram-panel, #widgets-card)", reorganizationStyles);
+        Assert.Contains("radial-gradient(360px circle at 0 0, rgb(var(--vm-accent-rgb) / .10), transparent 70%)", reorganizationStyles);
+    }
+
+    [Fact]
     public void Compact_system_actions_use_icons_with_localized_hover_labels()
     {
         string app = LocateWebAsset("js", "app.js");
