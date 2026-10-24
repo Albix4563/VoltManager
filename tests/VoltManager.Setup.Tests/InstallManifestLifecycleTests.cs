@@ -155,7 +155,7 @@ public sealed class InstallManifestLifecycleTests
             Assert.DoesNotContain(AppDomain.CurrentDomain.ReflectionOnlyGetAssemblies(),
                 assembly => assembly.GetName().Name!.StartsWith("SyntheticSetup", StringComparison.Ordinal));
             Assert.Null(Record.Exception(() => InstallEngine.ReadEmbeddedPayloadWithoutExecution(
-                File.ReadAllBytes(typeof(InstallManifest).Assembly.Location))));
+                typeof(InstallManifest).Assembly.Location)));
 
             // Simula la registrazione dell'uninstaller B prima di verificarne la pulizia.
             File.Copy(typeof(InstallManifest).Assembly.Location, Path.Combine(destination, "uninstall.exe"));
@@ -164,6 +164,29 @@ public sealed class InstallManifestLifecycleTests
             Assert.Equal(new[] { "user-notes.txt" }, cleanup.Retained);
             Assert.Equal("user data outside the payload", File.ReadAllText(notes));
             Assert.Equal(new[] { notes }, Directory.GetFileSystemEntries(destination));
+        }
+        finally
+        {
+            try { Directory.Delete(root, recursive: true); } catch { /* pulizia della fixture sintetica */ }
+        }
+    }
+
+    [Fact]
+    public async Task Cached_installed_inventory_still_rejects_files_tampered_after_validation()
+    {
+        string root = Path.Combine(Path.GetTempPath(), "VoltManagerSetupTests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            (string destination, _) = InstallReleaseA(root);
+            // La prima validazione memorizza l'inventario di A; i file restano ricontrollati.
+            InstallManifest.ValidateExistingInstallBeforeSideEffects(destination, requireProtectedInstallLocation: _ => { });
+            string dll = Path.Combine(destination, "VoltManager.dll");
+            File.WriteAllText(dll, "tampered");
+
+            await Assert.ThrowsAnyAsync<Exception>(() => ExtractAsync(destination, CreateReleaseB(root), _ => { }));
+
+            Assert.Equal("tampered", File.ReadAllText(dll));
         }
         finally
         {

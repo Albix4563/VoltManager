@@ -657,7 +657,8 @@ namespace VoltManager.Setup.Engine
 
         // Legge il payload precedente solo come dati: il dominio reflection-only
         // viene scaricato senza eseguire initializer o dipendenze del vecchio setup.
-        internal static byte[]? ReadEmbeddedPayloadWithoutExecution(byte[] setupImage)
+        // Il caricamento da percorso mappa l'immagine: Load(byte[]) impiega ~20 s su 150 MB.
+        internal static byte[]? ReadEmbeddedPayloadWithoutExecution(string setupImagePath)
         {
             AppDomain domain = AppDomain.CreateDomain(
                 "VoltManagerInstalledPayload-" + Guid.NewGuid().ToString("N"),
@@ -667,7 +668,7 @@ namespace VoltManager.Setup.Engine
             {
                 var reader = (InstalledPayloadReader)domain.CreateInstanceFromAndUnwrap(
                     Assembly.GetExecutingAssembly().Location, typeof(InstalledPayloadReader).FullName);
-                return reader.Read(setupImage);
+                return reader.Read(setupImagePath);
             }
             finally
             {
@@ -677,9 +678,9 @@ namespace VoltManager.Setup.Engine
 
         public sealed class InstalledPayloadReader : MarshalByRefObject
         {
-            public byte[]? Read(byte[] setupImage)
+            public byte[]? Read(string setupImagePath)
             {
-                Assembly image = Assembly.ReflectionOnlyLoad(setupImage);
+                Assembly image = Assembly.ReflectionOnlyLoadFrom(setupImagePath);
                 string[] names = Array.FindAll(image.GetManifestResourceNames(),
                     n => n.EndsWith("payload.zip", StringComparison.OrdinalIgnoreCase));
                 if (names.Length == 0)

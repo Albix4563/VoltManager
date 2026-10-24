@@ -487,28 +487,42 @@ namespace VoltManager.Setup.Engine
 
             (requireProtectedInstallLocation ?? InstallDirectorySecurity.RequireProtectedElevatedUninstallerLocation)(installDir);
             ValidateSingleFile(uninstaller);
-            byte[] image = File.ReadAllBytes(uninstaller);
-            PayloadInventory inventory;
-            try
+            // L'handle senza condivisione in scrittura lega hash e payload agli stessi byte.
+            using (var image = new FileStream(uninstaller, FileMode.Open, FileAccess.Read, FileShare.Read))
             {
-                byte[]? payload = InstallEngine.ReadEmbeddedPayloadWithoutExecution(image);
-                // Le build di sviluppo senza payload non provano un inventario cross-version.
-                if (payload == null)
-                    return sameVersionFallback();
-                using (var zip = new MemoryStream(payload, writable: false))
-                    inventory = ReadInventory(zip);
+                string imageHash;
+                using (var sha = SHA256.Create())
+                    imageHash = BitConverter.ToString(sha.ComputeHash(image));
+                // Stessi byte, stesso inventario: l'update valida più volte senza ricalcolarlo.
+                lock (InstalledInventories)
+                    if (InstalledInventories.TryGetValue(imageHash, out PayloadInventory cached))
+                        return cached;
+                PayloadInventory inventory;
+                try
+                {
+                    byte[]? payload = InstallEngine.ReadEmbeddedPayloadWithoutExecution(uninstaller);
+                    // Le build di sviluppo senza payload non provano un inventario cross-version.
+                    if (payload == null)
+                        return sameVersionFallback();
+                    using (var zip = new MemoryStream(payload, writable: false))
+                        inventory = ReadInventory(zip);
+                }
+                catch (Exception ex) when (!(ex is InvalidDataException))
+                {
+                    throw new InvalidDataException("Installed uninstaller cannot provide a trusted payload inventory: " + ex.Message, ex);
+                }
+                if (inventory.FileHashes.ContainsKey("uninstall.exe"))
+                    throw new InvalidDataException("Installed payload inventory must not declare uninstall.exe.");
+                // Anche uninstall.exe è verificato contro A, non contro il setup B in esecuzione.
+                inventory.FileHashes.Add("uninstall.exe", imageHash);
+                lock (InstalledInventories)
+                    InstalledInventories[imageHash] = inventory;
+                return inventory;
             }
-            catch (Exception ex) when (!(ex is InvalidDataException))
-            {
-                throw new InvalidDataException("Installed uninstaller cannot provide a trusted payload inventory: " + ex.Message, ex);
-            }
-            if (inventory.FileHashes.ContainsKey("uninstall.exe"))
-                throw new InvalidDataException("Installed payload inventory must not declare uninstall.exe.");
-            // Anche uninstall.exe è verificato contro A, non contro il setup B in esecuzione.
-            using (var sha = SHA256.Create())
-                inventory.FileHashes.Add("uninstall.exe", BitConverter.ToString(sha.ComputeHash(image)));
-            return inventory;
         }
+
+        private static readonly Dictionary<string, PayloadInventory> InstalledInventories =
+            new Dictionary<string, PayloadInventory>(StringComparer.Ordinal);
 
         private static IReadOnlyCollection<string> ValidateExistingInstallBeforeSideEffectsWithInventory(
             string destDir, PayloadInventory? installedInventory)
@@ -699,26 +713,25 @@ namespace VoltManager.Setup.Engine
 
         private static PayloadInventory? LoadTrustedPayload(string? trustedPayloadZipPath)
         {
-            Stream? source;
-            if (!string.IsNullOrEmpty(trustedPayloadZipPath))
-            {
-                // The caller must supply an independently verified, immutable payload
-                // source. Never derive this path from the install manifest or directory.
-                source = File.OpenRead(trustedPayloadZipPath);
-            }
-            else
-            {
-                Assembly setup = Assembly.GetExecutingAssembly();
-                string? resource = setup.GetManifestResourceNames().FirstOrDefault(
-                    name => name.EndsWith("payload.zip", StringComparison.OrdinalIgnoreCase));
-                if (resource == null) return null; // Development/legacy builds.
-                source = setup.GetManifestResourceStream(resource)
-                    ?? throw new InvalidDataException("Embedded trusted payload is unavailable.");
-            }
-
-            using (source)
+            if (string.IsNullOrEmpty(trustedPayloadZipPath))
+                return EmbeddedInventory.Value;
+            // The caller must supply an independently verified, immutable payload
+            // source. Never derive this path from the install manifest or directory.
+            using (Stream source = File.OpenRead(trustedPayloadZipPath))
                 return ReadInventory(source);
         }
+
+        // La risorsa incorporata è immutabile: un solo inflate+hash per processo.
+        private static readonly Lazy<PayloadInventory?> EmbeddedInventory = new Lazy<PayloadInventory?>(() =>
+        {
+            Assembly setup = Assembly.GetExecutingAssembly();
+            string? resource = setup.GetManifestResourceNames().FirstOrDefault(
+                name => name.EndsWith("payload.zip", StringComparison.OrdinalIgnoreCase));
+            if (resource == null) return null; // Development/legacy builds.
+            using (Stream source = setup.GetManifestResourceStream(resource)
+                ?? throw new InvalidDataException("Embedded trusted payload is unavailable."))
+                return ReadInventory(source);
+        });
 
         private static PayloadInventory ReadInventory(Stream source)
         {
