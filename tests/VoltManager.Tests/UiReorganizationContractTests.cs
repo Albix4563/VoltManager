@@ -91,7 +91,9 @@ public class UiReorganizationContractTests
         string appStyles = LocateWebAsset("css", "app.css");
         string themeStyles = LocateWebAsset("css", "theme-colors.css");
         string reorganizationStyles = LocateWebAsset("css", "ui-reorganization.css");
+        string markup = LocateWebAsset("index.html");
 
+        Assert.DoesNotContain("blur-2xl", markup);
         Assert.DoesNotContain(".adv-panel:before", advancedStyles);
         Assert.DoesNotContain(".ram-panel:before", advancedStyles);
         Assert.DoesNotContain(".widgets-category-card:before", appStyles);
