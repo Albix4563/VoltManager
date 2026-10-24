@@ -1,4 +1,5 @@
 using System;
+using System.Text.Json;
 using System.Threading;
 using Microsoft.Web.WebView2.Core;
 using VoltManager.Services;
@@ -66,8 +67,13 @@ public partial class MainWindow
                     return false;
                 })();
                 """;
-            string result = await core.ExecuteScriptAsync(script);
-            if (result == "true" && !_dashboardLoadFailed && IsVisible &&
+            // ExecuteScriptAsync does not await promises (an async IIFE serializes
+            // as "{}"), so evaluate over CDP, which resolves the promise first.
+            string response = await core.CallDevToolsProtocolMethodAsync("Runtime.evaluate",
+                JsonSerializer.Serialize(new { expression = script, awaitPromise = true, returnByValue = true }));
+            if (!IsConfirmedEvaluation(response))
+                Logger.Warn("Update session dashboard readiness was not confirmed.");
+            else if (!_dashboardLoadFailed && IsVisible &&
                 ReferenceEquals(WebView.CoreWebView2, core) &&
                 IsUpdateDashboardDocument(core.Source))
             {
@@ -85,6 +91,15 @@ public partial class MainWindow
         {
             Interlocked.Exchange(ref _updateReadyCheckActive, 0);
         }
+    }
+
+    internal static bool IsConfirmedEvaluation(string cdpResponse)
+    {
+        using JsonDocument doc = JsonDocument.Parse(cdpResponse);
+        return !doc.RootElement.TryGetProperty("exceptionDetails", out _) &&
+               doc.RootElement.TryGetProperty("result", out JsonElement result) &&
+               result.TryGetProperty("value", out JsonElement value) &&
+               value.ValueKind == JsonValueKind.True;
     }
 
     private static bool IsUpdateDashboardDocument(string? source)
