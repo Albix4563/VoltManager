@@ -16,7 +16,7 @@
  */
 (function () {
     if (!window.Host || !Host.available) return;
-    const TOUR_TRANSITION_SETTLE_MS = 520;
+    const TOUR_TRANSITION_SETTLE_MS = 680;
 
     // step.view: app view to switch to before showing (home|power|settings).
     // step.el: CSS selector of the element to spotlight (null = centered card).

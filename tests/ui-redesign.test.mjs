@@ -91,11 +91,11 @@ test('motion tiers keep the live Processes panel out of transform animation', ()
 });
 
 test('motion timings match the rich, balanced and lite tiers', () => {
-  assert.ok(css.includes('animation: vmReorgViewIn 600ms var(--vm-ease-standard)'));
-  assert.ok(css.includes('animation: vmReorgPanelIn 560ms var(--vm-ease-emphasized)'));
-  assert.ok(css.includes('animation-delay: 80ms'));
-  assert.ok(css.includes('animation-duration: .28s'));
-  assert.ok(css.includes('animation-duration: .3s'));
+  assert.ok(css.includes('animation: vmReorgViewIn 680ms var(--vm-ease-standard)'));
+  assert.ok(css.includes('animation: vmReorgPanelIn 680ms var(--vm-ease-emphasized)'));
+  assert.ok(css.includes('animation-delay: 95ms'));
+  assert.ok(css.includes('animation-duration: .48s'));
+  assert.ok(css.includes('animation-duration: .5s'));
   assert.ok(css.includes('animation-duration: .16s'));
 });
 

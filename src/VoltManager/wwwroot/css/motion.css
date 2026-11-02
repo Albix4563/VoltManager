@@ -1,14 +1,14 @@
 :root {
-  --vm-motion-fast: 280ms;
-  --vm-motion-base: 420ms;
-  --vm-motion-sidebar: 520ms;
-  --vm-motion-slow: 600ms;
-  --vm-motion-enter: 560ms;
-  --vm-motion-exit: 360ms;
-  --vm-motion-stagger: 80ms;
-  --vm-ease-standard: cubic-bezier(.2,.8,.2,1);
-  --vm-ease-emphasized: cubic-bezier(.16,1,.3,1);
-  --vm-ease-exit: cubic-bezier(.4,0,.2,1);
+  --vm-motion-fast: 320ms;
+  --vm-motion-base: 520ms;
+  --vm-motion-sidebar: 680ms;
+  --vm-motion-slow: 750ms;
+  --vm-motion-enter: 680ms;
+  --vm-motion-exit: 440ms;
+  --vm-motion-stagger: 95ms;
+  --vm-ease-standard: cubic-bezier(.25,.9,.3,1);
+  --vm-ease-emphasized: cubic-bezier(.22,1,.36,1);
+  --vm-ease-exit: cubic-bezier(.35,0,.25,1);
 }
 
 html[data-anim="low"] {

@@ -157,7 +157,10 @@ button,
     opacity var(--vm-motion-fast) var(--vm-ease-standard),
     background-color var(--vm-motion-fast) var(--vm-ease-standard),
     color var(--vm-motion-fast) var(--vm-ease-standard),
-    border-color var(--vm-motion-fast) var(--vm-ease-standard);
+    border-color var(--vm-motion-fast) var(--vm-ease-standard),
+    width var(--vm-motion-sidebar) var(--vm-ease-emphasized),
+    padding var(--vm-motion-sidebar) var(--vm-ease-emphasized),
+    gap var(--vm-motion-sidebar) var(--vm-ease-emphasized);
 }
 .nav-item:hover{
   transform: translateX(2px);

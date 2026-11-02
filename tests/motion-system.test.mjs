@@ -26,16 +26,16 @@ test('shared motion tokens are loaded by the app and widget surfaces', () => {
   }
 
   const tokens = {
-    '--vm-motion-fast': '280ms',
-    '--vm-motion-base': '420ms',
-    '--vm-motion-sidebar': '520ms',
-    '--vm-motion-slow': '600ms',
-    '--vm-motion-enter': '560ms',
-    '--vm-motion-exit': '360ms',
-    '--vm-motion-stagger': '80ms',
-    '--vm-ease-standard': 'cubic-bezier(.2,.8,.2,1)',
-    '--vm-ease-emphasized': 'cubic-bezier(.16,1,.3,1)',
-    '--vm-ease-exit': 'cubic-bezier(.4,0,.2,1)',
+    '--vm-motion-fast': '320ms',
+    '--vm-motion-base': '520ms',
+    '--vm-motion-sidebar': '680ms',
+    '--vm-motion-slow': '750ms',
+    '--vm-motion-enter': '680ms',
+    '--vm-motion-exit': '440ms',
+    '--vm-motion-stagger': '95ms',
+    '--vm-ease-standard': 'cubic-bezier(.25,.9,.3,1)',
+    '--vm-ease-emphasized': 'cubic-bezier(.22,1,.36,1)',
+    '--vm-ease-exit': 'cubic-bezier(.35,0,.25,1)',
   };
 
   for (const [name, value] of Object.entries(tokens)) {
@@ -69,9 +69,9 @@ test('structural motion is relaxed while click feedback remains faster', () => {
   assert.match(powerFeatures, /grid-template-rows\s+var\(--vm-motion-base\)/);
   assert.match(powerFeatures, /padding\s+var\(--vm-motion-base\)/);
   assert.match(app, /transform\s+480ms/);
-  assert.match(reorg, /animation:\s*vmReorgViewIn\s+600ms/);
-  assert.match(reorg, /animation:\s*vmReorgPanelIn\s+560ms/);
-  assert.match(reorg, /animation-delay:\s*80ms/);
+  assert.match(reorg, /animation:\s*vmReorgViewIn\s+680ms/);
+  assert.match(reorg, /animation:\s*vmReorgPanelIn\s+680ms/);
+  assert.match(reorg, /animation-delay:\s*95ms/);
 });
 
 test('decorative motion is slower and reduced-motion/performance tiers remain intact', () => {
@@ -92,7 +92,7 @@ test('welcome-adjacent toast and tour motion use relaxed timings', () => {
   assert.match(settings, /slideInRight\s+0?\.45s/);
   assert.match(tour, /\.vm-tour-hole[\s\S]*top\s+\.42s[\s\S]*left\s+\.42s/);
   assert.match(tour, /\.vm-tour-pop[\s\S]*opacity\s+\.42s[\s\S]*transform\s+\.42s/);
-  assert.match(tour, /TOUR_TRANSITION_SETTLE_MS\s*=\s*520/);
+  assert.match(tour, /TOUR_TRANSITION_SETTLE_MS\s*=\s*680/);
   assert.match(tour, /setTimeout\(\(\) => measureAndPlace\(s\),\s*TOUR_TRANSITION_SETTLE_MS\)/);
 });
 
@@ -124,6 +124,8 @@ test('sidebar transition uses explicit expanding and collapsing phases without t
   assert.match(app, /style\.willChange\s*=\s*['"]['"]/);
   const sidebarBlock = app.match(/\(function wireSidebarCollapse\(\)[\s\S]*?\}\)\(\);/s)?.[0] || '';
   assert.doesNotMatch(sidebarBlock, /setTimeout|setInterval/);
+  assert.match(redesign, /body\.sidebar-collapsed\s+\.side-nav\s+\.nav-item\s+span:not\(\.material-symbols-outlined\)[\s\S]*opacity:\s*0/);
+  assert.match(redesign, /\.side-nav\s+\.nav-item\s*\{[\s\S]*width\s+var\(--vm-motion-sidebar\)/);
 });
 
 test('navigation and card polish use compositor-friendly restrained feedback', () => {

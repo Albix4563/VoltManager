@@ -149,16 +149,22 @@ html[data-perf-tier="balanced"] .vm-scrim{
   min-width: 0;
   transition: margin-left var(--vm-motion-sidebar) var(--vm-ease-emphasized);
 }
-.side-nav__header{ min-height: 40px; }
+.side-nav__header{
+  min-height: 40px;
+  transition:
+    padding var(--vm-motion-sidebar) var(--vm-ease-emphasized),
+    margin var(--vm-motion-sidebar) var(--vm-ease-emphasized),
+    gap var(--vm-motion-sidebar) var(--vm-ease-emphasized);
+}
 .side-nav__brand{
   max-width: 180px;
   opacity: 1;
   transform: translateX(0);
   transition:
-    opacity 180ms var(--vm-ease-exit),
-    transform 220ms var(--vm-ease-emphasized),
-    max-width 260ms var(--vm-ease-standard),
-    margin 260ms var(--vm-ease-standard);
+    opacity var(--vm-motion-exit) var(--vm-ease-exit),
+    transform var(--vm-motion-base) var(--vm-ease-emphasized),
+    max-width var(--vm-motion-sidebar) var(--vm-ease-standard),
+    margin var(--vm-motion-sidebar) var(--vm-ease-standard);
   overflow: hidden;
 }
 .side-nav__toggle,
@@ -172,10 +178,24 @@ html[data-perf-tier="balanced"] .vm-scrim{
 }
 #sidebar-toggle-icon,
 .side-nav-expand-btn .material-symbols-outlined{
-  transition: transform 220ms var(--vm-ease-emphasized), opacity 180ms var(--vm-ease-standard);
+  transition: transform var(--vm-motion-base) var(--vm-ease-emphasized), opacity var(--vm-motion-fast) var(--vm-ease-standard);
 }
 .nav-indicator{
-  transition: top 260ms var(--vm-ease-emphasized), height 260ms var(--vm-ease-emphasized);
+  transition: top var(--vm-motion-base) var(--vm-ease-emphasized), height var(--vm-motion-base) var(--vm-ease-emphasized);
+}
+.side-nav #nav-list{
+  transition: padding var(--vm-motion-sidebar) var(--vm-ease-emphasized);
+}
+.side-nav .nav-item{
+  transition:
+    width var(--vm-motion-sidebar) var(--vm-ease-emphasized),
+    padding var(--vm-motion-sidebar) var(--vm-ease-emphasized),
+    gap var(--vm-motion-sidebar) var(--vm-ease-emphasized),
+    transform var(--vm-motion-fast) var(--vm-ease-standard),
+    opacity var(--vm-motion-fast) var(--vm-ease-standard),
+    background-color var(--vm-motion-fast) var(--vm-ease-standard),
+    color var(--vm-motion-fast) var(--vm-ease-standard),
+    border-color var(--vm-motion-fast) var(--vm-ease-standard);
 }
 .side-nav .nav-item span:not(.material-symbols-outlined),
 .side-nav .nav-section-label,
@@ -186,11 +206,11 @@ html[data-perf-tier="balanced"] .vm-scrim{
   opacity: 1;
   transform: translateX(0);
   transition:
-    opacity 180ms var(--vm-ease-exit),
-    transform 220ms var(--vm-ease-emphasized),
-    max-width 260ms var(--vm-ease-standard),
-    margin 260ms var(--vm-ease-standard),
-    padding 260ms var(--vm-ease-standard);
+    opacity var(--vm-motion-exit) var(--vm-ease-exit),
+    transform var(--vm-motion-base) var(--vm-ease-emphasized),
+    max-width var(--vm-motion-sidebar) var(--vm-ease-standard),
+    margin var(--vm-motion-sidebar) var(--vm-ease-standard),
+    padding var(--vm-motion-sidebar) var(--vm-ease-standard);
 }
 /* Keep nav labels single-line: while the relaxed rail width transition runs the
    rail is momentarily narrow, and wrapping text would inflate the measured
@@ -210,10 +230,20 @@ html[data-perf-tier="balanced"] .vm-scrim{
   max-height: 36px;
   overflow: hidden;
   transition:
-    opacity 180ms var(--vm-ease-exit),
-    transform 220ms var(--vm-ease-emphasized),
-    max-height 260ms var(--vm-ease-standard),
-    padding 260ms var(--vm-ease-standard);
+    opacity var(--vm-motion-exit) var(--vm-ease-exit),
+    transform var(--vm-motion-base) var(--vm-ease-emphasized),
+    max-height var(--vm-motion-sidebar) var(--vm-ease-standard),
+    padding var(--vm-motion-sidebar) var(--vm-ease-standard);
+}
+
+.side-nav #btn-monitoring-toggle{
+  transition:
+    width var(--vm-motion-sidebar) var(--vm-ease-emphasized),
+    padding var(--vm-motion-sidebar) var(--vm-ease-emphasized),
+    background-color var(--vm-motion-fast) var(--vm-ease-standard);
+}
+.side-nav .mt-auto{
+  transition: padding var(--vm-motion-sidebar) var(--vm-ease-emphasized);
 }
 
 /* Collapsed rail: icons only, labels tuck away */
@@ -229,6 +259,7 @@ body.sidebar-collapsed .side-nav__header{
   justify-content: center;
   gap: 0;
 }
+body.sidebar-collapsed .side-nav .nav-item span:not(.material-symbols-outlined),
 body.sidebar-collapsed .side-nav__brand,
 body.sidebar-collapsed .side-nav .nav-section-label,
 body.sidebar-collapsed .side-nav #monitoring-label,
@@ -236,7 +267,7 @@ body.sidebar-collapsed .side-nav #sidebar-version,
 body.sidebar-collapsed .side-nav .mt-sm{
   opacity: 0;
   max-width: 0;
-  transform: translateX(-6px);
+  transform: translateX(-8px);
   margin: 0 !important;
   padding: 0 !important;
   overflow: hidden;
@@ -252,7 +283,7 @@ body.sidebar-expanding:not(.sidebar-collapsed) .side-nav #monitoring-label,
 body.sidebar-expanding:not(.sidebar-collapsed) .side-nav #sidebar-version,
 body.sidebar-expanding:not(.sidebar-collapsed) .side-nav .side-nav__brand,
 body.sidebar-expanding:not(.sidebar-collapsed) .side-nav .mt-sm{
-  transition-delay: 90ms;
+  transition-delay: 140ms;
 }
 body.sidebar-collapsed .side-nav__toggle{ display: none; }
 body.sidebar-collapsing .side-nav__toggle{ display: inline-flex; }
@@ -306,7 +337,14 @@ body.sidebar-collapsed .side-nav .mt-auto{
   flex-direction: column;
   align-items: center;
 }
-body.sidebar-collapsed #btn-sidebar-expand{ display: inline-flex !important; }
+body.sidebar-collapsed #btn-sidebar-expand{
+  display: inline-flex !important;
+  animation: vmFadeIn var(--vm-motion-fast) var(--vm-ease-standard) both;
+}
+@keyframes vmFadeIn{
+  from{ opacity: 0; transform: scale(.92); }
+  to{ opacity: 1; transform: none; }
+}
 body:not(.sidebar-collapsed) #btn-sidebar-expand{ display: none !important; }
 body.sidebar-collapsing #btn-sidebar-expand{ display: none !important; }
 body.sidebar-expanding #btn-sidebar-expand{
