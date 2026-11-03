@@ -6,6 +6,11 @@
   "branch": "Dev",
   "decisions": [
     {
+      "date": "2026-11-03",
+      "topic": "Esecuzione dei test statici",
+      "summary": "Eseguire i test statici solo per modifiche aggressive che rischiano di introdurre regressioni, non automaticamente per ogni modifica."
+    },
+    {
       "date": "2026-11-02",
       "topic": "UI motion & transitions",
       "summary": "Le animazioni dell'applicazione erano eccessivamente rapide e scattose, in particolare la chiusura della barra laterale che nascondeva bruscamente i testi prima del completamento del movimento. I parametri di transizione e le curve di easing sono stati resi più lenti, fluidi e tranquilli in motion.css, redesign.css, polish.css e ui-reorganization.css."
