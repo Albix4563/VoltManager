@@ -126,7 +126,7 @@
         ensurePowerStyles();
         if (!mount) return;
 
-        mount.innerHTML =
+        mount.insertAdjacentHTML('afterbegin',
             '<div class="keep-awake-panel-inner" id="thermal-guard-panel">' +
             '<div class="flex flex-col sm:flex-row sm:items-start justify-between gap-md mb-lg relative z-10">' +
             '<p class="text-body-md text-on-surface-variant max-w-2xl" id="thermal-sub"></p>' +
@@ -171,7 +171,7 @@
             '<option value="performance" id="thermal-plan-performance"></option></select></div>' +
             '</div><aside class="keep-awake-status">' +
             '<p class="text-body-md text-on-surface" id="thermal-status"></p>' +
-            '</aside></div></div>';
+            '</aside></div></div>');
         refreshPowerLabels();
     }
 
@@ -185,7 +185,7 @@
         ensurePowerStyles();
         if (!mount) return;
 
-        mount.innerHTML =
+        mount.insertAdjacentHTML('beforeend',
             '<div class="keep-awake-panel-inner" id="idle-power-guard-panel">' +
             '<div class="flex flex-col sm:flex-row sm:items-start justify-between gap-md mb-lg relative z-10">' +
             '<p class="text-body-md text-on-surface-variant max-w-2xl" id="idle-sub"></p>' +
@@ -213,7 +213,7 @@
             '<option value="performance" id="idle-plan-performance"></option></select></div>' +
             '</div><aside class="keep-awake-status">' +
             '<p class="text-body-md text-on-surface" id="idle-status"></p>' +
-            '</aside></div></div>';
+            '</aside></div></div>');
         refreshPowerLabels();
         checkBatteryPresence();
     }

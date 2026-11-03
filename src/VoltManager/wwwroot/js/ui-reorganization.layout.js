@@ -157,7 +157,7 @@
             ]) + `<div class="vm-subview-stack vm-ui-group">
                 ${panel('monitoring', 'hardware', '<section class="vm-ui-panel vm-section-card"><div id="vm-monitoring-hardware" class="vm-ui-group"></div></section>', true)}
                 ${panel('monitoring', 'processes', '<section class="vm-ui-panel vm-section-card"><div id="vm-monitoring-processes" class="vm-ui-group"></div></section>', false)}
-                ${panel('monitoring', 'temperatures', '<section class="vm-ui-panel vm-section-card"><div id="vm-monitoring-temperatures" class="vm-ui-group"></div></section>', false)}
+                ${panel('monitoring', 'temperatures', '<section class="vm-ui-panel vm-section-card"><div id="vm-monitoring-temperatures" class="vm-ui-group"></div><p class="vm-empty-state hidden" id="vm-sensors-empty" role="status" aria-hidden="true"><span class="material-symbols-outlined" aria-hidden="true">device_thermostat</span><span data-vm-i18n="sensors_empty"></span><small data-vm-i18n="sensors_empty_hint"></small></p></section>', false)}
                 ${panel('monitoring', 'battery', '<section class="vm-ui-panel vm-section-card"><div id="vm-monitoring-battery" class="vm-stack vm-ui-group"></div></section>', false)}
             </div>`);
     }
@@ -172,11 +172,12 @@
                 { id: 'advanced', icon: 'tune', label: 'tab_advanced' }
             ], `
                 ${panel('power-plans', 'active', `<section class="vm-ui-panel vm-section-card">
-                    <p class="vm-panel-hint text-on-surface-variant" data-vm-i18n="active_plan_hint"></p><div id="vm-power-active"></div>
+                    <p class="vm-panel-hint text-on-surface-variant" data-vm-i18n="active_plan_hint"></p><div id="vm-power-active" class="vm-power-module"></div>
                 </section>`, true)}
                 ${panel('power-plans', 'source', `<section class="vm-ui-panel vm-section-card">
                     <p class="vm-panel-hint text-on-surface-variant" data-vm-i18n="power_source_hint"></p>
                     <div id="power-timeouts-mount"></div><div class="vm-divider"></div>
+                    <h3 class="vm-section-title"><span class="material-symbols-outlined">tune</span><span data-vm-i18n="power_source_behavior_title"></span></h3>
                     <div id="vm-power-source" class="vm-stack"></div>
                 </section>`, false)}
                 ${panel('power-plans', 'keep-awake', `<section class="vm-ui-panel vm-section-card">
@@ -188,8 +189,13 @@
                 </section>`, false)}
                 ${panel('power-plans', 'advanced', `<section class="vm-ui-panel vm-section-card">
                     <div class="vm-advanced-warning"><span class="material-symbols-outlined">info</span><span data-vm-i18n="advanced_hint"></span></div>
-                    <div id="vm-power-advanced-actions" class="vm-panel-actions"></div>
                     <div id="vm-power-advanced"></div>
+                    <div class="vm-divider"></div>
+                    <div class="vm-advanced-cleanup">
+                        <h3 class="vm-section-title"><span class="material-symbols-outlined">delete_sweep</span><span data-vm-i18n="advanced_cleanup_title"></span></h3>
+                        <p class="vm-panel-hint text-on-surface-variant" data-vm-i18n="advanced_cleanup_hint"></p>
+                        <div id="vm-power-advanced-actions" class="vm-panel-actions"></div>
+                    </div>
                 </section>`, false)}
             `));
     }
@@ -203,13 +209,18 @@
                 { id: 'protections', icon: 'health_and_safety', label: 'tab_protections' }
             ], `
                 ${panel('automations', 'rules', `<section class="vm-ui-panel vm-section-card">
+                    <div id="vm-automation-master" class="vm-automation-master"></div>
                     <div class="vm-ui-section vm-rules-summary">
                         <span class="material-symbols-outlined">rule</span><span data-vm-i18n="rules_summary"></span><strong id="vm-rules-count">--</strong>
                     </div><div id="vm-automation-rules" class="vm-ui-group"></div>
+                    <details class="vm-disclosure vm-disclosure--secondary" id="vm-rules-sampling">
+                        <summary><span class="material-symbols-outlined" aria-hidden="true">schedule</span><span data-vm-i18n="rules_sampling_details"></span></summary>
+                        <div class="vm-disclosure__body" id="vm-automation-sampling"></div>
+                    </details>
                 </section>`, true)}
-                ${panel('automations', 'profiles', '<section class="vm-ui-panel vm-section-card"><div id="vm-automation-profiles" class="vm-ui-group"></div></section>', false)}
+                ${panel('automations', 'profiles', '<section class="vm-ui-panel vm-section-card"><p class="vm-panel-hint text-on-surface-variant" data-vm-i18n="profiles_hint"></p><div id="vm-automation-profiles" class="vm-ui-group"></div></section>', false)}
                 ${panel('automations', 'gaming', '<section class="vm-ui-panel vm-section-card"><div id="vm-automation-gaming" class="vm-stack vm-ui-group"></div></section>', false)}
-                ${panel('automations', 'protections', '<section class="vm-ui-panel vm-section-card"><div id="vm-automation-protections" class="vm-stack vm-ui-group"></div></section>', false)}
+                ${panel('automations', 'protections', '<section class="vm-ui-panel vm-section-card"><p class="vm-panel-hint text-on-surface-variant" data-vm-i18n="protections_hint"></p><div id="vm-automation-protections" class="vm-stack vm-ui-group"></div></section>', false)}
             `));
     }
 
@@ -220,26 +231,41 @@
                 { id: 'startup', icon: 'rocket_launch', label: 'tab_startup' },
                 { id: 'memory', icon: 'memory', label: 'tab_memory' }
             ], `
-                ${panel('system-tools', 'scheduled', '<section class="vm-ui-panel vm-section-card"><div id="vm-system-scheduled" class="vm-ui-group"></div></section>', true)}
-                ${panel('system-tools', 'startup', '<section class="vm-ui-panel vm-section-card"><div id="vm-system-startup" class="vm-ui-group"></div></section>', false)}
-                ${panel('system-tools', 'memory', '<section class="vm-ui-panel vm-section-card"><div id="vm-system-memory" class="vm-ui-group"></div></section>', false)}
+                ${panel('system-tools', 'scheduled', '<section class="vm-ui-panel vm-section-card"><p class="vm-panel-hint text-on-surface-variant" data-vm-i18n="scheduled_hint"></p><div id="vm-system-scheduled" class="vm-ui-group"></div></section>', true)}
+                ${panel('system-tools', 'startup', '<section class="vm-ui-panel vm-section-card"><p class="vm-panel-hint text-on-surface-variant" data-vm-i18n="startup_hint"></p><div id="vm-system-startup" class="vm-ui-group"></div></section>', false)}
+                ${panel('system-tools', 'memory', '<section class="vm-ui-panel vm-section-card"><p class="vm-panel-hint text-on-surface-variant" data-vm-i18n="memory_hint"></p><div id="vm-system-memory" class="vm-stack vm-ui-group"></div></section>', false)}
             `));
     }
 
     function widgets() {
-        return view('widgets', 'widgets_title', 'widgets_subtitle', `
-            <section class="vm-ui-panel vm-section-card"><div id="vm-widgets-appearance" class="vm-ui-group"></div></section>
-            <div class="vm-widget-filters" role="tablist">
-                <button type="button" class="vm-widget-filter active" data-widget-filter="all" aria-selected="true"><span data-vm-i18n="filter_all"></span></button>
-                <button type="button" class="vm-widget-filter" data-widget-filter="active" aria-selected="false"><span data-vm-i18n="filter_active"></span></button>
-                <button type="button" class="vm-widget-filter" data-widget-filter="disabled" aria-selected="false"><span data-vm-i18n="filter_disabled"></span></button>
-            </div><section class="vm-ui-panel vm-section-card"><div id="vm-widgets-content" class="vm-ui-group"></div></section>
-            <section class="vm-ui-panel vm-section-card"><div id="vm-widgets-launcher" class="vm-ui-group"></div></section>`);
+        return view('widgets', 'widgets_title', 'widgets_subtitle',
+            denseShell('widgets', [
+                { id: 'widget', icon: 'widgets', label: 'tab_widgets_catalog' },
+                { id: 'appearance', icon: 'palette', label: 'tab_widgets_appearance' },
+                { id: 'launcher', icon: 'apps', label: 'tab_widgets_launcher' }
+            ], `
+                ${panel('widgets', 'widget', `<section class="vm-ui-panel vm-section-card vm-widgets-catalog">
+                    <p class="vm-panel-hint text-on-surface-variant" data-vm-i18n="widgets_catalog_hint"></p>
+                    <div class="vm-widget-filters" role="tablist">
+                        <button type="button" class="vm-widget-filter active" data-widget-filter="all" aria-selected="true"><span data-vm-i18n="filter_all"></span></button>
+                        <button type="button" class="vm-widget-filter" data-widget-filter="active" aria-selected="false"><span data-vm-i18n="filter_active"></span></button>
+                        <button type="button" class="vm-widget-filter" data-widget-filter="disabled" aria-selected="false"><span data-vm-i18n="filter_disabled"></span></button>
+                    </div>
+                    <p class="vm-empty-state hidden" id="vm-widget-filter-empty" role="status" aria-hidden="true">
+                        <span class="material-symbols-outlined" aria-hidden="true">filter_alt_off</span>
+                        <span data-vm-i18n="widget_filter_empty"></span>
+                        <button type="button" class="btn-ghost vm-ui-control" data-widget-filter="all" data-vm-i18n="widget_filter_show_all"></button>
+                    </p>
+                    <div id="vm-widgets-content" class="vm-ui-group"></div>
+                </section>`, true)}
+                ${panel('widgets', 'appearance', '<section class="vm-ui-panel vm-section-card"><div id="vm-widgets-appearance" class="vm-ui-group"></div></section>', false)}
+                ${panel('widgets', 'launcher', '<section class="vm-ui-panel vm-section-card"><div id="vm-widgets-launcher" class="vm-ui-group"></div></section>', false)}
+            `));
     }
 
     function remoteControl() {
         return view('remote-control', 'remote_title', 'remote_subtitle', `
-            <section class="vm-ui-panel vm-section-card lan-remote-hero">
+            <section class="vm-ui-panel vm-section-card lan-remote-hero" id="lan-remote-hero">
                 <div class="lan-remote-heading">
                     <div>
                         <div class="lan-remote-status-row">
@@ -253,10 +279,23 @@
                         <input id="lan-remote-enabled" type="checkbox" />
                     </label>
                 </div>
-                <div class="lan-remote-grid">
-                    <div class="lan-remote-detail"><span data-vm-i18n="remote_address"></span><strong id="lan-remote-url">--</strong><button type="button" class="lan-remote-copy" id="lan-remote-copy-url" data-vm-i18n="remote_copy"></button></div>
-                    <div class="lan-remote-detail"><span data-vm-i18n="remote_port"></span><strong id="lan-remote-port">51737</strong></div>
-                    <div class="lan-remote-detail lan-remote-detail-wide"><span data-vm-i18n="remote_fingerprint"></span><code id="lan-remote-fingerprint">--</code><button type="button" class="lan-remote-copy" id="lan-remote-copy-fingerprint" data-vm-i18n="remote_copy"></button></div>
+                <div class="lan-remote-off-state" id="lan-remote-off-state">
+                    <p class="text-on-surface-variant" data-vm-i18n="remote_off_hint"></p>
+                    <p class="text-label-sm text-on-surface-variant" data-vm-i18n="remote_off_security_hint"></p>
+                </div>
+                <div class="lan-remote-active-details hidden" id="lan-remote-active-details" aria-hidden="true">
+                    <div class="lan-remote-address">
+                        <span data-vm-i18n="remote_address"></span>
+                        <strong id="lan-remote-url">--</strong>
+                        <button type="button" class="lan-remote-copy" id="lan-remote-copy-url" data-vm-i18n="remote_copy"></button>
+                    </div>
+                    <details class="vm-disclosure vm-tech-details">
+                        <summary><span class="material-symbols-outlined" aria-hidden="true">key</span><span data-vm-i18n="remote_technical"></span></summary>
+                        <div class="vm-disclosure__body lan-remote-grid">
+                            <div class="lan-remote-detail"><span data-vm-i18n="remote_port"></span><strong id="lan-remote-port">51737</strong></div>
+                            <div class="lan-remote-detail lan-remote-detail-wide"><span data-vm-i18n="remote_fingerprint"></span><code id="lan-remote-fingerprint">--</code><button type="button" class="lan-remote-copy" id="lan-remote-copy-fingerprint" data-vm-i18n="remote_copy"></button></div>
+                        </div>
+                    </details>
                 </div>
             </section>
             <div class="lan-remote-columns">
@@ -274,7 +313,7 @@
                     </div>
                     <p class="lan-remote-feedback" id="lan-remote-feedback" aria-live="polite"></p>
                 </section>
-                <section class="vm-ui-panel vm-section-card">
+                <section class="vm-ui-panel vm-section-card hidden" id="lan-remote-permissions-section" aria-hidden="true">
                     <h3 class="vm-section-title"><span class="material-symbols-outlined">shield_lock</span><span data-vm-i18n="remote_permissions_title"></span></h3>
                     <p class="text-on-surface-variant" data-vm-i18n="remote_permissions_help"></p>
                     <label class="lan-remote-permission"><span><strong data-vm-i18n="remote_allow_plan"></strong><small data-vm-i18n="remote_allow_plan_sub"></small></span><input id="lan-remote-perm-plan" type="checkbox" /></label>
@@ -304,11 +343,13 @@
                 ${panel('settings', 'maintenance', `<section class="vm-ui-panel vm-section-card">
                     <div id="vm-settings-maintenance" class="vm-settings-list"></div>
                 </section>`, false)}
-                ${panel('settings', 'updates', `<section class="vm-ui-panel vm-section-card"><div id="vm-settings-updates" class="vm-stack vm-ui-group"></div></section>
-                    <section class="vm-ui-panel vm-section-card"><div class="vm-section-title-row">
-                    <h3 class="vm-section-title"><span class="material-symbols-outlined">history</span><span data-vm-i18n="changelog_panel"></span></h3>
-                    <div id="vm-changelog-actions"></div></div><div id="vm-settings-changelog" class="vm-stack"></div></section>`, false)}
-                ${panel('settings', 'info', '<section class="vm-ui-panel vm-section-card"><div id="vm-settings-info" class="vm-ui-group"></div></section>', false)}
+                ${panel('settings', 'updates', `<section class="vm-ui-panel vm-section-card vm-updates-primary"><div id="vm-settings-updates" class="vm-stack vm-ui-group"></div></section>
+                    <section class="vm-ui-panel vm-section-card vm-updates-history"><details class="vm-disclosure" id="vm-changelog-disclosure">
+                    <summary><span class="material-symbols-outlined" aria-hidden="true">history</span><span data-vm-i18n="changelog_panel"></span></summary>
+                    <div class="vm-disclosure__body"><div class="vm-section-title-row">
+                    <p class="vm-panel-hint text-on-surface-variant" data-vm-i18n="changelog_compact_hint"></p>
+                    <div id="vm-changelog-actions"></div></div><div id="vm-settings-changelog" class="vm-stack"></div></div></details></section>`, false)}
+                ${panel('settings', 'info', '<section class="vm-ui-panel vm-section-card vm-info-panel"><div id="vm-settings-info" class="vm-ui-group"></div></section>', false)}
             `));
     }
 

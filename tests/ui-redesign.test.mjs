@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import vm from 'node:vm';
 import { createDocumentHarness, FakeNode } from './helpers/dom-harness.mjs';
 
@@ -235,4 +236,78 @@ test('reorganized routing drives one lifecycle activation per effective subview 
 
   assert.equal(main.scrollTop, 0);
   assert.deepEqual(calls, ['init', 'activate', 'deactivate']);
+});
+test('widgets are split into Widget, Appearance and Launcher subviews', () => {
+  assert.match(layout, /denseShell\('widgets', \[/);
+  for (const id of ['widget', 'appearance', 'launcher']) {
+    assert.match(layout, new RegExp(`\\{ id: '${id}'`));
+  }
+  assert.match(layout, /panel\('widgets', 'widget',[\s\S]*id="vm-widgets-content"/);
+  assert.match(layout, /panel\('widgets', 'appearance',[\s\S]*id="vm-widgets-appearance"/);
+  assert.match(layout, /panel\('widgets', 'launcher',[\s\S]*id="vm-widgets-launcher"/);
+  assert.match(router, /widgets: 'widget'/);
+  assert.match(router, /vm-widget-filter-empty/);
+});
+
+test('the real Home overview markup is pinned against accidental redesign', () => {
+  const source = layout.replace(/\r\n/g, '\n');
+  const start = source.indexOf('    function overview()');
+  const end = source.indexOf('    function monitoring()');
+  assert.ok(start >= 0 && end > start, 'overview() must stay a standalone function');
+  const hash = createHash('sha256').update(source.slice(start, end)).digest('hex');
+  assert.equal(hash, '8d83c2d969394c098460b5cb810f85a6dac72f1e14c8b21e5f066d7c76853df2');
+});
+
+test('power, automations and system panels separate primary tasks from advanced actions', () => {
+  assert.match(layout, /id="vm-power-advanced"[\s\S]*vm-advanced-cleanup[\s\S]*id="vm-power-advanced-actions"/);
+  assert.match(layout, /id="vm-automation-master"/);
+  assert.match(layout, /id="vm-rules-sampling"[\s\S]*id="vm-automation-sampling"/);
+  assert.match(layout, /id="vm-sensors-empty"/);
+  assert.match(layout, /id="vm-system-scheduled"/);
+});
+
+test('updates and info prioritize the primary action and compact history', () => {
+  assert.match(layout, /panel\('settings', 'updates',[\s\S]*vm-changelog-disclosure/);
+  assert.match(layout, /panel\('settings', 'info',[\s\S]*vm-info-panel/);
+  assert.match(router, /vm-info-card/);
+  assert.match(css, /\.vm-disclosure/);
+});
+
+test('remote control separates disabled, address, technical and security states', () => {
+  const remote = readFileSync(
+    new URL('../src/VoltManager/wwwroot/js/lan-remote-control.js', import.meta.url),
+    'utf8'
+  );
+  assert.match(layout, /id="lan-remote-off-state"/);
+  assert.match(layout, /id="lan-remote-active-details"/);
+  assert.match(layout, /class="vm-disclosure vm-tech-details"/);
+  assert.match(layout, /id="lan-remote-permissions-section"/);
+  assert.match(remote, /lan-remote-off-state/);
+  assert.match(remote, /lan-remote-active-details/);
+  assert.match(remote, /lan-remote-permissions-section/);
+});
+
+test('new empty and compact states are localized in every supported locale', () => {
+  const catalogs = readFileSync(
+    new URL('../src/VoltManager/wwwroot/js/i18n.catalogs.js', import.meta.url),
+    'utf8'
+  );
+  const context = vm.createContext({ window: {} });
+  vm.runInContext(catalogs, context);
+  const namespace = context.window.VoltI18nCatalogs.namespaces.uiReorganization;
+  const keys = [
+    'tab_widgets_catalog', 'tab_widgets_appearance', 'tab_widgets_launcher',
+    'widgets_catalog_hint', 'widget_filter_empty', 'widget_filter_show_all',
+    'sensors_empty', 'sensors_empty_hint',
+    'advanced_cleanup_title', 'advanced_cleanup_hint', 'power_source_behavior_title',
+    'rules_sampling_details', 'profiles_hint', 'protections_hint',
+    'scheduled_hint', 'startup_hint', 'memory_hint',
+    'remote_off_hint', 'remote_off_security_hint', 'remote_technical',
+    'changelog_compact_hint',
+  ];
+  for (const locale of ['it', 'en', 'es', 'zh']) {
+    for (const key of keys) {
+      assert.ok(namespace[locale][key], `missing uiReorganization.${locale}.${key}`);
+    }
+  }
 });

@@ -7,6 +7,11 @@
   "decisions": [
     {
       "date": "2026-11-03",
+      "topic": "Redesign multi-schermata (disposizione contenuti)",
+      "summary": "Approvata la proposta di riequilibrare le schermate escludendo la Home. La Home reale e' overview(): va preservata insieme a header, scorciatoie e comportamento; il redesign non deve alterarne il markup. Widget si divide nelle subview Widget/Aspetto/Launcher usando subnav() e panel(); Aggiornamenti e Info diventano compatti; Piani energetici, Automazioni, Strumenti, Controllo remoto e Monitoraggio vengono rifiniti senza cambiare le logiche di sistema. Non fondere Piano attivo e Mantieni PC attivo, non eliminare controlli, non aggiungere router o dipendenze."
+    },
+    {
+      "date": "2026-11-03",
       "topic": "Esecuzione dei test statici",
       "summary": "Eseguire i test statici solo per modifiche aggressive che rischiano di introdurre regressioni, non automaticamente per ogni modifica."
     },

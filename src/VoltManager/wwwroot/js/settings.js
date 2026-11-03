@@ -966,6 +966,7 @@
                 '<div class="startup-card__accent"></div>' +
                 '<div class="startup-card__header"><div class="startup-card__title-wrap"><div class="startup-card__app-icon"><span class="material-symbols-outlined">' + widgetIcon(item.type) + '</span></div><div class="startup-card__meta"><p class="startup-card__name" data-i18n="' + titleKey + '">' + esc(tr(titleKey, item.type)) + '</p><div class="startup-card__badges">' + chip + badgePin + '</div></div></div>' +
                 '<div class="startup-actions">' + toggleBtn + pinBtn + resetBtn + '</div></div>' +
+                '<details class="widget-card-details"><summary><span class="material-symbols-outlined" aria-hidden="true">tune</span><span data-i18n="widget_details_toggle">' + esc(tr('widget_details_toggle', 'Dettagli')) + '</span></summary>' +
                 '<div class="startup-card__details">' +
                 orientationRow +
                 appearanceRow +
@@ -979,7 +980,7 @@
                 renderAnchorGrid(item) +
                 '</div></div>' +
                 '<div class="startup-detail-line"><span class="startup-detail-label" data-i18n="widget_detail_position">Posizione</span><span class="startup-detail-value">' + esc(widgetPositionSummary(item)) + '</span></div>' +
-                '</div></article>';
+                '</div></details></article>';
         }
 
         const monitors = state.monitors || [];

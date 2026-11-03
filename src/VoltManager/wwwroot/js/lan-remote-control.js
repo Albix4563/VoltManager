@@ -17,9 +17,27 @@
         node.dataset.error = error ? 'true' : 'false';
     }
 
+    function syncAvailability(next) {
+        const enabled = !!next?.enabled;
+        const hero = $('lan-remote-hero');
+        if (hero) hero.dataset.enabled = enabled ? 'true' : 'false';
+        const off = $('lan-remote-off-state');
+        if (off) {
+            off.classList.toggle('hidden', enabled);
+            off.setAttribute('aria-hidden', enabled ? 'true' : 'false');
+        }
+        ['lan-remote-active-details', 'lan-remote-permissions-section'].forEach(id => {
+            const node = $(id);
+            if (!node) return;
+            node.classList.toggle('hidden', !enabled);
+            node.setAttribute('aria-hidden', enabled ? 'false' : 'true');
+        });
+    }
+
     function render(next) {
         if (!next) return;
         state = next;
+        syncAvailability(next);
         const enabled = $('lan-remote-enabled');
         if (enabled) enabled.checked = !!next.enabled;
         const status = $('lan-remote-status');

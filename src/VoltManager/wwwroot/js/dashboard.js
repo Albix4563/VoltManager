@@ -119,6 +119,11 @@
         // Nothing live to show -> whole section disappears.
         if (tempSection.classList.contains('hidden') !== (sensors.length === 0))
             tempSection.classList.toggle('hidden', sensors.length === 0);
+        const sensorsEmpty = document.getElementById('vm-sensors-empty');
+        if (sensorsEmpty) {
+            sensorsEmpty.classList.toggle('hidden', sensors.length !== 0);
+            sensorsEmpty.setAttribute('aria-hidden', sensors.length === 0 ? 'false' : 'true');
+        }
         if (sensors.length === 0) {
             sensorKey = '';
             return;

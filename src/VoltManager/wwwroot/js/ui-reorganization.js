@@ -13,7 +13,8 @@
             'power-plans': 'active',
             automations: 'rules',
             'system-tools': 'scheduled',
-            settings: 'general'
+            settings: 'general',
+            widgets: 'widget'
         },
         widgetFilter: 'all',
         hasBattery: null
@@ -172,7 +173,20 @@
 
         const ruleItem = document.querySelector('.vm-acc-item[data-pm="rules"]');
         const ruleBody = ruleItem && ruleItem.querySelector('.vm-acc-body-inner');
-        move(ruleBody || ruleItem, $('vm-automation-rules'));
+        const masterToggle = $('master-toggle');
+        const masterRow = masterToggle && masterToggle.closest('div.rounded-2xl');
+        const sampleInput = $('cpu-sample-interval');
+        const samplePanel = sampleInput && sampleInput.closest('.glass-panel');
+        const firstRule = $('rule-saver-threshold');
+        const firstRuleRow = firstRule && firstRule.closest('.glass-panel');
+        const rulesContainer = firstRuleRow && firstRuleRow.parentElement;
+        if (masterRow && samplePanel && rulesContainer) {
+            move(masterRow, $('vm-automation-master'));
+            move(samplePanel, $('vm-automation-sampling'));
+            move(rulesContainer, $('vm-automation-rules'));
+        } else {
+            move(ruleBody || ruleItem, $('vm-automation-rules'));
+        }
         move($('pref-gaming-mode-home'), $('vm-automation-gaming'));
 
         move($('schedule-panel'), $('vm-system-scheduled'));
@@ -194,7 +208,9 @@
         const diagnosticsButton = $('btn-export-diagnostics');
         move(diagnosticsButton && diagnosticsButton.closest('.glass-panel'), $('vm-settings-maintenance'));
         const info = $('info-version');
-        move(info && info.closest('.glass-panel'), $('vm-settings-info'));
+        const infoPanel = info && info.closest('.glass-panel');
+        move(infoPanel, $('vm-settings-info'));
+        infoPanel?.classList.add('vm-info-card');
 
         move($('btn-refresh-changelog'), $('vm-changelog-actions'));
         move($('changelog-status'), $('vm-settings-changelog'), true);
@@ -393,10 +409,18 @@
             button.classList.toggle('active', active);
             button.setAttribute('aria-selected', active ? 'true' : 'false');
         });
-        document.querySelectorAll('#widgets-groups > section').forEach(section => {
+        const sections = Array.from(document.querySelectorAll('#widgets-groups > section'));
+        sections.forEach(section => {
             section.classList.toggle('hidden',
                 filter !== 'all' && section.dataset.widgetState !== filter);
         });
+        const empty = $('vm-widget-filter-empty');
+        if (empty) {
+            const hasVisible = sections.length === 0 ||
+                sections.some(section => !section.classList.contains('hidden'));
+            empty.classList.toggle('hidden', hasVisible);
+            empty.setAttribute('aria-hidden', hasVisible ? 'true' : 'false');
+        }
     }
 
     function wireInteractions() {
