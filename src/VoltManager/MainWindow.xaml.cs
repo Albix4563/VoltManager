@@ -18,8 +18,8 @@ namespace VoltManager;
 
 public partial class MainWindow : Window
 {
-    private const double DesiredMinWidth = 900;
-    private const double DesiredMinHeight = 600;
+    private const double DesiredMinWidth = 1100;
+    private const double DesiredMinHeight = 700;
     private const int WmExitSizeMove = 0x0232;
     private const int MdtEffectiveDpi = 0;
     private const uint MonitorDefaultToNearest = 2;

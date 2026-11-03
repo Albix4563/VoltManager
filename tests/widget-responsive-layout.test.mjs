@@ -138,13 +138,16 @@ test('widget chrome and the main window enforce readable minimums', () => {
   assert.match(widgetsCss, /html\[data-size=mini\] \.widget-title\s*\{[^}]*font-size:\s*11px/s);
   assert.match(widgetsCss, /html\[data-size=mini\] \.widget-action\s*\{[^}]*width:\s*28px[^}]*height:\s*28px/s);
   assert.match(widgetsCss, /\.widget-stat label\s*\{[^}]*font-size:\s*11px/s);
-  assert.match(mainWindowXaml, /MinHeight="600" MinWidth="900"/);
+  assert.match(mainWindowXaml, /MinHeight="700" MinWidth="1100"/);
+  assert.match(mainWindowCs, /private const double DesiredMinWidth = 1100;/);
+  assert.match(mainWindowCs, /private const double DesiredMinHeight = 700;/);
   assert.match(mainWindowCs, /UpdateAdaptiveMinimumSize\(\)/);
   assert.match(mainWindowCs, /MonitorFromWindow/);
   assert.match(mainWindowCs, /GetDpiForMonitor/);
   assert.match(mainWindowCs, /msg == WmExitSizeMove/);
   assert.doesNotMatch(mainWindowCs, /LocationChanged\s*\+=/);
   assert.match(mainWindowCs, /Math\.Min\(DesiredMinWidth, workWidth\)/);
+  assert.match(mainWindowCs, /Math\.Min\(DesiredMinHeight, workHeight\)/);
   assert.match(widgetWindowCs, /HtRight = new\(0xB\)/);
   assert.match(widgetWindowCs, /HtBottom = new\(0xF\)/);
   assert.match(widgetWindowCs, /if \(_nativeResizeInProgress\)[\s\S]*?_relayoutPendingDuringNativeResize = true;[\s\S]*?return;/);
