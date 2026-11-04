@@ -4,28 +4,28 @@
     <Grid Style="{StaticResource PageEntrance}" VerticalAlignment="Center">
         <Grid.RenderTransform><TranslateTransform Y="12"/></Grid.RenderTransform>
         <StackPanel>
-            <Grid Width="72" Height="72" HorizontalAlignment="Center" Margin="0,0,0,18">
-                <Ellipse x:Name="StateHalo" Width="72" Height="72" Fill="{StaticResource GlowBlobSuccessBrush}"/>
-                <Ellipse x:Name="Ring" Width="58" Height="58" Fill="#13213D" Stroke="{StaticResource SuccessBrush}" StrokeThickness="1.5">
-                    <Ellipse.Effect>
-                        <DropShadowEffect x:Name="RingGlow" Color="#34E0A1" BlurRadius="12" ShadowDepth="0" Opacity="0.35"/>
-                    </Ellipse.Effect>
-                </Ellipse>
-                <Path x:Name="IconPath" Style="{StaticResource Icon}" Width="30" Height="30" Stroke="{StaticResource SuccessBrush}"
-                      StrokeThickness="2.2" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            <Grid Width="64" Height="64" HorizontalAlignment="Center" Margin="0,0,0,18">
+                <Ellipse x:Name="Ring" Width="56" Height="56" Fill="{StaticResource SurfaceBrush}"
+                         Stroke="{StaticResource SuccessBrush}" StrokeThickness="1.5"/>
+                <Path x:Name="IconPath" Style="{StaticResource Icon}" Width="28" Height="28" StrokeThickness="2.1"
+                      Stroke="{StaticResource SuccessBrush}"
+                      HorizontalAlignment="Center" VerticalAlignment="Center"/>
             </Grid>
 
             <TextBlock x:Name="TitleText" Style="{StaticResource H2}" HorizontalAlignment="Center"
                        TextAlignment="Center" Margin="0,0,0,8"/>
             <TextBlock x:Name="SubText" Style="{StaticResource Body}" HorizontalAlignment="Center"
-                       TextAlignment="Center" Margin="0,0,0,18" MaxWidth="420"/>
+                       TextAlignment="Center" Margin="0,0,0,18" MaxWidth="440"/>
 
-            <Border x:Name="ErrCard" Background="#231521" BorderBrush="#5A2A2A" BorderThickness="1"
-                    CornerRadius="8" Padding="14,11" MaxWidth="430" Margin="0,0,0,12" Visibility="Collapsed">
+            <Border x:Name="ErrCard" Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource DangerBrush}"
+                    BorderThickness="1" CornerRadius="8" Padding="14,11" MaxWidth="440" Margin="0,0,0,12"
+                    Visibility="Collapsed">
                 <StackPanel Orientation="Horizontal">
-                    <Path Style="{StaticResource Icon}" Data="{StaticResource Icon.Warning}" Stroke="{StaticResource DangerBrush}"
-                          Width="15" Height="15" VerticalAlignment="Top" Margin="0,1,10,0"/>
-                    <TextBlock x:Name="ErrText" FontSize="11.5" Foreground="#FFB4AC" TextWrapping="Wrap" MaxWidth="365"/>
+                    <Path Style="{StaticResource Icon}" Data="{StaticResource Icon.Warning}"
+                          Stroke="{StaticResource DangerBrush}" Width="15" Height="15"
+                          VerticalAlignment="Top" Margin="0,2,10,0"/>
+                    <TextBlock x:Name="ErrText" FontSize="12.5" LineHeight="19" TextWrapping="Wrap"
+                               Foreground="{StaticResource DangerBrush}" MaxWidth="370"/>
                 </StackPanel>
             </Border>
 

@@ -4,7 +4,7 @@
     <Grid Style="{StaticResource PageEntrance}" VerticalAlignment="Center">
         <Grid.RenderTransform><TranslateTransform Y="12"/></Grid.RenderTransform>
         <StackPanel>
-            <Border Width="62" Height="62" CornerRadius="31" Background="#211316"
+            <Border Width="62" Height="62" CornerRadius="31" Background="{StaticResource InsetBrush}"
                     BorderBrush="{StaticResource DangerBrush}" BorderThickness="1"
                     HorizontalAlignment="Center" Margin="0,0,0,16">
                 <Path Style="{StaticResource Icon}" Data="{StaticResource Icon.Trash}" Stroke="{StaticResource DangerBrush}"
@@ -39,12 +39,12 @@
             <CheckBox x:Name="ChkPurge" Style="{StaticResource OptionSwitch}" IsChecked="False"
                       Width="450" HorizontalAlignment="Center" Margin="0,12,0,0"/>
 
-            <Border Background="#1A1508" BorderBrush="#5A3F1F" BorderThickness="1" CornerRadius="8"
+            <Border Background="{StaticResource InsetBrush}" BorderBrush="{StaticResource WarningBrush}" BorderThickness="1" CornerRadius="8"
                     Padding="14,10" MaxWidth="450" HorizontalAlignment="Center" Margin="0,12,0,0">
                 <StackPanel Orientation="Horizontal">
                     <Path Style="{StaticResource Icon}" Data="{StaticResource Icon.Warning}" Stroke="{StaticResource WarningBrush}"
                           Width="15" Height="15" VerticalAlignment="Top" Margin="0,1,10,0"/>
-                    <TextBlock x:Name="WarnText" FontSize="11.5" Foreground="#F2D9A8"
+                    <TextBlock x:Name="WarnText" FontSize="11.5" Foreground="{StaticResource WarningBrush}"
                                VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="375" LineHeight="18"/>
                 </StackPanel>
             </Border>

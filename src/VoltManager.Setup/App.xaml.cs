@@ -257,6 +257,8 @@ namespace VoltManager.Setup
 
             Resources["WindowBgGradient"] = Brush(colors[0]);
             Resources["SidebarGradient"] = Brush(colors[1]);
+            Resources["SurfaceBrush"] = Brush(colors[1]);
+            Resources["InsetBrush"] = Brush(colors[2]);
             Resources["C.Accent"] = ParseColor(colors[3]);
             Resources["C.Accent.Dim"] = ParseColor(colors[4]);
             Resources["C.Accent.Glow"] = ParseColor(colors[4]);
@@ -351,11 +353,11 @@ namespace VoltManager.Setup
             Resources["C.Accent.Alpha20"] = WithAlpha(primary, 0x20);
             Resources["C.Accent.Transparent"] = WithAlpha(primary, 0x00);
 
-            Resources["SurfaceBrush"] = Brush("#16233F");
-            Resources["MutedBrush"] = Brush("#CBD5E1");
-            Resources["FaintBrush"] = Brush("#94A3B8");
+            Resources["SurfaceBrush"] = Brush("#223247");
+            Resources["MutedBrush"] = Brush("#BBC8D8");
+            Resources["FaintBrush"] = Brush("#93A5BA");
             Resources["AccentBrush"] = Brush(palette.Primary);
-            Resources["DangerBrush"] = Brush("#FF5B4A");
+            Resources["DangerBrush"] = Brush("#FF9B9B");
             Resources["WarningBrush"] = Brush("#F5B042");
         }
 

@@ -1,61 +1,70 @@
 <Window x:Class="VoltManager.Setup.Windows.UpdateWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="VoltManager Update" Width="520" SizeToContent="Height"
+        Title="VoltManager Update" Width="560" SizeToContent="Height"
         Icon="/VoltManagerSetup;component/Assets/voltmanager.ico"
-        MinWidth="440" MaxWidth="680"
+        MinWidth="480" MaxWidth="680"
         WindowStartupLocation="CenterScreen" ResizeMode="CanMinimize"
         Background="{StaticResource WindowBgGradient}" Foreground="{StaticResource TextPrimaryBrush}"
-        FontFamily="Segoe UI" UseLayoutRounding="True" SnapsToDevicePixels="True"
+        FontFamily="Segoe UI" TextOptions.TextFormattingMode="Display"
+        UseLayoutRounding="True" SnapsToDevicePixels="True"
         ContentRendered="UpdateWindow_ContentRendered" Closing="UpdateWindow_Closing">
-    <Border Margin="14" Padding="25,22" CornerRadius="14" BorderThickness="1"
-            BorderBrush="{StaticResource BorderBrush}" Background="{StaticResource SidebarGradient}">
-        <Grid>
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
-            </Grid.RowDefinitions>
-            <StackPanel Grid.Row="0" Margin="0,0,0,17">
-                <TextBlock x:Name="HeadingText" FontSize="21" FontWeight="SemiBold"/>
-                <TextBlock x:Name="VersionText" Margin="0,3,0,0" FontSize="11"
-                           Foreground="{StaticResource TextMutedBrush}"/>
-                <TextBlock x:Name="DescriptionText" Margin="0,5,0,0" FontSize="12"
-                           Foreground="{StaticResource TextSecondaryBrush}" TextWrapping="Wrap"/>
-            </StackPanel>
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
 
-            <StackPanel Grid.Row="1" Margin="0,0,0,14">
-                <ProgressBar x:Name="BusyIndicator" IsIndeterminate="True" Height="7" Style="{StaticResource UpdateMarquee}"
-                             AutomationProperties.Name="Update in progress"/>
-                <TextBlock x:Name="CurrentStatusText" Margin="0,9,0,0" FontSize="12"
-                           Foreground="{StaticResource TextSecondaryBrush}" TextWrapping="Wrap"
-                           AutomationProperties.LiveSetting="Polite"/>
-            </StackPanel>
+        <ScrollViewer Grid.Row="0" x:Name="ContentScroll" VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Margin="32,26,32,24">
+            <DockPanel LastChildFill="False">
+                <TextBlock DockPanel.Dock="Left" Text="VoltManager" FontSize="13.5" FontWeight="SemiBold"
+                           VerticalAlignment="Center" Foreground="{StaticResource TextPrimaryBrush}"/>
+                <TextBlock x:Name="ModeText" DockPanel.Dock="Right" Style="{StaticResource Caption}"
+                           VerticalAlignment="Center"/>
+            </DockPanel>
 
-            <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
-                          MaxHeight="260" CanContentScroll="True">
+            <TextBlock x:Name="HeadingText" Style="{StaticResource H2}" Margin="0,18,0,0"/>
+            <TextBlock x:Name="VersionText" Style="{StaticResource Caption}" Margin="0,4,0,0"/>
+            <TextBlock x:Name="DescriptionText" Style="{StaticResource Body}" Margin="0,10,0,0"/>
+
+            <ProgressBar x:Name="BusyIndicator" IsIndeterminate="True" Margin="0,22,0,0"
+                         Style="{StaticResource UpdateMarquee}"/>
+            <TextBlock x:Name="CurrentStatusText" FontSize="14.5" FontWeight="SemiBold" LineHeight="22"
+                       TextWrapping="Wrap" Margin="0,10,0,0"
+                       Foreground="{StaticResource TextPrimaryBrush}"
+                       AutomationProperties.LiveSetting="Polite"/>
+            <TextBlock x:Name="MinimizeHintText" Style="{StaticResource Caption}" Margin="0,6,0,0"/>
+
+            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                          MaxHeight="210" Margin="0,20,0,0" Focusable="False">
                 <StackPanel x:Name="StagesPanel" VerticalAlignment="Top"/>
             </ScrollViewer>
 
-            <StackPanel Grid.Row="3">
-                <ScrollViewer MaxHeight="90" VerticalScrollBarVisibility="Auto">
-                    <TextBlock x:Name="ErrorText" Visibility="Collapsed" TextWrapping="Wrap"
-                               Foreground="{StaticResource DangerBrush}" Margin="0,3,0,10"
+            <StackPanel x:Name="ErrorPanel" Margin="0,14,0,0" Visibility="Collapsed">
+                <ScrollViewer MaxHeight="96" VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Disabled" Focusable="False">
+                    <TextBlock x:Name="ErrorText" FontSize="14" LineHeight="21" TextWrapping="Wrap"
+                               Foreground="{StaticResource DangerBrush}"
                                AutomationProperties.LiveSetting="Assertive"/>
                 </ScrollViewer>
-                <DockPanel LastChildFill="False">
-                    <Button x:Name="LogButton" Content="Log" Click="LogButton_Click"
-                            Style="{StaticResource GhostBtn}" DockPanel.Dock="Left"/>
-                    <StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
-                        <Button x:Name="RetryLaunchButton" Visibility="Collapsed"
-                                Margin="0,0,8,0" Click="RetryLaunchButton_Click"
-                                Style="{StaticResource GhostBtn}"/>
-                        <Button x:Name="CloseButton" Visibility="Collapsed" Click="CloseButton_Click"
-                                Style="{StaticResource PrimaryBtn}"/>
-                    </StackPanel>
-                </DockPanel>
             </StackPanel>
-        </Grid>
-    </Border>
+        </StackPanel>
+        </ScrollViewer>
+
+        <Border x:Name="Footer" Grid.Row="1" Background="{StaticResource SurfaceBrush}"
+                BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,0,0" Padding="32,12">
+            <DockPanel LastChildFill="False">
+                <Button x:Name="LogButton" DockPanel.Dock="Left"
+                        Style="{StaticResource GhostBtn}" Click="LogButton_Click"/>
+                <StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
+                    <Button x:Name="RetryLaunchButton" Visibility="Collapsed" Margin="0,0,8,0"
+                            Style="{StaticResource GhostBtn}" Click="RetryLaunchButton_Click"/>
+                    <Button x:Name="CloseButton" Visibility="Collapsed"
+                            Style="{StaticResource PrimaryBtn}" Click="CloseButton_Click"/>
+                </StackPanel>
+            </DockPanel>
+        </Border>
+    </Grid>
 </Window>

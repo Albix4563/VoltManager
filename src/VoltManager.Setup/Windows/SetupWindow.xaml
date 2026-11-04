@@ -15,58 +15,41 @@
         UseLayoutRounding="True"
         SnapsToDevicePixels="True">
 
-    <Border Background="{StaticResource WindowBgGradient}" CornerRadius="16"
-            BorderBrush="#334155" BorderThickness="1">
-        <Border.Effect>
-            <DropShadowEffect BlurRadius="34" ShadowDepth="0" Color="Black" Opacity="0.72"/>
-        </Border.Effect>
+    <Border Background="{StaticResource WindowBgGradient}" CornerRadius="14"
+            BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
 
         <Grid ClipToBounds="True">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="206"/>
+                <ColumnDefinition Width="212"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
-            <Border Grid.Column="1" CornerRadius="0,16,16,0" ClipToBounds="True" IsHitTestVisible="False">
-                <Canvas>
-                    <Ellipse Width="300" Height="300" Canvas.Right="-150" Canvas.Top="-180"
-                             Fill="{DynamicResource GlowBlobBrush}" Opacity="0.32"/>
-                </Canvas>
-            </Border>
-
             <Border Grid.Column="0" Background="{StaticResource SidebarGradient}"
-                    CornerRadius="16,0,0,16" BorderBrush="#22304A" BorderThickness="0,0,1,0">
-                <Grid Margin="24,28,18,24">
+                    CornerRadius="14,0,0,14" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,1,0">
+                <Grid Margin="24,26,20,22">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
-                        <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
 
-                    <StackPanel Grid.Row="0" Margin="0,0,0,34">
-                        <Grid Width="60" Height="60" HorizontalAlignment="Left">
-                            <Ellipse Width="60" Height="60" Fill="#101B34"
-                                     Stroke="{DynamicResource AccentBrush}" StrokeThickness="1"/>
-                            <Ellipse Width="48" Height="48" HorizontalAlignment="Center" VerticalAlignment="Center"
+                    <StackPanel Grid.Row="0" Margin="0,0,0,30">
+                        <Grid Width="48" Height="48" HorizontalAlignment="Left">
+                            <Ellipse Width="48" Height="48" Fill="{StaticResource InsetBrush}"
+                                     Stroke="{StaticResource BorderLightBrush}" StrokeThickness="1"/>
+                            <Ellipse Width="38" Height="38" HorizontalAlignment="Center" VerticalAlignment="Center"
                                      RenderOptions.BitmapScalingMode="HighQuality">
                                 <Ellipse.Fill>
                                     <ImageBrush x:Name="LogoBrush" Stretch="Uniform"/>
                                 </Ellipse.Fill>
                             </Ellipse>
                         </Grid>
-                        <TextBlock Text="VoltManager" FontSize="17" FontWeight="SemiBold"
+                        <TextBlock Text="VoltManager" FontSize="16" FontWeight="SemiBold"
                                    Foreground="{StaticResource TextPrimaryBrush}" Margin="0,12,0,0"/>
-                        <TextBlock x:Name="VersionText" FontFamily="Consolas" FontSize="10.5"
-                                   Foreground="{StaticResource TextFaintBrush}" Margin="0,3,0,0"/>
+                        <TextBlock x:Name="VersionText" FontFamily="Consolas" FontSize="11"
+                                   Foreground="{StaticResource TextMutedBrush}" Margin="0,3,0,0"/>
                     </StackPanel>
 
                     <StackPanel Grid.Row="1" x:Name="StepPanel" VerticalAlignment="Top"/>
-
-                    <StackPanel Grid.Row="2">
-                        <Border Height="1" Background="#263550" Margin="0,0,0,12"/>
-                        <TextBlock Text="POWER CONSOLE" FontSize="9.5" FontWeight="SemiBold"
-                                   Foreground="{StaticResource TextFaintBrush}"/>
-                    </StackPanel>
                 </Grid>
             </Border>
 
@@ -80,20 +63,21 @@
                 <Grid Grid.Row="0" x:Name="TitleBar" Background="Transparent"
                       MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
                     <TextBlock x:Name="HeaderText" VerticalAlignment="Center" Margin="36,0,0,0"
-                               FontSize="11.5" FontWeight="SemiBold"
-                               Foreground="{StaticResource TextFaintBrush}"/>
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,2,10,0">
-                        <Button x:Name="BtnMin" Style="{StaticResource MinBtn}"
-                                Content="—" FontSize="12" Click="BtnMin_Click"/>
-                        <Button x:Name="BtnClose" Style="{StaticResource CloseBtn}"
-                                Content="✕" Click="BtnClose_Click"/>
+                               FontSize="12" FontWeight="SemiBold"
+                               Foreground="{StaticResource TextMutedBrush}"/>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,4,10,0">
+                        <Button x:Name="BtnMin" Style="{StaticResource MinBtn}" Content="—"
+                                Click="BtnMin_Click"/>
+                        <Button x:Name="BtnClose" Style="{StaticResource CloseBtn}" Content="✕"
+                                Click="BtnClose_Click"/>
                     </StackPanel>
                 </Grid>
 
                 <ContentControl Grid.Row="1" x:Name="PageHost" Margin="36,4,36,8"
                                 VerticalContentAlignment="Stretch" HorizontalContentAlignment="Stretch"/>
 
-                <Border Grid.Row="2" Background="#080F20" BorderBrush="#22304A"
+                <Border Grid.Row="2" Background="{StaticResource SurfaceBrush}"
+                        BorderBrush="{StaticResource BorderBrush}"
                         BorderThickness="0,1,0,0" Padding="36,0">
                     <Grid>
                         <Button x:Name="BtnBack" Style="{StaticResource GhostBtn}"

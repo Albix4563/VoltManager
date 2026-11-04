@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
 using VoltManager.Setup.Engine;
 
 namespace VoltManager.Setup.Pages
@@ -22,11 +23,9 @@ namespace VoltManager.Setup.Pages
 
             if (success)
             {
-                IconPath.Data   = (System.Windows.Media.Geometry)FindResource("Icon.CheckCircle");
-                IconPath.Stroke = (System.Windows.Media.Brush)FindResource("SuccessBrush");
-                Ring.Stroke     = (System.Windows.Media.Brush)FindResource("SuccessBrush");
-                StateHalo.Fill  = (System.Windows.Media.Brush)FindResource("GlowBlobSuccessBrush");
-                RingGlow.Color  = System.Windows.Media.Color.FromRgb(0x34, 0xE0, 0xA1);
+                IconPath.Data   = (Geometry)FindResource("Icon.CheckCircle");
+                IconPath.Stroke = (Brush)FindResource("SuccessBrush");
+                Ring.Stroke     = (Brush)FindResource("SuccessBrush");
                 TitleText.Text  = uninstall ? I18n.T("uninst_done") : I18n.T("done_title");
                 SubText.Text    = uninstall ? "" : I18n.T("done_sub");
 
@@ -39,21 +38,18 @@ namespace VoltManager.Setup.Pages
 
                 if (!string.IsNullOrWhiteSpace(warningMsg))
                 {
-                    ErrCard.Background = new System.Windows.Media.SolidColorBrush(
-                        System.Windows.Media.Color.FromRgb(0x30, 0x27, 0x16));
-                    ErrCard.BorderBrush = (System.Windows.Media.Brush)FindResource("WarningBrush");
-                    ErrText.Foreground = (System.Windows.Media.Brush)FindResource("WarningBrush");
+                    ErrCard.Background = (Brush)FindResource("InsetBrush");
+                    ErrCard.BorderBrush = (Brush)FindResource("WarningBrush");
+                    ErrText.Foreground = (Brush)FindResource("WarningBrush");
                     ErrText.Text = I18n.T(uninstall ? "uninst_notes" : "done_warning") + "\n" + warningMsg;
                     ErrCard.Visibility = Visibility.Visible;
                 }
             }
             else
             {
-                IconPath.Data   = (System.Windows.Media.Geometry)FindResource("Icon.XCircle");
-                IconPath.Stroke = (System.Windows.Media.Brush)FindResource("DangerBrush");
-                Ring.Stroke     = (System.Windows.Media.Brush)FindResource("DangerBrush");
-                StateHalo.Fill  = (System.Windows.Media.Brush)FindResource("GlowBlobDangerBrush");
-                RingGlow.Color  = System.Windows.Media.Color.FromRgb(0xFF, 0x5B, 0x4A);
+                IconPath.Data   = (Geometry)FindResource("Icon.XCircle");
+                IconPath.Stroke = (Brush)FindResource("DangerBrush");
+                Ring.Stroke     = (Brush)FindResource("DangerBrush");
                 TitleText.Text  = I18n.T("done_title_err");
                 if (!string.IsNullOrEmpty(errMsg))
                 {

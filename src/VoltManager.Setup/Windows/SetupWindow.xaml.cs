@@ -1,10 +1,10 @@
 using System;
 using System.Linq;
 using System.Windows;
+using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
-using System.Windows.Media.Effects;
 using System.Windows.Media.Imaging;
 using VoltManager.Setup.Engine;
 using VoltManager.Setup.Pages;
@@ -34,6 +34,9 @@ namespace VoltManager.Setup.Windows
             _isUninstall = args.Mode == SetupMode.Uninstall;
             InitializeComponent();
             Closing += (_, e) => e.Cancel = _operationRunning;
+            AutomationProperties.SetName(BtnMin, I18n.T("btn_minimize"));
+            AutomationProperties.SetName(BtnClose, I18n.T("btn_close"));
+            SetOperationRunning(false);
             LoadLogo();
             VersionText.Text = "v" + App.GetVersion();
             BuildSteps();
@@ -129,7 +132,6 @@ namespace VoltManager.Setup.Windows
 
         private void HighlightStep(int stepIdx)
         {
-            var accent = (Color)FindResource("C.Accent");
             for (int i = 0; i < StepPanel.Children.Count; i++)
             {
                 var row = (Grid)StepPanel.Children[i];
@@ -145,7 +147,6 @@ namespace VoltManager.Setup.Windows
                     badge.Background = (Brush)FindResource("AccentBrush");
                     badge.BorderBrush = (Brush)FindResource("AccentBrush");
                     badge.BorderThickness = new Thickness(1);
-                    badge.Effect = new DropShadowEffect { Color = accent, BlurRadius = 10, ShadowDepth = 0, Opacity = 0.45 };
                     num.Text = (i + 1).ToString();
                     num.Foreground = new SolidColorBrush(Color.FromRgb(0x03, 0x10, 0x18));
                     lbl.Foreground = (Brush)FindResource("TextPrimaryBrush");
@@ -157,7 +158,6 @@ namespace VoltManager.Setup.Windows
                     badge.Background = (Brush)FindResource("AccentSelectionBrush");
                     badge.BorderBrush = (Brush)FindResource("AccentBrush");
                     badge.BorderThickness = new Thickness(1);
-                    badge.Effect = null;
                     num.Text = "✓";
                     num.Foreground = (Brush)FindResource("AccentBrush");
                     lbl.Foreground = (Brush)FindResource("TextSecondaryBrush");
@@ -169,7 +169,6 @@ namespace VoltManager.Setup.Windows
                     badge.Background = (Brush)FindResource("SurfaceBrush");
                     badge.BorderBrush = (Brush)FindResource("BorderBrush");
                     badge.BorderThickness = new Thickness(1);
-                    badge.Effect = null;
                     num.Text = (i + 1).ToString();
                     num.Foreground = (Brush)FindResource("TextMutedBrush");
                     lbl.Foreground = (Brush)FindResource("TextMutedBrush");
@@ -276,7 +275,7 @@ namespace VoltManager.Setup.Windows
                     Dispatcher.Invoke(() => _progress?.SetStatus(msg, pct));
                 bool ok = true;
                 string? errMsg = null;
-                _operationRunning = true;
+                SetOperationRunning(true);
                 try
                 {
                     _opts.InstallDir = InstallOptions.NormalizeInstallDir(_options?.GetInstallDir() ?? _opts.InstallDir);
@@ -299,7 +298,7 @@ namespace VoltManager.Setup.Windows
                 }
                 finally
                 {
-                    _operationRunning = false;
+                    SetOperationRunning(false);
                 }
                 string? warningMsg = ok && _engine.LastOperationResult?.HasWarnings == true
                     ? _engine.LastOperationResult.WarningSummary
@@ -327,7 +326,7 @@ namespace VoltManager.Setup.Windows
                 bool ok = true;
                 string? err = null;
                 string? notes = null;
-                _operationRunning = true;
+                SetOperationRunning(true);
                 try
                 {
                     _engine.PurgeUserData = _args.PurgeUserData || _uninstallConfirm?.PurgeUserData == true;
@@ -344,7 +343,7 @@ namespace VoltManager.Setup.Windows
                 }
                 finally
                 {
-                    _operationRunning = false;
+                    SetOperationRunning(false);
                 }
                 _done = new DonePage(null, ok, err, uninstall: true, warningMsg: notes);
                 BtnNext.IsEnabled = true;
@@ -357,6 +356,15 @@ namespace VoltManager.Setup.Windows
             {
                 SetupUpdateLog.Error("Interactive uninstall UI completion failed: " + ex);
             }
+        }
+
+        private void SetOperationRunning(bool running)
+        {
+            _operationRunning = running;
+            // The managed Closing guard would refuse the exit anyway: the visible
+            // control must not offer an action the window cannot honour.
+            BtnClose.IsEnabled = !running;
+            BtnClose.ToolTip = running ? I18n.T("progress_wait") : I18n.T("btn_close");
         }
 
         private void BtnNext_Click(object sender, RoutedEventArgs e)

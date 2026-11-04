@@ -11,7 +11,7 @@
                 <StackPanel>
                     <Grid Margin="0,11">
                         <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                        <Border Width="30" Height="30" CornerRadius="7" Background="#14233E" VerticalAlignment="Top">
+                        <Border Width="30" Height="30" CornerRadius="7" Background="{StaticResource InsetBrush}" VerticalAlignment="Top">
                             <Path Style="{StaticResource Icon}" Data="{StaticResource Icon.Gauge}" Width="16" Height="16"
                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
@@ -20,10 +20,10 @@
                             <TextBlock x:Name="Feat1Desc" FontSize="11.5" Foreground="{StaticResource TextMutedBrush}" TextWrapping="Wrap" Margin="0,2,0,0"/>
                         </StackPanel>
                     </Grid>
-                    <Border Height="1" Background="#263550"/>
+                    <Border Height="1" Background="{StaticResource BorderBrush}"/>
                     <Grid Margin="0,11">
                         <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                        <Border Width="30" Height="30" CornerRadius="7" Background="#14233E" VerticalAlignment="Top">
+                        <Border Width="30" Height="30" CornerRadius="7" Background="{StaticResource InsetBrush}" VerticalAlignment="Top">
                             <Path Style="{StaticResource Icon}" Data="{StaticResource Icon.Leaf}" Width="16" Height="16"
                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
@@ -32,10 +32,10 @@
                             <TextBlock x:Name="Feat2Desc" FontSize="11.5" Foreground="{StaticResource TextMutedBrush}" TextWrapping="Wrap" Margin="0,2,0,0"/>
                         </StackPanel>
                     </Grid>
-                    <Border Height="1" Background="#263550"/>
+                    <Border Height="1" Background="{StaticResource BorderBrush}"/>
                     <Grid Margin="0,11">
                         <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                        <Border Width="30" Height="30" CornerRadius="7" Background="#14233E" VerticalAlignment="Top">
+                        <Border Width="30" Height="30" CornerRadius="7" Background="{StaticResource InsetBrush}" VerticalAlignment="Top">
                             <Path Style="{StaticResource Icon}" Data="{StaticResource Icon.Bolt}" Width="16" Height="16"
                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
@@ -54,7 +54,7 @@
                            TextWrapping="Wrap" MaxWidth="470"/>
             </StackPanel>
 
-            <Border Background="#0B1429" BorderBrush="#263550" BorderThickness="1" CornerRadius="8"
+            <Border Background="{StaticResource InsetBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="8"
                     Padding="14,10" Margin="0,14,0,0">
                 <WrapPanel VerticalAlignment="Center">
                     <StackPanel Orientation="Horizontal" Margin="0,0,20,0">
