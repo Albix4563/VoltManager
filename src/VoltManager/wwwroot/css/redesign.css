@@ -137,7 +137,7 @@ html[data-perf-tier="balanced"] .vm-scrim{
 /* ---------- 5. Collapsible sidebar ---------- */
 :root{
   --side-nav-w: 280px;
-  --side-nav-w-collapsed: 84px;
+  --side-nav-w-collapsed: 64px;
 }
 .side-nav{
   width: var(--side-nav-w);
@@ -250,11 +250,16 @@ html[data-perf-tier="balanced"] .vm-scrim{
 body.sidebar-collapsed .side-nav{
   width: var(--side-nav-w-collapsed);
   align-items: center;
+  border-right: 0;
+  box-shadow: none;
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 body.sidebar-collapsed .app-main{ margin-left: var(--side-nav-w-collapsed); }
 body.sidebar-collapsed .side-nav__header{
-  padding-left: 12px;
-  padding-right: 12px;
+  padding-left: 6px;
+  padding-right: 6px;
   margin-bottom: 12px;
   justify-content: center;
   gap: 0;
@@ -300,8 +305,8 @@ body.sidebar-expanding .side-nav-expand-btn .material-symbols-outlined{
   transform: translateX(2px) rotate(8deg) scale(.92);
 }
 body.sidebar-collapsed .side-nav #nav-list{
-  padding-left: 10px;
-  padding-right: 10px;
+  padding-left: 6px;
+  padding-right: 6px;
   align-items: center;
 }
 body.sidebar-collapsed .side-nav .nav-item{
@@ -330,8 +335,8 @@ body.sidebar-collapsed .side-nav #btn-monitoring-toggle{
   margin: 0 auto;
 }
 body.sidebar-collapsed .side-nav .mt-auto{
-  padding-left: 12px;
-  padding-right: 12px;
+  padding-left: 6px;
+  padding-right: 6px;
   width: 100%;
   display: flex;
   flex-direction: column;
@@ -353,22 +358,30 @@ body.sidebar-expanding #btn-sidebar-expand{
 }
 
 @media (max-width: 900px){
-  :root{ --side-nav-w: 84px; }
-  .side-nav{ align-items: center; }
-  .side-nav__header{ padding-inline: 12px; margin-bottom: 12px; justify-content: center; }
+  :root{ --side-nav-w: var(--side-nav-w-collapsed); }
+  body .side-nav{
+    align-items: center;
+    border-right: 0;
+    box-shadow: none;
+    background: transparent;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+  .side-nav__header{ padding-inline: 6px; margin-bottom: 12px; justify-content: center; }
   .side-nav__brand,
   .side-nav__toggle,
   .side-nav .nav-section-label,
   .side-nav #monitoring-label,
   .side-nav #sidebar-version,
   .side-nav .mt-sm{ display: none !important; }
-  .side-nav #nav-list{ padding-inline: 10px; align-items: center; }
+  .side-nav #nav-list{ padding-inline: 6px; align-items: center; }
   .side-nav .nav-item{ justify-content: center; gap: 0; width: 52px; min-height: 48px; padding-inline: 0; }
   .side-nav .nav-item span:not(.material-symbols-outlined){
     position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
     overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0;
   }
   .side-nav #btn-monitoring-toggle{ justify-content: center; width: 52px; padding: 12px; }
+  .side-nav .mt-auto{ padding-inline: 6px; }
   #main-content{ padding-inline: 16px !important; }
 }
 
