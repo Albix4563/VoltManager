@@ -254,6 +254,17 @@ test('locale lookup follows catalog metadata and falls back to English formattin
   );
 });
 
+test('la scheda Mantieni PC attivo segue la lingua selezionata senza residui inglesi in italiano', () => {
+  const harness = createHarness({ stored: 'it' });
+  const label = () => harness.api.feature('uiReorganization', 'tab_keep_awake');
+
+  assert.equal(label(), 'Mantieni PC attivo');
+  harness.api.setLang('en');
+  assert.equal(label(), 'Keep Awake');
+  harness.api.setLang('it');
+  assert.equal(label(), 'Mantieni PC attivo');
+});
+
 test('catalog blocks contain no duplicate keys in any language', () => {
   const { blocks, duplicates } = catalogKeysByBlock();
 

@@ -3189,7 +3189,7 @@
             power_subtitle: 'Controllo manuale, comportamento in alimentazione e parametri avanzati.',
             tab_active_plan: 'Piano attivo',
             tab_power_source: 'Alimentazione',
-            tab_keep_awake: 'Keep Awake',
+            tab_keep_awake: 'Mantieni PC attivo',
             tab_advanced: 'Parametri avanzati',
             tab_plan_history: 'Cronologia',
             active_plan_hint: 'Seleziona il piano da applicare e gestisci l’eventuale override manuale.',

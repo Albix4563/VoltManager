@@ -877,7 +877,6 @@
         const appMain = document.getElementById('app-main');
         const collapseBtn = document.getElementById('btn-sidebar-toggle');
         const expandBtn = document.getElementById('btn-sidebar-expand');
-        const icon = document.getElementById('sidebar-toggle-icon');
         if (!nav || !collapseBtn) return;
 
         let collapsed = false;
@@ -893,7 +892,6 @@
                 expandBtn.title = 'Espandi barra laterale';
                 expandBtn.setAttribute('aria-label', 'Espandi barra laterale');
             }
-            if (icon) icon.textContent = nextCollapsed ? 'left_panel_open' : 'left_panel_close';
         }
 
         function clearTransitionHints() {

@@ -171,14 +171,9 @@ html[data-perf-tier="balanced"] .vm-scrim{
 .side-nav-expand-btn{
   flex-shrink: 0;
   transition:
-    transform var(--vm-motion-fast) var(--vm-ease-standard),
     opacity var(--vm-motion-fast) var(--vm-ease-standard),
     background-color var(--vm-motion-fast) var(--vm-ease-standard),
     color var(--vm-motion-fast) var(--vm-ease-standard);
-}
-#sidebar-toggle-icon,
-.side-nav-expand-btn .material-symbols-outlined{
-  transition: transform var(--vm-motion-base) var(--vm-ease-emphasized), opacity var(--vm-motion-fast) var(--vm-ease-standard);
 }
 .nav-indicator{
   transition: top var(--vm-motion-base) var(--vm-ease-emphasized), height var(--vm-motion-base) var(--vm-ease-emphasized);
@@ -292,17 +287,11 @@ body.sidebar-expanding:not(.sidebar-collapsed) .side-nav .mt-sm{
 }
 body.sidebar-collapsed .side-nav__toggle{ display: none; }
 body.sidebar-collapsing .side-nav__toggle{ display: inline-flex; }
-body.sidebar-expanding .side-nav__toggle{
+body.sidebar-expanding .side-nav__toggle,
+body.sidebar-collapsing .side-nav__toggle,
+body.sidebar-expanding .side-nav-expand-btn{
   opacity: 0;
   pointer-events: none;
-}
-body.sidebar-collapsing #sidebar-toggle-icon{
-  opacity: .58;
-  transform: translateX(-2px) rotate(-8deg) scale(.92);
-}
-body.sidebar-expanding .side-nav-expand-btn .material-symbols-outlined{
-  opacity: .58;
-  transform: translateX(2px) rotate(8deg) scale(.92);
 }
 body.sidebar-collapsed .side-nav #nav-list{
   padding-left: 6px;
@@ -344,11 +333,14 @@ body.sidebar-collapsed .side-nav .mt-auto{
 }
 body.sidebar-collapsed #btn-sidebar-expand{
   display: inline-flex !important;
-  animation: vmFadeIn var(--vm-motion-fast) var(--vm-ease-standard) both;
 }
-@keyframes vmFadeIn{
-  from{ opacity: 0; transform: scale(.92); }
-  to{ opacity: 1; transform: none; }
+body:not(.sidebar-collapsed):not(.sidebar-expanding) .side-nav__toggle,
+body.sidebar-collapsed:not(.sidebar-collapsing) #btn-sidebar-expand{
+  animation: vmSidebarControlIn var(--vm-motion-fast) var(--vm-ease-standard) both;
+}
+@keyframes vmSidebarControlIn{
+  from{ opacity: 0; }
+  to{ opacity: 1; }
 }
 body:not(.sidebar-collapsed) #btn-sidebar-expand{ display: none !important; }
 body.sidebar-collapsing #btn-sidebar-expand{ display: none !important; }
@@ -400,7 +392,9 @@ body.sidebar-expanding #btn-sidebar-expand{
   .side-nav #monitoring-label,
   .side-nav #sidebar-version,
   .side-nav .mt-sm,
-  #sidebar-toggle-icon,
-  .side-nav-expand-btn .material-symbols-outlined,
+  .side-nav__toggle,
+  .side-nav-expand-btn,
   .nav-indicator{ transition: none !important; }
+  .side-nav__toggle,
+  .side-nav-expand-btn{ animation: none !important; }
 }

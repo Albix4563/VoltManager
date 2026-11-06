@@ -53,7 +53,7 @@
       <p class="text-label-md text-on-surface-variant" data-i18n="app_subtitle">BY ALBIX4563</p>
     </div>
     <button type="button" id="btn-sidebar-toggle" class="side-nav__toggle ml-auto w-9 h-9 rounded-full flex items-center justify-center text-on-surface-variant hover:text-secondary-container hover:bg-white/5 flex-shrink-0" title="Comprimi barra laterale" aria-label="Comprimi barra laterale" aria-expanded="true" aria-controls="side-nav">
-      <span class="material-symbols-outlined text-[20px]" id="sidebar-toggle-icon">left_panel_close</span>
+      <span class="material-symbols-outlined text-[20px]">left_panel_close</span>
     </button>
   </div>
   <!-- Navigation Links -->
@@ -114,7 +114,7 @@
 
   <!-- TopNavBar -->
   <header class="flex items-center justify-between h-16 px-lg w-full z-40 bg-transparent shrink-0">
-    <button type="button" id="btn-sidebar-expand" class="side-nav-expand-btn hidden w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:text-secondary-container hover:bg-white/5 hover:scale-110 active:opacity-80 theme-accent-hover-shadow" title="Espandi barra laterale" aria-label="Espandi barra laterale">
+    <button type="button" id="btn-sidebar-expand" class="side-nav-expand-btn hidden w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:text-secondary-container hover:bg-white/5 active:opacity-80 theme-accent-hover-shadow" title="Espandi barra laterale" aria-label="Espandi barra laterale">
       <span class="material-symbols-outlined">left_panel_open</span>
     </button>
     <div class="flex items-center gap-4 ml-auto">
@@ -669,7 +669,7 @@
         <div class="col-span-12 lg:col-span-8 flex flex-col gap-gutter">
           <!-- Update Card -->
           <div class="glass-panel rounded-xl p-lg relative overflow-hidden group">
-            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-md relative z-10">
+            <div class="vm-update-layout relative z-10">
               <div>
                 <h3 class="text-headline-md text-on-surface flex items-center gap-xs">
                   <span class="material-symbols-outlined text-secondary-container">update</span>
@@ -688,7 +688,7 @@
                 </div>
                 <p class="text-label-md text-on-surface-variant mt-sm hidden" id="update-status"></p>
               </div>
-              <div class="flex flex-col gap-sm items-stretch">
+              <div class="vm-update-controls flex flex-col gap-sm items-stretch">
                 <div style="display:flex;flex-direction:column;gap:4px;">
                   <label class="text-label-sm text-on-surface-variant" for="update-channel-select" data-i18n="set_channel_label">Canale aggiornamenti</label>
                   <select id="update-channel-select" class="text-label-md text-on-surface"

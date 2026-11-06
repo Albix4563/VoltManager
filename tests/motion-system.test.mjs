@@ -128,6 +128,21 @@ test('sidebar transition uses explicit expanding and collapsing phases without t
   assert.match(redesign, /\.side-nav\s+\.nav-item\s*\{[\s\S]*width\s+var\(--vm-motion-sidebar\)/);
 });
 
+test('i pulsanti sidebar mantengono icone stabili e usano solo una dissolvenza', () => {
+  const sidebarBlock = app.match(/\(function wireSidebarCollapse\(\)[\s\S]*?\}\)\(\);/s)?.[0] || '';
+  assert.ok(sidebarBlock);
+  assert.doesNotMatch(sidebarBlock, /icon\.textContent\s*=/);
+  assert.doesNotMatch(redesign, /body\.sidebar-(?:collapsing|expanding)[^{]*\.material-symbols-outlined\s*\{|body\.sidebar-collapsing\s+#sidebar-toggle-icon\s*\{/);
+  const fade = redesign.match(/@keyframes vmSidebarControlIn\{[\s\S]*?\n\}/)?.[0] || '';
+  assert.match(fade, /from\{ opacity: 0; \}/);
+  assert.match(fade, /to\{ opacity: 1; \}/);
+  assert.doesNotMatch(fade, /transform|scale|rotate|translate/);
+  const expandButton = indexHtml.match(/<button[^>]*id="btn-sidebar-expand"[^>]*>/)?.[0] || '';
+  assert.doesNotMatch(expandButton, /hover:scale/);
+  const reduced = redesign.slice(redesign.indexOf('@media (prefers-reduced-motion: reduce)'));
+  assert.match(reduced, /\.side-nav__toggle,\s*\.side-nav-expand-btn\s*\{\s*animation:\s*none\s*!important/);
+});
+
 test('navigation and card polish use compositor-friendly restrained feedback', () => {
   assert.match(polish, /\.nav-item\s*\{[\s\S]*transition:\s*transform[^;]*background-color[^;]*color[^;]*border-color/s);
   assert.match(polish, /\.nav-item:hover\s*\{[^}]*translateX\(2px\)/s);

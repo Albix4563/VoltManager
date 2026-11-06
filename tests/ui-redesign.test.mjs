@@ -73,6 +73,11 @@ test('Power Plans exposes Keep Awake as its own persisted subview', () => {
   );
 });
 
+test('il pannello Mantieni PC attivo usa tutta la larghezza della scheda', () => {
+  assert.match(css, /#vm-keep-awake\s*\{[^}]*width\s*:\s*100%\s*;/s);
+  assert.doesNotMatch(css, /#vm-keep-awake\s*\{[^}]*(?:width|max-width)\s*:[^;}]*\dpx/s);
+});
+
 test('Settings exposes Maintenance and relocates backup and diagnostics into it', () => {
   assert.match(layout, /\{ id: 'maintenance', icon: 'build', label: 'tab_maintenance' \}/);
   assert.match(layout, /panel\('settings', 'maintenance',[\s\S]*id="vm-settings-maintenance"/);
@@ -264,6 +269,15 @@ test('power, automations and system panels separate primary tasks from advanced 
   assert.match(layout, /id="vm-rules-sampling"[\s\S]*id="vm-automation-sampling"/);
   assert.match(layout, /id="vm-sensors-empty"/);
   assert.match(layout, /id="vm-system-scheduled"/);
+});
+
+test('Aggiornamenti distribuisce testo e comandi su colonne fluide senza vuoti laterali', () => {
+  assert.match(indexHtml, /class="vm-update-layout relative z-10"/);
+  assert.match(indexHtml, /class="vm-update-controls flex flex-col gap-sm items-stretch"/);
+  assert.match(css, /\.vm-update-layout\s*\{[^}]*display:\s*grid[^}]*grid-template-columns:\s*repeat\(auto-fit,\s*minmax\(min\(100%,\s*320px\),\s*1fr\)\)[^}]*align-items:\s*start/s);
+  assert.match(css, /\.vm-update-layout\s*>\s*\*\s*\{[^}]*min-width:\s*0/s);
+  assert.match(css, /\.vm-update-controls\s*>\s*button\s*\{[^}]*white-space:\s*normal/s);
+  assert.doesNotMatch(css, /#vm-settings-updates\s*>\s*\.glass-panel\s*\{[^}]*max-width:\s*\d+px/s);
 });
 
 test('updates and info prioritize the primary action and compact history', () => {

@@ -1490,7 +1490,14 @@ html[data-anim="low"] .vm-subview.active > * {
 
 /* Settings: reading-width preferences, compact history and info. */
 .vm-settings-list { max-width: 720px; }
-#vm-settings-updates > .glass-panel { max-width: 860px; }
+.vm-update-layout {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+    gap: var(--vm-space-5);
+    align-items: start;
+}
+.vm-update-layout > * { min-width: 0; }
+.vm-update-controls > button { white-space: normal; }
 #vm-settings-updates { gap: var(--vm-space-3); }
 #vm-settings-info > .glass-panel.vm-info-card {
     max-width: 620px;
@@ -1510,7 +1517,7 @@ html[data-anim="low"] .vm-subview.active > * {
 /* Power plans: compact modules on the left, cleanup kept apart from tuning. */
 #vm-power-active { align-items: flex-start; }
 #vm-power-active > #plan-control { width: min(100%, 680px); max-width: 680px; align-self: stretch; }
-#vm-keep-awake { width: min(100%, 880px); }
+#vm-keep-awake { width: 100%; }
 #vm-keep-awake #keep-awake-panel { padding: 0; }
 #vm-power-source { max-width: 880px; }
 .vm-advanced-cleanup { margin-top: var(--vm-space-2); }
