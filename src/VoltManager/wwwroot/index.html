@@ -13,6 +13,7 @@
 <link href="css/theme-colors.css?v=20261001-1" rel="stylesheet"/>
 <link href="css/power-features.css?v=20261001-1" rel="stylesheet"/>
 <link href="css/lan-remote-control.css?v=20261001-1" rel="stylesheet"/>
+<link href="css/energy-suggestions.css?v=20261001-1" rel="stylesheet"/>
 <script src="js/asset-version.js?v=20261001-1"></script>
 <script src="js/theme.js?v=20261001-1"></script>
 <style>
@@ -117,8 +118,9 @@
       <span class="material-symbols-outlined">left_panel_open</span>
     </button>
     <div class="flex items-center gap-4 ml-auto">
-      <button class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:text-secondary-container transition-all duration-300 hover:bg-white/5 hover:scale-110 active:opacity-80 theme-accent-hover-shadow" id="btn-energy-tips" title="Consigli energetici">
+      <button class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:text-secondary-container transition-all duration-300 hover:bg-white/5 hover:scale-110 active:opacity-80 theme-accent-hover-shadow" id="btn-energy-tips" title="Consigli energetici" aria-label="Consigli energetici">
         <span class="material-symbols-outlined">tips_and_updates</span>
+        <span id="vm-tips-badge" class="vm-tips-badge hidden" aria-hidden="true">0</span>
       </button>
       <button class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:text-secondary-container transition-all duration-300 hover:bg-white/5 hover:scale-110 active:opacity-80 theme-accent-hover-shadow" id="btn-minimize-tray" title="Riduci nell'area di notifica">
         <span class="material-symbols-outlined">minimize</span>
@@ -1581,6 +1583,7 @@
 <script src="js/power-protections.js?v=20261001-1"></script>
 <script src="js/power-history.js?v=20261001-1"></script>
 <script src="js/power.js?v=20261001-1"></script>
+<script src="js/energy-suggestions.js?v=20261001-1"></script>
 <!-- advanced.js: lazy-loaded on first open of power/settings (app.js) -->
 </body>
 </html>

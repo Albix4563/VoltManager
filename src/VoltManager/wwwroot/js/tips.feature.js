@@ -15,14 +15,14 @@
 (function () {
     // Each tip = a Material Symbols icon + the i18n keys for its title/body.
     const tips = [
-        { icon: 'battery_saver',       title: 'tip1_title', body: 'tip1_body', laptopOnly: true },
-        { icon: 'power',               title: 'tip2_title', body: 'tip2_body', laptopOnly: true },
-        { icon: 'brightness_6',        title: 'tip3_title', body: 'tip3_body', laptopOnly: true },
-        { icon: 'rocket_launch',       title: 'tip4_title', body: 'tip4_body' },
-        { icon: 'speed',               title: 'tip5_title', body: 'tip5_body', laptopOnly: true },
-        { icon: 'memory',              title: 'tip6_title', body: 'tip6_body' },
-        { icon: 'developer_board',     title: 'tip7_title', body: 'tip7_body' },
-        { icon: 'tune',                title: 'tip8_title', body: 'tip8_body' },
+        { id: 'tip1', icon: 'battery_saver',       title: 'tip1_title', body: 'tip1_body', laptopOnly: true },
+        { id: 'tip2', icon: 'power',               title: 'tip2_title', body: 'tip2_body', laptopOnly: true },
+        { id: 'tip3', icon: 'brightness_6',        title: 'tip3_title', body: 'tip3_body', laptopOnly: true },
+        { id: 'tip4', icon: 'rocket_launch',       title: 'tip4_title', body: 'tip4_body' },
+        { id: 'tip5', icon: 'speed',               title: 'tip5_title', body: 'tip5_body', laptopOnly: true },
+        { id: 'tip6', icon: 'memory',              title: 'tip6_title', body: 'tip6_body' },
+        { id: 'tip7', icon: 'developer_board',     title: 'tip7_title', body: 'tip7_body' },
+        { id: 'tip8', icon: 'tune',                title: 'tip8_title', body: 'tip8_body' },
     ];
 
     let overlay, modal, iconEl, titleEl, bodyEl, counterEl, dotsEl, btnPrev, btnNext, btnClose, btnOpen;
@@ -42,6 +42,27 @@
             [a[i], a[j]] = [a[j], a[i]];
         }
         return a;
+    }
+
+    function preferredTipIds() {
+        const api = window.__energySuggestions;
+        if (!api || typeof api.getPreferredTipIds !== 'function') return [];
+        try {
+            const ids = api.getPreferredTipIds();
+            return Array.isArray(ids) ? ids : [];
+        } catch (e) {
+            return [];
+        }
+    }
+
+    // Contextual suggestions lead the carousel, the rest stays shuffled.
+    function openOrder(available) {
+        const preferred = [];
+        preferredTipIds().forEach((id) => {
+            const index = tips.findIndex((tip) => tip.id === id);
+            if (index >= 0 && available.includes(index) && !preferred.includes(index)) preferred.push(index);
+        });
+        return preferred.concat(shuffle(available.filter((index) => !preferred.includes(index))));
     }
 
     function availableTips() {
@@ -86,7 +107,7 @@
 
     function open() {
         if (!overlay) return;
-        order = shuffle(availableTips());
+        order = openOrder(availableTips());
         pos = 0;
         buildDots();
         render();
@@ -112,6 +133,10 @@
     }
 
     function refreshButtonTitle() {
+        if (btnOpen && window.__energySuggestions && window.__energySuggestions.refreshLabel) {
+            window.__energySuggestions.refreshLabel();
+            return;
+        }
         if (btnOpen) btnOpen.title = t('tips_btn_title');
     }
 
