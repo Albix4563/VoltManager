@@ -20,6 +20,11 @@ window.VoltFont = (function() {
         'lucida-console': '"Lucida Console", Monaco, monospace'
     };
 
+    // The Latin families above carry no CJK glyphs, so Chinese text would fall
+    // back to whatever font the WebView happens to pick. Insert real Chinese
+    // families before the generic tail, keeping the chosen font first.
+    const cjkFallback = '"Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Noto Sans SC"';
+
     function normalize(key) {
         if (!key || typeof key !== 'string') return 'inter';
         const k = key.trim().toLowerCase();
@@ -27,7 +32,7 @@ window.VoltFont = (function() {
     }
 
     function stackFor(key) {
-        return fonts[normalize(key)];
+        return fonts[normalize(key)].replace(/,\s*([a-z-]+)$/, ', ' + cjkFallback + ', $1');
     }
 
     function apply(key) {
