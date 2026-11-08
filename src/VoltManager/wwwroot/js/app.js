@@ -296,7 +296,7 @@
             const style = getComputedStyle(current);
             const animationMs = cssTimeListMax(style.animationDuration)
                 + cssTimeListMax(style.animationDelay);
-            fallback = setTimeout(finishLeave, Math.max(animationMs + 120, 450));
+            fallback = setTimeout(finishLeave, Math.max(animationMs + 60, 200));
         };
 
         if (needsPowerScripts(name)) {

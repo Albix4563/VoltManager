@@ -26,13 +26,13 @@ test('shared motion tokens are loaded by the app and widget surfaces', () => {
   }
 
   const tokens = {
-    '--vm-motion-fast': '320ms',
-    '--vm-motion-base': '520ms',
-    '--vm-motion-sidebar': '680ms',
-    '--vm-motion-slow': '750ms',
-    '--vm-motion-enter': '680ms',
-    '--vm-motion-exit': '440ms',
-    '--vm-motion-stagger': '95ms',
+    '--vm-motion-fast': '120ms',
+    '--vm-motion-base': '180ms',
+    '--vm-motion-sidebar': '240ms',
+    '--vm-motion-slow': '220ms',
+    '--vm-motion-enter': '200ms',
+    '--vm-motion-exit': '140ms',
+    '--vm-motion-stagger': '30ms',
     '--vm-ease-standard': 'cubic-bezier(.25,.9,.3,1)',
     '--vm-ease-emphasized': 'cubic-bezier(.22,1,.36,1)',
     '--vm-ease-exit': 'cubic-bezier(.35,0,.25,1)',
@@ -60,7 +60,7 @@ test('view swapping waits for vmLeave animationend with a safety fallback', () =
   assert.match(app, /event\.target\s*!==\s*current/);
   assert.match(app, /event\.animationName\s*!==\s*['"]vmLeave['"]/);
   assert.match(app, /removeEventListener\(['"]animationend['"]/);
-  assert.match(app, /setTimeout\([\s\S]{0,220}?vm-motion-exit|setTimeout\([\s\S]{0,220}?450/);
+  assert.match(app, /setTimeout\([\s\S]{0,220}?vm-motion-exit|setTimeout\([\s\S]{0,220}?200/);
 });
 
 test('structural motion is relaxed while click feedback remains faster', () => {
@@ -69,9 +69,9 @@ test('structural motion is relaxed while click feedback remains faster', () => {
   assert.match(powerFeatures, /grid-template-rows\s+var\(--vm-motion-base\)/);
   assert.match(powerFeatures, /padding\s+var\(--vm-motion-base\)/);
   assert.match(app, /transform\s+480ms/);
-  assert.match(reorg, /animation:\s*vmReorgViewIn\s+680ms/);
-  assert.match(reorg, /animation:\s*vmReorgPanelIn\s+680ms/);
-  assert.match(reorg, /animation-delay:\s*95ms/);
+  assert.match(reorg, /animation:\s*vmReorgViewIn\s+var\(--vm-motion-enter\)/);
+  assert.match(reorg, /animation:\s*vmReorgPanelIn\s+var\(--vm-motion-enter\)/);
+  assert.match(reorg, /animation-delay:\s*calc\(var\(--vm-motion-stagger\)\s*\*\s*1\)/);
 });
 
 test('decorative motion is slower and reduced-motion/performance tiers remain intact', () => {
