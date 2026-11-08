@@ -10,6 +10,12 @@ const catalogs = readFileSync(
   new URL('../src/VoltManager/wwwroot/js/i18n.catalogs.js', import.meta.url), 'utf8');
 const tipsFeature = readFileSync(
   new URL('../src/VoltManager/wwwroot/js/tips.feature.js', import.meta.url), 'utf8');
+const suggestionsCss = readFileSync(
+  new URL('../src/VoltManager/wwwroot/css/energy-suggestions.css', import.meta.url), 'utf8');
+
+test('hidden badge overrides its inline-flex display', () => {
+  assert.match(suggestionsCss, /\.vm-tips-badge\.hidden\s*\{\s*display:\s*none\s*;/);
+});
 
 const CATALOG_KEYS = [
   'card_title', 'card_subtitle', 'view_all', 'badge_title',

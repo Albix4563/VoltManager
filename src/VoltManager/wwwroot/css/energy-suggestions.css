@@ -28,6 +28,10 @@
     pointer-events: none;
 }
 
+.vm-tips-badge.hidden {
+    display: none;
+}
+
 .vm-suggestions-card .vm-section-title-row {
     margin-bottom: 14px;
 }
