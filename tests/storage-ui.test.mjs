@@ -119,3 +119,36 @@ test('sezione integrata in Monitoraggio con tabella semantica e caricamento modu
   assert.match(read('bootstrap-loader.js'), /'js\/storage.js'/);
   assert.doesNotMatch(source, /setInterval|setTimeout|innerHTML/);
 });
+
+test('restyling archiviazione integra pulsanti standard, selettore accessibile e gerarchia visiva', () => {
+  const layout = read('ui-reorganization.layout.js');
+  assert.match(layout, /<button type="button" class="btn-ghost vm-ui-control" id="storage-refresh"><span class="material-symbols-outlined" aria-hidden="true">refresh<\/span><span data-vm-i18n="storage_refresh"><\/span><\/button>/);
+  assert.match(layout, /<div class="vm-storage-drive-picker">/);
+  assert.match(layout, /<label for="storage-drive" class="vm-storage-drive-label" data-vm-i18n="storage_drive"><\/label>/);
+  assert.match(layout, /<select id="storage-drive" class="vm-storage-drive-select"><\/select>/);
+  assert.match(layout, /<dl id="storage-summary" class="vm-storage-summary"><\/dl>/);
+  assert.match(layout, /<div class="vm-divider"><\/div>/);
+  assert.match(layout, /<h4 class="vm-section-title"><span class="material-symbols-outlined" aria-hidden="true">folder_open<\/span><span data-vm-i18n="storage_details"><\/span><\/h4>/);
+  assert.match(layout, /<button type="button" class="btn-primary vm-ui-control" id="storage-analyze" disabled><span class="material-symbols-outlined" aria-hidden="true">search<\/span><span data-vm-i18n="storage_analyze"><\/span><\/button>/);
+  assert.match(layout, /<p class="vm-panel-hint text-on-surface-variant" data-vm-i18n="storage_hint"><\/p>/);
+  assert.match(layout, /<p id="storage-status" role="status" aria-live="polite"><\/p>/);
+  assert.match(layout, /<div class="vm-storage-table-wrap"><table class="vm-storage-table"><caption class="sr-only" data-vm-i18n="storage_details"><\/caption>/);
+});
+
+test('regole CSS archiviazione rispettano i token di tema e gestiscono stati vuoti/focus/disabled', () => {
+  const css = readFileSync(new URL('../src/VoltManager/wwwroot/css/ui-reorganization.css', import.meta.url), 'utf8');
+  assert.match(css, /\.vm-storage-table-wrap:has\(tbody:empty\)\s*\{\s*display:\s*none;\s*\}/);
+  assert.match(css, /\.vm-storage-summary\s*\{[^}]*background:\s*var\(--vm-border\)/);
+  assert.match(css, /\.vm-storage-summary dd\s*\{[^}]*font-variant-numeric:\s*tabular-nums/);
+  assert.match(css, /\.vm-storage select:focus-visible[^}]*outline:\s*2px solid var\(--vm-accent\)/);
+  assert.match(css, /\.vm-storage button:disabled\s*\{[^}]*opacity:\s*\.5/);
+  assert.match(css, /#storage-status:empty\s*\{\s*display:\s*none;\s*\}/);
+  assert.match(css, /#storage-status\s*\{[^}]*background:\s*var\(--vm-surface-high\)/);
+  assert.match(css, /\.vm-storage-summary:empty,\s*\.vm-storage-table-wrap:has\(tbody:empty\)/);
+  assert.match(css, /\.vm-storage button:focus-visible\s*\{[^}]*outline:\s*2px solid var\(--vm-accent\)/);
+  assert.match(css, /\.vm-storage \.btn-primary\s*\{[^}]*white-space:\s*normal/);
+  assert.match(css, /\.vm-storage-summary\s*\{[^}]*minmax\(min\(100%, 150px\), 1fr\)/);
+  const storageRules = css.slice(css.indexOf('.vm-storage {'), css.indexOf('.vm-view-heading {'));
+  assert.doesNotMatch(storageRules, /#[0-9a-f]{3,8}\b/i);
+  assert.doesNotMatch(storageRules, /\b(?:animation|transition)\s*:/);
+});

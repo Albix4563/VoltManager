@@ -160,14 +160,23 @@
                 ${panel('monitoring', 'processes', '<section class="vm-ui-panel vm-section-card"><div id="vm-monitoring-processes" class="vm-ui-group"></div></section>', false)}
                 ${panel('monitoring', 'temperatures', '<section class="vm-ui-panel vm-section-card"><div id="vm-monitoring-temperatures" class="vm-ui-group"></div><p class="vm-empty-state hidden" id="vm-sensors-empty" role="status" aria-hidden="true"><span class="material-symbols-outlined" aria-hidden="true">device_thermostat</span><span data-vm-i18n="sensors_empty"></span><small data-vm-i18n="sensors_empty_hint"></small></p></section>', false)}
                 ${panel('monitoring', 'storage', `<section class="vm-ui-panel vm-section-card vm-storage">
-                    <h3 class="vm-section-title"><span class="material-symbols-outlined" aria-hidden="true">hard_drive</span><span data-vm-i18n="tab_storage"></span></h3>
-                    <div class="vm-storage-controls"><label for="storage-drive" data-vm-i18n="storage_drive"></label><select id="storage-drive"></select>
-                        <button type="button" class="vm-quick-action" id="storage-refresh" data-vm-i18n="storage_refresh"></button>
-                        <button type="button" class="vm-quick-action" id="storage-analyze" data-vm-i18n="storage_analyze" disabled></button></div>
-                    <p id="storage-status" role="status" aria-live="polite"></p>
+                    <div class="vm-section-title-row">
+                        <h3 class="vm-section-title"><span class="material-symbols-outlined" aria-hidden="true">hard_drive</span><span data-vm-i18n="tab_storage"></span></h3>
+                        <button type="button" class="btn-ghost vm-ui-control" id="storage-refresh"><span class="material-symbols-outlined" aria-hidden="true">refresh</span><span data-vm-i18n="storage_refresh"></span></button>
+                    </div>
+                    <div class="vm-storage-drive-picker">
+                        <label for="storage-drive" class="vm-storage-drive-label" data-vm-i18n="storage_drive"></label>
+                        <select id="storage-drive" class="vm-storage-drive-select"></select>
+                    </div>
                     <dl id="storage-summary" class="vm-storage-summary"></dl>
+                    <div class="vm-divider"></div>
+                    <div class="vm-section-title-row vm-storage-details-head">
+                        <h4 class="vm-section-title"><span class="material-symbols-outlined" aria-hidden="true">folder_open</span><span data-vm-i18n="storage_details"></span></h4>
+                        <button type="button" class="btn-primary vm-ui-control" id="storage-analyze" disabled><span class="material-symbols-outlined" aria-hidden="true">search</span><span data-vm-i18n="storage_analyze"></span></button>
+                    </div>
                     <p class="vm-panel-hint text-on-surface-variant" data-vm-i18n="storage_hint"></p>
-                    <div class="vm-storage-table-wrap"><table class="vm-storage-table"><caption class="text-on-surface-variant" data-vm-i18n="storage_details"></caption>
+                    <p id="storage-status" role="status" aria-live="polite"></p>
+                    <div class="vm-storage-table-wrap"><table class="vm-storage-table"><caption class="sr-only" data-vm-i18n="storage_details"></caption>
                         <thead><tr><th scope="col" data-vm-i18n="storage_name"></th><th scope="col" data-vm-i18n="storage_size"></th></tr></thead>
                         <tbody id="storage-entries"></tbody></table></div>
                 </section>`, false)}
