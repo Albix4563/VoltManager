@@ -346,6 +346,7 @@ public class MonitorService : IDisposable
                 SensorSampledAtUtc = sensors.SampledAtUtc,
                 SensorDetailsAvailable = demand.VisualDetails && sensors.DetailsAvailable,
                 Sensors = demand.VisualDetails ? sensors.Readings : EmptySensorReadings,
+                CpuCoreTemps = demand.VisualDetails ? (sensors.CpuCoreTemps ?? EmptySensorReadings) : EmptySensorReadings,
                 Vram = vram,
             };
             MetricsUpdated?.Invoke(Latest);

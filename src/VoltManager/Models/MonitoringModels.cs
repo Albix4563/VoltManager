@@ -23,6 +23,7 @@ public record MetricsSnapshot
     [JsonPropertyName("sensorSampledAtUtc")] public DateTime? SensorSampledAtUtc { get; init; }
     [JsonPropertyName("sensorDetailsAvailable")] public bool SensorDetailsAvailable { get; init; }
     [JsonPropertyName("sensors")] public List<SensorReading> Sensors { get; init; } = new();
+    [JsonPropertyName("cpuCoreTemps")] public List<SensorReading> CpuCoreTemps { get; init; } = new();
     [JsonPropertyName("vram")] public VramMemorySnapshot? Vram { get; init; }
 }
 

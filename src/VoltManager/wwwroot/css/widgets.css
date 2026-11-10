@@ -675,6 +675,53 @@ html[data-size=large] .plan-option-label {
   line-height: 1.2;
 }
 
+.desktop-widget[data-widget-type=cpuTemp] .widget-value.has-core-temps {
+  flex-shrink: 0;
+  font-size: 28px;
+  line-height: 1;
+}
+
+.cpu-core-temps {
+  align-self: stretch;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  margin: 6px 0 0;
+  font-size: 12px;
+  line-height: 1.4;
+  text-align: left;
+}
+
+.cpu-core-temps[hidden] {
+  display: none;
+}
+
+.cpu-core-temps > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.cpu-core-temps dt {
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+
+.cpu-core-temps dd {
+  flex-shrink: 0;
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.cpu-core-temps:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: -2px;
+}
+
+html[data-size=mini] .desktop-widget[data-widget-type=cpuTemp] .widget-value.has-core-temps {
+  font-size: 20px;
+}
+
 html[data-size=mini] .desktop-widget[data-widget-type=cpuTemp] .widget-body {
   padding: 0 12px 10px;
 }

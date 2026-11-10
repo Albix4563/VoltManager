@@ -340,13 +340,42 @@
     }
 
     function startCpuTemp() {
-        shell('<div class="widget-value" id="temp-cpu">--</div>');
+        shell('<div class="widget-value" id="temp-cpu">--</div>' +
+            '<dl class="cpu-core-temps" id="cpu-core-temps" tabindex="0" hidden></dl>');
+        const list = document.getElementById('cpu-core-temps');
+        list.setAttribute('aria-label', t('widget_cpu_cores', 'Temperature dei core'));
+        let rows = [];
+        let previousKeys = '';
         Host.on('metrics', (m) => {
             const el = document.getElementById('temp-cpu');
             if (!el || !m) return;
             const val = temp(m.cpuTemp);
             if (el.textContent !== val) el.textContent = val;
             el.classList.toggle('widget-value-unavailable', !Number.isFinite(m.cpuTemp));
+            const cores = Array.isArray(m.cpuCoreTemps) ? m.cpuCoreTemps.filter(core =>
+                core && typeof core.name === 'string' && core.name.trim() &&
+                Number.isFinite(core.value) && core.value > 0) : [];
+            const keys = JSON.stringify(cores.map(core => [core.identifier, core.hardware, core.name]));
+            if (keys !== previousKeys) {
+                rows = cores.map(core => {
+                    const row = document.createElement('div');
+                    const label = document.createElement('dt');
+                    const value = document.createElement('dd');
+                    label.textContent = core.name;
+                    if (typeof core.hardware === 'string') label.title = core.hardware;
+                    row.append(label, value);
+                    return row;
+                });
+                list.replaceChildren(...rows);
+                previousKeys = keys;
+            }
+            cores.forEach((core, index) => {
+                const value = temp(core.value);
+                if (rows[index].lastElementChild.textContent !== value)
+                    rows[index].lastElementChild.textContent = value;
+            });
+            list.hidden = cores.length === 0;
+            el.classList.toggle('has-core-temps', cores.length > 0);
         });
     }
 

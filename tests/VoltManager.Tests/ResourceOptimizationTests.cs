@@ -228,7 +228,8 @@ public sealed class ResourceOptimizationTests
         Assert.Equal(60, temps.RootElement.GetProperty("gpuTemp").GetDouble());
 
         using var cpuTemp = JsonDocument.Parse(JsonSerializer.Serialize(WidgetWindow.MetricsPayload("cpuTemp", metrics)));
-        Assert.Single(cpuTemp.RootElement.EnumerateObject());
+        Assert.Equal(2, cpuTemp.RootElement.EnumerateObject().Count());
+        Assert.Empty(cpuTemp.RootElement.GetProperty("cpuCoreTemps").EnumerateArray());
         Assert.Equal(JsonValueKind.Null, cpuTemp.RootElement.GetProperty("cpuTemp").ValueKind);
 
         var validMetrics = new MetricsSnapshot { CpuTemp = 58.5 };

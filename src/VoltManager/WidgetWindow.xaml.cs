@@ -684,7 +684,7 @@ public partial class WidgetWindow : Window
         "usage" => new { cpu = metrics.Cpu, gpu = metrics.Gpu, gpuAvailable = metrics.GpuAvailable,
             ramPct = metrics.RamPct, disk = metrics.Disk },
         "temps" => new { cpuTemp = metrics.CpuTemp, gpuTemp = metrics.GpuTemp },
-        "cpuTemp" => new { cpuTemp = metrics.CpuTemp },
+        "cpuTemp" => new { cpuTemp = metrics.CpuTemp, cpuCoreTemps = metrics.CpuCoreTemps },
         _ => null,
     };
 

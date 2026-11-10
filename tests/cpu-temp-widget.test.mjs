@@ -11,7 +11,10 @@ const invalidValues = [null, undefined, NaN, Infinity, -Infinity, '', ' ', '48',
 function element() {
   const classes = new Set();
   return {
-    innerHTML: '', textContent: '', dataset: {}, style: {},
+    innerHTML: '', textContent: '', dataset: {}, style: {}, children: [], hidden: false,
+    append(...children) { this.children.push(...children); },
+    replaceChildren(...children) { this.children = children; },
+    get lastElementChild() { return this.children.at(-1); },
     classList: {
       contains: name => classes.has(name),
       remove: name => classes.delete(name),
@@ -27,7 +30,7 @@ function loadWidget(type) {
   const context = {
     window: {}, URLSearchParams, location: { search: `?w=${type}&s=medium` },
     document: {
-      hidden: false, documentElement: { dataset: {} },
+      hidden: false, documentElement: { dataset: {} }, createElement: element,
       getElementById(id) {
         if (!elements.has(id)) elements.set(id, element());
         return elements.get(id);
@@ -50,7 +53,7 @@ test('il widget CPU è selezionabile e localizzato in tutte le lingue', () => {
   vm.runInNewContext(read('i18n.catalogs.js'), context);
   for (const lang of ['it', 'en', 'es', 'zh']) {
     const catalog = context.window.VoltI18nCatalogs.namespaces.core[lang];
-    for (const key of ['widget_cpu_temp', 'widget_temp_unavailable', 'dash_temp_unavailable']) {
+    for (const key of ['widget_cpu_temp', 'widget_cpu_cores', 'widget_temp_unavailable', 'dash_temp_unavailable']) {
       assert.ok(catalog[key], `${lang}/${key}`);
     }
   }
@@ -73,6 +76,59 @@ test('il widget CPU riceve le metriche e ripristina il valore dopo un dato assen
     assert.equal(value.textContent, expected);
     assert.equal(value.classList.contains('widget-value-unavailable'), false);
   }
+});
+
+test('i core supportati sono aggiornati senza ricreare la lista e scompaiono se assenti', () => {
+  const { elements, metrics } = loadWidget('cpuTemp');
+  const cores = Array.from({ length: 64 }, (_, index) => ({
+    identifier: `/cpu/0/temp/${index}`, hardware: 'CPU 0', name: `CPU Core #${index + 1}`, value: 40 + index / 10,
+  }));
+  metrics({ cpuTemp: 55, cpuCoreTemps: cores });
+  const list = elements.get('cpu-core-temps');
+  assert.equal(list.hidden, false);
+  assert.equal(list.children.length, 64);
+  assert.equal(list.children[63].children[0].textContent, 'CPU Core #64');
+  assert.equal(list.children[0].children[0].title, 'CPU 0');
+  const firstRow = list.children[0];
+  metrics({ cpuTemp: 56, cpuCoreTemps: cores.map(core => ({ ...core, value: 57.7 })) });
+  assert.equal(list.children[0], firstRow);
+  assert.equal(firstRow.lastElementChild.textContent, '58°C');
+  for (const missing of [undefined, null, [], 'invalid']) {
+    metrics({ cpuTemp: 56, cpuCoreTemps: missing });
+    assert.equal(list.hidden, true);
+    assert.equal(list.children.length, 0);
+    assert.equal(elements.get('temp-cpu').textContent, '56°C');
+    assert.equal(elements.get('temp-cpu').classList.contains('has-core-temps'), false);
+  }
+  metrics({ cpuTemp: 50, cpuCoreTemps: cores.slice(0, 2) });
+  assert.equal(list.hidden, false);
+  assert.equal(list.children.length, 2);
+});
+
+test('la lista core valida i valori e inserisce i nomi come testo, non HTML', () => {
+  const { elements, metrics } = loadWidget('cpuTemp');
+  const name = '<img src=x onerror=alert(1)>';
+  metrics({ cpuTemp: 50, cpuCoreTemps: [
+    ...invalidValues.map(value => ({ name: 'Core #1', value })),
+    { name: 'Core #2', value: 0 }, { name: 'Core #3', value: -10 },
+    null, { value: 40 }, { name: {}, value: 40 }, { name: '', value: 40 },
+    { name, value: 45.2 },
+  ] });
+  const list = elements.get('cpu-core-temps');
+  assert.equal(list.children.length, 1);
+  const label = list.children[0].children[0];
+  assert.equal(label.textContent, name);
+  assert.equal(label.innerHTML, '');
+  assert.equal(list.children[0].lastElementChild.textContent, '45°C');
+});
+
+test('la lista core è scorrevole e accessibile anche nelle dimensioni mini', () => {
+  const css = readFileSync(new URL('../src/VoltManager/wwwroot/css/widgets.css', import.meta.url), 'utf8');
+  assert.match(widgets, /id="cpu-core-temps" tabindex="0" hidden/);
+  assert.match(widgets, /list\.setAttribute\('aria-label', t\('widget_cpu_cores'/);
+  assert.match(css, /\.cpu-core-temps\s*\{[^}]*min-height:\s*0;[^}]*overflow-y:\s*auto;/);
+  assert.match(css, /\.cpu-core-temps:focus-visible/);
+  assert.match(css, /html\[data-size=mini\][^{]*cpuTemp[^}]*has-core-temps[^}]*font-size:\s*20px/);
 });
 
 test('il widget temperature combinato conserva CPU e GPU', () => {

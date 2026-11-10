@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using LibreHardwareMonitor.Hardware;
 using VoltManager.Models;
 
@@ -42,6 +43,7 @@ public record SensorReport
     public double? CpuClock { get; init; }
     public double? RamClock { get; init; }
     public List<SensorReading> Readings { get; init; } = new();
+    public List<SensorReading> CpuCoreTemps { get; init; } = new();
     public DateTime? SampledAtUtc { get; init; }
     public bool DetailsAvailable { get; init; }
 }
@@ -175,6 +177,104 @@ public static class SensorAggregation
 
     private static SensorReading? PreferExact(List<SensorReading> list, string name) =>
         list.FirstOrDefault(r => r.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+
+    private static readonly string[] ExcludedCoreTempKeywords =
+    [
+        "Package",
+        "Max",
+        "Average",
+        "Avg",
+        "TjMax",
+        "Distance",
+        "CCD",
+        "Tctl",
+        "Tdie",
+        "Total",
+        "Socket",
+        "Warning",
+        "Critical",
+        "Trip",
+        "Throttle",
+    ];
+
+    private static readonly Regex CoreTempPattern = new(
+        @"^(?:CPU\s*(?:\d+\s+)?)?(?:(?<kind>P|E)[-_]?)?Core\s*#?\s*(?<idx>\d+)",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    private static readonly Regex CoreRangePattern = new(
+        @"(?<from>\d+)\s*(?:-|to)\s*(?:(?:P-|E-)?Core\s*#?)?(?<to>\d+)",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    private static bool IsCoreRange(string name)
+    {
+        var match = CoreRangePattern.Match(name);
+        return match.Success && match.Groups["from"].Value != match.Groups["to"].Value;
+    }
+
+    // ponytail: nomi Intel/AMD e identificatori standard; aggiungere topologia esplicita solo per formati non standard.
+    public static List<SensorReading> SelectCpuCoreTemps(IReadOnlyList<SensorReading> readings)
+    {
+        if (readings == null || readings.Count == 0) return new List<SensorReading>();
+
+        var candidates = new List<(SensorReading Reading, (string Group, int CpuIndex) Cpu, int KindPriority, int CoreIndex)>();
+
+        foreach (var r in readings)
+        {
+            if (r.Category != "cpu" || r.Type != "temp") continue;
+            if (double.IsNaN(r.Value) || double.IsInfinity(r.Value) || r.Value <= 0) continue;
+
+            string name = r.Name?.Trim() ?? "";
+            if (name.Length == 0) continue;
+
+            if (ContainsAny(name, ExcludedCoreTempKeywords)) continue;
+            if (IsCoreRange(name)) continue;
+
+            var match = CoreTempPattern.Match(name);
+            if (!match.Success) continue;
+
+            if (!int.TryParse(match.Groups["idx"].Value, out int coreIndex)) continue;
+            int kindPriority = string.Equals(match.Groups["kind"].Value, "E", StringComparison.OrdinalIgnoreCase) ? 1 : 0;
+            var cpuKey = ExtractCpuKey(r);
+
+            candidates.Add((r, cpuKey, kindPriority, coreIndex));
+        }
+
+        if (candidates.Count == 0) return new List<SensorReading>();
+
+        return candidates
+            .DistinctBy(x => !string.IsNullOrEmpty(x.Reading.Identifier)
+                ? x.Reading.Identifier
+                : $"{x.Reading.Hardware}/{x.Reading.Name}")
+            .OrderBy(x => x.Cpu.Group, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(x => x.Cpu.CpuIndex)
+            .ThenBy(x => x.KindPriority)
+            .ThenBy(x => x.CoreIndex)
+            .ThenBy(x => x.Reading.Identifier ?? x.Reading.Name, StringComparer.OrdinalIgnoreCase)
+            .Select(x => x.Reading)
+            .ToList();
+    }
+
+    private static (string Group, int CpuIndex) ExtractCpuKey(SensorReading reading)
+    {
+        if (!string.IsNullOrWhiteSpace(reading.Identifier))
+        {
+            var parts = reading.Identifier.Split('/', StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length >= 2)
+            {
+                int index = int.TryParse(parts[1], System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out int parsed)
+                    ? parsed
+                    : 0;
+                return (parts[0], index);
+            }
+        }
+        string hw = reading.Hardware ?? "cpu";
+        var hwMatch = Regex.Match(hw, @"#?(\d+)$");
+        if (hwMatch.Success && int.TryParse(hwMatch.Groups[1].Value, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out int hwIndex))
+        {
+            return (hw[..hwMatch.Index].TrimEnd(), hwIndex);
+        }
+        return (hw, 0);
+    }
 
     private static bool ContainsAny(string haystack, params string[] needles)
     {
