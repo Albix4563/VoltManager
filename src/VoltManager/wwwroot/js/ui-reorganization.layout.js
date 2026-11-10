@@ -153,11 +153,24 @@
                 { id: 'hardware', icon: 'memory', label: 'tab_hardware' },
                 { id: 'processes', icon: 'process_chart', label: 'tab_processes' },
                 { id: 'temperatures', icon: 'device_thermostat', label: 'tab_temperatures' },
+                { id: 'storage', icon: 'hard_drive', label: 'tab_storage' },
                 { id: 'battery', icon: 'battery_horiz_075', label: 'tab_battery' }
             ]) + `<div class="vm-subview-stack vm-ui-group">
                 ${panel('monitoring', 'hardware', '<section class="vm-ui-panel vm-section-card"><div id="vm-monitoring-hardware" class="vm-ui-group"></div></section>', true)}
                 ${panel('monitoring', 'processes', '<section class="vm-ui-panel vm-section-card"><div id="vm-monitoring-processes" class="vm-ui-group"></div></section>', false)}
                 ${panel('monitoring', 'temperatures', '<section class="vm-ui-panel vm-section-card"><div id="vm-monitoring-temperatures" class="vm-ui-group"></div><p class="vm-empty-state hidden" id="vm-sensors-empty" role="status" aria-hidden="true"><span class="material-symbols-outlined" aria-hidden="true">device_thermostat</span><span data-vm-i18n="sensors_empty"></span><small data-vm-i18n="sensors_empty_hint"></small></p></section>', false)}
+                ${panel('monitoring', 'storage', `<section class="vm-ui-panel vm-section-card vm-storage">
+                    <h3 class="vm-section-title"><span class="material-symbols-outlined" aria-hidden="true">hard_drive</span><span data-vm-i18n="tab_storage"></span></h3>
+                    <div class="vm-storage-controls"><label for="storage-drive" data-vm-i18n="storage_drive"></label><select id="storage-drive"></select>
+                        <button type="button" class="vm-quick-action" id="storage-refresh" data-vm-i18n="storage_refresh"></button>
+                        <button type="button" class="vm-quick-action" id="storage-analyze" data-vm-i18n="storage_analyze" disabled></button></div>
+                    <p id="storage-status" role="status" aria-live="polite"></p>
+                    <dl id="storage-summary" class="vm-storage-summary"></dl>
+                    <p class="vm-panel-hint text-on-surface-variant" data-vm-i18n="storage_hint"></p>
+                    <div class="vm-storage-table-wrap"><table class="vm-storage-table"><caption class="text-on-surface-variant" data-vm-i18n="storage_details"></caption>
+                        <thead><tr><th scope="col" data-vm-i18n="storage_name"></th><th scope="col" data-vm-i18n="storage_size"></th></tr></thead>
+                        <tbody id="storage-entries"></tbody></table></div>
+                </section>`, false)}
                 ${panel('monitoring', 'battery', '<section class="vm-ui-panel vm-section-card"><div id="vm-monitoring-battery" class="vm-stack vm-ui-group"></div></section>', false)}
             </div>`);
     }

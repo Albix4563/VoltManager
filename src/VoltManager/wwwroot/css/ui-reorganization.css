@@ -28,6 +28,71 @@
     display: flex;
 }
 
+.vm-storage-controls {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.vm-storage-controls select {
+    min-width: 0;
+    max-width: 100%;
+    padding: 8px 12px;
+    color: inherit;
+    background: var(--vm-surface, transparent);
+    border: 1px solid currentColor;
+    border-radius: var(--vm-radius-control);
+}
+
+.vm-storage-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 16px;
+}
+
+.vm-storage-summary dt {
+    font-size: 12px;
+}
+
+.vm-storage-summary dd {
+    margin: 4px 0 0;
+    font-size: 22px;
+    font-weight: 700;
+}
+
+.vm-storage-table-wrap {
+    max-height: 420px;
+    overflow: auto;
+}
+
+.vm-storage-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+}
+
+.vm-storage-table caption {
+    text-align: left;
+    padding-bottom: 12px;
+}
+
+.vm-storage-table th,
+.vm-storage-table td {
+    padding: 8px 12px;
+    overflow-wrap: anywhere;
+}
+
+.vm-storage-table td,
+.vm-storage-table th:last-child {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.vm-storage-table tbody th {
+    font-weight: 400;
+}
+
 .vm-view-heading {
     display: flex;
     align-items: flex-end;

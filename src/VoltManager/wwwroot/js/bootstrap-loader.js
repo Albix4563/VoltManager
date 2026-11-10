@@ -7,6 +7,7 @@
     const REORGANIZATION_SCRIPTS = [
         'js/ui-reorganization.layout.js',
         'js/ui-reorganization.js',
+        'js/storage.js',
         'js/ui-reorganization.status.js',
         'js/global-search.js',
     ];
