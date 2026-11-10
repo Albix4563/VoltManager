@@ -93,6 +93,9 @@ test('i core supportati sono aggiornati senza ricreare la lista e scompaiono se 
   metrics({ cpuTemp: 56, cpuCoreTemps: cores.map(core => ({ ...core, value: 57.7 })) });
   assert.equal(list.children[0], firstRow);
   assert.equal(firstRow.lastElementChild.textContent, '58°C');
+  metrics({ cpuTemp: 56, cpuCoreTemps: cores.map(core => ({ ...core, name: core.name + ' updated' })) });
+  assert.notEqual(list.children[0], firstRow);
+  assert.equal(list.children[0].children[0].textContent, 'CPU Core #1 updated');
   for (const missing of [undefined, null, [], 'invalid']) {
     metrics({ cpuTemp: 56, cpuCoreTemps: missing });
     assert.equal(list.hidden, true);

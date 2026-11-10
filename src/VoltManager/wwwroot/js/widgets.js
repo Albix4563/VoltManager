@@ -345,7 +345,7 @@
         const list = document.getElementById('cpu-core-temps');
         list.setAttribute('aria-label', t('widget_cpu_cores', 'Temperature dei core'));
         let rows = [];
-        let previousKeys = '';
+        let previousCores = [];
         Host.on('metrics', (m) => {
             const el = document.getElementById('temp-cpu');
             if (!el || !m) return;
@@ -355,8 +355,9 @@
             const cores = Array.isArray(m.cpuCoreTemps) ? m.cpuCoreTemps.filter(core =>
                 core && typeof core.name === 'string' && core.name.trim() &&
                 Number.isFinite(core.value) && core.value > 0) : [];
-            const keys = JSON.stringify(cores.map(core => [core.identifier, core.hardware, core.name]));
-            if (keys !== previousKeys) {
+            if (cores.length !== previousCores.length || cores.some((core, index) =>
+                core.identifier !== previousCores[index].identifier || core.hardware !== previousCores[index].hardware ||
+                core.name !== previousCores[index].name)) {
                 rows = cores.map(core => {
                     const row = document.createElement('div');
                     const label = document.createElement('dt');
@@ -367,7 +368,7 @@
                     return row;
                 });
                 list.replaceChildren(...rows);
-                previousKeys = keys;
+                previousCores = cores;
             }
             cores.forEach((core, index) => {
                 const value = temp(core.value);

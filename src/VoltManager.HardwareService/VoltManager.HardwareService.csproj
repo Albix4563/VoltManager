@@ -11,6 +11,7 @@
     <RetainVMGarbageCollection>false</RetainVMGarbageCollection>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="..\Shared\CpuCoreTemperatureSelector.cs" Link="CpuCoreTemperatureSelector.cs" />
     <PackageReference Include="LibreHardwareMonitorLib" Version="0.9.6" />
   </ItemGroup>
 </Project>
