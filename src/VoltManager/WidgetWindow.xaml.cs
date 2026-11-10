@@ -178,7 +178,7 @@ public partial class WidgetWindow : Window
 
         if (!_hostEventsWired)
         {
-            if (_type is "usage" or "temps") _context.Monitor.MetricsUpdated += OnMetricsUpdated;
+            if (_type is "usage" or "temps" or "cpuTemp") _context.Monitor.MetricsUpdated += OnMetricsUpdated;
             if (_type is "power" or "plans") _context.PowerRequests.ActivePlanChanged += OnActivePlanChanged;
             if (_type == "power") _context.PowerRequests.CpuAutomationStateChanged += OnCpuAutomationStateChanged;
             if (_type is "plans" or "actions") _context.Awake.StateChanged += OnKeepAwakeStateChanged;
@@ -670,7 +670,7 @@ public partial class WidgetWindow : Window
 
     private void OnMetricsUpdated(MetricsSnapshot metrics)
     {
-        if (_closed || !HasVisibleResourceSurface || _type is not ("usage" or "temps")) return;
+        if (_closed || !HasVisibleResourceSurface || _type is not ("usage" or "temps" or "cpuTemp")) return;
         var plan = _resourceController.Resolve(
             _context.ResourcePressureState().Profile,
             visible: true,
@@ -684,6 +684,7 @@ public partial class WidgetWindow : Window
         "usage" => new { cpu = metrics.Cpu, gpu = metrics.Gpu, gpuAvailable = metrics.GpuAvailable,
             ramPct = metrics.RamPct, disk = metrics.Disk },
         "temps" => new { cpuTemp = metrics.CpuTemp, gpuTemp = metrics.GpuTemp },
+        "cpuTemp" => new { cpuTemp = metrics.CpuTemp },
         _ => null,
     };
 

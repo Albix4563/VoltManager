@@ -32,7 +32,7 @@ const widgetWindowCs = readFileSync(
   'utf8'
 );
 
-const widgetTypes = ['clock', 'calendar', 'usage', 'temps', 'power', 'plans', 'launcher', 'apps', 'actions', 'brightness', 'processes', 'memory'];
+const widgetTypes = ['clock', 'calendar', 'usage', 'temps', 'cpuTemp', 'power', 'plans', 'launcher', 'apps', 'actions', 'brightness', 'processes', 'memory'];
 
 test('desktop widgets expose their type and keep fixed chrome shrink-safe', () => {
   assert.match(

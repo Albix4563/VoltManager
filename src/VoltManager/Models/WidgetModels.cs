@@ -82,7 +82,7 @@ public class WidgetSettings
 {
     public static readonly string[] Types =
     [
-        "clock", "calendar", "usage", "temps", "power", "plans",
+        "clock", "calendar", "usage", "temps", "cpuTemp", "power", "plans",
         "launcher", "apps", "actions", "brightness", "processes", "memory",
     ];
     public static readonly string[] Sizes = ["mini", "medium", "large"];

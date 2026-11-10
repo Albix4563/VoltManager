@@ -295,4 +295,29 @@ public sealed class WidgetCustomizationTests
         Assert.Null(item.Width);
         Assert.Null(item.Height);
     }
+
+    [Fact]
+    public void CpuTemp_widget_is_registered_with_correct_presets_and_payload()
+    {
+        // Verifica registrazione tipo e persistenza
+        Assert.Contains("cpuTemp", WidgetSettings.Types);
+        Assert.True(WidgetSettings.IsKnownType("cpuTemp"));
+        Assert.Contains(WidgetSettings.DefaultItems(), item => item.Type == "cpuTemp");
+
+        // Verifica dimensioni standard per presets
+        Assert.Equal(new Size(180, 96), WidgetManager.GetWidgetSize("cpuTemp", "mini"));
+        Assert.Equal(new Size(240, 140), WidgetManager.GetWidgetSize("cpuTemp", "medium"));
+        Assert.Equal(new Size(320, 180), WidgetManager.GetWidgetSize("cpuTemp", "large"));
+
+        // Normalizzazione preserva widget cpuTemp
+        var settings = new WidgetSettings
+        {
+            Items = [new WidgetItem { Type = "cpuTemp", Size = "medium", Pinned = true }]
+        };
+        settings.Normalize();
+        var cpuItem = settings.Items.Single(x => x.Type == "cpuTemp");
+        Assert.Equal("cpuTemp", cpuItem.Type);
+        Assert.True(cpuItem.Pinned);
+        Assert.Equal(WidgetSettings.Types.Length, settings.Items.Count);
+    }
 }

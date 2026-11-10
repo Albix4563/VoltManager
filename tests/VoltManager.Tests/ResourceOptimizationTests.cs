@@ -226,6 +226,14 @@ public sealed class ResourceOptimizationTests
         Assert.Equal(2, temps.RootElement.EnumerateObject().Count());
         Assert.Equal(JsonValueKind.Null, temps.RootElement.GetProperty("cpuTemp").ValueKind);
         Assert.Equal(60, temps.RootElement.GetProperty("gpuTemp").GetDouble());
+
+        using var cpuTemp = JsonDocument.Parse(JsonSerializer.Serialize(WidgetWindow.MetricsPayload("cpuTemp", metrics)));
+        Assert.Single(cpuTemp.RootElement.EnumerateObject());
+        Assert.Equal(JsonValueKind.Null, cpuTemp.RootElement.GetProperty("cpuTemp").ValueKind);
+
+        var validMetrics = new MetricsSnapshot { CpuTemp = 58.5 };
+        using var cpuTempValid = JsonDocument.Parse(JsonSerializer.Serialize(WidgetWindow.MetricsPayload("cpuTemp", validMetrics)));
+        Assert.Equal(58.5, cpuTempValid.RootElement.GetProperty("cpuTemp").GetDouble());
     }
 
     private static ProcessSample Process(int pid, string name, int cpuSeconds) =>

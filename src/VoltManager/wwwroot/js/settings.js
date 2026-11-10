@@ -482,7 +482,7 @@
     const widgetsList = document.getElementById('widgets-list');
     const widgetsEnabledList = document.getElementById('widgets-enabled-list');
     const widgetsDisabledList = document.getElementById('widgets-disabled-list');
-    const WIDGET_TYPES = ['clock', 'calendar', 'usage', 'temps', 'power', 'plans', 'launcher', 'apps', 'actions', 'brightness', 'processes', 'memory'];
+    const WIDGET_TYPES = ['clock', 'calendar', 'usage', 'temps', 'cpuTemp', 'power', 'plans', 'launcher', 'apps', 'actions', 'brightness', 'processes', 'memory'];
     const WIDGET_PRESETS = ['mini', 'medium', 'large'];
     const WIDGET_ORIENTATIONS = ['horizontal', 'vertical'];
     const WIDGET_MATERIALS = ['solid', 'acrylic', 'transparent'];
@@ -610,6 +610,7 @@
             calendar: 'calendar_month',
             usage: 'monitor_heart',
             temps: 'device_thermostat',
+            cpuTemp: 'device_thermostat',
             power: 'bolt',
             plans: 'tune',
             launcher: 'apps',
@@ -645,6 +646,7 @@
     function widgetTitleKey(type) {
         return {
             clock: 'widget_clock', calendar: 'widget_calendar', usage: 'widget_usage', temps: 'widget_temps',
+            cpuTemp: 'widget_cpu_temp',
             power: 'widget_power', plans: 'widget_plans', launcher: 'widget_launcher', apps: 'widget_apps',
             actions: 'widget_actions', brightness: 'widget_brightness', processes: 'widget_processes', memory: 'widget_memory',
         }[type] || 'widget_settings_title';

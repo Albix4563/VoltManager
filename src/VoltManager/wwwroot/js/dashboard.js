@@ -54,11 +54,15 @@
     // ----- Temperatures -----
     const CATEGORY_ORDER = ['cpu', 'gpu', 'storage', 'motherboard'];
 
-    // No reading -> hide the badge entirely instead of showing a useless N/D.
+    // Aggiorna il badge mantenendolo visibile e gestendo valori assenti/non finiti senza forzarli a 0.
     function setTempBadge(badge, label, value) {
-        const hide = value == null;
-        if (badge.classList.contains('hidden') !== hide) badge.classList.toggle('hidden', hide);
-        if (!hide) setText(label, Math.round(value) + '°C');
+        if (!badge) return;
+        if (badge.classList.contains('hidden')) badge.classList.remove('hidden');
+        if (Number.isFinite(value)) {
+            setText(label, Math.round(value) + '°C');
+        } else {
+            setText(label, window.I18n && I18n.t ? I18n.t('dash_temp_unavailable') : 'N/D');
+        }
     }
 
     function setClockText(element, value) {

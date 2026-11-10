@@ -652,9 +652,31 @@ html[data-size=large] .plan-option-label {
 }
 
 .desktop-widget[data-widget-type=temps] .widget-body,
+.desktop-widget[data-widget-type=cpuTemp] .widget-body,
 .desktop-widget[data-widget-type=power] .widget-body,
 .desktop-widget[data-widget-type=plans] .widget-body {
   justify-content: center;
+}
+
+.desktop-widget[data-widget-type=cpuTemp] .widget-body {
+  align-items: center;
+  text-align: center;
+}
+
+.desktop-widget[data-widget-type=cpuTemp] .widget-value {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.desktop-widget[data-widget-type=cpuTemp] .widget-value.widget-value-unavailable {
+  font-size: 22px;
+  line-height: 1.2;
+}
+
+html[data-size=mini] .desktop-widget[data-widget-type=cpuTemp] .widget-body {
+  padding: 0 12px 10px;
 }
 
 html[data-size=mini] .desktop-widget[data-widget-type=clock] .widget-value {

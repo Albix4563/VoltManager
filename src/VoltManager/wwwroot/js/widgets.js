@@ -1,5 +1,5 @@
 (function () {
-    const TYPES = ['clock', 'calendar', 'usage', 'temps', 'power', 'plans', 'launcher', 'apps', 'actions', 'brightness', 'processes', 'memory'];
+    const TYPES = ['clock', 'calendar', 'usage', 'temps', 'cpuTemp', 'power', 'plans', 'launcher', 'apps', 'actions', 'brightness', 'processes', 'memory'];
     const SIZES = ['mini', 'medium', 'large'];
     const APPEARANCE_MATERIALS = ['solid', 'acrylic', 'transparent'];
     const APPEARANCE_TINTS = ['theme', 'midnight', 'graphite', 'aurora', 'ember', 'neutral'];
@@ -52,6 +52,7 @@
         calendar: ['calendar_month', 'widget_calendar'],
         usage: ['monitor_heart', 'widget_usage'],
         temps: ['device_thermostat', 'widget_temps'],
+        cpuTemp: ['device_thermostat', 'widget_cpu_temp'],
         power: ['bolt', 'widget_power'],
         plans: ['tune', 'widget_plans'],
         launcher: ['apps', 'widget_launcher'],
@@ -196,7 +197,7 @@
     }
 
     function temp(value) {
-        return value == null ? '--' : Math.round(value) + '\u00b0C';
+        return Number.isFinite(value) ? Math.round(value) + '\u00b0C' : t('widget_temp_unavailable', 'N/D');
     }
 
     function planName(plan) {
@@ -335,6 +336,17 @@
             const gpuValue = temp(m.gpuTemp);
             if (cpu && cpu.textContent !== cpuValue) cpu.textContent = cpuValue;
             if (gpu && gpu.textContent !== gpuValue) gpu.textContent = gpuValue;
+        });
+    }
+
+    function startCpuTemp() {
+        shell('<div class="widget-value" id="temp-cpu">--</div>');
+        Host.on('metrics', (m) => {
+            const el = document.getElementById('temp-cpu');
+            if (!el || !m) return;
+            const val = temp(m.cpuTemp);
+            if (el.textContent !== val) el.textContent = val;
+            el.classList.toggle('widget-value-unavailable', !Number.isFinite(m.cpuTemp));
         });
     }
 
@@ -1235,7 +1247,7 @@
     });
 
     ({
-        clock: startClock, calendar: startCalendar, usage: startUsage, temps: startTemps, power: startPower, plans: startPlans,
+        clock: startClock, calendar: startCalendar, usage: startUsage, temps: startTemps, cpuTemp: startCpuTemp, power: startPower, plans: startPlans,
         launcher: startLauncher, apps: startLauncher, actions: startActions, brightness: startBrightness, processes: startProcesses, memory: startMemory,
     }[type] || startClock)();
 
