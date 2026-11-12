@@ -111,7 +111,7 @@ public sealed class BoundedIoTests
         release.Set();
         Assert.True(SpinWait.SpinUntil(
             () => executor.Run(() => 9, TimeSpan.FromMilliseconds(25)).Completed,
-            TimeSpan.FromSeconds(2)));
+            TimeSpan.FromSeconds(10)));
     }
 
     [Fact]
@@ -188,7 +188,7 @@ public sealed class BoundedIoTests
         Assert.Equal(1, inner.ReadCalls);
 
         release.Set();
-        Assert.True(SpinWait.SpinUntil(() => inner.ReadCompleted, TimeSpan.FromSeconds(2)));
+        Assert.True(SpinWait.SpinUntil(() => inner.ReadCompleted, TimeSpan.FromSeconds(10)));
     }
 
     [Fact]

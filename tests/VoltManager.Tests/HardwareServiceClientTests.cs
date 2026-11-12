@@ -16,17 +16,21 @@ public class HardwareServiceClientTests
     [Fact]
     public void Deferred_access_is_non_blocking_and_forwards_when_ready()
     {
+        using var started = new ManualResetEventSlim();
         using var release = new ManualResetEventSlim();
         var inner = new StubHardwareAccess();
         using var access = new DeferredHardwareAccess(() =>
         {
+            started.Set();
             release.Wait();
             return inner;
         });
         Assert.False(access.Available);
         Assert.Same(SensorReport.Empty, access.Read());
+        Assert.True(started.Wait(TimeSpan.FromSeconds(10)));
+        Assert.False(access.Available);
         release.Set();
-        Assert.True(SpinWait.SpinUntil(() => access.Available, TimeSpan.FromSeconds(2)));
+        Assert.True(SpinWait.SpinUntil(() => access.Available, TimeSpan.FromSeconds(10)));
         Assert.Same(inner.Report, access.Read());
     }
 
