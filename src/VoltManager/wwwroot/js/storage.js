@@ -17,6 +17,15 @@
     const cleanTemp = $('storage-clean-temp');
     const cleanmgr = $('storage-cleanmgr');
     const defrag = $('storage-defrag');
+    const confirmOverlay = $('storage-clean-overlay');
+    const confirmTitle = $('storage-clean-title');
+    const confirmDesc = $('storage-clean-description');
+    const confirmScope = $('storage-clean-scope');
+    const confirmWarning = $('storage-clean-warning');
+    const confirmCancel = $('storage-clean-cancel');
+    const confirmAccept = $('storage-clean-confirm');
+    let confirmResolve = null;
+    let confirmOpener = null;
     let statusKey = 'storage_ready';
     let statusParams;
     let numberFormat;
@@ -44,11 +53,84 @@
     }
 
     function controls() {
-        const busy = loading || scanning || maintaining;
+        const busy = loading || scanning || maintaining || Boolean(confirmResolve);
         select.disabled = busy;
         refresh.disabled = busy;
         analyze.disabled = busy || !select.value;
         for (const button of [cleanTemp, cleanmgr, defrag]) button.disabled = busy;
+    }
+
+    function syncConfirmModalText() {
+        if (confirmTitle) confirmTitle.textContent = api.t('storage_clean_modal_title');
+        if (confirmDesc) confirmDesc.textContent = api.t('storage_clean_modal_subtitle');
+        if (confirmScope) confirmScope.textContent = api.t('storage_clean_modal_scope');
+        if (confirmWarning) confirmWarning.textContent = api.t('storage_clean_modal_warning');
+        if (confirmCancel) confirmCancel.textContent = api.t('storage_clean_modal_cancel');
+        if (confirmAccept) confirmAccept.textContent = api.t('storage_clean_modal_confirm');
+    }
+
+    function closeConfirmModal(accepted, restoreFocus = true) {
+        if (!confirmResolve) return;
+        const resolve = confirmResolve;
+        confirmResolve = null;
+        confirmOverlay?.classList?.add('hidden');
+        confirmOverlay?.classList?.remove('flex');
+        confirmOverlay?.setAttribute?.('aria-hidden', 'true');
+        confirmCancel?.removeEventListener?.('click', onConfirmCancel);
+        confirmAccept?.removeEventListener?.('click', onConfirmAccept);
+        confirmOverlay?.removeEventListener?.('click', onConfirmBackdrop);
+        document.removeEventListener?.('keydown', onConfirmKeydown);
+        const opener = confirmOpener || cleanTemp;
+        confirmOpener = null;
+        controls();
+        if (restoreFocus && typeof opener?.focus === 'function' &&
+            (!document.contains || document.contains(opener))) {
+            opener.focus();
+        }
+        resolve(accepted);
+    }
+
+    function onConfirmCancel() { closeConfirmModal(false); }
+    function onConfirmAccept() { closeConfirmModal(true, false); }
+    function onConfirmBackdrop(event) { if (event.target === confirmOverlay) closeConfirmModal(false); }
+    function onConfirmKeydown(event) {
+        if (!confirmResolve) return;
+        if (event.key === 'Escape') {
+            event.preventDefault?.();
+            closeConfirmModal(false);
+            return;
+        }
+        if (event.key !== 'Tab') return;
+        const active = document.activeElement;
+        if (event.shiftKey) {
+            if (active === confirmCancel || active !== confirmAccept) {
+                event.preventDefault?.();
+                confirmAccept?.focus?.();
+            }
+        } else if (active === confirmAccept || active !== confirmCancel) {
+            event.preventDefault?.();
+            confirmCancel?.focus?.();
+        }
+    }
+
+    function askCleanConfirmation() {
+        if (confirmResolve || !confirmOverlay || !confirmCancel || !confirmAccept) {
+            return Promise.resolve(false);
+        }
+        syncConfirmModalText();
+        confirmOpener = document.activeElement || cleanTemp;
+        return new Promise(resolve => {
+            confirmResolve = resolve;
+            controls();
+            confirmCancel.addEventListener('click', onConfirmCancel);
+            confirmAccept.addEventListener('click', onConfirmAccept);
+            confirmOverlay.addEventListener('click', onConfirmBackdrop);
+            document.addEventListener('keydown', onConfirmKeydown);
+            confirmOverlay.classList?.remove('hidden');
+            confirmOverlay.classList?.add('flex');
+            confirmOverlay.setAttribute?.('aria-hidden', 'false');
+            confirmCancel.focus?.();
+        });
     }
 
     function summary() {
@@ -73,7 +155,7 @@
     }
 
     async function loadDrives(afterCleanup = false) {
-        if (loading || scanning || (maintaining && afterCleanup !== true) || !window.Host?.available) return;
+        if (loading || scanning || Boolean(confirmResolve) || (maintaining && afterCleanup !== true) || !window.Host?.available) return;
         loading = true;
         controls();
         message('storage_loading');
@@ -102,7 +184,7 @@
     }
 
     async function scan() {
-        if (loading || scanning || maintaining || !select.value || !window.Host?.available) return;
+        if (loading || scanning || maintaining || Boolean(confirmResolve) || !select.value || !window.Host?.available) return;
         scanning = true;
         controls();
         entries.replaceChildren();
@@ -133,7 +215,14 @@
     }
 
     async function maintain(tool) {
-        if (loading || scanning || maintaining || !window.Host?.available) return;
+        if (loading || scanning || maintaining || Boolean(confirmResolve) || !window.Host?.available) return;
+        if (!tool) {
+            const confirmed = await askCleanConfirmation();
+            if (!confirmed) {
+                message('storage_clean_cancelled');
+                return;
+            }
+        }
         maintaining = true;
         controls();
         message(tool ? 'storage_opening' : 'storage_cleaning');
@@ -142,7 +231,7 @@
                 await Host.call('openStorageTool', { tool });
                 message('storage_tool_opened');
             } else {
-                const result = await Host.call('cleanStorageTemp', {}, { timeoutMs: 0 });
+                const result = await Host.call('cleanStorageTemp', { confirmed: true }, { timeoutMs: 35000 });
                 if (result?.confirmed === false) {
                     message('storage_clean_cancelled');
                 } else {
@@ -164,6 +253,11 @@
         } finally {
             maintaining = false;
             controls();
+            if (!tool && typeof cleanTemp.focus === 'function' &&
+                (!document.activeElement || document.activeElement === document.body) &&
+                (!document.contains || document.contains(cleanTemp))) {
+                cleanTemp.focus();
+            }
         }
     }
     cleanTemp.addEventListener('click', () => maintain());
@@ -183,6 +277,6 @@
     }
     document.addEventListener('voltuiviewchanged', activate);
     document.addEventListener('voltuisubviewchanged', activate);
-    document.addEventListener('langchanged', () => { updateFormats(); summary(); message(statusKey, statusParams); });
+    document.addEventListener('langchanged', () => { updateFormats(); summary(); message(statusKey, statusParams); syncConfirmModalText(); });
     activate();
 })();

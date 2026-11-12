@@ -175,6 +175,33 @@ public sealed class StorageCleanupTests : IDisposable
     }
 
     [Fact]
+    public async Task Handler_requires_payload_confirmation_when_delegate_is_omitted()
+    {
+        int cleanups = 0;
+        var handler = new StorageRpcHandler(new StorageService(() => []), cleanup: _ =>
+        {
+            cleanups++;
+            return Task.FromResult(new StorageCleanupResult(true, 2, 40, 0, false));
+        });
+
+        foreach (string raw in new[] { "{}", "{\"confirmed\":false}", "{\"confirmed\":\"true\"}" })
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(raw);
+            var rejected = Assert.IsType<StorageCleanupResult>(
+                await handler.HandleAsync("cleanStorageTemp", doc.RootElement, CancellationToken.None));
+            Assert.False(rejected.Confirmed);
+        }
+        Assert.Equal(0, cleanups);
+
+        using var confirmedDoc = System.Text.Json.JsonDocument.Parse("{\"confirmed\":true}");
+        var accepted = Assert.IsType<StorageCleanupResult>(
+            await handler.HandleAsync("cleanStorageTemp", confirmedDoc.RootElement, CancellationToken.None));
+        Assert.True(accepted.Confirmed);
+        Assert.Equal(2, accepted.DeletedFiles);
+        Assert.Equal(1, cleanups);
+    }
+
+    [Fact]
     public async Task Handler_validates_tool_payload_and_releases_guard_after_failure()
     {
         var handler = new StorageRpcHandler(new StorageService(() => []),

@@ -125,5 +125,4 @@
   <data name="JumpList_Sleep60Desc" xml:space="preserve"><value>Schedule sleep in 1 hour</value></data>
   <data name="JumpList_OpenSchedulerDesc" xml:space="preserve"><value>Open the scheduler window</value></data>
   <data name="JumpList_CategorySchedule" xml:space="preserve"><value>Timer PC</value></data>
-  <data name="Storage_ConfirmCleanTemp" xml:space="preserve"><value>Permanently delete temporary files older than 7 days from the current user's temporary folder and Windows Temp? Recent files, links and files in use will be preserved. Old files may still be needed by applications: close them before continuing. Documents, Downloads and the Recycle Bin will not be touched. This cannot be undone.</value></data>
 </root>

@@ -28,7 +28,10 @@ public sealed class StorageRpcHandler(StorageService storage,
                     throw new InvalidOperationException("Pulizia già in corso.");
                 try
                 {
-                    if (confirmCleanup == null || !await confirmCleanup(cancellationToken))
+                    bool confirmed = confirmCleanup != null
+                        ? await confirmCleanup(cancellationToken)
+                        : IsPayloadConfirmed(payload);
+                    if (!confirmed)
                         return new StorageCleanupResult(false, 0, 0, 0, false);
                     cancellationToken.ThrowIfCancellationRequested();
                     return await (cleanup ?? storage.CleanTempAsync)(cancellationToken);
@@ -41,4 +44,9 @@ public sealed class StorageRpcHandler(StorageService storage,
                 throw new ArgumentException($"Metodo RPC non supportato: {method}.");
         }
     }
+
+    private static bool IsPayloadConfirmed(JsonElement payload) =>
+        payload.ValueKind == JsonValueKind.Object &&
+        payload.TryGetProperty("confirmed", out JsonElement confirmed) &&
+        confirmed.ValueKind == JsonValueKind.True;
 }

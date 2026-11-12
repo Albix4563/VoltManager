@@ -211,7 +211,7 @@ internal static class BridgeHandlerFactory
             widgetHandler,
             energyHandler,
             monitoringHandler,
-            new StorageRpcHandler(new StorageService(), ct => confirmLauncherAction(loc.T("Storage_ConfirmCleanTemp"), ct)),
+            new StorageRpcHandler(new StorageService()),
             updateHandler,
             applicationHandler,
             lanRemoteHandler,

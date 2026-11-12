@@ -7,20 +7,66 @@ const read = file => readFileSync(new URL(`../src/VoltManager/wwwroot/js/${file}
 const source = read('storage.js');
 const flush = () => new Promise(resolve => setImmediate(resolve));
 
-function harness(call) {
-  function node() {
-    return {
-      children: [], value: '', textContent: '', disabled: false, handlers: {},
+function harness(call, { missingOverlay = false } = {}) {
+  const document = {
+    activeElement: null,
+    body: {},
+    contains: () => true,
+    listeners: new Map(),
+    getElementById(id) {
+      if (missingOverlay && id === 'storage-clean-overlay') return null;
+      if (!elements.has(id)) elements.set(id, node(id));
+      return elements.get(id);
+    },
+    createElement: () => node(),
+    addEventListener(name, handler) {
+      if (!this.listeners.has(name)) this.listeners.set(name, []);
+      this.listeners.get(name).push(handler);
+    },
+    removeEventListener(name, handler) {
+      const list = this.listeners.get(name);
+      if (list) this.listeners.set(name, list.filter(fn => fn !== handler));
+    },
+    emit(name, eventObj = {}) {
+      for (const fn of [...(this.listeners.get(name) || [])]) fn(eventObj);
+    },
+  };
+  function node(id = '') {
+    const classes = new Set(id === 'storage-clean-overlay' ? ['hidden'] : []);
+    const listeners = new Map();
+    const attributes = new Map();
+    const el = {
+      id, children: [], value: '', textContent: '', disabled: false, handlers: {}, focused: false,
+      classList: {
+        add: (...names) => names.forEach(name => classes.add(name)),
+        remove: (...names) => names.forEach(name => classes.delete(name)),
+        contains: name => classes.has(name),
+      },
+      setAttribute: (name, value) => attributes.set(name, String(value)),
+      getAttribute: name => attributes.get(name),
+      focus() { this.focused = true; document.activeElement = this; },
       append(...children) {
         this.children.push(...children);
         if (!this.value && children[0]?.value) this.value = children[0].value;
       },
       replaceChildren() { this.children = []; this.value = ''; },
-      addEventListener(name, handler) { this.handlers[name] = handler; },
+      addEventListener(name, handler) {
+        this.handlers[name] = handler;
+        if (!listeners.has(name)) listeners.set(name, []);
+        listeners.get(name).push(handler);
+      },
+      removeEventListener(name, handler) {
+        if (this.handlers[name] === handler) delete this.handlers[name];
+        const list = listeners.get(name);
+        if (list) listeners.set(name, list.filter(fn => fn !== handler));
+      },
+      dispatch(name, eventObj = {}) {
+        for (const fn of [...(listeners.get(name) || [])]) fn(eventObj);
+      },
     };
+    return el;
   }
   const elements = new Map();
-  const events = {};
   const calls = [];
   const api = {
     state: { view: 'overview', subviews: { monitoring: 'hardware' } },
@@ -28,47 +74,111 @@ function harness(call) {
   };
   const Host = { available: true, call: async (...args) => { calls.push(args); return call(...args); } };
   const context = {
-    window: { VoltUiReorg: api, Host }, Host, Intl,
-    document: {
-      getElementById(id) { if (!elements.has(id)) elements.set(id, node()); return elements.get(id); },
-      createElement: node,
-      addEventListener(name, handler) { events[name] = handler; },
-    },
+    window: { VoltUiReorg: api, Host }, Host, Intl, document,
   };
   vm.runInNewContext(source, context);
   return {
-    elements, calls, events,
+    elements, calls, document,
+    events: { langchanged: () => document.emit('langchanged'), voltuisubviewchanged: () => document.emit('voltuisubviewchanged') },
     async activate() {
       api.state.view = 'monitoring'; api.state.subviews.monitoring = 'storage';
-      events.voltuisubviewchanged(); await flush();
+      document.emit('voltuisubviewchanged'); await flush();
     },
   };
 }
 
-test('pulizia attende conferma host, blocca duplicati e conserva l’esito dopo aggiornamento', async () => {
+test('pulizia apre conferma integrata predefinita su Annulla, blocca duplicati e invia conferma esplicita', async () => {
   let complete;
   const h = harness(method => method === 'getStorageDrives' ? [drive] : new Promise(resolve => { complete = resolve; }));
   await h.activate();
   const clean = h.elements.get('storage-clean-temp');
+  const overlay = h.elements.get('storage-clean-overlay');
+  const cancel = h.elements.get('storage-clean-cancel');
+  const confirm = h.elements.get('storage-clean-confirm');
+  clean.focus();
   const pending = clean.handlers.click();
+  assert.equal(overlay.classList.contains('hidden'), false);
+  assert.equal(overlay.classList.contains('flex'), true);
+  assert.equal(overlay.getAttribute('aria-hidden'), 'false');
+  assert.equal(h.document.activeElement, cancel);
   assert.equal(clean.disabled, true);
-  assert.equal(h.calls.at(-1)[0], 'cleanStorageTemp');
-  assert.equal(h.calls.at(-1)[2].timeoutMs, 0);
+  assert.equal(h.calls.length, 1);
   await clean.handlers.click();
   await h.elements.get('storage-analyze').handlers.click();
   await h.elements.get('storage-refresh').handlers.click();
   await h.elements.get('storage-defrag').handlers.click();
+  assert.equal(h.calls.length, 1);
+  confirm.dispatch('click');
+  await flush();
+  assert.equal(overlay.classList.contains('hidden'), true);
+  assert.equal(overlay.getAttribute('aria-hidden'), 'true');
   assert.equal(h.calls.length, 2);
+  assert.equal(h.calls.at(-1)[0], 'cleanStorageTemp');
+  assert.deepEqual(JSON.parse(JSON.stringify(h.calls.at(-1)[1])), { confirmed: true });
+  assert.equal(h.calls.at(-1)[2].timeoutMs, 35000);
   complete({ confirmed: true, deletedFiles: 2, freedBytes: 2048, skippedCount: 1, partial: true });
   await pending;
   assert.equal(h.calls.at(-1)[0], 'getStorageDrives');
   assert.match(h.elements.get('storage-status').textContent, /^storage_clean_partial/);
-  h.events.langchanged();
+  h.document.emit('langchanged');
   assert.match(h.elements.get('storage-status').textContent, /^storage_clean_partial/);
   assert.equal(clean.disabled, false);
 });
 
-test('annullamento, errore e risultato non valido non rilanciano pulizia o aggiornamenti', async () => {
+test('annullamento dal modale, Escape o click sullo sfondo non avvia la pulizia e ripristina il focus', async () => {
+  for (const mode of ['cancel', 'escape', 'backdrop']) {
+    const h = harness(() => [drive]);
+    await h.activate();
+    const clean = h.elements.get('storage-clean-temp');
+    const overlay = h.elements.get('storage-clean-overlay');
+    clean.focus();
+    const pending = clean.handlers.click();
+    if (mode === 'cancel') h.elements.get('storage-clean-cancel').dispatch('click');
+    else if (mode === 'escape') {
+      let prevented = false;
+      h.document.emit('keydown', { key: 'Escape', preventDefault() { prevented = true; } });
+      assert.equal(prevented, true);
+    } else overlay.dispatch('click', { target: overlay });
+    await pending;
+    assert.equal(h.calls.length, 1);
+    assert.equal(overlay.classList.contains('hidden'), true);
+    assert.equal(h.document.activeElement, clean);
+    assert.equal(clean.disabled, false);
+    assert.equal(h.elements.get('storage-status').textContent, 'storage_clean_cancelled');
+  }
+});
+
+test('il modale intrappola Tab tra Annulla e Conferma e aggiorna i testi al cambio lingua', async () => {
+  const h = harness(() => [drive]);
+  await h.activate();
+  const clean = h.elements.get('storage-clean-temp');
+  const cancel = h.elements.get('storage-clean-cancel');
+  const confirm = h.elements.get('storage-clean-confirm');
+  clean.focus();
+  const pending = clean.handlers.click();
+  assert.equal(h.document.activeElement, cancel);
+  let prevented = false;
+  h.document.emit('keydown', { key: 'Tab', shiftKey: true, preventDefault() { prevented = true; } });
+  assert.equal(prevented, true);
+  assert.equal(h.document.activeElement, confirm);
+  prevented = false;
+  h.document.emit('keydown', { key: 'Tab', shiftKey: false, preventDefault() { prevented = true; } });
+  assert.equal(prevented, true);
+  assert.equal(h.document.activeElement, cancel);
+  h.document.emit('langchanged');
+  assert.equal(h.elements.get('storage-clean-title').textContent, 'storage_clean_modal_title');
+  assert.equal(h.elements.get('storage-clean-confirm').textContent, 'storage_clean_modal_confirm');
+  cancel.dispatch('click');
+  await pending;
+});
+
+test('errore, risultato non valido o modale mancante gestiti senza rilanciare aggiornamenti', async () => {
+  const missing = harness(() => [drive], { missingOverlay: true });
+  await missing.activate();
+  await missing.elements.get('storage-clean-temp').handlers.click();
+  assert.equal(missing.calls.length, 1);
+  assert.equal(missing.elements.get('storage-status').textContent, 'storage_clean_cancelled');
+
   for (const result of [{ confirmed: false }, new Error('offline'), { confirmed: true }]) {
     const h = harness(method => {
       if (method === 'getStorageDrives') return [drive];
@@ -76,7 +186,9 @@ test('annullamento, errore e risultato non valido non rilanciano pulizia o aggio
       return result;
     });
     await h.activate();
-    await h.elements.get('storage-clean-temp').handlers.click();
+    const pending = h.elements.get('storage-clean-temp').handlers.click();
+    h.elements.get('storage-clean-confirm').dispatch('click');
+    await pending;
     assert.equal(h.calls.length, 2);
     assert.equal(h.elements.get('storage-clean-temp').disabled, false);
     assert.equal(h.elements.get('storage-status').textContent,
@@ -207,4 +319,23 @@ test('regole CSS archiviazione rispettano i token di tema e gestiscono stati vuo
   const storageRules = css.slice(css.indexOf('.vm-storage {'), css.indexOf('.vm-view-heading {'));
   assert.doesNotMatch(storageRules, /#[0-9a-f]{3,8}\b/i);
   assert.doesNotMatch(storageRules, /\b(?:animation|transition)\s*:/);
+});
+
+test('conferma pulizia usa modale in-app tematizzato invece di MessageBox host', () => {
+  const html = readFileSync(new URL('../src/VoltManager/wwwroot/index.html', import.meta.url), 'utf8');
+  const dialogCss = readFileSync(new URL('../src/VoltManager/wwwroot/css/power-features.css', import.meta.url), 'utf8');
+  const factory = readFileSync(new URL('../src/VoltManager/Bridge/BridgeHandlerFactory.cs', import.meta.url), 'utf8');
+  assert.match(html, /id="storage-clean-overlay"[^>]*aria-hidden="true"/);
+  assert.match(html, /class="vm-dialog-shell vm-storage-clean-dialog glass-modal"[^>]*role="dialog" aria-modal="true"/s);
+  for (const key of [
+    'storage_clean_modal_title', 'storage_clean_modal_subtitle', 'storage_clean_modal_scope',
+    'storage_clean_modal_warning', 'storage_clean_modal_cancel', 'storage_clean_modal_confirm',
+  ]) {
+    assert.match(html, new RegExp(`data-vm-i18n="${key}"`));
+  }
+  assert.match(dialogCss, /#storage-clean-overlay:not\(\.hidden\)\s*\{\s*display:\s*flex;/);
+  assert.match(dialogCss, /\.vm-storage-clean-dialog\s*\{\s*max-width:\s*540px;/);
+  assert.match(dialogCss, /\.vm-storage-clean-dialog\s+\.vm-dialog-note\s*\{[^}]*--vm-border[^}]*--vm-surface-high/s);
+  assert.match(factory, /new StorageRpcHandler\(new StorageService\(\)\)/);
+  assert.doesNotMatch(factory, /Storage_ConfirmCleanTemp/);
 });

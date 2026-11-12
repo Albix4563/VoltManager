@@ -1435,6 +1435,34 @@
   </div>
 </div>
 
+<!-- ============ STORAGE TEMP CLEANUP CONFIRMATION OVERLAY ============ -->
+<div class="fixed inset-0 bg-black/60 hidden items-center justify-center" id="storage-clean-overlay" aria-hidden="true">
+  <div class="vm-dialog-shell vm-storage-clean-dialog glass-modal" id="storage-clean-modal"
+       role="dialog" aria-modal="true" aria-labelledby="storage-clean-title"
+       aria-describedby="storage-clean-description storage-clean-scope storage-clean-warning" tabindex="-1">
+    <header class="vm-dialog-header">
+      <div class="vm-dialog-icon" aria-hidden="true"><span class="material-symbols-outlined">delete_sweep</span></div>
+      <div class="min-w-0">
+        <h2 class="text-title-lg text-on-surface font-bold" id="storage-clean-title" data-vm-i18n="storage_clean_modal_title">Eliminare i file temporanei?</h2>
+        <p class="text-body-md text-on-surface-variant mt-xs" id="storage-clean-description" data-vm-i18n="storage_clean_modal_subtitle">Verranno rimossi solo i file temporanei più vecchi di 7 giorni dalla cartella temporanea utente e da Windows Temp.</p>
+      </div>
+    </header>
+    <div class="vm-dialog-body">
+      <p class="text-body-md text-on-surface leading-relaxed" id="storage-clean-scope" data-vm-i18n="storage_clean_modal_scope">File recenti, collegamenti, file in uso, Documenti, Download e Cestino non saranno toccati.</p>
+      <div class="vm-dialog-note">
+        <span class="material-symbols-outlined" aria-hidden="true">warning</span>
+        <span id="storage-clean-warning" data-vm-i18n="storage_clean_modal_warning">Anche i file vecchi potrebbero servire alle applicazioni: chiudile prima di continuare. L’operazione non è annullabile.</span>
+      </div>
+    </div>
+    <footer class="vm-dialog-footer">
+      <div class="vm-dialog-actions">
+        <button class="btn-ghost rounded-lg py-2.5 px-5 text-label-md" id="storage-clean-cancel" type="button" data-vm-i18n="storage_clean_modal_cancel">Annulla</button>
+        <button class="btn-primary rounded-lg py-2.5 px-5 text-label-md" id="storage-clean-confirm" type="button" data-vm-i18n="storage_clean_modal_confirm">Elimina file temporanei</button>
+      </div>
+    </footer>
+  </div>
+</div>
+
 <!-- ============ ENERGY TIPS POPUP ============ -->
 <div class="fixed inset-0 z-[110] bg-black/60 hidden items-center justify-center" id="energy-tips-overlay">
   <div class="w-full max-w-md mx-4 glass-modal rounded-2xl overflow-hidden" id="energy-tips-modal" role="dialog" aria-modal="true" aria-labelledby="energy-tips-title">

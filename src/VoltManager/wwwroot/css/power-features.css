@@ -69,14 +69,17 @@ html:not([data-vm-brightness="supported"]) [data-vm-brightness-only] { display: 
 .power-brightness-card .power-timeout-select:focus-visible {
     outline: 2px solid var(--vm-accent); outline-offset: 2px; }
 
-/* Power-plan setup and duplicate-cleanup dialogs. */
+/* Power-plan setup, duplicate-cleanup and storage-cleanup dialogs. */
 #setup-overlay,
-#extra-plans-overlay {
+#extra-plans-overlay,
+#storage-clean-overlay {
     padding: 16px;
     overflow: hidden;
 }
+#storage-clean-overlay { z-index: 200; }
 #setup-overlay:not(.hidden),
-#extra-plans-overlay:not(.hidden) {
+#extra-plans-overlay:not(.hidden),
+#storage-clean-overlay:not(.hidden) {
     display: flex;
 }
 .vm-dialog-shell {
@@ -90,6 +93,13 @@ html:not([data-vm-brightness="supported"]) [data-vm-brightness-only] { display: 
     background: color-mix(in srgb, var(--vm-panel, #1e2a4a) 96%, transparent);
 }
 .vm-setup-dialog { max-width: 620px; }
+.vm-storage-clean-dialog { max-width: 540px; }
+.vm-storage-clean-dialog .vm-dialog-note {
+    padding: 12px;
+    border-radius: 12px;
+    border: 1px solid color-mix(in srgb, var(--vm-border) 55%, transparent);
+    background: color-mix(in srgb, var(--vm-surface-high) 55%, transparent);
+}
 .vm-dialog-header,
 .vm-dialog-footer {
     padding: 18px 20px;
@@ -231,7 +241,7 @@ html:not([data-vm-brightness="supported"]) [data-vm-brightness-only] { display: 
     opacity: .72;
 }
 .vm-extra-plans-footer { align-items: stretch; flex-direction: column; }
-.vm-dialog-actions { display: flex; justify-content: flex-end; gap: 10px; }
+.vm-dialog-actions { width: 100%; display: flex; justify-content: flex-end; gap: 10px; }
 .vm-tertiary-action {
     align-self: flex-start;
     padding: 2px 0;
@@ -255,7 +265,8 @@ html:not([data-vm-brightness="supported"]) [data-vm-brightness-only] { display: 
 }
 @media (max-width: 560px), (max-height: 620px) {
     #setup-overlay,
-    #extra-plans-overlay { padding: 16px; }
+    #extra-plans-overlay,
+    #storage-clean-overlay { padding: 16px; }
     .vm-dialog-header,
     .vm-dialog-body,
     .vm-dialog-footer { padding: 14px; }

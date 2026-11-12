@@ -125,5 +125,4 @@
   <data name="JumpList_Sleep60Desc" xml:space="preserve"><value>Programma la sospensione tra 1 ora</value></data>
   <data name="JumpList_OpenSchedulerDesc" xml:space="preserve"><value>Apri la finestra di pianificazione</value></data>
   <data name="JumpList_CategorySchedule" xml:space="preserve"><value>Timer PC</value></data>
-  <data name="Storage_ConfirmCleanTemp" xml:space="preserve"><value>Eliminare definitivamente i file temporanei più vecchi di 7 giorni dalla cartella temporanea dell’utente corrente e da Windows Temp? I file recenti, i collegamenti e i file in uso saranno preservati. Anche i file vecchi potrebbero servire alle applicazioni: chiudile prima di continuare. Documenti, Download e Cestino non saranno toccati. L’operazione non è annullabile.</value></data>
 </root>
