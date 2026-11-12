@@ -11,6 +11,7 @@ public sealed class BridgeContractInventoryTests
         string[] expected =
         [
             "getSystemInfo", "getBatteryHealth", "getBatteryPower", "getBatteryHistory",
+            "getStorageDrives", "getStorageAnalysis", "cleanStorageTemp", "openStorageTool",
             "getDisplayBrightness", "setDisplayBrightness",
             "beginWidgetDrag", "beginWidgetResize", "setWidgetTopmost", "closeWidget", "getWidgetsState",
             "setWidgetEnabled", "setWidgetsMaster", "setWidgetPinned", "setWidgetSize", "setWidgetOrientation",
@@ -46,13 +47,14 @@ public sealed class BridgeContractInventoryTests
             .. WidgetRpcHandler.MethodNames,
             .. EnergyRpcHandler.MethodNames,
             .. MonitoringRpcHandler.MethodNames,
+            .. StorageRpcHandler.MethodNames,
             .. UpdateRpcHandler.MethodNames,
             .. ApplicationRpcHandler.MethodNames,
             .. LanRemoteControlRpcHandler.MethodNames,
             .. LauncherRpcHandler.MethodNames,
         ];
 
-        Assert.Equal(105, actual.Length);
+        Assert.Equal(109, actual.Length);
         Assert.Equal(actual.Length, actual.Distinct(StringComparer.Ordinal).Count());
         Assert.Equal(expected.Order(StringComparer.Ordinal), actual.Order(StringComparer.Ordinal));
     }

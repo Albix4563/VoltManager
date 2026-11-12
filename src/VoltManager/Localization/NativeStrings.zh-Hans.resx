@@ -125,4 +125,5 @@
   <data name="JumpList_Sleep60Desc" xml:space="preserve"><value>在 1 小时后计划睡眠</value></data>
   <data name="JumpList_OpenSchedulerDesc" xml:space="preserve"><value>打开计划窗口</value></data>
   <data name="JumpList_CategorySchedule" xml:space="preserve"><value>定时电脑</value></data>
+  <data name="Storage_ConfirmCleanTemp" xml:space="preserve"><value>是否永久删除当前用户临时文件夹和 Windows Temp 中超过 7 天的临时文件？将保留近期文件、链接和正在使用的文件。应用程序可能仍需要旧文件，请先关闭应用程序。不会清理文档、下载或回收站。此操作无法撤销。</value></data>
 </root>

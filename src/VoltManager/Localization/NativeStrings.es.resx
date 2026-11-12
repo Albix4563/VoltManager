@@ -125,4 +125,5 @@
   <data name="JumpList_Sleep60Desc" xml:space="preserve"><value>Programar suspensión en 1 hora</value></data>
   <data name="JumpList_OpenSchedulerDesc" xml:space="preserve"><value>Abrir la ventana de programación</value></data>
   <data name="JumpList_CategorySchedule" xml:space="preserve"><value>Timer PC</value></data>
+  <data name="Storage_ConfirmCleanTemp" xml:space="preserve"><value>¿Eliminar permanentemente los archivos temporales de más de 7 días de la carpeta temporal del usuario actual y Windows Temp? Se conservarán los archivos recientes, los enlaces y los archivos en uso. Las aplicaciones pueden necesitar incluso archivos antiguos: ciérralas antes de continuar. No se tocarán Documentos, Descargas ni la Papelera. Esta operación no se puede deshacer.</value></data>
 </root>

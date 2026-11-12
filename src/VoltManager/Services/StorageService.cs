@@ -25,6 +25,41 @@ public sealed class StorageService
     public StorageService() : this(DriveInfo.GetDrives) { }
     internal StorageService(Func<DriveInfo[]> getDrives) => _getDrives = getDrives;
 
+    internal static string[] GetTempRoots() =>
+    [
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Temp"),
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "Temp"),
+    ];
+
+    public Task<StorageCleanupResult> CleanTempAsync(CancellationToken cancellationToken) => Task.Run(() =>
+    {
+        if (Interlocked.CompareExchange(ref _scanning, 1, 0) != 0)
+            throw new InvalidOperationException("Un’operazione di archiviazione è già in corso.");
+        try { return StorageTempCleaner.Clean(GetTempRoots(), cancellationToken); }
+        finally { Volatile.Write(ref _scanning, 0); }
+    });
+
+    public void OpenTool(string tool) => OpenTool(tool, info =>
+    {
+        using var process = Process.Start(info);
+        return process != null;
+    });
+
+    internal static void OpenTool(string tool, Func<ProcessStartInfo, bool> launch)
+    {
+        string name = tool switch
+        {
+            "cleanmgr" => "cleanmgr.exe",
+            "dfrgui" => "dfrgui.exe",
+            _ => throw new ArgumentException("Strumento di archiviazione non supportato.", nameof(tool)),
+        };
+        string system = Environment.GetFolderPath(Environment.SpecialFolder.System);
+        string path = Path.Combine(system, name);
+        if (!File.Exists(path)) throw new FileNotFoundException("Strumento Windows non disponibile.", path);
+        if (!launch(new ProcessStartInfo(path) { UseShellExecute = true, WorkingDirectory = system }))
+            throw new InvalidOperationException("Impossibile aprire lo strumento Windows.");
+    }
+
     public IReadOnlyList<StorageDriveInfo> GetStorageDrives()
     {
         var result = new List<StorageDriveInfo>();

@@ -33,6 +33,12 @@
     flex-direction: column;
 }
 
+.vm-storage-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--vm-space-2, 8px);
+}
+
 .vm-storage .btn-ghost,
 .vm-storage .btn-primary {
     display: inline-flex;

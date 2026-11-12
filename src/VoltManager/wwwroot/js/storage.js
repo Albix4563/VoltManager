@@ -13,6 +13,10 @@
     let loading = false;
     let scanning = false;
     let loaded = false;
+    let maintaining = false;
+    const cleanTemp = $('storage-clean-temp');
+    const cleanmgr = $('storage-cleanmgr');
+    const defrag = $('storage-defrag');
     let statusKey = 'storage_ready';
     let statusParams;
     let numberFormat;
@@ -28,7 +32,8 @@
     function message(key, params) {
         statusKey = key;
         statusParams = params;
-        status.textContent = api.t(key, params);
+        status.textContent = api.t(key, params && typeof params.size === 'number'
+            ? { ...params, size: bytes(params.size) } : params);
     }
 
     function bytes(value) {
@@ -39,9 +44,11 @@
     }
 
     function controls() {
-        select.disabled = loading || scanning;
-        refresh.disabled = loading || scanning;
-        analyze.disabled = loading || scanning || !select.value;
+        const busy = loading || scanning || maintaining;
+        select.disabled = busy;
+        refresh.disabled = busy;
+        analyze.disabled = busy || !select.value;
+        for (const button of [cleanTemp, cleanmgr, defrag]) button.disabled = busy;
     }
 
     function summary() {
@@ -65,8 +72,8 @@
         }
     }
 
-    async function loadDrives() {
-        if (loading || scanning || !window.Host?.available) return;
+    async function loadDrives(afterCleanup = false) {
+        if (loading || scanning || (maintaining && afterCleanup !== true) || !window.Host?.available) return;
         loading = true;
         controls();
         message('storage_loading');
@@ -95,7 +102,7 @@
     }
 
     async function scan() {
-        if (loading || scanning || !select.value || !window.Host?.available) return;
+        if (loading || scanning || maintaining || !select.value || !window.Host?.available) return;
         scanning = true;
         controls();
         entries.replaceChildren();
@@ -124,6 +131,44 @@
             controls();
         }
     }
+
+    async function maintain(tool) {
+        if (loading || scanning || maintaining || !window.Host?.available) return;
+        maintaining = true;
+        controls();
+        message(tool ? 'storage_opening' : 'storage_cleaning');
+        try {
+            if (tool) {
+                await Host.call('openStorageTool', { tool });
+                message('storage_tool_opened');
+            } else {
+                const result = await Host.call('cleanStorageTemp', {}, { timeoutMs: 0 });
+                if (result?.confirmed === false) {
+                    message('storage_clean_cancelled');
+                } else {
+                    if (!result || result.confirmed !== true || !Number.isSafeInteger(result.deletedFiles) ||
+                        result.deletedFiles < 0 || !Number.isFinite(result.freedBytes) || result.freedBytes < 0 ||
+                        !Number.isSafeInteger(result.skippedCount) || result.skippedCount < 0 || typeof result.partial !== 'boolean')
+                        throw new Error('Risultato pulizia non valido.');
+                    if (result.deletedFiles > 0) {
+                        entries.replaceChildren();
+                        await loadDrives(true);
+                    }
+                    message(result.partial ? 'storage_clean_partial' : 'storage_clean_done', {
+                        count: result.deletedFiles, size: result.freedBytes, skipped: result.skippedCount,
+                    });
+                }
+            }
+        } catch (_) {
+            message(tool ? 'storage_tool_error' : 'storage_clean_error');
+        } finally {
+            maintaining = false;
+            controls();
+        }
+    }
+    cleanTemp.addEventListener('click', () => maintain());
+    cleanmgr.addEventListener('click', () => maintain('cleanmgr'));
+    defrag.addEventListener('click', () => maintain('dfrgui'));
 
     select.addEventListener('change', () => {
         entries.replaceChildren();

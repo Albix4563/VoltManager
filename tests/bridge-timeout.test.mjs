@@ -81,6 +81,15 @@ test('bridge resolves concurrent RPC replies by id even when replies arrive out 
   assert.equal(bridge.timers.size, 0);
 });
 
+test('la conferma nativa senza scadenza non crea timer e riceve comunque la risposta', async () => {
+  const bridge = loadBridge();
+  const result = bridge.window.Host.call('cleanStorageTemp', {}, { timeoutMs: 0 });
+  assert.equal(bridge.timers.size, 0);
+  bridge.respond({ id: bridge.sent[0].id, ok: true, result: { confirmed: false } });
+  assert.deepEqual(await result, { confirmed: false });
+  assert.equal(bridge.timers.size, 0);
+});
+
 test('bridge event subscriptions stop receiving events after unsubscribe', () => {
   const bridge = loadBridge();
   const received = [];

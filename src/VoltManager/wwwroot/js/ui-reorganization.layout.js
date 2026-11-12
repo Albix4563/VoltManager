@@ -170,6 +170,14 @@
                     </div>
                     <dl id="storage-summary" class="vm-storage-summary"></dl>
                     <div class="vm-divider"></div>
+                    <h4 class="vm-section-title"><span class="material-symbols-outlined" aria-hidden="true">cleaning_services</span><span data-vm-i18n="storage_tools"></span></h4>
+                    <p class="vm-panel-hint text-on-surface-variant" data-vm-i18n="storage_tools_hint"></p>
+                    <div class="vm-storage-actions">
+                        <button type="button" class="btn-ghost vm-ui-control" id="storage-clean-temp"><span class="material-symbols-outlined" aria-hidden="true">delete_sweep</span><span data-vm-i18n="storage_clean_temp"></span></button>
+                        <button type="button" class="btn-ghost vm-ui-control" id="storage-cleanmgr"><span class="material-symbols-outlined" aria-hidden="true">cleaning_services</span><span data-vm-i18n="storage_cleanmgr"></span></button>
+                        <button type="button" class="btn-ghost vm-ui-control" id="storage-defrag"><span class="material-symbols-outlined" aria-hidden="true">tune</span><span data-vm-i18n="storage_defrag"></span></button>
+                    </div>
+                    <div class="vm-divider"></div>
                     <div class="vm-section-title-row vm-storage-details-head">
                         <h4 class="vm-section-title"><span class="material-symbols-outlined" aria-hidden="true">folder_open</span><span data-vm-i18n="storage_details"></span></h4>
                         <button type="button" class="btn-primary vm-ui-control" id="storage-analyze" disabled><span class="material-symbols-outlined" aria-hidden="true">search</span><span data-vm-i18n="storage_analyze"></span></button>

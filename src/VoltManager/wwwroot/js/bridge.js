@@ -134,7 +134,8 @@
         const metadata = meta || {};
         return new Promise((resolve, reject) => {
             const id = 'rpc-' + sessionId + '-' + (nextId++);
-            const timeout = setTimeout(() => {
+            // La conferma nativa può restare aperta: zero attende la risposta senza scadenza.
+            const timeout = timeoutMs === 0 ? null : setTimeout(() => {
                 if (!pending.has(id)) return;
                 pending.delete(id);
                 if (metadata.trackLiveness !== false) noteTimeout();

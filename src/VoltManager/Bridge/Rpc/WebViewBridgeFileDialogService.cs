@@ -13,8 +13,8 @@ public sealed class WebViewBridgeFileDialogService(WebView2 webView) : IBridgeFi
         {
             Window? owner = Window.GetWindow(webView);
             MessageBoxResult result = owner != null
-                ? MessageBox.Show(owner, message, title, MessageBoxButton.YesNo, MessageBoxImage.Question)
-                : MessageBox.Show(message, title, MessageBoxButton.YesNo, MessageBoxImage.Question);
+                ? MessageBox.Show(owner, message, title, MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No)
+                : MessageBox.Show(message, title, MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No);
             return result == MessageBoxResult.Yes;
         });
         cancellationToken.ThrowIfCancellationRequested();

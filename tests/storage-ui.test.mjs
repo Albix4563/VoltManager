@@ -45,6 +45,62 @@ function harness(call) {
   };
 }
 
+test('pulizia attende conferma host, blocca duplicati e conserva l’esito dopo aggiornamento', async () => {
+  let complete;
+  const h = harness(method => method === 'getStorageDrives' ? [drive] : new Promise(resolve => { complete = resolve; }));
+  await h.activate();
+  const clean = h.elements.get('storage-clean-temp');
+  const pending = clean.handlers.click();
+  assert.equal(clean.disabled, true);
+  assert.equal(h.calls.at(-1)[0], 'cleanStorageTemp');
+  assert.equal(h.calls.at(-1)[2].timeoutMs, 0);
+  await clean.handlers.click();
+  await h.elements.get('storage-analyze').handlers.click();
+  await h.elements.get('storage-refresh').handlers.click();
+  await h.elements.get('storage-defrag').handlers.click();
+  assert.equal(h.calls.length, 2);
+  complete({ confirmed: true, deletedFiles: 2, freedBytes: 2048, skippedCount: 1, partial: true });
+  await pending;
+  assert.equal(h.calls.at(-1)[0], 'getStorageDrives');
+  assert.match(h.elements.get('storage-status').textContent, /^storage_clean_partial/);
+  h.events.langchanged();
+  assert.match(h.elements.get('storage-status').textContent, /^storage_clean_partial/);
+  assert.equal(clean.disabled, false);
+});
+
+test('annullamento, errore e risultato non valido non rilanciano pulizia o aggiornamenti', async () => {
+  for (const result of [{ confirmed: false }, new Error('offline'), { confirmed: true }]) {
+    const h = harness(method => {
+      if (method === 'getStorageDrives') return [drive];
+      if (result instanceof Error) throw result;
+      return result;
+    });
+    await h.activate();
+    await h.elements.get('storage-clean-temp').handlers.click();
+    assert.equal(h.calls.length, 2);
+    assert.equal(h.elements.get('storage-clean-temp').disabled, false);
+    assert.equal(h.elements.get('storage-status').textContent,
+      result.confirmed === false ? 'storage_clean_cancelled' : 'storage_clean_error');
+  }
+});
+
+test('strumenti Windows disponibili anche senza unità, payload limitati e gestione errore', async () => {
+  const h = harness(method => method === 'getStorageDrives' ? [] : { launched: true });
+  await h.activate();
+  for (const [id, tool] of [['storage-cleanmgr', 'cleanmgr'], ['storage-defrag', 'dfrgui']]) {
+    assert.equal(h.elements.get(id).disabled, false);
+    await h.elements.get(id).handlers.click();
+    assert.equal(h.calls.at(-1)[0], 'openStorageTool');
+    assert.equal(h.calls.at(-1)[1].tool, tool);
+    assert.equal(h.elements.get('storage-status').textContent, 'storage_tool_opened');
+  }
+  const failed = harness(method => { if (method === 'getStorageDrives') return []; throw new Error('missing'); });
+  await failed.activate();
+  await failed.elements.get('storage-cleanmgr').handlers.click();
+  assert.equal(failed.elements.get('storage-status').textContent, 'storage_tool_error');
+  assert.equal(failed.elements.get('storage-cleanmgr').disabled, false);
+});
+
 const drive = { root: 'C:\\', label: 'System', format: 'NTFS', totalBytes: 1024 ** 3, usedBytes: 768 * 1024 ** 2, freeBytes: 256 * 1024 ** 2 };
 
 test('Archiviazione carica le unità solo quando aperta, senza analisi automatica', async () => {
