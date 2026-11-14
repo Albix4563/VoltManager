@@ -7,7 +7,7 @@ const read = file => readFileSync(new URL(`../src/VoltManager/wwwroot/js/${file}
 const source = read('storage.js');
 const flush = () => new Promise(resolve => setImmediate(resolve));
 
-function harness(call, { missingOverlay = false } = {}) {
+function harness(call, { missingOverlay = false, locale = 'it-IT' } = {}) {
   const document = {
     activeElement: null,
     body: {},
@@ -73,13 +73,20 @@ function harness(call, { missingOverlay = false } = {}) {
     t: (key, values) => key + (values ? JSON.stringify(values) : ''),
   };
   const Host = { available: true, call: async (...args) => { calls.push(args); return call(...args); } };
+  const I18n = { getLocale: () => locale };
   const context = {
-    window: { VoltUiReorg: api, Host }, Host, Intl, document,
+    window: { VoltUiReorg: api, Host, I18n }, Host, Intl, document,
   };
   vm.runInNewContext(source, context);
   return {
     elements, calls, document,
-    events: { langchanged: () => document.emit('langchanged'), voltuisubviewchanged: () => document.emit('voltuisubviewchanged') },
+    events: {
+      langchanged(nextLocale) {
+        if (nextLocale) locale = nextLocale;
+        document.emit('langchanged');
+      },
+      voltuisubviewchanged: () => document.emit('voltuisubviewchanged'),
+    },
     async activate() {
       api.state.view = 'monitoring'; api.state.subviews.monitoring = 'storage';
       document.emit('voltuisubviewchanged'); await flush();
@@ -247,6 +254,42 @@ test('analisi su richiesta, ordinamento e nomi trattati come testo', async () =>
   assert.equal(h.elements.get('storage-analyze').disabled, false);
   h.events.langchanged();
   assert.match(h.elements.get('storage-status').textContent, /^storage_partial/);
+});
+
+test('cambio lingua riformatta i byte del risultato e delle righe senza ripetere l’analisi', async () => {
+  const scannedBytes = 1536;
+  const h = harness(method => method === 'getStorageDrives' ? [drive] : {
+    entries: [{ name: 'Dati', bytes: scannedBytes }],
+    scannedBytes, skippedCount: 0, partial: false,
+  });
+  await h.activate();
+  await h.elements.get('storage-analyze').handlers.click();
+  const expected = locale => new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(1.5) + ' KiB';
+  const statusSize = () => JSON.parse(h.elements.get('storage-status').textContent.slice('storage_complete'.length)).size;
+  const rowSize = () => h.elements.get('storage-entries').children[0].children[1].textContent;
+  assert.equal(statusSize(), expected('it-IT'));
+  assert.equal(rowSize(), expected('it-IT'));
+  h.events.langchanged('en-US');
+  assert.equal(statusSize(), expected('en-US'));
+  assert.equal(rowSize(), expected('en-US'));
+  assert.equal(h.calls.length, 2);
+  h.elements.get('storage-drive').dispatch('change');
+  h.events.langchanged('it-IT');
+  assert.equal(h.elements.get('storage-entries').children.length, 0);
+});
+
+test('dimensioni totali non valide restano indisponibili anche dopo un cambio lingua', async () => {
+  for (const scannedBytes of [undefined, '1536', NaN, Infinity, -1]) {
+    const h = harness(method => method === 'getStorageDrives' ? [drive] : {
+      entries: [], scannedBytes, skippedCount: 0, partial: false,
+    });
+    await h.activate();
+    await h.elements.get('storage-analyze').handlers.click();
+    const statusSize = () => JSON.parse(h.elements.get('storage-status').textContent.slice('storage_complete'.length)).size;
+    assert.equal(statusSize(), '—');
+    h.events.langchanged('en-US');
+    assert.equal(statusSize(), '—');
+  }
 });
 
 test('scansioni non sovrapposte e controlli ripristinati dopo errore', async () => {

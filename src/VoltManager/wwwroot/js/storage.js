@@ -10,6 +10,7 @@
     const status = $('storage-status');
     const entries = $('storage-entries');
     let drives = [];
+    let analysisRows = [];
     let loading = false;
     let scanning = false;
     let loaded = false;
@@ -171,7 +172,8 @@
                 select.append(option);
             }
             if (drives.some(item => item.root === previous)) select.value = previous;
-            entries.replaceChildren();
+            analysisRows = [];
+            renderEntries();
             summary();
             message(drives.length ? 'storage_ready' : 'storage_empty');
             loaded = true;
@@ -183,28 +185,34 @@
         }
     }
 
+    function renderEntries() {
+        entries.replaceChildren();
+        for (const item of analysisRows) {
+            const row = document.createElement('tr');
+            const name = document.createElement('th');
+            name.scope = 'row';
+            name.textContent = item.name;
+            const size = document.createElement('td');
+            size.textContent = bytes(item.bytes);
+            row.append(name, size);
+            entries.append(row);
+        }
+    }
+
     async function scan() {
         if (loading || scanning || maintaining || Boolean(confirmResolve) || !select.value || !window.Host?.available) return;
         scanning = true;
         controls();
-        entries.replaceChildren();
+        analysisRows = [];
+        renderEntries();
         message('storage_scanning');
         try {
             const result = await Host.call('getStorageAnalysis', { root: select.value }, { timeoutMs: 35000 });
-            const rows = Array.isArray(result?.entries) ? result.entries.filter(item => item && typeof item.name === 'string' && Number.isFinite(item.bytes) && item.bytes >= 0) : [];
-            rows.sort((a, b) => b.bytes - a.bytes);
-            for (const item of rows) {
-                const row = document.createElement('tr');
-                const name = document.createElement('th');
-                name.scope = 'row';
-                name.textContent = item.name;
-                const size = document.createElement('td');
-                size.textContent = bytes(item.bytes);
-                row.append(name, size);
-                entries.append(row);
-            }
+            analysisRows = Array.isArray(result?.entries) ? result.entries.filter(item => item && typeof item.name === 'string' && Number.isFinite(item.bytes) && item.bytes >= 0) : [];
+            analysisRows.sort((a, b) => b.bytes - a.bytes);
+            renderEntries();
             message(result?.partial ? 'storage_partial' : 'storage_complete', {
-                size: bytes(result?.scannedBytes), count: Number.isFinite(result?.skippedCount) ? result.skippedCount : 0,
+                size: Number.isFinite(result?.scannedBytes) ? result.scannedBytes : NaN, count: Number.isFinite(result?.skippedCount) ? result.skippedCount : 0,
             });
         } catch (_) {
             message('storage_error');
@@ -240,7 +248,8 @@
                         !Number.isSafeInteger(result.skippedCount) || result.skippedCount < 0 || typeof result.partial !== 'boolean')
                         throw new Error('Risultato pulizia non valido.');
                     if (result.deletedFiles > 0) {
-                        entries.replaceChildren();
+                        analysisRows = [];
+                        renderEntries();
                         await loadDrives(true);
                     }
                     message(result.partial ? 'storage_clean_partial' : 'storage_clean_done', {
@@ -265,7 +274,8 @@
     defrag.addEventListener('click', () => maintain('dfrgui'));
 
     select.addEventListener('change', () => {
-        entries.replaceChildren();
+        analysisRows = [];
+        renderEntries();
         summary();
         message('storage_ready');
         controls();
@@ -277,6 +287,6 @@
     }
     document.addEventListener('voltuiviewchanged', activate);
     document.addEventListener('voltuisubviewchanged', activate);
-    document.addEventListener('langchanged', () => { updateFormats(); summary(); message(statusKey, statusParams); syncConfirmModalText(); });
+    document.addEventListener('langchanged', () => { updateFormats(); summary(); renderEntries(); message(statusKey, statusParams); syncConfirmModalText(); });
     activate();
 })();
