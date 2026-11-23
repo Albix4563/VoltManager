@@ -159,7 +159,6 @@ button,
     color var(--vm-motion-fast) var(--vm-ease-standard),
     border-color var(--vm-motion-fast) var(--vm-ease-standard),
     width var(--vm-motion-sidebar) var(--vm-ease-emphasized),
-    padding var(--vm-motion-sidebar) var(--vm-ease-emphasized),
     gap var(--vm-motion-sidebar) var(--vm-ease-emphasized);
 }
 .nav-item:hover{

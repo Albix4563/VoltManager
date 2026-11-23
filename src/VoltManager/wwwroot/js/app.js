@@ -874,91 +874,32 @@
     (function wireSidebarCollapse() {
         const KEY = 'volt.sidebarCollapsed';
         const nav = document.getElementById('side-nav');
-        const appMain = document.getElementById('app-main');
-        const collapseBtn = document.getElementById('btn-sidebar-toggle');
-        const expandBtn = document.getElementById('btn-sidebar-expand');
-        if (!nav || !collapseBtn) return;
+        const toggleBtn = document.getElementById('btn-sidebar-toggle');
+        if (!nav || !toggleBtn) return;
 
         let collapsed = false;
-        let transitioning = false;
-        let targetCollapsed = false;
 
-        function syncControls(nextCollapsed) {
-            collapseBtn.setAttribute('aria-expanded', nextCollapsed ? 'false' : 'true');
-            const label = nextCollapsed ? 'Espandi barra laterale' : 'Comprimi barra laterale';
-            collapseBtn.title = label;
-            collapseBtn.setAttribute('aria-label', label);
-            if (expandBtn) {
-                expandBtn.title = 'Espandi barra laterale';
-                expandBtn.setAttribute('aria-label', 'Espandi barra laterale');
+        function apply(nextCollapsed, shouldPersist) {
+            collapsed = !!nextCollapsed;
+            document.body.classList.toggle('sidebar-collapsed', collapsed);
+            nav.dataset.collapsed = collapsed ? 'true' : 'false';
+            toggleBtn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+            const label = collapsed ? 'Espandi barra laterale' : 'Comprimi barra laterale';
+            toggleBtn.title = label;
+            toggleBtn.setAttribute('aria-label', label);
+            if (shouldPersist) {
+                try { localStorage.setItem(KEY, collapsed ? '1' : '0'); } catch (_) {}
             }
-        }
-
-        function clearTransitionHints() {
-            nav.style.willChange = '';
-            if (appMain) appMain.style.willChange = '';
-        }
-
-        function persist(nextCollapsed) {
-            try { localStorage.setItem(KEY, nextCollapsed ? '1' : '0'); } catch (_) {}
-        }
-
-        function applyStable(nextCollapsed, shouldPersist) {
-            targetCollapsed = nextCollapsed;
-            collapsed = nextCollapsed;
-            transitioning = false;
-            document.body.classList.remove('sidebar-expanding', 'sidebar-collapsing');
-            document.body.classList.toggle('sidebar-collapsed', nextCollapsed);
-            nav.dataset.collapsed = nextCollapsed ? 'true' : 'false';
-            syncControls(nextCollapsed);
-            clearTransitionHints();
-            if (shouldPersist) persist(nextCollapsed);
             _sidebarReposition();
         }
-
-        function finishTransition() {
-            collapsed = targetCollapsed;
-            transitioning = false;
-            document.body.classList.remove('sidebar-expanding', 'sidebar-collapsing');
-            clearTransitionHints();
-            persist(collapsed);
-            _sidebarReposition();
-        }
-
-        function transitionTo(nextCollapsed) {
-            if (transitioning || collapsed === nextCollapsed) return;
-            if (prefersReducedMotion() || window.matchMedia?.('(max-width: 900px)').matches) {
-                applyStable(nextCollapsed, true);
-                return;
-            }
-
-            transitioning = true;
-            targetCollapsed = nextCollapsed;
-            document.body.classList.remove(nextCollapsed ? 'sidebar-expanding' : 'sidebar-collapsing');
-            document.body.classList.add(nextCollapsed ? 'sidebar-collapsing' : 'sidebar-expanding');
-            nav.style.willChange = 'width';
-            if (appMain) appMain.style.willChange = 'margin-left';
-
-            // Expansion starts from the visually-hidden collapsed label state.
-            // Flush that start frame once, then let CSS transition into the
-            // delayed opacity/translate state without a timer.
-            if (!nextCollapsed) void nav.offsetWidth;
-
-            document.body.classList.toggle('sidebar-collapsed', nextCollapsed);
-            nav.dataset.collapsed = nextCollapsed ? 'true' : 'false';
-            syncControls(nextCollapsed);
-        }
-
-        nav.addEventListener('transitionend', (event) => {
-            if (!transitioning || event.target !== nav || event.propertyName !== 'width') return;
-            finishTransition();
-        });
 
         try { collapsed = localStorage.getItem(KEY) === '1'; } catch (_) {}
-        applyStable(collapsed, false);
+        apply(collapsed, false);
 
-        collapseBtn.addEventListener('click', () => transitionTo(true));
-        expandBtn?.addEventListener('click', () => transitionTo(false));
+        toggleBtn.addEventListener('click', () => {
+            if (window.matchMedia?.('(max-width: 900px)')?.matches) return;
+            apply(!collapsed, true);
+        });
     })();
 
     async function boot() {

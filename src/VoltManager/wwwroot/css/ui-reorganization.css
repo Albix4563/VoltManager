@@ -1265,14 +1265,6 @@
     margin-left: 0;
 }
 
-#side-nav[data-collapsed="true"] .nav-section-label {
-    opacity: 0;
-}
-
-#side-nav[data-collapsed="true"] #nav-list .nav-item {
-    justify-content: center;
-}
-
 @media (max-width: 1280px) {
     .vm-status-item__label {
         display: none;

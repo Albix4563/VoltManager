@@ -116,31 +116,45 @@ test('remaining micro interactions use shared relaxed timing instead of legacy 1
   assert.match(widgets, /\.widget-bar span[\s\S]*transition:\s*width var\(--vm-motion-fast\) var\(--vm-ease-standard\)/);
 });
 
-test('sidebar transition uses explicit expanding and collapsing phases without timers', () => {
-  assert.match(app, /sidebar-expanding/);
-  assert.match(app, /sidebar-collapsing/);
-  assert.match(app, /transitionend/);
-  assert.match(app, /style\.willChange\s*=\s*['"]width['"]/);
-  assert.match(app, /style\.willChange\s*=\s*['"]['"]/);
+test('sidebar collapse toggles immediately without transitionend locks, timers, or phase classes', () => {
   const sidebarBlock = app.match(/\(function wireSidebarCollapse\(\)[\s\S]*?\}\)\(\);/s)?.[0] || '';
-  assert.doesNotMatch(sidebarBlock, /setTimeout|setInterval/);
-  assert.match(redesign, /body\.sidebar-collapsed\s+\.side-nav\s+\.nav-item\s+span:not\(\.material-symbols-outlined\)[\s\S]*opacity:\s*0/);
+  assert.ok(sidebarBlock, 'wireSidebarCollapse IIFE must exist');
+  assert.match(sidebarBlock, /sidebar-collapsed/);
+  assert.doesNotMatch(sidebarBlock, /sidebar-expanding|sidebar-collapsing|transitionend|willChange|offsetWidth|btn-sidebar-expand|setTimeout|setInterval/);
+  assert.doesNotMatch(redesign, /sidebar-expanding|sidebar-collapsing|btn-sidebar-expand|side-nav-expand-btn|vmSidebarControlIn/);
   assert.match(redesign, /\.side-nav\s+\.nav-item\s*\{[\s\S]*width\s+var\(--vm-motion-sidebar\)/);
+  assert.match(redesign, /body\.sidebar-collapsed\s+\.side-nav\s+\.nav-item\s+span:not\(\.material-symbols-outlined\)\s*\{[^}]*opacity:\s*0/);
+  const sidebarSection = redesign.slice(
+    redesign.indexOf('/* ---------- 5. Collapsible sidebar'),
+    redesign.indexOf('@media (max-width: 900px)'));
+  assert.doesNotMatch(sidebarSection, /translateX\(/);
+  assert.doesNotMatch(sidebarSection, /transition-delay:/);
 });
 
-test('i pulsanti sidebar mantengono icone stabili e usano solo una dissolvenza', () => {
+test('single sidebar toggle cross-fades two static glyphs via opacity only', () => {
   const sidebarBlock = app.match(/\(function wireSidebarCollapse\(\)[\s\S]*?\}\)\(\);/s)?.[0] || '';
   assert.ok(sidebarBlock);
-  assert.doesNotMatch(sidebarBlock, /icon\.textContent\s*=/);
-  assert.doesNotMatch(redesign, /body\.sidebar-(?:collapsing|expanding)[^{]*\.material-symbols-outlined\s*\{|body\.sidebar-collapsing\s+#sidebar-toggle-icon\s*\{/);
-  const fade = redesign.match(/@keyframes vmSidebarControlIn\{[\s\S]*?\n\}/)?.[0] || '';
-  assert.match(fade, /from\{ opacity: 0; \}/);
-  assert.match(fade, /to\{ opacity: 1; \}/);
-  assert.doesNotMatch(fade, /transform|scale|rotate|translate/);
-  const expandButton = indexHtml.match(/<button[^>]*id="btn-sidebar-expand"[^>]*>/)?.[0] || '';
-  assert.doesNotMatch(expandButton, /hover:scale/);
+  assert.doesNotMatch(sidebarBlock, /textContent\s*=/);
+  assert.doesNotMatch(indexHtml, /id="btn-sidebar-expand"/);
+  const toggleMarkup = indexHtml.match(/<button[^>]*id="btn-sidebar-toggle"[^>]*>[\s\S]*?<\/button>/)?.[0] || '';
+  assert.ok(toggleMarkup, '#btn-sidebar-toggle must exist in index.html');
+  assert.doesNotMatch(toggleMarkup, /hover:scale/);
+  assert.match(toggleMarkup, /aria-expanded="true"/);
+  assert.match(toggleMarkup, /aria-controls="side-nav"/);
+  assert.match(toggleMarkup, /side-nav__toggle-glyph--collapse[^>]*aria-hidden="true"[^>]*>left_panel_close<\/span>/);
+  assert.match(toggleMarkup, /side-nav__toggle-glyph--expand[^>]*aria-hidden="true"[^>]*>left_panel_open<\/span>/);
+
+  const glyphRule = redesign.match(/\.side-nav__toggle-glyph\s*\{[^}]*\}/)?.[0] || '';
+  assert.match(glyphRule, /grid-area:\s*1\s*\/\s*1;/);
+  assert.match(glyphRule, /transition:\s*opacity\s+var\(--vm-motion-sidebar\)\s+var\(--vm-ease-standard\);/);
+  assert.doesNotMatch(glyphRule, /transform|scale|rotate|translate/);
+  assert.match(redesign, /\.side-nav__toggle-glyph--collapse\s*\{[^}]*opacity:\s*1;/);
+  assert.match(redesign, /\.side-nav__toggle-glyph--expand\s*\{[^}]*opacity:\s*0;/);
+  assert.match(redesign, /body\.sidebar-collapsed\s+\.side-nav__toggle-glyph--collapse\s*\{[^}]*opacity:\s*0;/);
+  assert.match(redesign, /body\.sidebar-collapsed\s+\.side-nav__toggle-glyph--expand\s*\{[^}]*opacity:\s*1;/);
+
   const reduced = redesign.slice(redesign.indexOf('@media (prefers-reduced-motion: reduce)'));
-  assert.match(reduced, /\.side-nav__toggle,\s*\.side-nav-expand-btn\s*\{\s*animation:\s*none\s*!important/);
+  assert.match(reduced, /\.side-nav__toggle[\s\S]*\.side-nav__toggle-glyph[\s\S]*transition:\s*none\s*!important/);
 });
 
 test('navigation and card polish use compositor-friendly restrained feedback', () => {

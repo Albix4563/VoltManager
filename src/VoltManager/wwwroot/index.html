@@ -44,17 +44,18 @@
 <!-- SideNavBar -->
 <nav id="side-nav" class="side-nav fixed left-0 top-0 h-full w-[280px] border-r border-white/10 backdrop-blur-[30px] bg-surface-container/70 shadow-xl z-50 flex flex-col py-lg gap-md" data-collapsed="false">
   <!-- Header -->
-  <div class="side-nav__header px-lg mb-8 flex items-center gap-3">
-    <div class="side-nav__logo w-10 h-10 rounded-full overflow-hidden border border-secondary-container/30 transition-transform duration-300 hover:scale-110 theme-accent-hover-shadow flex-shrink-0">
+  <div class="side-nav__header flex items-center">
+    <button type="button" id="btn-sidebar-toggle" class="side-nav__toggle rounded-xl text-on-surface-variant hover:text-secondary-container hover:bg-white/5 flex-shrink-0" title="Comprimi barra laterale" aria-label="Comprimi barra laterale" aria-expanded="true" aria-controls="side-nav">
+      <span class="material-symbols-outlined side-nav__toggle-glyph side-nav__toggle-glyph--collapse text-[20px]" aria-hidden="true">left_panel_close</span>
+      <span class="material-symbols-outlined side-nav__toggle-glyph side-nav__toggle-glyph--expand text-[20px]" aria-hidden="true">left_panel_open</span>
+    </button>
+    <div class="side-nav__logo w-10 h-10 rounded-full overflow-hidden border border-secondary-container/30 theme-accent-hover-shadow flex-shrink-0">
       <img src="images/project_logo.png" alt="VOLT MANAGER" class="w-full h-full object-cover" />
     </div>
     <div class="side-nav__brand min-w-0">
       <h1 class="text-headline-md font-bold text-secondary-container" data-i18n="app_title">VOLT MANAGER</h1>
       <p class="text-label-md text-on-surface-variant" data-i18n="app_subtitle">BY ALBIX4563</p>
     </div>
-    <button type="button" id="btn-sidebar-toggle" class="side-nav__toggle ml-auto w-9 h-9 rounded-full flex items-center justify-center text-on-surface-variant hover:text-secondary-container hover:bg-white/5 flex-shrink-0" title="Comprimi barra laterale" aria-label="Comprimi barra laterale" aria-expanded="true" aria-controls="side-nav">
-      <span class="material-symbols-outlined text-[20px]">left_panel_close</span>
-    </button>
   </div>
   <!-- Navigation Links -->
   <div class="relative w-full">
@@ -114,9 +115,6 @@
 
   <!-- TopNavBar -->
   <header class="flex items-center justify-between h-16 px-lg w-full z-40 bg-transparent shrink-0">
-    <button type="button" id="btn-sidebar-expand" class="side-nav-expand-btn hidden w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:text-secondary-container hover:bg-white/5 active:opacity-80 theme-accent-hover-shadow" title="Espandi barra laterale" aria-label="Espandi barra laterale">
-      <span class="material-symbols-outlined">left_panel_open</span>
-    </button>
     <div class="flex items-center gap-4 ml-auto">
       <button class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:text-secondary-container transition-all duration-300 hover:bg-white/5 hover:scale-110 active:opacity-80 theme-accent-hover-shadow" id="btn-energy-tips" title="Consigli energetici" aria-label="Consigli energetici">
         <span class="material-symbols-outlined">tips_and_updates</span>
