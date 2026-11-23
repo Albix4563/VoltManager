@@ -91,7 +91,7 @@ test('tour navigation skips hidden brightness step in both directions', () => {
   document.head = new FakeNode();
   document.documentElement.dataset.vmHasBattery = 'true';
   const hiddenBrightness = new FakeNode({ classes: ['hidden'] });
-  for (const selector of ['#nav-list', '#plan-control', '#dash-taskmanager', '#btn-monitoring-toggle']) {
+  for (const selector of ['#nav-list', '#vm-top-status', '#btn-energy-tips', '.vm-overview-grid', '#btn-monitoring-toggle']) {
     document.registerSelector(selector, new FakeNode());
   }
   document.registerSelector('#vm-brightness-card', hiddenBrightness);
@@ -109,13 +109,13 @@ test('tour navigation skips hidden brightness step in both directions', () => {
   const pop = document.body.children.at(-1).children.at(-1);
   const next = pop.querySelector('[data-act="next"]');
   const back = pop.querySelector('[data-act="back"]');
-  for (let index = 0; index < 3; index++) next.dispatchEvent(event('click'));
-  assert.equal(pop.querySelector('.vm-tour-pop__title-text').textContent, 'tour_metrics_title');
+  for (let index = 0; index < 4; index++) next.dispatchEvent(event('click'));
+  assert.equal(pop.querySelector('.vm-tour-pop__title-text').textContent, 'tour_overview_title');
   next.dispatchEvent(event('click'));
   assert.equal(pop.querySelector('.vm-tour-pop__title-text').textContent, 'tour_monitor_title');
-  assert.equal(pop.querySelector('.vm-tour-counter').textContent, '5 / 6');
+  assert.equal(pop.querySelector('.vm-tour-counter').textContent, '6 / 7');
   back.dispatchEvent(event('click'));
-  assert.equal(pop.querySelector('.vm-tour-pop__title-text').textContent, 'tour_metrics_title');
+  assert.equal(pop.querySelector('.vm-tour-pop__title-text').textContent, 'tour_overview_title');
 });
 
 test('brightness buttons step by ten and show the real host value', async () => {

@@ -22,16 +22,25 @@
     // step.el: CSS selector of the element to spotlight (null = centered card).
     // step.placement: 'auto' (below/above) or 'right' (beside, for the sidebar).
     const steps = [
-        { el: null,                       title: 'tour_intro_title',    body: 'tour_intro_body' },
-        { el: '#nav-list',                title: 'tour_nav_title',      body: 'tour_nav_body',      placement: 'right' },
-        { view: 'home', el: '#plan-control',       title: 'tour_plan_title',     body: 'tour_plan_body' },
-        { view: 'home', el: '#dash-taskmanager',   title: 'tour_metrics_title',  body: 'tour_metrics_body' },
-        { view: 'home', el: '#vm-brightness-card',  title: 'tour_brightness_title', body: 'tour_brightness_body', laptopOnly: true },
-        { el: '#btn-monitoring-toggle',   title: 'tour_monitor_title',  body: 'tour_monitor_body',  placement: 'right' },
-        { view: 'power', el: '#pm-subnav',         title: 'tour_power_title',    body: 'tour_power_body' },
-        { view: 'widgets', el: '#widgets-card',   title: 'tour_widgets_title',  body: 'tour_widgets_body' },
-        { view: 'settings', el: '#pref-show-tour', title: 'tour_settings_title', body: 'tour_settings_body' },
-        { el: null,                       title: 'tour_done_title',     body: 'tour_done_body' },
+        { el: null,                                               icon: 'waving_hand',       title: 'tour_intro_title',        body: 'tour_intro_body' },
+        { el: '#nav-list',                                        icon: 'menu',              title: 'tour_nav_title',          body: 'tour_nav_body',          placement: 'right' },
+        { el: '#vm-top-status',                                   icon: 'bolt',              title: 'tour_topbar_title',       body: 'tour_topbar_body' },
+        { el: '#btn-energy-tips',                                 icon: 'tips_and_updates',  title: 'tour_tips_title',         body: 'tour_tips_body' },
+        { view: 'overview',                                       icon: 'dashboard',         el: '.vm-overview-grid',        title: 'tour_overview_title',     body: 'tour_overview_body' },
+        { view: 'overview',                                       icon: 'brightness_6',      el: '#vm-brightness-card',      title: 'tour_brightness_title',   body: 'tour_brightness_body',   laptopOnly: true },
+        { el: '#btn-monitoring-toggle',                           icon: 'monitor_heart',     title: 'tour_monitor_title',      body: 'tour_monitor_body',      placement: 'right' },
+        { view: 'monitoring',     subview: 'hardware',            icon: 'memory',            el: '#dash-taskmanager',        title: 'tour_metrics_title',      body: 'tour_metrics_body' },
+        { view: 'monitoring',     subview: 'processes',           icon: 'process_chart',     el: '#processes-section',       title: 'tour_processes_title',    body: 'tour_processes_body' },
+        { view: 'monitoring',     subview: 'temperatures',        icon: 'device_thermostat', el: '#vm-panel-monitoring-temperatures', title: 'tour_temperatures_title', body: 'tour_temperatures_body' },
+        { view: 'monitoring',     subview: 'storage',             icon: 'hard_drive',        el: '#vm-panel-monitoring-storage',      title: 'tour_storage_title',      body: 'tour_storage_body' },
+        { view: 'monitoring',     subview: 'battery',             icon: 'battery_horiz_075', el: '#vm-panel-monitoring-battery',      title: 'tour_battery_title',      body: 'tour_battery_body',      laptopOnly: true },
+        { view: 'power-plans',    subview: 'active',              icon: 'bolt',              el: '[data-vm-view="power-plans"] .vm-subnav',  title: 'tour_plan_title',         body: 'tour_plan_body' },
+        { view: 'automations',    subview: 'rules',               icon: 'automation',        el: '[data-vm-view="automations"] .vm-subnav',  title: 'tour_power_title',        body: 'tour_power_body' },
+        { view: 'system-tools',   subview: 'scheduled',           icon: 'construction',      el: '[data-vm-view="system-tools"] .vm-subnav', title: 'tour_system_tools_title', body: 'tour_system_tools_body' },
+        { view: 'remote-control',                                 icon: 'devices',           el: '#lan-remote-hero',         title: 'tour_remote_title',       body: 'tour_remote_body' },
+        { view: 'widgets',        subview: 'widget',              icon: 'widgets',           el: '#widgets-card',            title: 'tour_widgets_title',      body: 'tour_widgets_body' },
+        { view: 'settings',       subview: 'general',             icon: 'settings',          el: '#pref-show-tour',          title: 'tour_settings_title',     body: 'tour_settings_body' },
+        { el: null,                                               icon: 'check_circle',      title: 'tour_done_title',         body: 'tour_done_body' },
     ];
 
     const PAD = 8;           // spotlight padding around the target
@@ -39,9 +48,11 @@
     const MIN_LEFT = 296;    // keep tooltips clear of the 280px sidebar
     const MARGIN = 16;
 
-    let root, blocker, hole, pop, popTitle, popBody, popCounter, btnBack, btnNext, btnSkip;
+    let root, blocker, hole, pop, popIcon, popTitle, popBody, popCounter, btnBack, btnNext, btnSkip;
     let step = 0;
     let curView = null;
+    let curSubview = null;
+    let settleTimer = 0;
     let active = false;
     let autoStarted = false;
 
@@ -80,7 +91,7 @@
   box-shadow:0 0 0 9999px rgba(5,9,20,.66);border:2px solid var(--vm-accent);
   pointer-events:none;transition:top .42s var(--vm-ease-standard),left .42s var(--vm-ease-standard),width .42s var(--vm-ease-standard),height .42s var(--vm-ease-standard),box-shadow .42s var(--vm-ease-standard);}
 .vm-tour-hole[data-glow="true"]{box-shadow:0 0 0 9999px rgba(5,9,20,.66),0 0 22px 2px rgb(var(--vm-accent-rgb) / .45),inset 0 0 14px rgb(var(--vm-accent-rgb) / .25);}
-.vm-tour-pop{position:fixed;top:0;left:0;width:320px;max-width:calc(100vw - 32px);pointer-events:auto;
+.vm-tour-pop{position:fixed;top:0;left:0;width:360px;max-width:calc(100vw - 32px);pointer-events:auto;
   background:linear-gradient(135deg,var(--vm-surface-high),var(--vm-surface));
   border:1px solid var(--vm-border);border-radius:18px;padding:18px 18px 14px;
   box-shadow:0 24px 60px rgba(0,0,0,.5),0 0 0 1px rgba(255,255,255,.04),0 0 30px rgb(var(--vm-accent-rgb) / .12);
@@ -89,7 +100,7 @@
 .vm-tour-pop[data-show="true"]{opacity:1;transform:translateY(0) scale(1);}
 .vm-tour-pop__title{font-size:16px;font-weight:800;letter-spacing:.01em;margin:0 0 6px;color:var(--vm-text);display:flex;align-items:center;gap:8px;}
 .vm-tour-pop__title .material-symbols-outlined{font-size:20px;color:var(--vm-accent);}
-.vm-tour-pop__body{font-size:13px;line-height:1.5;margin:0;color:var(--vm-muted);}
+.vm-tour-pop__body{font-size:13px;line-height:1.55;margin:0;color:var(--vm-muted);}
 .vm-tour-pop__foot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:16px;}
 .vm-tour-counter{font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--vm-accent-dim);font-variant-numeric:tabular-nums;}
 .vm-tour-actions{display:flex;align-items:center;gap:8px;}
@@ -142,6 +153,7 @@
         root.appendChild(pop);
         document.body.appendChild(root);
 
+        popIcon = pop.querySelector('.vm-tour-pop__title .material-symbols-outlined');
         popTitle = pop.querySelector('.vm-tour-pop__title-text');
         popBody = pop.querySelector('.vm-tour-pop__body');
         popCounter = pop.querySelector('.vm-tour-counter');
@@ -158,12 +170,15 @@
         blocker.addEventListener('click', (e) => e.stopPropagation());
     }
 
-    function switchView(view) {
+    function switchView(view, subview, subviewGroup) {
         if (window.VoltUiReorg?.ready) {
-            window.VoltUiReorg.activateView({ home: 'overview', power: 'power-plans' }[view] || view, true);
+            const mappedView = { home: 'overview', power: 'power-plans' }[view] || view;
+            window.VoltUiReorg.activateView(mappedView, true);
+            if (subview) window.VoltUiReorg.activateSubview?.(subviewGroup || mappedView, subview);
             return;
         }
-        const link = document.querySelector('#nav-list a[data-view="' + view + '"]');
+        const legacyView = { overview: 'home', monitoring: 'home', 'power-plans': 'power', automations: 'power', 'system-tools': 'system' }[view] || view;
+        const link = document.querySelector('#nav-list a[data-view="' + legacyView + '"]');
         if (link) link.click();
     }
 
@@ -174,9 +189,11 @@
         let node = document.querySelector(item.el);
         if (!node) return false;
         while (node && !node.classList?.contains('vm-reorg-view')) {
-            if (node.hidden || node.classList?.contains('hidden') ||
+            const isTargetSubview = !!(item.subview && node.classList?.contains('vm-subview') &&
+                node.dataset?.vmPanel === item.subview);
+            if (!isTargetSubview && (node.hidden || node.classList?.contains('hidden') ||
                 node.getAttribute?.('aria-hidden') === 'true' || node.style?.display === 'none' ||
-                window.getComputedStyle?.(node)?.display === 'none') return false;
+                window.getComputedStyle?.(node)?.display === 'none')) return false;
             node = node.parentElement;
         }
         return true;
@@ -240,7 +257,8 @@
         }
         // Clamp inside the viewport, clear of the sidebar.
         const maxLeft = vw - pw - MARGIN;
-        const minLeft = Math.min(MIN_LEFT, maxLeft);
+        const sidebarEdge = document.body?.classList?.contains('sidebar-collapsed') ? 80 : MIN_LEFT;
+        const minLeft = Math.min(sidebarEdge, maxLeft);
         left = Math.max(minLeft, Math.min(left, maxLeft));
         top = Math.max(MARGIN, Math.min(top, vh - ph - MARGIN));
         pop.style.left = Math.round(left) + 'px';
@@ -264,6 +282,7 @@
     function renderControls() {
         const available = availableSteps();
         const position = available.indexOf(step);
+        if (popIcon) popIcon.textContent = steps[step].icon || 'tips_and_updates';
         popTitle.textContent = t(steps[step].title);
         popBody.textContent = t(steps[step].body);
         popCounter.textContent = (position + 1) + ' / ' + available.length;
@@ -275,11 +294,13 @@
     }
 
     function measureAndPlace(s) {
+        if (!active) return;
         const el = s.el ? document.querySelector(s.el) : null;
         if (el && document.getElementById('main-content')?.contains(el)) {
             try { el.scrollIntoView({ block: 'center', inline: 'nearest' }); } catch {}
         }
         requestAnimationFrame(() => {
+            if (!active) return;
             place(el, s.placement);
             pop.setAttribute('data-show', 'true');
         });
@@ -292,12 +313,18 @@
         const s = steps[step];
         renderControls();
         pop.setAttribute('data-show', 'false');
+        clearTimeout(settleTimer);
 
-        if (s.view && s.view !== curView) {
-            curView = s.view;
-            switchView(s.view);
+        const targetView = s.view || curView;
+        const targetSubview = s.subview || null;
+        const viewChanged = !!(s.view && s.view !== curView);
+        const subviewChanged = !!(targetSubview && targetSubview !== curSubview);
+        if (viewChanged || subviewChanged) {
+            curView = targetView;
+            curSubview = targetSubview;
+            switchView(targetView, targetSubview, s.subviewGroup);
             // Let the relaxed view-swap animation settle before measuring.
-            setTimeout(() => measureAndPlace(s), TOUR_TRANSITION_SETTLE_MS);
+            settleTimer = setTimeout(() => measureAndPlace(s), TOUR_TRANSITION_SETTLE_MS);
         } else {
             requestAnimationFrame(() => measureAndPlace(s));
         }
@@ -309,6 +336,7 @@
         active = true;
         autoStarted = true;
         curView = null;
+        curSubview = null;
         root.setAttribute('data-reduce', reduceMotion() ? 'true' : 'false');
         root.hidden = false;
         window.addEventListener('resize', onViewportChange);
@@ -319,6 +347,8 @@
     function teardown() {
         if (!root) return;
         active = false;
+        clearTimeout(settleTimer);
+        cancelAnimationFrame(repositionRaf);
         root.hidden = true;
         pop.setAttribute('data-show', 'false');
         window.removeEventListener('resize', onViewportChange);
