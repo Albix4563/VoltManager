@@ -139,7 +139,7 @@ test('dashboard polling is route-owned and does not subscribe to parallel routin
 test('settings preferences and maintenance tools have one lifecycle owner with cleanup', () => {
   assert.match(settingsPreferencesTools, /VoltViewLifecycle\.register\('settings-preferences-tools'/);
   assert.match(settingsPreferencesTools, /removeEventListener\(type, handler, options\)/);
-  for (const method of ['setStartWithWindows', 'setCloseToTray', 'exportSettings', 'importSettings', 'exportDiagnostics', 'openLogFolder']) {
+  for (const method of ['setStartWithWindows', 'setStartMaximized', 'setCloseToTray', 'exportSettings', 'importSettings', 'exportDiagnostics', 'openLogFolder']) {
     assert.match(settingsPreferencesTools, new RegExp(`Host\\.call\\('${method}'`));
   }
   assert.doesNotMatch(settings, /getElementById\('pref-autostart'\)\?\.addEventListener/);

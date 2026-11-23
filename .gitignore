@@ -35,6 +35,7 @@ MEMORY.md
 mcps/
 pinai/
 .scheduler/
+.aistudio-brain/
 
 # Local agent planning and UI inspection artifacts
 /docs/superpowers/

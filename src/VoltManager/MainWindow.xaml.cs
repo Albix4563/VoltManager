@@ -34,6 +34,8 @@ public partial class MainWindow : Window
     private bool _hostEventsWired;
     private volatile bool _webViewVisible;
     private readonly bool _startMinimized;
+    private bool _hasShownWindow;
+    private WindowState _lastVisibleWindowState = WindowState.Normal;
     private bool _webViewReady;
     private readonly AsyncSingleFlight _webViewInitialization = new();
     private bool _dashboardLoadFailed;
@@ -86,6 +88,7 @@ public partial class MainWindow : Window
         IsVisibleChanged += (_, _) => UpdateWebViewVisibility();
         StateChanged += (_, _) =>
         {
+            _lastVisibleWindowState = MainWindowStatePolicy.RememberVisibleState(WindowState, _lastVisibleWindowState);
             UpdateWebViewVisibility();
             if (WindowState == WindowState.Normal) UpdateAdaptiveMinimumSize();
         };
@@ -121,13 +124,22 @@ public partial class MainWindow : Window
         LocalizeTrayMenu();
         InitializeAutoUpdateLifecycle();
 
+        WindowState initialState = MainWindowStatePolicy.GetInitialState(
+            startMinimized,
+            _app.Settings.Current.StartMaximized);
         if (startMinimized)
         {
             // Window object exists for tray lifetime; WebView stays uncreated.
-            WindowState = WindowState.Minimized;
+            WindowState = initialState;
             ShowInTaskbar = false;
             Show();
             Hide();
+        }
+        else
+        {
+            _hasShownWindow = true;
+            _lastVisibleWindowState = MainWindowStatePolicy.RememberVisibleState(initialState, _lastVisibleWindowState);
+            WindowState = initialState;
         }
     }
 
@@ -849,9 +861,15 @@ public partial class MainWindow : Window
     private void ShowWindowShell()
     {
         if (_exiting) return;
+        WindowState targetState = MainWindowStatePolicy.GetRestoreFromTrayState(
+            _hasShownWindow,
+            _app.Settings.Current.StartMaximized,
+            _lastVisibleWindowState);
+        _hasShownWindow = true;
+        _lastVisibleWindowState = targetState;
         ShowInTaskbar = true;
         Show();
-        WindowState = WindowState.Normal;
+        WindowState = targetState;
         Activate();
     }
 
@@ -1200,6 +1218,9 @@ public partial class MainWindow : Window
 
         public void HideWindow() => Run(() =>
         {
+            _owner._lastVisibleWindowState = MainWindowStatePolicy.RememberVisibleState(
+                _owner.WindowState,
+                _owner._lastVisibleWindowState);
             _owner.Hide();
             _owner.ShowInTaskbar = false;
         });

@@ -51,7 +51,7 @@ public class SettingsRpcHandlerTests
         string[] expected =
         [
             "getSettings", "previewThemeColor", "setThemeColor", "saveSettings", "setLanguage",
-            "setStartWithWindows", "setCloseToTray", "setAutoUpdateChecks",
+            "setStartWithWindows", "setStartMaximized", "setCloseToTray", "setAutoUpdateChecks",
             "setSilentAutoUpdates", "setUpdateChannel", "snoozeUpdate",
             "skipUpdateVersion", "getStandbyAutoCleanSettings",
             "setStandbyAutoCleanSettings", "exportSettings", "importSettings",
@@ -161,10 +161,81 @@ public class SettingsRpcHandlerTests
             return false;
         });
 
-        await handler.HandleAsync("setStartWithWindows", Payload(new { enabled = true }), CancellationToken.None);
+        object? result = await handler.HandleAsync("setStartWithWindows", Payload(new { enabled = true }), CancellationToken.None);
 
         Assert.True(requested);
         Assert.False(settings.Current.StartWithWindows);
+        using var doc = JsonDocument.Parse(JsonSerializer.Serialize(result, BridgeRpc.JsonOpts));
+        Assert.False(doc.RootElement.GetProperty("success").GetBoolean());
+        Assert.False(doc.RootElement.GetProperty("enabled").GetBoolean());
+    }
+
+    [Fact]
+    public async Task SetStartWithWindows_disable_failure_keeps_real_enabled_state_and_returns_it()
+    {
+        SettingsService settings = TestSettings.Create();
+        settings.Update(state => state.StartWithWindows = true);
+        var handler = CreateHandler(
+            settings,
+            setStartup: _ => false,
+            isStartupEnabled: () => true);
+
+        object? result = await handler.HandleAsync("setStartWithWindows", Payload(new { enabled = false }), CancellationToken.None);
+
+        Assert.True(settings.Current.StartWithWindows);
+        using var doc = JsonDocument.Parse(JsonSerializer.Serialize(result, BridgeRpc.JsonOpts));
+        Assert.False(doc.RootElement.GetProperty("success").GetBoolean());
+        Assert.True(doc.RootElement.GetProperty("enabled").GetBoolean());
+    }
+
+    [Fact]
+    public async Task SetStartWithWindows_disable_success_updates_settings_and_returns_disabled()
+    {
+        SettingsService settings = TestSettings.Create();
+        settings.Update(state => state.StartWithWindows = true);
+        var handler = CreateHandler(
+            settings,
+            setStartup: _ => true,
+            isStartupEnabled: () => false);
+
+        object? result = await handler.HandleAsync("setStartWithWindows", Payload(new { enabled = false }), CancellationToken.None);
+
+        Assert.False(settings.Current.StartWithWindows);
+        using var doc = JsonDocument.Parse(JsonSerializer.Serialize(result, BridgeRpc.JsonOpts));
+        Assert.True(doc.RootElement.GetProperty("success").GetBoolean());
+        Assert.False(doc.RootElement.GetProperty("enabled").GetBoolean());
+    }
+
+    [Fact]
+    public async Task SetStartMaximized_updates_settings_and_returns_success()
+    {
+        SettingsService settings = TestSettings.Create();
+        var handler = CreateHandler(settings);
+
+        object? enabledResult = await handler.HandleAsync(
+            "setStartMaximized",
+            Payload(new { enabled = true }),
+            CancellationToken.None);
+        Assert.True(settings.Current.StartMaximized);
+        using (var doc = JsonDocument.Parse(JsonSerializer.Serialize(enabledResult, BridgeRpc.JsonOpts)))
+            Assert.True(doc.RootElement.GetProperty("success").GetBoolean());
+
+        object? disabledResult = await handler.HandleAsync(
+            "setStartMaximized",
+            Payload(new { enabled = false }),
+            CancellationToken.None);
+        Assert.False(settings.Current.StartMaximized);
+        using (var doc = JsonDocument.Parse(JsonSerializer.Serialize(disabledResult, BridgeRpc.JsonOpts)))
+            Assert.True(doc.RootElement.GetProperty("success").GetBoolean());
+    }
+
+    [Fact]
+    public async Task SetStartMaximized_rejects_missing_enabled()
+    {
+        var handler = CreateHandler(TestSettings.Create());
+
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            handler.HandleAsync("setStartMaximized", Payload(new { }), CancellationToken.None));
     }
 
     [Fact]

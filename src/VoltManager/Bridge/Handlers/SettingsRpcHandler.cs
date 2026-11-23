@@ -29,7 +29,7 @@ public sealed class SettingsRpcHandler : IBridgeRpcHandler
     private static readonly string[] RegisteredMethods =
     [
         "getSettings", "previewThemeColor", "setThemeColor", "saveSettings", "setLanguage",
-        "setStartWithWindows", "setCloseToTray", "setAutoUpdateChecks",
+        "setStartWithWindows", "setStartMaximized", "setCloseToTray", "setAutoUpdateChecks",
         "setSilentAutoUpdates", "setUpdateChannel", "snoozeUpdate",
         "skipUpdateVersion", "getStandbyAutoCleanSettings",
         "setStandbyAutoCleanSettings", "exportSettings", "importSettings",
@@ -116,8 +116,18 @@ public sealed class SettingsRpcHandler : IBridgeRpcHandler
             {
                 bool enable = BridgePayload.RequiredBoolean(payload, "enabled", "Missing enabled");
                 bool okStart = await Task.Run(() => _actions.SetStartWithWindows(enable), cancellationToken);
-                _settings.Update(state => state.StartWithWindows = enable && okStart);
-                return new { success = okStart };
+                bool actualEnabled = okStart
+                    ? enable
+                    : await Task.Run(_actions.IsStartWithWindowsEnabled, cancellationToken);
+                _settings.Update(state => state.StartWithWindows = actualEnabled);
+                return new { success = okStart, enabled = actualEnabled };
+            }
+
+            case "setStartMaximized":
+            {
+                bool enabled = BridgePayload.RequiredBoolean(payload, "enabled", "Missing enabled");
+                _settings.Update(state => state.StartMaximized = enabled);
+                return new { success = true };
             }
 
             case "setCloseToTray":

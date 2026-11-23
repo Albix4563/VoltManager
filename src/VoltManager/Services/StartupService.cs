@@ -21,11 +21,25 @@ public class StartupService
     /// </summary>
     public const int CurrentTaskSchemaVersion = 1;
 
+    private readonly Func<string, int> _runSchtasks;
+    private readonly Func<string?> _processPathProvider;
+
+    public StartupService()
+        : this(RunSchtasks, static () => Environment.ProcessPath)
+    {
+    }
+
+    internal StartupService(Func<string, int> runSchtasks, Func<string?>? processPathProvider = null)
+    {
+        _runSchtasks = runSchtasks ?? throw new ArgumentNullException(nameof(runSchtasks));
+        _processPathProvider = processPathProvider ?? (static () => Environment.ProcessPath);
+    }
+
     public bool SetStartWithWindows(bool enable)
     {
         if (enable)
         {
-            string exe = Environment.ProcessPath ?? "";
+            string exe = _processPathProvider() ?? "";
             if (string.IsNullOrEmpty(exe)) return false;
 
             string xmlPath = Path.GetTempFileName();
@@ -33,20 +47,27 @@ public class StartupService
             {
                 // schtasks expects task XML files in UTF-16.
                 File.WriteAllText(xmlPath, BuildTaskXml(exe), System.Text.Encoding.Unicode);
-                return RunSchtasks($"/create /f /tn \"{TaskName}\" /xml \"{xmlPath}\"") == 0;
+                return _runSchtasks($"/create /f /tn \"{TaskName}\" /xml \"{xmlPath}\"") == 0;
             }
             finally
             {
                 try { File.Delete(xmlPath); } catch { /* best-effort: legacy startup artifact cleanup is optional. */ }
             }
         }
-        RunSchtasks($"/delete /f /tn \"{TaskName}\"");
-        return true;
+
+        int deleteExit = _runSchtasks($"/delete /f /tn \"{TaskName}\"");
+        if (deleteExit == 0)
+            return true;
+        if (deleteExit < 0)
+            return false;
+
+        int queryExit = _runSchtasks($"/query /tn \"{TaskName}\"");
+        return queryExit > 0;
     }
 
     public bool IsEnabled()
     {
-        return RunSchtasks($"/query /tn \"{TaskName}\"") == 0;
+        return _runSchtasks($"/query /tn \"{TaskName}\"") == 0;
     }
 
     /// <summary>Task Scheduler XML for autostart (public for self-check / diagnostics).</summary>

@@ -200,7 +200,7 @@
 
         const updateButton = $('btn-check-updates');
         move(updateButton && updateButton.closest('.glass-panel'), $('vm-settings-updates'));
-        ['pref-autostart', 'pref-tray', 'pref-animation-level', 'pref-show-welcome', 'pref-show-tour', 'pref-global-hotkeys']
+        ['pref-autostart', 'pref-start-maximized', 'pref-tray', 'pref-animation-level', 'pref-show-welcome', 'pref-show-tour', 'pref-global-hotkeys']
             .forEach(id => move($(id), $('vm-settings-general')));
         ['pref-theme', 'pref-lang', 'pref-font', 'font-specimen-preview']
             .forEach(id => move($(id), $('vm-settings-appearance')));

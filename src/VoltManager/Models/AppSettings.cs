@@ -14,6 +14,7 @@ public class AppSettings
     [JsonPropertyName("closeToTray")] public bool CloseToTray { get; set; } = true;
     [JsonPropertyName("animationLevel")] public string AnimationLevel { get; set; } = "auto";
     [JsonPropertyName("startWithWindows")] public bool StartWithWindows { get; set; } = false;
+    [JsonPropertyName("startMaximized")] public bool StartMaximized { get; set; } = false;
     /// <summary>Schema version of the registered VoltManagerAutostart task (0 = never migrated).</summary>
     [JsonPropertyName("autostartTaskSchemaVersion")] public int AutostartTaskSchemaVersion { get; set; } = 0;
     [JsonPropertyName("updateRepo")] public string UpdateRepo { get; set; } = DefaultUpdateRepo;

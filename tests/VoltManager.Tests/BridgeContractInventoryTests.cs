@@ -21,7 +21,7 @@ public sealed class BridgeContractInventoryTests
             "listPowerPlans", "getKeepAwakeState", "setKeepAwake", "setKeepAwakeSafety",
             "getCpuAutomationState", "setManualOverride", "clearManualOverride", "getGamingMode",
             "setGamingMode", "getSettings", "previewThemeColor", "setThemeColor", "saveSettings", "setLanguage",
-            "setStartWithWindows", "setCloseToTray", "setAutoUpdateChecks", "setSilentAutoUpdates",
+            "setStartWithWindows", "setStartMaximized", "setCloseToTray", "setAutoUpdateChecks", "setSilentAutoUpdates",
             "setUpdateChannel", "snoozeUpdate", "skipUpdateVersion", "getHeavyAppStatus",
             "refreshHeavyAppDetection", "getAppPowerProfileStatus", "getPowerSourcePlanState",
             "setPowerSourcePlanSwitch", "getThermalGuardState", "setThermalGuardEnabled",
@@ -54,7 +54,7 @@ public sealed class BridgeContractInventoryTests
             .. LauncherRpcHandler.MethodNames,
         ];
 
-        Assert.Equal(109, actual.Length);
+        Assert.Equal(110, actual.Length);
         Assert.Equal(actual.Length, actual.Distinct(StringComparer.Ordinal).Count());
         Assert.Equal(expected.Order(StringComparer.Ordinal), actual.Order(StringComparer.Ordinal));
     }

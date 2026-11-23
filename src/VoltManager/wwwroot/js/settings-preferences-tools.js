@@ -22,7 +22,11 @@
         const api = window.__voltSettings;
         const settings = currentSettings();
         if (!api || !settings) return;
-        core.setToggle(document.getElementById('toggle-autostart'), !!api.startWithWindows);
+        const autostart = typeof api.startWithWindows === 'boolean'
+            ? api.startWithWindows
+            : !!settings.startWithWindows;
+        core.setToggle(document.getElementById('toggle-autostart'), autostart);
+        core.setToggle(document.getElementById('toggle-start-maximized'), !!settings.startMaximized);
         core.setToggle(document.getElementById('toggle-tray'), !!settings.closeToTray);
     }
 
@@ -32,10 +36,39 @@
         core.setToggle(toggle, enable);
         try {
             const res = await Host.call('setStartWithWindows', { enabled: enable });
+            const api = window.__voltSettings;
+            const settings = currentSettings();
+            if (res && res.success === false) {
+                const actual = typeof res.enabled === 'boolean' ? res.enabled : !enable;
+                core.setToggle(toggle, actual);
+                if (api) api.startWithWindows = actual;
+                if (settings) settings.startWithWindows = actual;
+                core.setStatus(core.tr('msg_err', core.lt('err')) + (res.message || ''), true);
+                return;
+            }
+            const actual = typeof res?.enabled === 'boolean' ? res.enabled : enable;
+            core.setToggle(toggle, actual);
+            if (api) api.startWithWindows = actual;
+            if (settings) settings.startWithWindows = actual;
+        } catch (err) {
+            core.setToggle(toggle, !enable);
+            Host.fail(err, msg => core.setStatus(core.tr('msg_err', core.lt('err')) + msg, true));
+        }
+    }
+
+    async function onStartMaximized() {
+        const toggle = document.getElementById('toggle-start-maximized');
+        const enable = toggle?.dataset.on !== 'true';
+        core.setToggle(toggle, enable);
+        try {
+            const res = await Host.call('setStartMaximized', { enabled: enable });
             if (res && res.success === false) {
                 core.setToggle(toggle, !enable);
                 core.setStatus(core.tr('msg_err', core.lt('err')) + (res.message || ''), true);
+                return;
             }
+            const settings = currentSettings();
+            if (settings) settings.startMaximized = enable;
         } catch (err) {
             core.setToggle(toggle, !enable);
             Host.fail(err, msg => core.setStatus(core.tr('msg_err', core.lt('err')) + msg, true));
@@ -113,6 +146,7 @@
         initialized = true;
         listen(document, 'settingsloaded', syncPreferences);
         listen(document.getElementById('pref-autostart'), 'click', onAutostart);
+        listen(document.getElementById('pref-start-maximized'), 'click', onStartMaximized);
         listen(document.getElementById('pref-tray'), 'click', onTray);
         listen(document.getElementById('btn-export-settings'), 'click', onExportSettings);
         listen(document.getElementById('btn-import-settings'), 'click', onImportSettings);
