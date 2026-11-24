@@ -2,11 +2,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import vm from 'node:vm';
 import { readFile } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
 
-const source = await readFile(
-  new URL('../src/VoltManager/wwwroot/js/widgets.js', import.meta.url),
-  'utf8',
-);
+const widgetsPath = fileURLToPath(new URL('../src/VoltManager/wwwroot/js/widgets.js', import.meta.url));
+const source = await readFile(widgetsPath, 'utf8');
 
 function loadWidget(type = 'clock', initialTime = new Date(2026, 8, 5, 12, 34, 17).getTime()) {
   const handlers = new Map();
@@ -72,7 +71,7 @@ function loadWidget(type = 'clock', initialTime = new Date(2026, 8, 5, 12, 34, 1
       return id;
     },
     clearTimeout(id) { timers.delete(id); },
-  }));
+  }), { filename: widgetsPath });
   return {
     timers,
     elements,
@@ -189,7 +188,7 @@ test('widget fire-and-forget async calls handle Host.call rejections without unh
     clearInterval() {},
     setTimeout() { return 1; },
     clearTimeout() {},
-  }));
+  }), { filename: widgetsPath });
   await new Promise(setImmediate);
   elements.get('brightness-slider').listeners.get('change')();
   await new Promise(setImmediate);

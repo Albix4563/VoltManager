@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
 
-const read = file => readFileSync(new URL(`../src/VoltManager/wwwroot/js/${file}`, import.meta.url), 'utf8');
+const assetPath = file => fileURLToPath(new URL(`../src/VoltManager/wwwroot/js/${file}`, import.meta.url));
+const read = file => readFileSync(assetPath(file), 'utf8');
 const widgets = read('widgets.js');
 const dashboard = read('dashboard.js');
 const invalidValues = [null, undefined, NaN, Infinity, -Infinity, '', ' ', '48', 'invalid', false, true, [], {}];
@@ -41,7 +43,7 @@ function loadWidget(type) {
   };
   vm.runInNewContext(read('i18n.catalogs.js'), context);
   context.I18n = context.window.I18n = { t: key => context.window.VoltI18nCatalogs.namespaces.core.it[key] || key };
-  vm.runInNewContext(widgets, context);
+  vm.runInNewContext(widgets, context, { filename: assetPath('widgets.js') });
   return { elements, metrics: handlers.get('metrics') };
 }
 

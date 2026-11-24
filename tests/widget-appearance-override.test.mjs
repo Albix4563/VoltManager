@@ -6,11 +6,12 @@ import vm from 'node:vm';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const source = fs.readFileSync(path.join(root, 'src/VoltManager/wwwroot/js/widget-appearance-helpers.js'), 'utf8');
+const helperPath = path.join(root, 'src/VoltManager/wwwroot/js/widget-appearance-helpers.js');
+const source = fs.readFileSync(helperPath, 'utf8');
 
 function helpers() {
   const context = { window: {} };
-  vm.runInContext(source, vm.createContext(context));
+  vm.runInContext(source, vm.createContext(context), { filename: helperPath });
   return context.window.VoltWidgetAppearanceHelpers;
 }
 

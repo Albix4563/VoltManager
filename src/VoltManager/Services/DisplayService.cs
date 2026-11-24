@@ -59,8 +59,7 @@ internal sealed partial class DisplayService : IDisposable
         SystemEvents.DisplaySettingsChanged += _displaySettingsHandler;
     }
 
-    [SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "Preserved as instance method for existing callers outside this change scope.")]
-    public DisplaySnapshot GetSnapshot() => CaptureSnapshot();
+    public static DisplaySnapshot GetSnapshot() => CaptureSnapshot();
 
     public static DisplaySnapshot CaptureSnapshot()
     {

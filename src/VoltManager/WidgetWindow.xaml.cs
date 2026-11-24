@@ -62,7 +62,6 @@ public partial class WidgetWindow : Window
     private int _suspendRunning;
     private int _suspendGeneration;
     private readonly UiMetricsPublisher _metricsPublisher = new();
-    private readonly WebViewResourceController _resourceController = new();
     private static readonly string DocumentVersion = typeof(App).Assembly.GetName().Version?.ToString(3) ?? "1.0.0";
 
     internal WidgetWindow(WidgetRuntimeContext context, WidgetManager manager, WidgetItem item,
@@ -671,7 +670,7 @@ public partial class WidgetWindow : Window
     private void OnMetricsUpdated(MetricsSnapshot metrics)
     {
         if (_closed || !HasVisibleResourceSurface || _type is not ("usage" or "temps" or "cpuTemp")) return;
-        var plan = _resourceController.Resolve(
+        var plan = WebViewResourceController.Resolve(
             _context.ResourcePressureState().Profile,
             visible: true,
             active: false);
@@ -692,7 +691,7 @@ public partial class WidgetWindow : Window
     {
         if (_closed) return;
         _metricsPublisher.ResetCadence();
-        var plan = _resourceController.Resolve(state.Profile, HasVisibleResourceSurface, active: false);
+        var plan = WebViewResourceController.Resolve(state.Profile, HasVisibleResourceSurface, active: false);
         _bridge?.PushEvent(BridgeEventNames.ResourceProfileChanged, new
         {
             profile = state.Profile.ToString().ToLowerInvariant(),

@@ -22,7 +22,6 @@ public partial class MonitorService : IDisposable
     private readonly HardwareSensorProvider _sensors;
     private readonly double _ramTotalGb;
     private readonly TimeSpan _processPollingInterval;
-    private readonly WebViewResourceController _resourceController = new();
     private readonly ProcessMetricsSampler _processMetrics = new(
         () => ProcessSnapshotProvider.Get(ProcessSnapshotMaxAge), Environment.ProcessorCount);
     private System.Threading.Timer? _timer;
@@ -509,7 +508,7 @@ public partial class MonitorService : IDisposable
     // Display-only sampling belongs to its consumer, never to the safety timer.
     public List<ProcessInfo> GetTopProcesses(int count = 8, ResourcePressureState? resources = null)
     {
-        var plan = _resourceController.Resolve(resources?.Profile ?? ResourceProfile.Full,
+        var plan = WebViewResourceController.Resolve(resources?.Profile ?? ResourceProfile.Full,
             resources?.UiVisible ?? true);
         var interval = !plan.AllowProcessPolling || Latest.RamPct >= ProcessScanRamCutoffPct
             ? Timeout.InfiniteTimeSpan

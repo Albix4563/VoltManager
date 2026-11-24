@@ -2,8 +2,11 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import vm from 'node:vm';
 import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
-const read = file => readFileSync(new URL(`../src/VoltManager/wwwroot/js/${file}`, import.meta.url), 'utf8');
+const assetPath = file => fileURLToPath(new URL(`../src/VoltManager/wwwroot/js/${file}`, import.meta.url));
+const read = file => readFileSync(assetPath(file), 'utf8');
+const storagePath = assetPath('storage.js');
 const source = read('storage.js');
 const flush = () => new Promise(resolve => setImmediate(resolve));
 
@@ -77,7 +80,7 @@ function harness(call, { missingOverlay = false, locale = 'it-IT' } = {}) {
   const context = {
     window: { VoltUiReorg: api, Host, I18n }, Host, Intl, document,
   };
-  vm.runInNewContext(source, context);
+  vm.runInNewContext(source, context, { filename: storagePath });
   return {
     elements, calls, document,
     events: {

@@ -104,8 +104,7 @@ public partial class MemoryOptimizerService
     /// <summary>
     /// Returns a snapshot of the current memory layout (total, in-use, standby, free).
     /// </summary>
-    [SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "Preserved as instance method for existing callers outside this change scope.")]
-    public MemoryStatus GetMemoryStatus()
+    public static MemoryStatus GetMemoryStatus()
     {
         var ms = new MEMORYSTATUSEX { dwLength = (uint)Marshal.SizeOf<MEMORYSTATUSEX>() };
         if (!GlobalMemoryStatusEx(ref ms))
@@ -145,8 +144,7 @@ public partial class MemoryOptimizerService
     /// Requires SeProfileSingleProcessPrivilege — already present in the admin token.
     /// Returns true if the NT call succeeded.
     /// </summary>
-    [SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "Preserved as instance method for existing callers outside this change scope.")]
-    public bool PurgeStandbyList()
+    public static bool PurgeStandbyList()
     {
         EnablePrivilege("SeProfileSingleProcessPrivilege");
 

@@ -13,7 +13,6 @@ namespace VoltManager;
 public partial class MainWindow
 {
     private readonly UiMetricsPublisher _adaptiveUiMetricsPublisher = new();
-    private readonly WebViewResourceController _webViewResourceController = new();
     private bool _adaptiveResourcesEnabled;
     private bool _adaptiveWindowActive;
     private bool _adaptiveFullscreenCovered;
@@ -99,7 +98,7 @@ public partial class MainWindow
     private void OnAdaptiveMetricsUpdated(MetricsSnapshot metrics)
     {
         var state = _app.ResourcePressure.Current;
-        var plan = _webViewResourceController.Resolve(state.Profile, _webViewVisible, _adaptiveWindowActive);
+        var plan = WebViewResourceController.Resolve(state.Profile, _webViewVisible, _adaptiveWindowActive);
         if (_adaptiveUiMetricsPublisher.TryTake(metrics, plan, DateTime.UtcNow, out var snapshot) && snapshot != null)
             _bridge?.PushEvent(BridgeEventNames.Metrics, snapshot);
 
@@ -128,7 +127,7 @@ public partial class MainWindow
 
     private void PushAdaptiveResourceProfile(ResourcePressureState state)
     {
-        var plan = _webViewResourceController.Resolve(state.Profile, state.UiVisible, _adaptiveWindowActive);
+        var plan = WebViewResourceController.Resolve(state.Profile, state.UiVisible, _adaptiveWindowActive);
         _bridge?.PushEvent(BridgeEventNames.ResourceProfileChanged, new
         {
             profile = state.Profile.ToString().ToLowerInvariant(),

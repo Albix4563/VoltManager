@@ -13,7 +13,6 @@ public class StandbyAutoCleanerService : IDisposable
     private readonly Func<MemoryStatus> _memoryStatusReader;
     private readonly Func<bool> _standbyPurger;
     private readonly Func<bool> _protectedWorkloadActive;
-    private readonly MemoryOptimizerService _optimizer = new();
     private readonly object _lock = new();
     private DateTime? _pressureSinceUtc;
     private Timer? _timer;
@@ -27,8 +26,8 @@ public class StandbyAutoCleanerService : IDisposable
         Func<bool>? protectedWorkloadActive = null)
     {
         _settings = settings;
-        _memoryStatusReader = memoryStatusReader ?? _optimizer.GetMemoryStatus;
-        _standbyPurger = standbyPurger ?? _optimizer.PurgeStandbyList;
+        _memoryStatusReader = memoryStatusReader ?? MemoryOptimizerService.GetMemoryStatus;
+        _standbyPurger = standbyPurger ?? MemoryOptimizerService.PurgeStandbyList;
         _protectedWorkloadActive = protectedWorkloadActive ?? (() => false);
     }
 

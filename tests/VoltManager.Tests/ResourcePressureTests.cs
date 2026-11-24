@@ -283,7 +283,7 @@ public sealed class ResourcePressureTests
         bool publish,
         bool allowProcessPolling)
     {
-        var plan = new WebViewResourceController().Resolve(profile, visible: true);
+        var plan = WebViewResourceController.Resolve(profile, visible: true);
         Assert.Equal(TimeSpan.FromSeconds(expectedSeconds), plan.MetricsInterval);
         Assert.Equal(publish, plan.PublishMetrics);
         Assert.Equal(allowProcessPolling, plan.AllowProcessPolling);
@@ -293,7 +293,7 @@ public sealed class ResourcePressureTests
     [Fact]
     public void HiddenWebView_PublishesNothingAndStopsPolling()
     {
-        var plan = new WebViewResourceController().Resolve(ResourceProfile.Full, visible: false);
+        var plan = WebViewResourceController.Resolve(ResourceProfile.Full, visible: false);
         Assert.False(plan.PublishMetrics);
         Assert.False(plan.AllowProcessPolling);
         Assert.Equal(TimeSpan.Zero, plan.MetricsInterval);
@@ -303,7 +303,7 @@ public sealed class ResourcePressureTests
     [Fact]
     public void InactiveVisibleWebView_UsesLightThreeAndTenSecondCadence()
     {
-        var plan = new WebViewResourceController().Resolve(
+        var plan = WebViewResourceController.Resolve(
             ResourceProfile.Full,
             visible: true,
             active: false);
@@ -319,7 +319,7 @@ public sealed class ResourcePressureTests
     public void UiPublisher_CoalescesToLatestValueAtConfiguredCadence()
     {
         var publisher = new UiMetricsPublisher();
-        var plan = new WebViewResourceController().Resolve(ResourceProfile.Gaming, visible: true);
+        var plan = WebViewResourceController.Resolve(ResourceProfile.Gaming, visible: true);
         var t0 = DateTime.UnixEpoch;
 
         Assert.True(publisher.TryTake(Metrics(cpu: 10), plan, t0, out var first));
@@ -334,14 +334,13 @@ public sealed class ResourcePressureTests
     public void UiPublisher_HiddenPlanNeverPublishes_ThenResetPublishesImmediately()
     {
         var publisher = new UiMetricsPublisher();
-        var controller = new WebViewResourceController();
         var t0 = DateTime.UnixEpoch;
 
         Assert.False(publisher.TryTake(Metrics(cpu: 10),
-            controller.Resolve(ResourceProfile.Full, false), t0, out _));
+            WebViewResourceController.Resolve(ResourceProfile.Full, false), t0, out _));
         publisher.ResetCadence();
         Assert.True(publisher.TryTake(Metrics(cpu: 20),
-            controller.Resolve(ResourceProfile.Full, true), t0.AddSeconds(1), out var visible));
+            WebViewResourceController.Resolve(ResourceProfile.Full, true), t0.AddSeconds(1), out var visible));
         Assert.Equal(20, visible!.Cpu);
     }
 }

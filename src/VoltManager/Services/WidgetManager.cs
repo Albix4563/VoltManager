@@ -120,7 +120,7 @@ public sealed class WidgetManager : IDisposable
         if (_displayInit || _disposing) return;
         _displayInit = true;
         _displays = _displayFactory();
-        _snapshot = _displays.GetSnapshot();
+        _snapshot = DisplayService.GetSnapshot();
         _displays.DisplaysChanged += OnDisplaysChanged;
     }
 

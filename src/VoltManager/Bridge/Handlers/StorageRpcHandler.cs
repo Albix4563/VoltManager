@@ -38,7 +38,7 @@ public sealed class StorageRpcHandler(StorageService storage,
                 }
                 finally { Volatile.Write(ref _cleaning, 0); }
             case "openStorageTool":
-                storage.OpenTool(BridgePayload.RequiredString(payload, "tool", "Il parametro 'tool' è obbligatorio."));
+                StorageService.OpenTool(BridgePayload.RequiredString(payload, "tool", "Il parametro 'tool' è obbligatorio."));
                 return new { launched = true };
             default:
                 throw new ArgumentException($"Metodo RPC non supportato: {method}.");

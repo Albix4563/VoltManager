@@ -246,9 +246,7 @@ public class StartupAppsService
         return true;
     }
 
-    [SuppressMessage("Performance", "CA1822:Mark members as static",
-        Justification = "Preserves public instance signature used by callers outside this scope.")]
-    public bool RemoveManagedStartupApp(string id)
+    public static bool RemoveManagedStartupApp(string id)
     {
         if (string.IsNullOrWhiteSpace(id) || !id.StartsWith(ManagedPrefix, StringComparison.Ordinal))
             throw new InvalidOperationException("È possibile rimuovere solo app gestite da Miliano's App.");

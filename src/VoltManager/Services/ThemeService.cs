@@ -102,9 +102,7 @@ public sealed class ThemeService
         return ToWebState(palette, normalizedCustom);
     }
 
-    [SuppressMessage("Performance", "CA1822:Mark members as static",
-        Justification = "Preserves public instance signature used by callers outside this scope.")]
-    public IReadOnlyDictionary<string, ThemeWebPalette> GetWebThemeCatalog()
+    public static IReadOnlyDictionary<string, ThemeWebPalette> GetWebThemeCatalog()
         => Enum.GetValues<AppThemeColor>()
             .ToDictionary(
                 color => color.ToKey(),

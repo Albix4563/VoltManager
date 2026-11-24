@@ -1,13 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
 import { FakeNode, createDocumentHarness } from './helpers/dom-harness.mjs';
 
 const root = new URL('../', import.meta.url);
+const assetPath = relativePath => fileURLToPath(new URL(relativePath, root));
 
 function read(relativePath) {
-  return readFileSync(new URL(relativePath, root), 'utf8');
+  return readFileSync(assetPath(relativePath), 'utf8');
 }
 
 function deferred() {
@@ -57,9 +59,13 @@ function createRemoteHarness(fetchImpl) {
     close() { this.closed = true; }
   }
 
+  const timers = [];
   const window = {
     confirm: () => true,
-    setTimeout: () => 0,
+    setTimeout: (fn, delay) => {
+      timers.push({ fn, delay });
+      return timers.length;
+    },
   };
   const context = vm.createContext({
     window,
@@ -68,8 +74,12 @@ function createRemoteHarness(fetchImpl) {
     EventSource: FakeEventSource,
     console,
   });
-  vm.runInContext(read('src/VoltManager/wwwroot/remote/remote.js'), context);
-  return { app: window.VoltLanRemoteApp, document, eventSources };
+  vm.runInContext(
+    read('src/VoltManager/wwwroot/remote/remote.js'),
+    context,
+    { filename: assetPath('src/VoltManager/wwwroot/remote/remote.js') },
+  );
+  return { app: window.VoltLanRemoteApp, document, eventSources, timers };
 }
 
 test('welcome onboarding has a fifth LAN remote step wired through dedicated RPC methods', () => {
@@ -467,7 +477,7 @@ test('lan-remote-control and remote client handle rejected refresh, SSE load and
     document: desktopDoc,
     navigator: { clipboard: { writeText: async () => {} } },
     console: { error: (...args) => errors.push(args[0]) },
-  }));
+  }), { filename: assetPath('src/VoltManager/wwwroot/js/lan-remote-control.js') });
   desktopDoc.dispatchEvent({ type: 'voltuiviewchanged', detail: { view: 'remote-control' } });
   await new Promise(resolve => setImmediate(resolve));
   assert.equal(feedbackNode.textContent, 'remote_error');
@@ -497,3 +507,56 @@ test('lan-remote-control and remote client handle rejected refresh, SSE load and
   assert.equal(document.getElementById('action-feedback').textContent, 'The command could not be completed.');
   assert.equal(document.getElementById('action-feedback').dataset.error, 'true');
 });
+
+test('remote client triggers restart, sleep, hibernate after confirm and reconnects via EventSource onerror timer', async () => {
+  const posted = [];
+  let stateCalls = 0;
+  const { document, eventSources, timers } = createRemoteHarness(async (path, options) => {
+    if (path === '/api/auth/login') return jsonResponse({ csrfToken: 'tok-actions' });
+    if (path === '/api/state') {
+      stateCalls++;
+      return jsonResponse({
+        device: 'PC',
+        version: '1.0',
+        plan: 'balanced',
+        permissions: { restart: true, sleep: true, hibernate: true },
+        capabilities: { sleep: true, hibernate: true },
+      });
+    }
+    if (path.startsWith('/api/actions/')) {
+      posted.push({ path, csrf: options.headers['X-CSRF-Token'] });
+      return jsonResponse({ success: true });
+    }
+    throw new Error(`unexpected request: ${path}`);
+  });
+
+  document.getElementById('pin-input').value = 'ValidSecret123';
+  await document.getElementById('login-form').events.get('submit')[0]({ preventDefault() {} });
+  assert.equal(stateCalls, 1);
+
+  const cards = document.getElementById('actions-grid').children;
+  assert.equal(cards.length, 3);
+  for (const card of cards) {
+    card.children[1].events.get('click')[0]();
+    await new Promise(resolve => setImmediate(resolve));
+  }
+
+  assert.deepEqual(posted, [
+    { path: '/api/actions/restart', csrf: 'tok-actions' },
+    { path: '/api/actions/sleep', csrf: 'tok-actions' },
+    { path: '/api/actions/hibernate', csrf: 'tok-actions' },
+  ]);
+  assert.equal(document.getElementById('action-feedback').textContent, 'Hibernate requested.');
+  assert.equal(stateCalls, 4);
+
+  eventSources[0].onerror();
+  assert.equal(document.getElementById('connection-pill').dataset.state, 'offline');
+  assert.equal(timers.length, 1);
+  assert.equal(timers[0].delay, 800);
+
+  timers[0].fn();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(stateCalls, 5);
+  assert.equal(document.getElementById('connection-pill').dataset.state, 'online');
+});
+

@@ -33,7 +33,6 @@ internal static class BridgeHandlerFactory
     {
         var startupApps = new StartupAppsService();
         var planParams = new PowerPlanParameterService(power);
-        var memoryOptimizer = new MemoryOptimizerService();
         var batteryHealth = new BatteryHealthService();
         var powerFlow = new PowerFlowService();
         var batteryPowerSmoother = new BatteryPowerSmoother();
@@ -44,7 +43,7 @@ internal static class BridgeHandlerFactory
             loc,
             new SettingsRpcActions(
                 () => app.Theme.GetWebTheme(),
-                () => app.Theme.GetWebThemeCatalog(),
+                () => ThemeService.GetWebThemeCatalog(),
                 () => { app.RefreshAppPowerProfiles(); },
                 () => { app.RefreshHeavyAppDetection(); },
                 () => app.Dispatcher.Invoke(app.SetupJumpListPublic),
@@ -129,11 +128,11 @@ internal static class BridgeHandlerFactory
                         Multiselect: false),
                     cancellationToken),
                 count => monitor.GetTopProcesses(count, app.ResourcePressure?.Current),
-                () => memoryOptimizer.GetMemoryStatus(),
+                () => MemoryOptimizerService.GetMemoryStatus(),
                 () => app.StandbyAutoCleaner.PurgeManual(),
                 OpenLogFolder,
                 () => BuildDiagnosticsReport(
-                    hardware, power, settings, monitor, app, memoryOptimizer,
+                    hardware, power, settings, monitor, app,
                     batteryHealth, powerFlow, batteryPowerSmoother),
                 () => DateTime.Now),
             dialogs);
@@ -166,7 +165,7 @@ internal static class BridgeHandlerFactory
                     cancellationToken),
                 startupApps.AddManagedStartupApp,
                 startupApps.SetStartupAppEnabled,
-                startupApps.RemoveManagedStartupApp,
+                StartupAppsService.RemoveManagedStartupApp,
                 Logger.Error,
                 WebViewNavigationPolicy.OpenExternal,
                 requestExit,
@@ -261,7 +260,6 @@ internal static class BridgeHandlerFactory
         SettingsService settings,
         MonitorService monitor,
         App app,
-        MemoryOptimizerService memoryOptimizer,
         BatteryHealthService batteryHealth,
         PowerFlowService powerFlow,
         BatteryPowerSmoother batteryPowerSmoother)
@@ -289,7 +287,7 @@ internal static class BridgeHandlerFactory
             CpuAutomation = app.CpuAutomationState,
             BatteryPower = batteryPower,
             BatteryHealth = batteryHealth.GetHealth(),
-            Memory = memoryOptimizer.GetMemoryStatus(),
+            Memory = MemoryOptimizerService.GetMemoryStatus(),
             SettingsJson = DiagnosticsReportService.SanitizeSettingsJson(settings.Current),
         };
 

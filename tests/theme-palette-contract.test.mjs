@@ -1,12 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
 
-const themeSource = readFileSync(
-  new URL('../src/VoltManager/wwwroot/js/theme.js', import.meta.url),
-  'utf8'
-);
+const themePath = fileURLToPath(new URL('../src/VoltManager/wwwroot/js/theme.js', import.meta.url));
+const themeSource = readFileSync(themePath, 'utf8');
 const themeCss = readFileSync(
   new URL('../src/VoltManager/wwwroot/css/theme-colors.css', import.meta.url),
   'utf8'
@@ -41,7 +40,7 @@ function loadTheme(extraWindow = {}) {
     },
   };
   const window = { ...extraWindow };
-  vm.runInNewContext(themeSource, { window, document });
+  vm.runInNewContext(themeSource, { window, document }, { filename: themePath });
   return { api: window.VoltTheme, properties, document };
 }
 

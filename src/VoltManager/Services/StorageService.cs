@@ -40,9 +40,7 @@ public sealed class StorageService
         finally { Volatile.Write(ref _scanning, 0); }
     }, cancellationToken);
 
-    [SuppressMessage("Performance", "CA1822:Mark members as static",
-        Justification = "Preserves public instance signature used by callers outside this scope.")]
-    public void OpenTool(string tool) => OpenTool(tool, info =>
+    public static void OpenTool(string tool) => OpenTool(tool, info =>
     {
         using var process = Process.Start(info);
         return process != null;

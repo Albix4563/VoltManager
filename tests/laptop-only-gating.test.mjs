@@ -1,11 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
 import { createDocumentHarness, event, FakeNode } from './helpers/dom-harness.mjs';
 
-const read = name => readFileSync(new URL(`../src/VoltManager/wwwroot/js/${name}`, import.meta.url), 'utf8');
-const run = (name, context) => vm.runInContext(read(name), context);
+const assetPath = name => fileURLToPath(new URL(`../src/VoltManager/wwwroot/js/${name}`, import.meta.url));
+const read = name => readFileSync(assetPath(name), 'utf8');
+const run = (name, context) => vm.runInContext(read(name), context, { filename: assetPath(name) });
 
 function contextFor(document) {
   const window = { document, addEventListener() {}, removeEventListener() {}, innerWidth: 1200, innerHeight: 800 };
