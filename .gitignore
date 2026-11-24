@@ -45,6 +45,11 @@ pinai/
 /tools/
 /VoltManager_logo.png
 
+# SonarQube local artifacts
+.sonarqube/
+.scannerwork/
+SONAR_AUDIT_REPORT.md
+
 # OS files
 .DS_Store
 Thumbs.db
