@@ -64,8 +64,7 @@ internal sealed class SessionStateCoordinator : IDisposable
     {
         lock (_gate)
         {
-            if (_disposed)
-                throw new ObjectDisposedException(nameof(SessionStateCoordinator));
+            ObjectDisposedException.ThrowIf(_disposed, this);
             if (_started) return;
             _eventSource.SessionSwitch += OnSessionSwitch;
             _started = true;

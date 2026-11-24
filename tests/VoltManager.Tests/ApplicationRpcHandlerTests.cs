@@ -8,6 +8,8 @@ namespace VoltManager.Tests;
 
 public class ApplicationRpcHandlerTests
 {
+    private static readonly string[] ExpectedLaunchedUrls = ["https://example.test"];
+
     private static JsonElement Payload(object value)
         => JsonSerializer.SerializeToElement(value, BridgeRpc.JsonOpts);
 
@@ -33,7 +35,7 @@ public class ApplicationRpcHandlerTests
         await handler.HandleAsync("openExternal", Payload(new { url = "file:///tmp/x" }), CancellationToken.None);
         await handler.HandleAsync("openExternal", Payload(new { url = "https://example.test" }), CancellationToken.None);
 
-        Assert.Equal(new[] { "https://example.test" }, launched);
+        Assert.Equal(ExpectedLaunchedUrls, launched);
     }
 
     [Fact]

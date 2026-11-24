@@ -8,35 +8,44 @@ namespace VoltManager.Services;
 /// Resolves a process image path. MainModule fails for WOW64, protected, or
 /// cross-session processes; QueryFullProcessImageName covers most of those.
 /// </summary>
-public static class ProcessPathResolver
+public static partial class ProcessPathResolver
 {
     private const uint ProcessQueryLimitedInformation = 0x1000;
 
-    [DllImport("kernel32.dll", SetLastError = true)]
-    private static extern IntPtr OpenProcess(uint processAccess, bool bInheritHandle, int processId);
+    [LibraryImport("kernel32.dll", SetLastError = true)]
+    private static partial IntPtr OpenProcess(
+        uint processAccess,
+        [MarshalAs(UnmanagedType.Bool)] bool bInheritHandle,
+        int processId);
 
-    [DllImport("kernel32.dll", SetLastError = true)]
-    private static extern bool CloseHandle(IntPtr hObject);
+    [LibraryImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool CloseHandle(IntPtr hObject);
 
-    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
-    private static extern bool QueryFullProcessImageName(IntPtr hProcess, int dwFlags, char[] lpExeName, ref int lpdwSize);
+    [LibraryImport("kernel32.dll", EntryPoint = "QueryFullProcessImageNameW", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool QueryFullProcessImageName(
+        IntPtr hProcess,
+        int dwFlags,
+        [Out] ushort[] lpExeName,
+        ref int lpdwSize);
 
     public static string TryQueryFullProcessImageName(int processId)
     {
         IntPtr handle = IntPtr.Zero;
-        char[]? rented = null;
+        ushort[]? rented = null;
         try
         {
             handle = OpenProcess(ProcessQueryLimitedInformation, false, processId);
             if (handle == IntPtr.Zero)
                 return "";
 
-            rented = ArrayPool<char>.Shared.Rent(1024);
+            rented = ArrayPool<ushort>.Shared.Rent(1024);
             int size = rented.Length;
             if (!QueryFullProcessImageName(handle, 0, rented, ref size) || size <= 0)
                 return "";
 
-            return new string(rented, 0, Math.Min(size, rented.Length));
+            return new string(MemoryMarshal.Cast<ushort, char>(rented.AsSpan(0, Math.Min(size, rented.Length))));
         }
         catch
         {
@@ -45,7 +54,7 @@ public static class ProcessPathResolver
         finally
         {
             if (rented != null)
-                ArrayPool<char>.Shared.Return(rented);
+                ArrayPool<ushort>.Shared.Return(rented);
             if (handle != IntPtr.Zero)
                 CloseHandle(handle);
         }

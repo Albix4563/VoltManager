@@ -9,6 +9,8 @@ namespace VoltManager.Tests;
 
 public class UpdateRpcHandlerTests
 {
+    private static readonly string[] ExpectedUpdateMethods = ["checkForUpdates", "downloadUpdate", "getReleaseHistory"];
+
     private static JsonElement Payload(object value)
         => JsonSerializer.SerializeToElement(value, BridgeRpc.JsonOpts);
 
@@ -17,7 +19,7 @@ public class UpdateRpcHandlerTests
     {
         var handler = Create();
         Assert.Equal(
-            new[] { "checkForUpdates", "downloadUpdate", "getReleaseHistory" },
+            ExpectedUpdateMethods,
             handler.Methods.OrderBy(x => x));
     }
 

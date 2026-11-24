@@ -12,6 +12,10 @@ namespace VoltManager.Setup.Tests
 {
     public sealed class UninstallEngineTests
     {
+        private static readonly string[] ExpectedProcessResidual = { "Owned VoltManager process remains after uninstall" };
+        private static readonly string[] DllOnlyManifest = { "VoltManager.dll" };
+        private static readonly string[] ExpectedCleanupOrder = { "task", "shortcuts", "registry", "files" };
+        private static readonly string[] DllAndExeManifest = { "VoltManager.dll", "VoltManager.exe" };
         [Theory]
         [InlineData(false)]
         [InlineData(true)]
@@ -333,7 +337,7 @@ namespace VoltManager.Setup.Tests
 
                 Assert.False(result.Success);
                 Assert.Contains(result.Failures, value => value.Contains("process still running"));
-                Assert.Equal(new[] { "Owned VoltManager process remains after uninstall" }, result.Residuals);
+                Assert.Equal(ExpectedProcessResidual, result.Residuals);
                 Assert.True(result.HasResiduals);
                 Assert.Equal(1, operations.StopProcessesCalls);
                 Assert.Equal(0, operations.RemoveLanRemoteControlArtifactsCalls);
@@ -520,7 +524,7 @@ namespace VoltManager.Setup.Tests
             File.WriteAllText(Path.Combine(installDir, "VoltManager.dll"), "synthetic verified DLL");
             string zip = Path.Combine(root, "verified-payload.zip");
             ZipFile.CreateFromDirectory(sourceDir, zip);
-            InstallManifest.Write(installDir, new[] { "VoltManager.dll" });
+            InstallManifest.Write(installDir, DllOnlyManifest);
             return (installDir, zip);
         }
 
@@ -583,7 +587,7 @@ namespace VoltManager.Setup.Tests
                 Assert.Equal(purge ? Array.Empty<string>() : HardenedInstallEngine.KeptUserDataEntries, operations.LastKeep);
                 Assert.Equal(operations.LastKeep, operations.KeptAppDataEntries);
                 // Task, shortcuts and ARP are removed before any install file.
-                Assert.Equal(new[] { "task", "shortcuts", "registry", "files" }, operations.Order);
+                Assert.Equal(ExpectedCleanupOrder, operations.Order);
             }
             finally { Cleanup(root); }
         }
@@ -600,7 +604,7 @@ namespace VoltManager.Setup.Tests
                 string retained = Path.Combine(installDir, modified ? "VoltManager.exe" : "notes.txt");
                 File.WriteAllText(retained, "personal content");
                 if (modified)
-                    InstallManifest.Write(installDir, new[] { "VoltManager.dll", "VoltManager.exe" });
+                    InstallManifest.Write(installDir, DllAndExeManifest);
                 var operations = new FakeUninstallOperations();
                 var engine = new HardenedInstallEngine(operations,
                     () => Path.Combine(root, "synthetic-uninstaller.exe"), zip);

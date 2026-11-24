@@ -1320,17 +1320,18 @@ public partial class MainWindow : Window
         catch { /* WebView may not be ready */ }
     }
 
-    [DllImport("user32.dll")]
-    private static extern IntPtr MonitorFromWindow(IntPtr hwnd, uint dwFlags);
+    [LibraryImport("user32.dll")]
+    private static partial IntPtr MonitorFromWindow(IntPtr hwnd, uint dwFlags);
 
-    [DllImport("user32.dll", CharSet = CharSet.Auto)]
-    private static extern bool GetMonitorInfo(IntPtr hMonitor, ref MONITORINFO lpmi);
+    [LibraryImport("user32.dll", EntryPoint = "GetMonitorInfoW")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool GetMonitorInfo(IntPtr hMonitor, ref MONITORINFO lpmi);
 
-    [DllImport("user32.dll")]
-    private static extern uint GetDpiForWindow(IntPtr hwnd);
+    [LibraryImport("user32.dll")]
+    private static partial uint GetDpiForWindow(IntPtr hwnd);
 
-    [DllImport("shcore.dll")]
-    private static extern int GetDpiForMonitor(IntPtr hmonitor, int dpiType, out uint dpiX, out uint dpiY);
+    [LibraryImport("shcore.dll")]
+    private static partial int GetDpiForMonitor(IntPtr hmonitor, int dpiType, out uint dpiX, out uint dpiY);
 
     [StructLayout(LayoutKind.Sequential)]
     private struct RECT

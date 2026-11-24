@@ -98,6 +98,8 @@ public static class SupervisorBootstrap
 
 public static class CrashDiagnostics
 {
+    private static readonly JsonSerializerOptions IndentedJsonOptions = new() { WriteIndented = true };
+
     public static string? Capture(string category, Exception? exception, int exitCode)
     {
         string directory = Path.Combine(
@@ -133,7 +135,7 @@ public static class CrashDiagnostics
             string fileName = $"crash-{DateTimeOffset.UtcNow:yyyyMMdd-HHmmssfff}-{Environment.ProcessId}-{Guid.NewGuid():N}.json";
             string finalPath = Path.Combine(directory, fileName);
             string temporaryPath = finalPath + ".tmp";
-            File.WriteAllText(temporaryPath, JsonSerializer.Serialize(payload, new JsonSerializerOptions { WriteIndented = true }));
+            File.WriteAllText(temporaryPath, JsonSerializer.Serialize(payload, IndentedJsonOptions));
             File.Move(temporaryPath, finalPath);
             PruneDirectory(directory, finalPath, DateTimeOffset.UtcNow);
             return finalPath;

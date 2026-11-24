@@ -16,7 +16,7 @@ internal sealed class WebViewLifecycleBinding<TSource> : IDisposable
 
     public void Attach(TSource source)
     {
-        if (_disposed) throw new ObjectDisposedException(nameof(WebViewLifecycleBinding<TSource>));
+        ObjectDisposedException.ThrowIf(_disposed, this);
         if (ReferenceEquals(_source, source)) return;
         if (_source is not null) _detach(_source);
         _source = source;

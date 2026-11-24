@@ -58,8 +58,7 @@ public sealed class UpdateCoordinator : IDisposable
         CancellationToken epoch;
         lock (_gate)
         {
-            if (_disposed)
-                throw new ObjectDisposedException(nameof(UpdateCoordinator));
+            ObjectDisposedException.ThrowIf(_disposed, this);
             if (_lifecycle.IsStarted)
                 return;
 
@@ -92,8 +91,7 @@ public sealed class UpdateCoordinator : IDisposable
         CancellationToken epoch;
         lock (_gate)
         {
-            if (_disposed)
-                throw new ObjectDisposedException(nameof(UpdateCoordinator));
+            ObjectDisposedException.ThrowIf(_disposed, this);
             if (!_lifecycle.IsStarted)
                 return Task.CompletedTask;
 

@@ -89,6 +89,8 @@ public class HeavyAppUserRulesTests
             @"D:\Contested\game.exe", "game", 40L * 1024 * 1024, NoGpuPreferences, config));
     }
 
+    private static readonly string[] ExpectedNormalizedAlwaysGamePaths = [@"D:\A\game.exe", @"D:\B\x.exe"];
+
     [Fact]
     public void User_lists_are_normalized_on_load()
     {
@@ -100,7 +102,7 @@ public class HeavyAppUserRulesTests
 
         SettingsService.NormalizeHeavyAppDetectionSettings(settings);
 
-        Assert.Equal(new[] { @"D:\A\game.exe", @"D:\B\x.exe" }, settings.AlwaysGamePaths);
+        Assert.Equal(ExpectedNormalizedAlwaysGamePaths, settings.AlwaysGamePaths);
         Assert.Equal(200, settings.NeverGamePaths.Count);
     }
 

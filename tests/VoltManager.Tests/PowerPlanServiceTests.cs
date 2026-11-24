@@ -535,6 +535,13 @@ public sealed class PowerPlanServiceTests
         Assert.Empty(service.FindExtraPlans().Extras);
     }
 
+    private static readonly string[] QuerySettingGuids =
+    [
+        "88888888-8888-4888-8888-888888888888",
+        "99999999-9999-4999-8999-999999999999",
+        "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+    ];
+
     private static string QueryOutput(string guid, string values)
     {
         (uint ac, uint dc) = values switch
@@ -553,12 +560,7 @@ public sealed class PowerPlanServiceTests
             ? "  Alias GUID: SCHEME_BALANCED\n" : "";
         return $"Power Scheme GUID: {guid} (Plan)\n{alias}" +
             "  Subgroup GUID: 77777777-7777-4777-8777-777777777777\n" +
-            string.Join('\n', new[]
-            {
-                "88888888-8888-4888-8888-888888888888",
-                "99999999-9999-4999-8999-999999999999",
-                "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
-            }.Select(setting => $"    Power Setting GUID: {setting}\n" +
+            string.Join('\n', QuerySettingGuids.Select(setting => $"    Power Setting GUID: {setting}\n" +
                 $"    Current AC Power Setting Index: 0x{ac:x8}\n" +
                 $"    Current DC Power Setting Index: 0x{dc:x8}"));
     }

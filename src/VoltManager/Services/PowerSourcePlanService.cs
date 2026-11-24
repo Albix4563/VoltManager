@@ -12,7 +12,7 @@ public record PowerSourcePlanDecision
     public PowerSourcePlanState State { get; init; } = new();
 }
 
-public sealed class PowerSourcePlanService
+public sealed partial class PowerSourcePlanService
 {
     private readonly SettingsService _settings;
     private readonly Func<PowerSourceSnapshot?> _powerSourceReader;
@@ -254,8 +254,9 @@ public sealed class PowerSourcePlanService
         return new PowerSourceSnapshot(pluggedIn, batteryPercent);
     }
 
-    [DllImport("kernel32.dll", SetLastError = true)]
-    private static extern bool GetSystemPowerStatus(out SystemPowerStatus status);
+    [LibraryImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool GetSystemPowerStatus(out SystemPowerStatus status);
 
     [StructLayout(LayoutKind.Sequential)]
     private struct SystemPowerStatus

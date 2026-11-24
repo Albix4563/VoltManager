@@ -4,7 +4,7 @@ using VoltManager.Models;
 
 namespace VoltManager.Services;
 
-public sealed class VramCounterProvider : IDisposable
+public sealed partial class VramCounterProvider : IDisposable
 {
     internal readonly record struct GpuLuid(uint LowPart, int HighPart)
     {
@@ -192,7 +192,7 @@ public sealed class VramCounterProvider : IDisposable
         Task.Run(Initialize);
     }
 
-    private static IReadOnlyDictionary<GpuLuid, long> ReadDxgiCapacities()
+    private static Dictionary<GpuLuid, long> ReadDxgiCapacities()
     {
         Guid iid = new("770AAE78-F26F-4DBA-A829-253C83D1B387");
         int hr = CreateDXGIFactory1(ref iid, out IntPtr factory);
@@ -242,8 +242,8 @@ public sealed class VramCounterProvider : IDisposable
         }
     }
 
-    [DllImport("dxgi.dll", ExactSpelling = true)]
-    private static extern int CreateDXGIFactory1(ref Guid riid, out IntPtr ppFactory);
+    [LibraryImport("dxgi.dll")]
+    private static partial int CreateDXGIFactory1(ref Guid riid, out IntPtr ppFactory);
 
     [UnmanagedFunctionPointer(CallingConvention.Winapi)]
     private delegate int EnumAdapters1Delegate(IntPtr self, uint adapter, out IntPtr ppAdapter);

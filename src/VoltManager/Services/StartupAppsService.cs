@@ -1,4 +1,5 @@
 #pragma warning disable CA1416
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Text.Json.Serialization;
 using Microsoft.Win32;
@@ -245,6 +246,8 @@ public class StartupAppsService
         return true;
     }
 
+    [SuppressMessage("Performance", "CA1822:Mark members as static",
+        Justification = "Preserves public instance signature used by callers outside this scope.")]
     public bool RemoveManagedStartupApp(string id)
     {
         if (string.IsNullOrWhiteSpace(id) || !id.StartsWith(ManagedPrefix, StringComparison.Ordinal))
@@ -282,7 +285,7 @@ public class StartupAppsService
         return entry.Name;
     }
 
-    private IEnumerable<StartupAppEntry> ReadRunKey(RegistryHive hive, RegistryView view, string source, string approvalKeyPath, RegistryView approvalView)
+    private List<StartupAppEntry> ReadRunKey(RegistryHive hive, RegistryView view, string source, string approvalKeyPath, RegistryView approvalView)
     {
         var entries = new List<StartupAppEntry>();
 
@@ -314,7 +317,7 @@ public class StartupAppsService
         return entries;
     }
 
-    private IEnumerable<StartupAppEntry> ReadStartupFolder(string folderPath, string source, RegistryHive approvalHive)
+    private List<StartupAppEntry> ReadStartupFolder(string folderPath, string source, RegistryHive approvalHive)
     {
         var entries = new List<StartupAppEntry>();
 
@@ -446,7 +449,7 @@ public class StartupAppsService
         if (string.IsNullOrWhiteSpace(command)) return "";
 
         command = Environment.ExpandEnvironmentVariables(command.Trim());
-        if (command.StartsWith("\"", StringComparison.Ordinal))
+        if (command.StartsWith('"'))
         {
             int end = command.IndexOf('"', 1);
             return end > 1 ? command.Substring(1, end - 1) : command.Trim('"');

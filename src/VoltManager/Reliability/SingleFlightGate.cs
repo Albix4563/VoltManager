@@ -28,8 +28,7 @@ public sealed class SingleFlightGate
         Action<string> info)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(operationName);
-        if (warningThreshold < TimeSpan.Zero)
-            throw new ArgumentOutOfRangeException(nameof(warningThreshold));
+        ArgumentOutOfRangeException.ThrowIfLessThan(warningThreshold, TimeSpan.Zero);
         _operationName = operationName;
         _warningThreshold = warningThreshold;
         _utcNow = utcNow;

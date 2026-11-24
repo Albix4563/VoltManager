@@ -11,7 +11,7 @@ public readonly record struct MonitorSamplingDemand(
     bool GpuProcessDetection);
 
 /// <summary>Configurable metrics loop on a background timer. Degrades per-metric on counter failure.</summary>
-public class MonitorService : IDisposable
+public partial class MonitorService : IDisposable
 {
     private PerformanceCounter? _cpuCounter;
     private PerformanceCounter? _diskCounter;
@@ -204,8 +204,7 @@ public class MonitorService : IDisposable
     {
         lock (_cpuInfoGate)
         {
-            if (_disposed)
-                throw new ObjectDisposedException(nameof(MonitorService));
+            ObjectDisposedException.ThrowIf(_disposed, this);
             _interval = NormalizeInterval(interval ?? _interval);
             _timer ??= new System.Threading.Timer(_ => Tick(), null, _interval, _interval);
         }
@@ -489,9 +488,9 @@ public class MonitorService : IDisposable
         return _cachedRamClock;
     }
 
-    [DllImport("kernel32.dll", SetLastError = true)]
+    [LibraryImport("kernel32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool GlobalMemoryStatusEx(ref MemoryStatusEx buffer);
+    private static partial bool GlobalMemoryStatusEx(ref MemoryStatusEx buffer);
 
     [StructLayout(LayoutKind.Sequential)]
     private struct MemoryStatusEx
@@ -548,5 +547,6 @@ public class MonitorService : IDisposable
         _gpu.Dispose();
         _vram.Dispose();
         _sensors.Dispose();
+        GC.SuppressFinalize(this);
     }
 }

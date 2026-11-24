@@ -60,8 +60,7 @@ internal sealed class WebViewTrayCoordinator : IDisposable
         CancellationToken epoch;
         lock (_gate)
         {
-            if (_disposed)
-                throw new ObjectDisposedException(nameof(WebViewTrayCoordinator));
+            ObjectDisposedException.ThrowIf(_disposed, this);
             if (_lifecycle.IsStarted)
                 return;
             epoch = _lifecycle.Start();
@@ -99,7 +98,7 @@ internal sealed class WebViewTrayCoordinator : IDisposable
                 return _showTask;
 
             Task pendingSuspend = _suspendTask ?? Task.CompletedTask;
-            _showTask = RestoreVisibleAsync(epoch, pendingSuspend);
+            _showTask = RestoreVisibleAsync(pendingSuspend, epoch);
             return _showTask;
         }
     }
@@ -254,12 +253,12 @@ internal sealed class WebViewTrayCoordinator : IDisposable
             _suspendTask = completion.Task;
         }
 
-        _ = CompleteSuspendAsync(epoch, completion);
+        _ = CompleteSuspendAsync(completion, epoch);
     }
 
     private async Task CompleteSuspendAsync(
-        CancellationToken epoch,
-        TaskCompletionSource<bool> completion)
+        TaskCompletionSource<bool> completion,
+        CancellationToken epoch)
     {
         try
         {
@@ -271,7 +270,7 @@ internal sealed class WebViewTrayCoordinator : IDisposable
         }
     }
 
-    private async Task RestoreVisibleAsync(CancellationToken epoch, Task pendingSuspend)
+    private async Task RestoreVisibleAsync(Task pendingSuspend, CancellationToken epoch)
     {
         try
         {

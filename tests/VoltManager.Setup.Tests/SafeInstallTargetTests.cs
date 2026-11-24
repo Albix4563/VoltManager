@@ -10,6 +10,14 @@ namespace VoltManager.Setup.Tests
 {
     public sealed class SafeInstallTargetTests
     {
+        private static readonly string[] ExeOnly = { "VoltManager.exe" };
+        private static readonly string[] DllOnly = { "VoltManager.dll" };
+        private static readonly string[] DllAndExe = { "VoltManager.dll", "VoltManager.exe" };
+        private static readonly string[] AppDatOnly = { "app.dat" };
+        private static readonly string[] FullPayloadManifest = { "VoltManager.dll", "VoltManager.runtimeconfig.json", "wwwroot" };
+        private static readonly string[] WwwrootOnly = { "wwwroot" };
+        private static readonly string[] WwwrootFamilyTxt = { "wwwroot/family.txt" };
+        private static readonly string[] UninstallExeOnly = { "uninstall.exe" };
         [Fact]
         public void Non_empty_unowned_directory_is_rejected_with_safe_suggestion()
         {
@@ -58,7 +66,7 @@ namespace VoltManager.Setup.Tests
             {
                 File.WriteAllText(Path.Combine(root, "VoltManager.exe"), "old");
                 File.WriteAllText(Path.Combine(root, "personal.txt"), "keep");
-                InstallManifest.Write(root, new[] { "VoltManager.exe" });
+                InstallManifest.Write(root, ExeOnly);
                 File.WriteAllText(Path.Combine(staging, "VoltManager.exe"), "new");
                 File.WriteAllText(Path.Combine(staging, "new-app.txt"), "new payload");
                 ZipFile.CreateFromDirectory(staging, trustedZip);
@@ -74,7 +82,7 @@ namespace VoltManager.Setup.Tests
                 Assert.False(File.Exists(Path.Combine(root, "new-app.txt")));
                 Assert.Equal("keep", File.ReadAllText(Path.Combine(root, "personal.txt")));
                 string[] manifest = InstallManifest.ReadOwnedEntries(root).OrderBy(value => value).ToArray();
-                Assert.Equal(new[] { "VoltManager.exe" }, manifest);
+                Assert.Equal(ExeOnly, manifest);
                 Assert.Equal(originalMarker, File.ReadAllBytes(marker));
                 Assert.Equal("new", File.ReadAllText(Path.Combine(staging, "VoltManager.exe")));
                 Assert.False(Directory.Exists(backup));
@@ -139,17 +147,17 @@ namespace VoltManager.Setup.Tests
                 File.WriteAllText(Path.Combine(oldPayload, "VoltManager.dll"), "signed old release contents");
                 File.WriteAllText(Path.Combine(newPayload, "VoltManager.dll"), "signed new release contents");
                 File.WriteAllText(Path.Combine(root, "VoltManager.dll"), "signed old release contents");
-                InstallManifest.Write(root, new[] { "VoltManager.dll" });
+                InstallManifest.Write(root, DllOnly);
                 string oldArchive = Path.Combine(archiveRoot, "old.zip");
                 string newArchive = Path.Combine(archiveRoot, "new.zip");
                 ZipFile.CreateFromDirectory(oldPayload, oldArchive);
                 ZipFile.CreateFromDirectory(newPayload, newArchive);
 
                 Assert.Throws<InvalidDataException>(() => InstallManifest.GetOwnedNamesForReplacement(
-                    root, new[] { "VoltManager.dll" }, newArchive));
+                    root, DllOnly, newArchive));
 
                 var verifiedNames = InstallManifest.GetOwnedNamesForReplacement(
-                    root, new[] { "VoltManager.dll" }, newArchive,
+                    root, DllOnly, newArchive,
                     trustedInstalledPayloadZipPath: oldArchive);
 
                 Assert.Contains("VoltManager.dll", verifiedNames);
@@ -211,13 +219,13 @@ namespace VoltManager.Setup.Tests
                 File.WriteAllText(Path.Combine(payload, "VoltManager.exe"), "foreign but byte-identical to release");
                 string zip = Path.Combine(reference, "trusted.zip");
                 ZipFile.CreateFromDirectory(payload, zip);
-                InstallManifest.Write(root, new[] { "VoltManager.dll" });
+                InstallManifest.Write(root, DllOnly);
 
                 Assert.Throws<InvalidDataException>(() => InstallManifest.GetOwnedNamesForReplacement(
-                    root, new[] { "VoltManager.dll", "VoltManager.exe" }, zip));
+                    root, DllAndExe, zip));
                 UninstallCleanupResult cleanup = InstallManifest.DeleteOwnedEntriesTolerant(root, zip);
                 Assert.Empty(cleanup.Failures);
-                Assert.Equal(new[] { "VoltManager.exe" }, cleanup.Retained);
+                Assert.Equal(ExeOnly, cleanup.Retained);
                 Assert.Equal("foreign but byte-identical to release",
                     File.ReadAllText(Path.Combine(root, "VoltManager.exe")));
                 Assert.False(File.Exists(Path.Combine(root, "VoltManager.dll")));
@@ -244,11 +252,11 @@ namespace VoltManager.Setup.Tests
                 File.WriteAllText(Path.Combine(payload, "VoltManager.dll"), "published bytes");
                 string zip = Path.Combine(reference, "trusted.zip");
                 ZipFile.CreateFromDirectory(payload, zip);
-                InstallManifest.Write(root, new[] { "VoltManager.dll" });
+                InstallManifest.Write(root, DllOnly);
                 byte[] marker = File.ReadAllBytes(Path.Combine(root, InstallManifest.FileName));
 
                 Assert.Throws<InvalidDataException>(() => InstallManifest.GetOwnedNamesForReplacement(
-                    root, new[] { "VoltManager.dll" }, zip));
+                    root, DllOnly, zip));
                 Assert.Equal(marker, File.ReadAllBytes(Path.Combine(root, InstallManifest.FileName)));
                 Assert.False(File.Exists(Path.Combine(root, "VoltManager.dll")));
             }
@@ -266,12 +274,12 @@ namespace VoltManager.Setup.Tests
                 File.WriteAllText(Path.Combine(payload, "VoltManager.dll"), "verified dll");
                 File.WriteAllText(Path.Combine(payload, "VoltManager.exe"), "verified exe");
                 File.WriteAllText(Path.Combine(root, "VoltManager.dll"), "verified dll");
-                InstallManifest.Write(root, new[] { "VoltManager.dll", "VoltManager.exe" });
+                InstallManifest.Write(root, DllAndExe);
                 string zip = Path.Combine(reference, "trusted.zip");
                 ZipFile.CreateFromDirectory(payload, zip);
 
                 Assert.Throws<InvalidDataException>(() => InstallManifest.GetOwnedNamesForReplacement(
-                    root, new[] { "VoltManager.dll", "VoltManager.exe" }, zip));
+                    root, DllAndExe, zip));
                 Assert.Equal("verified dll", File.ReadAllText(Path.Combine(root, "VoltManager.dll")));
                 Assert.False(File.Exists(Path.Combine(root, "VoltManager.exe")));
             }
@@ -315,7 +323,7 @@ namespace VoltManager.Setup.Tests
                 File.WriteAllText(Path.Combine(payload, "VoltManager.dll"), "authenticated old dll");
                 File.WriteAllText(Path.Combine(root, "VoltManager.dll"), "authenticated old dll");
                 File.WriteAllText(Path.Combine(root, "family.txt"), "must remain user data");
-                InstallManifest.Write(root, new[] { "VoltManager.dll" });
+                InstallManifest.Write(root, DllOnly);
                 string zip = Path.Combine(reference, "trusted-installed.zip");
                 ZipFile.CreateFromDirectory(payload, zip);
                 byte[] markerBefore = File.ReadAllBytes(Path.Combine(root, InstallManifest.FileName));
@@ -351,8 +359,8 @@ namespace VoltManager.Setup.Tests
                     File.WriteAllText(Path.Combine(root, "VoltManager.Orphan.dll"), "foreign binary");
                 File.WriteAllText(Path.Combine(root, "personal.txt"), "private data");
                 InstallManifest.Write(root, variant == "missing-listed"
-                    ? new[] { "VoltManager.dll", "VoltManager.exe" }
-                    : new[] { "VoltManager.dll" });
+                    ? DllAndExe
+                    : DllOnly);
                 string zip = Path.Combine(reference, "trusted-old.zip");
                 ZipFile.CreateFromDirectory(payload, zip);
                 byte[] markerBefore = File.ReadAllBytes(Path.Combine(root, InstallManifest.FileName));
@@ -382,7 +390,7 @@ namespace VoltManager.Setup.Tests
                 File.WriteAllText(Path.Combine(oldPayload, "VoltManager.dll"), "prior version");
                 File.WriteAllText(Path.Combine(newPayload, "VoltManager.dll"), "upcoming version");
                 File.WriteAllText(Path.Combine(root, "VoltManager.dll"), "prior version");
-                InstallManifest.Write(root, new[] { "VoltManager.dll" });
+                InstallManifest.Write(root, DllOnly);
                 string oldZip = Path.Combine(reference, "old.zip");
                 string newZip = Path.Combine(reference, "new.zip");
                 ZipFile.CreateFromDirectory(oldPayload, oldZip);
@@ -471,7 +479,7 @@ namespace VoltManager.Setup.Tests
                 File.WriteAllText(Path.Combine(payload, "VoltManager.exe"), "owned known file");
                 string trustedZip = Path.Combine(reference, "payload.zip");
                 ZipFile.CreateFromDirectory(payload, trustedZip);
-                InstallManifest.Write(root, new[] { "app.dat" });
+                InstallManifest.Write(root, AppDatOnly);
 
                 var failures = InstallManifest.DeleteOwnedEntries(root, trustedZip);
 
@@ -503,7 +511,7 @@ namespace VoltManager.Setup.Tests
                 File.WriteAllText(Path.Combine(payload, "VoltManager.exe"), "application");
                 string zip = Path.Combine(zipDir, "payload.zip");
                 ZipFile.CreateFromDirectory(payload, zip);
-                InstallManifest.Write(root, new[] { "VoltManager.exe" });
+                InstallManifest.Write(root, ExeOnly);
 
                 Assert.Empty(InstallManifest.DeleteOwnedEntries(root, zip));
 
@@ -529,7 +537,7 @@ namespace VoltManager.Setup.Tests
                 Directory.CreateDirectory(wwwroot);
                 File.WriteAllText(Path.Combine(root, "VoltManager.exe"), "application");
                 File.WriteAllText(Path.Combine(wwwroot, "index.html"), "keep web content");
-                InstallManifest.Write(root, new[] { "VoltManager.exe" });
+                InstallManifest.Write(root, ExeOnly);
 
                 var failures = InstallManifest.DeleteOwnedEntries(root);
 
@@ -562,10 +570,10 @@ namespace VoltManager.Setup.Tests
                 Directory.CreateDirectory(Path.Combine(root, "wwwroot", "js"));
                 File.Copy(Path.Combine(payload, "wwwroot", "index.html"), Path.Combine(root, "wwwroot", "index.html"));
                 File.Copy(Path.Combine(payload, "wwwroot", "js", "app.js"), Path.Combine(root, "wwwroot", "js", "app.js"));
-                InstallManifest.Write(root, new[] { "VoltManager.dll", "VoltManager.runtimeconfig.json", "wwwroot" });
+                InstallManifest.Write(root, FullPayloadManifest);
 
                 var replacement = InstallManifest.GetOwnedNamesForReplacement(root,
-                    new[] { "VoltManager.dll", "VoltManager.runtimeconfig.json", "wwwroot" }, zip);
+                    FullPayloadManifest, zip);
                 Assert.Contains("wwwroot", replacement);
                 Assert.Contains("VoltManager.dll", replacement);
                 Assert.Empty(InstallManifest.DeleteOwnedEntries(root, zip));
@@ -595,11 +603,11 @@ namespace VoltManager.Setup.Tests
                 File.WriteAllText(Path.Combine(root, "wwwroot", "index.html"), "web payload");
                 string foreign = Path.Combine(root, "wwwroot", "family.txt");
                 File.WriteAllText(foreign, "private nested data");
-                InstallManifest.Write(root, new[] { "wwwroot" });
+                InstallManifest.Write(root, WwwrootOnly);
 
                 UninstallCleanupResult cleanup = InstallManifest.DeleteOwnedEntriesTolerant(root, zip);
                 Assert.Empty(cleanup.Failures);
-                Assert.Equal(new[] { "wwwroot/family.txt" }, cleanup.Retained);
+                Assert.Equal(WwwrootFamilyTxt, cleanup.Retained);
                 Assert.Equal("private nested data", File.ReadAllText(foreign));
                 Assert.False(File.Exists(Path.Combine(root, "wwwroot", "index.html")));
 
@@ -639,11 +647,11 @@ namespace VoltManager.Setup.Tests
             {
                 string foreign = Path.Combine(root, "VoltManager.exe");
                 File.WriteAllText(foreign, "foreign executable contents");
-                InstallManifest.Write(root, new[] { "VoltManager.exe" });
+                InstallManifest.Write(root, ExeOnly);
 
                 Assert.NotEmpty(InstallManifest.DeleteOwnedEntries(root));
                 Assert.Throws<InvalidDataException>(() =>
-                    InstallManifest.GetOwnedNamesForReplacement(root, new[] { "VoltManager.exe" }));
+                    InstallManifest.GetOwnedNamesForReplacement(root, ExeOnly));
                 Assert.Equal("foreign executable contents", File.ReadAllText(foreign));
                 Assert.True(File.Exists(Path.Combine(root, InstallManifest.FileName)));
             }
@@ -656,7 +664,7 @@ namespace VoltManager.Setup.Tests
             string root = CreateTempDirectory();
             try
             {
-                var owned = InstallManifest.GetOwnedNamesForReplacement(root, new[] { "VoltManager.exe" });
+                var owned = InstallManifest.GetOwnedNamesForReplacement(root, ExeOnly);
                 Assert.Contains("VoltManager.exe", owned);
                 Assert.Contains(InstallManifest.FileName, owned);
             }
@@ -677,7 +685,7 @@ namespace VoltManager.Setup.Tests
                 File.WriteAllText(Path.Combine(payload, "VoltManager.dll"), "valid payload bytes");
                 ZipFile.CreateFromDirectory(payload, zip);
                 Assert.True(CreateHardLink(Path.Combine(root, "VoltManager.dll"), source, IntPtr.Zero));
-                InstallManifest.Write(root, new[] { "VoltManager.dll" });
+                InstallManifest.Write(root, DllOnly);
 
                 Assert.NotEmpty(InstallManifest.DeleteOwnedEntries(root, zip));
                 Assert.Equal("valid payload bytes", File.ReadAllText(source));
@@ -704,7 +712,7 @@ namespace VoltManager.Setup.Tests
                 File.WriteAllText(Path.Combine(payload, "VoltManager.dll"), "authentic published dll");
                 ZipFile.CreateFromDirectory(payload, zip);
                 File.WriteAllText(Path.Combine(root, "VoltManager.dll"), "unrecognized local contents");
-                InstallManifest.Write(root, new[] { "VoltManager.dll" });
+                InstallManifest.Write(root, DllOnly);
 
                 Assert.NotEmpty(InstallManifest.DeleteOwnedEntries(root, zip));
                 Assert.Equal("unrecognized local contents", File.ReadAllText(Path.Combine(root, "VoltManager.dll")));
@@ -763,7 +771,7 @@ namespace VoltManager.Setup.Tests
                 File.WriteAllText(installedDll, "preview-payload-v2");
                 File.WriteAllText(Path.Combine(payload, "VoltManager.dll"), "preview-payload-v2");
                 ZipFile.CreateFromDirectory(payload, zip);
-                InstallManifest.Write(root, new[] { "VoltManager.dll" });
+                InstallManifest.Write(root, DllOnly);
 
                 string copiedUninstaller = Path.Combine(root, "uninstall.exe");
                 File.Copy(typeof(InstallManifest).Assembly.Location, copiedUninstaller);
@@ -792,14 +800,14 @@ namespace VoltManager.Setup.Tests
                 File.WriteAllText(Path.Combine(root, "VoltManager.dll"), "payload");
                 File.WriteAllText(Path.Combine(payload, "VoltManager.dll"), "payload");
                 ZipFile.CreateFromDirectory(payload, zip);
-                InstallManifest.Write(root, new[] { "VoltManager.dll" });
+                InstallManifest.Write(root, DllOnly);
                 string uninstaller = Path.Combine(root, "uninstall.exe");
                 File.WriteAllText(uninstaller, "wrong version of the uninstaller");
 
                 UninstallCleanupResult cleanup = InstallManifest.DeleteOwnedEntriesTolerant(root, zip);
 
                 Assert.Empty(cleanup.Failures);
-                Assert.Equal(new[] { "uninstall.exe" }, cleanup.Retained);
+                Assert.Equal(UninstallExeOnly, cleanup.Retained);
                 Assert.Equal("wrong version of the uninstaller", File.ReadAllText(uninstaller));
                 Assert.False(File.Exists(Path.Combine(root, "VoltManager.dll")));
             }
@@ -941,7 +949,7 @@ namespace VoltManager.Setup.Tests
                 Assert.Throws<InvalidDataException>(() => InstallManifest.ReadOwnedEntries(root));
                 Assert.NotEmpty(InstallManifest.DeleteOwnedEntries(root, zip));
                 Assert.Throws<InvalidDataException>(() => InstallManifest.GetOwnedNamesForReplacement(
-                    root, new[] { "VoltManager.exe" }, zip));
+                    root, ExeOnly, zip));
                 Assert.Equal("trusted bytes", File.ReadAllText(Path.Combine(root, "VoltManager.exe")));
                 Assert.True(File.Exists(marker));
             }
@@ -974,7 +982,7 @@ namespace VoltManager.Setup.Tests
 
                 Assert.NotEmpty(InstallManifest.DeleteOwnedEntries(root, zip));
                 Assert.Throws<InvalidDataException>(() => InstallManifest.GetOwnedNamesForReplacement(
-                    root, new[] { "VoltManager.exe" }, zip));
+                    root, ExeOnly, zip));
                 Assert.Equal("trusted bytes", File.ReadAllText(Path.Combine(root, "VoltManager.exe")));
                 Assert.True(File.Exists(marker));
             }
@@ -1007,7 +1015,7 @@ namespace VoltManager.Setup.Tests
 
                 Assert.NotEmpty(InstallManifest.DeleteOwnedEntries(root, zip));
                 Assert.Throws<InvalidDataException>(() => InstallManifest.GetOwnedNamesForReplacement(
-                    root, new[] { "VoltManager.exe" }, zip));
+                    root, ExeOnly, zip));
                 Assert.Equal("foreign data", File.ReadAllText(privateFile));
                 Assert.True(File.Exists(Path.Combine(root, "VoltManager.exe")));
                 Assert.True(File.Exists(Path.Combine(root, InstallManifest.FileName)));
@@ -1049,7 +1057,7 @@ namespace VoltManager.Setup.Tests
                     Assert.Equal(0, process.ExitCode);
                 }
                 Assert.True((File.GetAttributes(web) & FileAttributes.ReparsePoint) != 0);
-                InstallManifest.Write(root, new[] { "wwwroot" });
+                InstallManifest.Write(root, WwwrootOnly);
 
                 Assert.NotEmpty(InstallManifest.DeleteOwnedEntries(root, zip));
                 Assert.Equal("private content", File.ReadAllText(Path.Combine(foreign, "index.html")));
@@ -1130,7 +1138,7 @@ namespace VoltManager.Setup.Tests
                     "{\"entries\":[\"personal.txt\"]}");
 
                 Assert.ThrowsAny<InvalidDataException>(() =>
-                    InstallManifest.GetOwnedNamesForReplacement(root, new[] { "VoltManager.exe" }));
+                    InstallManifest.GetOwnedNamesForReplacement(root, ExeOnly));
                 Assert.Equal("keep", File.ReadAllText(foreignFile));
             }
             finally { Cleanup(root); }

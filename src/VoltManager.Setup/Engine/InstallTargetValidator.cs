@@ -105,7 +105,7 @@ namespace VoltManager.Setup.Engine
             return null;
         }
 
-        private static IEnumerable<string> GetProtectedExactPaths()
+        private static HashSet<string> GetProtectedExactPaths()
         {
             var paths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             Add(paths, GetFolder(Environment.SpecialFolder.ProgramFiles));
@@ -135,7 +135,7 @@ namespace VoltManager.Setup.Engine
             return paths;
         }
 
-        private static void Add(ISet<string> paths, string? value)
+        private static void Add(HashSet<string> paths, string? value)
         {
             if (string.IsNullOrWhiteSpace(value)) return;
             try { paths.Add(Normalize(value!)); } catch { /* best-effort: malformed optional path candidates are skipped. */ }

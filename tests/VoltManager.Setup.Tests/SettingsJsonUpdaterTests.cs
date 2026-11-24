@@ -6,6 +6,9 @@ namespace VoltManager.Setup.Tests
 {
     public sealed class SettingsJsonUpdaterTests
     {
+        private static readonly string[] EnabledWidgets = { "clock", "power" };
+        private static readonly string[] MixedManifestCandidates = { "VoltManager.exe", "wwwroot", "..", "sub\file.dll" };
+        private static readonly string[] ExpectedSafeManifestEntries = { "VoltManager.exe", "wwwroot" };
         [Fact]
         public void Widgets_operation_preserves_unknown_top_level_keys_and_replaces_widget_state()
         {
@@ -16,7 +19,7 @@ namespace VoltManager.Setup.Tests
             SettingsJsonUpdater.SetWidgetsState(
                 root,
                 masterEnabled: true,
-                new HashSet<string>(new[] { "clock", "power" }, StringComparer.OrdinalIgnoreCase));
+                new HashSet<string>(EnabledWidgets, StringComparer.OrdinalIgnoreCase));
             root = Reparse(root);
 
             Assert.False(malformed);
@@ -105,11 +108,11 @@ namespace VoltManager.Setup.Tests
             System.IO.Directory.CreateDirectory(dir);
             try
             {
-                InstallManifest.Write(dir, new[] { "VoltManager.exe", "wwwroot", "..", "sub\file.dll" });
+                InstallManifest.Write(dir, MixedManifestCandidates);
 
                 var entries = InstallManifest.ReadOwnedEntries(dir);
 
-                Assert.Equal(new[] { "VoltManager.exe", "wwwroot" }, entries);
+                Assert.Equal(ExpectedSafeManifestEntries, entries);
             }
             finally
             {

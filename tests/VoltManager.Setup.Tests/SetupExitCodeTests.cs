@@ -6,6 +6,7 @@ namespace VoltManager.Setup.Tests
 {
     public sealed class SetupExitCodeTests
     {
+        private static readonly string[] SingleWarning = { "warning" };
         [Fact]
         public async Task RunAndExitAsync_maps_exception_to_nonzero_exit_code()
         {
@@ -26,7 +27,7 @@ namespace VoltManager.Setup.Tests
             result.Add("registry cleanup failed");
 
             Assert.Equal(3, App.GetSilentUninstallExitCode(result, Array.Empty<string>()));
-            Assert.Equal(3, App.GetSilentUninstallExitCode(new UninstallResult(), new[] { "warning" }));
+            Assert.Equal(3, App.GetSilentUninstallExitCode(new UninstallResult(), SingleWarning));
             Assert.Equal(0, App.GetSilentUninstallExitCode(new UninstallResult(), Array.Empty<string>()));
         }
     }

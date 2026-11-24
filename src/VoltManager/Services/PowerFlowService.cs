@@ -95,7 +95,7 @@ public sealed class PowerFlowService
         try
         {
             int? fullChargedCapacity = ReadFullChargedCapacity();
-            return WmiQuery.Read(
+            IReadOnlyList<BatteryPowerSnapshot> snapshots = WmiQuery.Read(
                 @"root\WMI",
                 "SELECT * FROM BatteryStatus",
                 obj => new BatteryPowerSnapshot
@@ -108,7 +108,8 @@ public sealed class PowerFlowService
                     RemainingCapacityMwh = ToInt(obj["RemainingCapacity"]),
                     VoltageMv = ToInt(obj["Voltage"]),
                     FullChargedCapacityMwh = fullChargedCapacity,
-                }).FirstOrDefault();
+                });
+            return snapshots.Count > 0 ? snapshots[0] : null;
         }
         catch
         {

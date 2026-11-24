@@ -8,7 +8,7 @@ using VoltManager.Services;
 
 namespace VoltManager.WindowsHarness;
 
-internal static class AppBenchmarkRunner
+internal static partial class AppBenchmarkRunner
 {
     private const uint Th32csSnapProcess = 0x00000002;
     private const int SwRestore = 9;
@@ -434,7 +434,7 @@ internal static class AppBenchmarkRunner
         if (snapshot == new IntPtr(-1)) return result;
         try
         {
-            var entry = new ProcessEntry32 { dwSize = (uint)Marshal.SizeOf<ProcessEntry32>() };
+            var entry = new ProcessEntry32 { dwSize = (uint)System.Runtime.CompilerServices.Unsafe.SizeOf<ProcessEntry32>() };
             if (!Process32First(snapshot, ref entry)) return result;
             do { result[(int)entry.th32ProcessID] = (int)entry.th32ParentProcessID; }
             while (Process32Next(snapshot, ref entry));
@@ -587,17 +587,45 @@ internal static class AppBenchmarkRunner
         try { if (!process.HasExited) process.Kill(entireProcessTree: true); } catch { }
     }
 
-    [DllImport("kernel32.dll", SetLastError = true)] private static extern IntPtr CreateToolhelp32Snapshot(uint dwFlags, uint th32ProcessID);
-    [DllImport("kernel32.dll", SetLastError = true)] private static extern bool Process32First(IntPtr hSnapshot, ref ProcessEntry32 lppe);
-    [DllImport("kernel32.dll", SetLastError = true)] private static extern bool Process32Next(IntPtr hSnapshot, ref ProcessEntry32 lppe);
-    [DllImport("kernel32.dll", SetLastError = true)] private static extern bool CloseHandle(IntPtr hObject);
-    [DllImport("user32.dll")] private static extern bool SetForegroundWindow(IntPtr hWnd);
-    [DllImport("user32.dll")] private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
-    [DllImport("user32.dll")] private static extern bool IsWindowVisible(IntPtr hWnd);
-    [DllImport("user32.dll")] private static extern bool IsHungAppWindow(IntPtr hWnd);
-    [DllImport("user32.dll", CharSet = CharSet.Auto)] private static extern bool PostMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
+    [LibraryImport("kernel32.dll", SetLastError = true)]
+    private static partial IntPtr CreateToolhelp32Snapshot(uint dwFlags, uint th32ProcessID);
 
-    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
+    [LibraryImport("kernel32.dll", EntryPoint = "Process32FirstW", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool Process32First(IntPtr hSnapshot, ref ProcessEntry32 lppe);
+
+    [LibraryImport("kernel32.dll", EntryPoint = "Process32NextW", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool Process32Next(IntPtr hSnapshot, ref ProcessEntry32 lppe);
+
+    [LibraryImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool CloseHandle(IntPtr hObject);
+
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool SetForegroundWindow(IntPtr hWnd);
+
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool IsWindowVisible(IntPtr hWnd);
+
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool IsHungAppWindow(IntPtr hWnd);
+
+    [LibraryImport("user32.dll", EntryPoint = "PostMessageW")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool PostMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
+
+    [System.Runtime.CompilerServices.InlineArray(260)]
+    private struct FixedUtf16_260 { private ushort _e0; }
+
+    [StructLayout(LayoutKind.Sequential)]
     private struct ProcessEntry32
     {
         public uint dwSize, cntUsage, th32ProcessID;
@@ -605,7 +633,7 @@ internal static class AppBenchmarkRunner
         public uint th32ModuleID, cntThreads, th32ParentProcessID;
         public int pcPriClassBase;
         public uint dwFlags;
-        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 260)] public string szExeFile;
+        public FixedUtf16_260 szExeFile;
     }
 }
 
@@ -642,7 +670,7 @@ internal sealed class PrivateWorkingSetSampler : IDisposable
         }
     }
 
-    private static Dictionary<int, string> FindInstances(IReadOnlySet<int> pids)
+    private static Dictionary<int, string> FindInstances(HashSet<int> pids)
     {
         var result = new Dictionary<int, string>();
         try

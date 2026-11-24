@@ -37,11 +37,12 @@ namespace VoltManager.Setup.Engine
         }
 
         public async Task UpdateAsync(
-            int waitPid, string version, CancellationToken ct = default,
+            int waitPid, string version,
             bool requireProcessExit = false,
             Action<string, bool>? onStage = null,
             string? updateSessionId = null,
-            Func<bool>? isHandoffAborted = null)
+            Func<bool>? isHandoffAborted = null,
+            CancellationToken ct = default)
         {
             void ThrowIfHandoffAborted()
             {

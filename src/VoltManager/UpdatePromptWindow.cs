@@ -38,7 +38,7 @@ public sealed class UpdatePromptWindow : Window
         Content = BuildContent(info);
     }
 
-    private UIElement BuildContent(UpdateInfo info)
+    private Border BuildContent(UpdateInfo info)
     {
         var root = new Border
         {

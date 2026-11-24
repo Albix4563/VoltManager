@@ -11,7 +11,7 @@ namespace VoltManager.Services;
 /// Optional safety: auto-disable on battery and/or after a max duration so the
 /// feature cannot silently drain a laptop overnight.
 /// </summary>
-public sealed class PowerAwakeService : IDisposable
+public sealed partial class PowerAwakeService : IDisposable
 {
     private const uint PowerRequestContextVersion = 0;
     private const uint PowerRequestContextSimpleString = 1;
@@ -276,13 +276,21 @@ public sealed class PowerAwakeService : IDisposable
 
         if (_requestHandle == IntPtr.Zero)
         {
-            var context = new PowerRequestContext
+            GCHandle reasonPin = GCHandle.Alloc("VoltManager keep-awake mode", GCHandleType.Pinned);
+            try
             {
-                Version = PowerRequestContextVersion,
-                Flags = PowerRequestContextSimpleString,
-                SimpleReasonString = "VoltManager keep-awake mode",
-            };
-            _requestHandle = PowerCreateRequest(ref context);
+                var context = new PowerRequestContext
+                {
+                    Version = PowerRequestContextVersion,
+                    Flags = PowerRequestContextSimpleString,
+                    SimpleReasonString = reasonPin.AddrOfPinnedObject(),
+                };
+                _requestHandle = PowerCreateRequest(ref context);
+            }
+            finally
+            {
+                reasonPin.Free();
+            }
             if (_requestHandle == IntPtr.Zero || _requestHandle == new IntPtr(-1))
             {
                 _requestHandle = IntPtr.Zero;
@@ -323,8 +331,7 @@ public sealed class PowerAwakeService : IDisposable
 
     private void ThrowIfDisposed()
     {
-        if (_disposed)
-            throw new ObjectDisposedException(nameof(PowerAwakeService));
+        ObjectDisposedException.ThrowIf(_disposed, this);
     }
 
     public void Dispose()
@@ -370,8 +377,9 @@ public sealed class PowerAwakeService : IDisposable
         public int BatteryFullLifeTime;
     }
 
-    [DllImport("kernel32.dll", SetLastError = true)]
-    private static extern bool GetSystemPowerStatus(out SystemPowerStatus sps);
+    [LibraryImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool GetSystemPowerStatus(out SystemPowerStatus sps);
 
     private enum PowerRequestType
     {
@@ -381,23 +389,26 @@ public sealed class PowerAwakeService : IDisposable
         PowerRequestExecutionRequired = 3,
     }
 
-    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    [StructLayout(LayoutKind.Sequential)]
     private struct PowerRequestContext
     {
         public uint Version;
         public uint Flags;
-        [MarshalAs(UnmanagedType.LPWStr)] public string SimpleReasonString;
+        public IntPtr SimpleReasonString;
     }
 
-    [DllImport("kernel32.dll", SetLastError = true)]
-    private static extern IntPtr PowerCreateRequest(ref PowerRequestContext context);
+    [LibraryImport("kernel32.dll", SetLastError = true)]
+    private static partial IntPtr PowerCreateRequest(ref PowerRequestContext context);
 
-    [DllImport("kernel32.dll", SetLastError = true)]
-    private static extern bool PowerSetRequest(IntPtr powerRequestHandle, PowerRequestType requestType);
+    [LibraryImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool PowerSetRequest(IntPtr powerRequestHandle, PowerRequestType requestType);
 
-    [DllImport("kernel32.dll", SetLastError = true)]
-    private static extern bool PowerClearRequest(IntPtr powerRequestHandle, PowerRequestType requestType);
+    [LibraryImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool PowerClearRequest(IntPtr powerRequestHandle, PowerRequestType requestType);
 
-    [DllImport("kernel32.dll", SetLastError = true)]
-    private static extern bool CloseHandle(IntPtr handle);
+    [LibraryImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool CloseHandle(IntPtr handle);
 }

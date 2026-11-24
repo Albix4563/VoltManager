@@ -49,8 +49,7 @@ internal sealed class WebViewFailureBudget
         TimeSpan? rendererFailureWindow = null,
         Func<long>? nowMilliseconds = null)
     {
-        if (rendererReloadLimit < 1)
-            throw new ArgumentOutOfRangeException(nameof(rendererReloadLimit));
+        ArgumentOutOfRangeException.ThrowIfLessThan(rendererReloadLimit, 1);
         _rendererReloadLimit = rendererReloadLimit;
         _rendererFailureWindowMilliseconds = (long)(rendererFailureWindow ?? TimeSpan.FromMinutes(2)).TotalMilliseconds;
         _nowMilliseconds = nowMilliseconds ?? (() => Environment.TickCount64);
@@ -106,8 +105,8 @@ internal sealed class SlidingFailureWindow
         TimeSpan window,
         Func<DateTimeOffset>? utcNow = null)
     {
-        if (threshold < 1) throw new ArgumentOutOfRangeException(nameof(threshold));
-        if (window <= TimeSpan.Zero) throw new ArgumentOutOfRangeException(nameof(window));
+        ArgumentOutOfRangeException.ThrowIfLessThan(threshold, 1);
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(window, TimeSpan.Zero);
         _threshold = threshold;
         _window = window;
         _utcNow = utcNow ?? (() => DateTimeOffset.UtcNow);

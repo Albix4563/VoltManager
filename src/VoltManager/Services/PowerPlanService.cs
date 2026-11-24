@@ -10,7 +10,7 @@ namespace VoltManager.Services;
 /// <summary>
 /// Wraps powercfg. Parses output by GUID only — names are localized (Italian Windows).
 /// </summary>
-public class PowerPlanService
+public partial class PowerPlanService
 {
     public const string SaverGuid = "a1841308-3541-4fab-bc81-f71556f20b4a";
     public const string BalancedGuid = "381b4222-f694-41f0-9685-ff5bb260df2e";
@@ -80,11 +80,11 @@ public class PowerPlanService
         _clock = clock;
     }
 
-    [DllImport("powrprof.dll")]
-    private static extern uint PowerGetActiveScheme(IntPtr userRootPowerKey, out IntPtr activePolicyGuid);
+    [LibraryImport("powrprof.dll")]
+    private static partial uint PowerGetActiveScheme(IntPtr userRootPowerKey, out IntPtr activePolicyGuid);
 
-    [DllImport("kernel32.dll")]
-    private static extern IntPtr LocalFree(IntPtr memory);
+    [LibraryImport("kernel32.dll")]
+    private static partial IntPtr LocalFree(IntPtr memory);
 
     private static Guid? ReadActiveScheme()
     {

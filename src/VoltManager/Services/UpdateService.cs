@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Net.Http;
 using System.Reflection;
 using VoltManager.Models;
@@ -7,6 +8,7 @@ namespace VoltManager.Services;
 public sealed class UpdateService : IDisposable
 {
     internal const string InteractiveUpdateProtocolMarker = "VoltManagerUpdateUiProtocol-v1.txt";
+    private static readonly SearchValues<char> VersionSuffixDelimiters = SearchValues.Create("-+");
     private readonly SettingsService _settings;
     private readonly HttpClient _http;
     private readonly GitHubUpdateClient _github;
@@ -225,7 +227,7 @@ public sealed class UpdateService : IDisposable
 
     internal static string VersionCore(string version)
     {
-        int end = version.IndexOfAny(new[] { '-', '+' });
+        int end = version.AsSpan().IndexOfAny(VersionSuffixDelimiters);
         return end >= 0 ? version[..end] : version;
     }
 

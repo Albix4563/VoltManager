@@ -223,6 +223,7 @@ public class GpuCounterProvider : IDisposable
     {
         _disposed = true;
         _ready = false;
+        GC.SuppressFinalize(this);
         // A cold PERFLIB enumeration can hold the gate for seconds; shutdown must
         // not wait for it. The gate owner disposes the counters when it sees _disposed.
         if (!System.Threading.Monitor.TryEnter(_gate, DisposeGateTimeout)) return;

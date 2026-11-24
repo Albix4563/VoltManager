@@ -10,6 +10,7 @@ namespace VoltManager.Setup.Tests
         private static readonly byte[] OldApp = { 0x00, 0xD3, 0x1A, 0xFF, 0x80 };
         private static readonly byte[] PrivateData = { 0x91, 0x00, 0xFF, 0x62, 0x08 };
         private static readonly byte[] StagedScript = { 0x10, 0x30, 0x50, 0x00, 0xEE };
+        private static readonly string[] DllOnlyManifest = { "VoltManager.dll" };
 
         [Theory]
         [InlineData(false)]
@@ -73,7 +74,7 @@ namespace VoltManager.Setup.Tests
                 string existingApp = fixture.WriteFile("destination/VoltManager.dll", OldApp);
                 string personalFile = fixture.WriteFile("destination/personal.txt", PrivateData);
                 string stagedScript = fixture.WriteFile("staging/wwwroot/main.js", StagedScript);
-                InstallManifest.Write(fixture.Destination, new[] { "VoltManager.dll" });
+                InstallManifest.Write(fixture.Destination, DllOnlyManifest);
                 string manifest = Path.Combine(fixture.Destination, InstallManifest.FileName);
                 byte[] manifestBefore = File.ReadAllBytes(manifest);
                 string zip = fixture.CreateArchive(
@@ -108,7 +109,7 @@ namespace VoltManager.Setup.Tests
                 if (addForeignFile)
                     fixture.WriteFile("staging/wwwroot/js/extra.js", PrivateData);
 
-                InstallManifest.Write(fixture.Destination, new[] { "VoltManager.dll" });
+                InstallManifest.Write(fixture.Destination, DllOnlyManifest);
                 string manifest = Path.Combine(fixture.Destination, InstallManifest.FileName);
                 byte[] markerBefore = File.ReadAllBytes(manifest);
                 string zip = fixture.CreateArchive(

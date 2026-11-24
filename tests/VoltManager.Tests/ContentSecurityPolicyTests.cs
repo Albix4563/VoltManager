@@ -3,29 +3,41 @@ using System.Text.RegularExpressions;
 
 namespace VoltManager.Tests;
 
-public class ContentSecurityPolicyTests
+public partial class ContentSecurityPolicyTests
 {
+    [GeneratedRegex(@"<head>\s*(?<first><meta\b[^>]*>)", RegexOptions.IgnoreCase | RegexOptions.Singleline)]
+    private static partial Regex HeadFirstMetaRegex();
+
+    [GeneratedRegex(@"\bcontent=""(?<policy>[^""]*)""", RegexOptions.IgnoreCase | RegexOptions.Singleline)]
+    private static partial Regex CspContentAttributeRegex();
+
+    [GeneratedRegex(@"(?:^|;)\s*script-src\s+(?<value>[^;]+)", RegexOptions.IgnoreCase)]
+    private static partial Regex ScriptSrcDirectiveRegex();
+
+    [GeneratedRegex(@"<script\b(?<attrs>[^>]*)>", RegexOptions.IgnoreCase | RegexOptions.Singleline)]
+    private static partial Regex ScriptTagRegex();
+
+    [GeneratedRegex(@"\son[a-z]+\s*=\s*""", RegexOptions.IgnoreCase | RegexOptions.Singleline)]
+    private static partial Regex InlineEventHandlerRegex();
+
     [Theory]
     [InlineData("index.html")]
     [InlineData("widgets.html")]
     public void Web_pages_enforce_script_safe_content_security_policy(string page)
     {
         string html = LocateWebAsset(page);
-        Match headStart = Regex.Match(html, @"<head>\s*(?<first><meta\b[^>]*>)",
-            RegexOptions.IgnoreCase | RegexOptions.Singleline);
+        Match headStart = HeadFirstMetaRegex().Match(html);
 
         Assert.True(headStart.Success, $"{page} must have a meta element as the first element in head.");
         string cspMeta = headStart.Groups["first"].Value;
         Assert.True(cspMeta.Contains("http-equiv=\"Content-Security-Policy\"", StringComparison.OrdinalIgnoreCase),
             $"{page} must place the CSP meta first in head.");
 
-        Match content = Regex.Match(cspMeta, @"\bcontent=""(?<policy>[^""]*)""",
-            RegexOptions.IgnoreCase | RegexOptions.Singleline);
+        Match content = CspContentAttributeRegex().Match(cspMeta);
         Assert.True(content.Success, $"{page} CSP meta must have a content attribute.");
         string policy = content.Groups["policy"].Value;
 
-        Match scriptDirective = Regex.Match(policy, @"(?:^|;)\s*script-src\s+(?<value>[^;]+)",
-            RegexOptions.IgnoreCase);
+        Match scriptDirective = ScriptSrcDirectiveRegex().Match(policy);
         Assert.True(scriptDirective.Success, $"{page} CSP must define script-src.");
         string scriptSources = scriptDirective.Groups["value"].Value;
         Assert.Contains("'self'", scriptSources);
@@ -38,14 +50,12 @@ public class ContentSecurityPolicyTests
         Assert.DoesNotMatch(@"(?i)<style\b", html);
         Assert.DoesNotMatch(@"(?i)\sstyle\s*=", html);
 
-        foreach (Match script in Regex.Matches(html, @"<script\b(?<attrs>[^>]*)>",
-                     RegexOptions.IgnoreCase | RegexOptions.Singleline).Cast<Match>())
+        foreach (Match script in ScriptTagRegex().Matches(html).Cast<Match>())
         {
             Assert.Matches(@"\bsrc\s*=", script.Groups["attrs"].Value);
         }
 
-        Assert.False(Regex.IsMatch(html, @"\son[a-z]+\s*=\s*""",
-            RegexOptions.IgnoreCase | RegexOptions.Singleline));
+        Assert.DoesNotMatch(InlineEventHandlerRegex(), html);
     }
 
     private static string LocateWebAsset(params string[] pathParts)

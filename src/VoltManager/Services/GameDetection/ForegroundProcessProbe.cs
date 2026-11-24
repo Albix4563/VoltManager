@@ -8,7 +8,7 @@ namespace VoltManager.Services.GameDetection;
 /// windows (where GetForegroundWindow may return null or a shell helper).
 /// No injection; user32 only.
 /// </summary>
-public static class ForegroundProcessProbe
+public static partial class ForegroundProcessProbe
 {
     private const int GwlExStyle = -20;
     private const int WsExToolWindow = 0x00000080;
@@ -16,38 +16,44 @@ public static class ForegroundProcessProbe
     private const uint MonitorDefaultToNearest = 2;
     private const int DefaultFullscreenTolerancePx = 16;
 
-    [DllImport("user32.dll")]
-    private static extern IntPtr GetForegroundWindow();
+    [LibraryImport("user32.dll")]
+    private static partial IntPtr GetForegroundWindow();
 
-    [DllImport("user32.dll", SetLastError = true)]
-    private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
+    [LibraryImport("user32.dll", SetLastError = true)]
+    private static partial uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
 
-    [DllImport("user32.dll")]
-    private static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool EnumWindows(IntPtr lpEnumFunc, IntPtr lParam);
 
-    [DllImport("user32.dll")]
-    private static extern bool IsWindowVisible(IntPtr hWnd);
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool IsWindowVisible(IntPtr hWnd);
 
-    [DllImport("user32.dll")]
-    private static extern bool IsIconic(IntPtr hWnd);
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool IsIconic(IntPtr hWnd);
 
-    [DllImport("user32.dll")]
-    private static extern bool GetWindowRect(IntPtr hWnd, out Rect lpRect);
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool GetWindowRect(IntPtr hWnd, out Rect lpRect);
 
-    [DllImport("user32.dll", SetLastError = true)]
-    private static extern int GetWindowLong(IntPtr hWnd, int nIndex);
+    [LibraryImport("user32.dll", EntryPoint = "GetWindowLongW", SetLastError = true)]
+    private static partial int GetWindowLong(IntPtr hWnd, int nIndex);
 
-    [DllImport("user32.dll")]
-    private static extern IntPtr MonitorFromWindow(IntPtr hwnd, uint dwFlags);
+    [LibraryImport("user32.dll")]
+    private static partial IntPtr MonitorFromWindow(IntPtr hwnd, uint dwFlags);
 
-    [DllImport("user32.dll", CharSet = CharSet.Auto)]
-    private static extern bool GetMonitorInfo(IntPtr hMonitor, ref MonitorInfo lpmi);
+    [LibraryImport("user32.dll", EntryPoint = "GetMonitorInfoW")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool GetMonitorInfo(IntPtr hMonitor, ref MonitorInfo lpmi);
 
-    [DllImport("shell32.dll")]
-    private static extern int SHQueryUserNotificationState(out int state);
+    [LibraryImport("shell32.dll")]
+    private static partial int SHQueryUserNotificationState(out int state);
 
     private const int QunsRunningD3DFullScreen = 3;
 
+    [UnmanagedFunctionPointer(CallingConvention.Winapi)]
     private delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
 
     [StructLayout(LayoutKind.Sequential)]
@@ -59,7 +65,7 @@ public static class ForegroundProcessProbe
         public int Bottom;
     }
 
-    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
+    [StructLayout(LayoutKind.Sequential)]
     private struct MonitorInfo
     {
         public int CbSize;
@@ -94,7 +100,7 @@ public static class ForegroundProcessProbe
 
         try
         {
-            EnumWindows((hWnd, _) =>
+            EnumWindowsProc proc = (hWnd, _) =>
             {
                 if (!IsWindowVisible(hWnd) || IsIconic(hWnd))
                     return true;
@@ -120,11 +126,18 @@ public static class ForegroundProcessProbe
                         DefaultFullscreenTolerancePx))
                     return true;
 
-                GetWindowThreadProcessId(hWnd, out uint pid);
-                if (pid != 0)
+                if (GetWindowThreadProcessId(hWnd, out uint pid) != 0 && pid != 0)
                     pids.Add(unchecked((int)pid));
                 return true;
-            }, IntPtr.Zero);
+            };
+            try
+            {
+                EnumWindows(Marshal.GetFunctionPointerForDelegate(proc), IntPtr.Zero);
+            }
+            finally
+            {
+                GC.KeepAlive(proc);
+            }
         }
         catch
         {

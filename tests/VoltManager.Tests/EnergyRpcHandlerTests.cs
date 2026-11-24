@@ -172,6 +172,9 @@ public class EnergyRpcHandlerTests
         Assert.Equal(0, calls);
     }
 
+    private static readonly string[] DeletedExtraPlanGuids = ["guid-a", "guid-b"];
+    private static readonly string[] DismissedExtraPlanGuids = ["guid-c"];
+
     [Fact]
     public async Task ExtraPlanRpcMethods_delegate_guid_payloads()
     {
@@ -190,11 +193,11 @@ public class EnergyRpcHandlerTests
         object? found = await handler.HandleAsync("findExtraPlans", default, CancellationToken.None);
         object? deleteResult = await handler.HandleAsync(
             "deleteExtraPlans",
-            Payload(new { guids = new[] { "guid-a", "guid-b" } }),
+            Payload(new { guids = DeletedExtraPlanGuids }),
             CancellationToken.None);
         await handler.HandleAsync(
             "dismissExtraPlans",
-            Payload(new { guids = new[] { "guid-c" } }),
+            Payload(new { guids = DismissedExtraPlanGuids }),
             CancellationToken.None);
 
         Assert.Same(report, found);

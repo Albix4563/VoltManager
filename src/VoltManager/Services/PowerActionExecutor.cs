@@ -6,7 +6,7 @@ using VoltManager.Models;
 
 namespace VoltManager.Services;
 
-public sealed class PowerActionExecutor : IPowerActionExecutor
+public sealed partial class PowerActionExecutor : IPowerActionExecutor
 {
     private readonly Func<ProcessStartInfo, Process?> _startProcess;
 
@@ -17,9 +17,9 @@ public sealed class PowerActionExecutor : IPowerActionExecutor
     internal PowerActionExecutor(Func<ProcessStartInfo, Process?> startProcess)
         => _startProcess = startProcess ?? throw new ArgumentNullException(nameof(startProcess));
 
-    [DllImport("powrprof.dll", SetLastError = true)]
+    [LibraryImport("powrprof.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.U1)]
-    private static extern bool SetSuspendState(
+    private static partial bool SetSuspendState(
         [MarshalAs(UnmanagedType.U1)] bool hibernate,
         [MarshalAs(UnmanagedType.U1)] bool forceCritical,
         [MarshalAs(UnmanagedType.U1)] bool disableWakeEvent);
@@ -29,8 +29,7 @@ public sealed class PowerActionExecutor : IPowerActionExecutor
 
     public void Execute(ScheduledPowerActionType action, int shutdownDelaySeconds)
     {
-        if (shutdownDelaySeconds < 0)
-            throw new ArgumentOutOfRangeException(nameof(shutdownDelaySeconds));
+        ArgumentOutOfRangeException.ThrowIfNegative(shutdownDelaySeconds);
 
         switch (action)
         {

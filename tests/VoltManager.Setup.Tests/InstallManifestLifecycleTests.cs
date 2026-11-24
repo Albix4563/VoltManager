@@ -7,6 +7,8 @@ namespace VoltManager.Setup.Tests;
 
 public sealed class InstallManifestLifecycleTests
 {
+    private static readonly string[] ExpectedRetainedPrivateNotes = { "wwwroot/js/private-notes.txt" };
+    private static readonly string[] ExpectedRetainedUserNotes = { "user-notes.txt" };
     [Fact]
     public void Staged_payload_with_modified_file_must_be_rejected_before_installing_any_bytes()
     {
@@ -75,7 +77,7 @@ public sealed class InstallManifestLifecycleTests
             // A foreign file no longer blocks uninstall: verified files go, the foreign one stays.
             UninstallCleanupResult cleanup = InstallManifest.DeleteOwnedEntriesTolerant(destination, repairZip);
             Assert.Empty(cleanup.Failures);
-            Assert.Equal(new[] { "wwwroot/js/private-notes.txt" }, cleanup.Retained);
+            Assert.Equal(ExpectedRetainedPrivateNotes, cleanup.Retained);
             Assert.Equal("foreign fixture content", File.ReadAllText(unrelated));
             Assert.False(File.Exists(Path.Combine(destination, "VoltManager.dll")));
             Assert.False(File.Exists(Path.Combine(destination, InstallManifest.FileName)));
@@ -161,7 +163,7 @@ public sealed class InstallManifestLifecycleTests
             File.Copy(typeof(InstallManifest).Assembly.Location, Path.Combine(destination, "uninstall.exe"));
             UninstallCleanupResult cleanup = InstallManifest.DeleteOwnedEntriesTolerant(destination, zipB);
             Assert.Empty(cleanup.Failures);
-            Assert.Equal(new[] { "user-notes.txt" }, cleanup.Retained);
+            Assert.Equal(ExpectedRetainedUserNotes, cleanup.Retained);
             Assert.Equal("user data outside the payload", File.ReadAllText(notes));
             Assert.Equal(new[] { notes }, Directory.GetFileSystemEntries(destination));
         }

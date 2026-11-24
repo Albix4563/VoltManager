@@ -2,8 +2,8 @@ namespace VoltManager.Services.GameDetection;
 
 public static class GameConfidenceScorer
 {
-    private static readonly IReadOnlyDictionary<string, int> GroupCaps =
-        new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+    private static readonly Dictionary<string, int> GroupCaps =
+        new(StringComparer.OrdinalIgnoreCase)
         {
             ["identity"] = 50,
             ["provenance"] = 35,
@@ -24,7 +24,13 @@ public static class GameConfidenceScorer
         long positives = items
             .Where(item => item.Weight > 0 && GroupCaps.ContainsKey(item.Group))
             .GroupBy(item => item.Group, StringComparer.OrdinalIgnoreCase)
-            .Sum(group => Math.Min((long)GroupCaps[group.Key], group.Sum(item => (long)item.Weight)));
+            .Sum(static (IGrouping<string, GameDetectionEvidence> group) =>
+            {
+                long weight = 0;
+                foreach (GameDetectionEvidence item in group)
+                    weight += item.Weight;
+                return Math.Min((long)GroupCaps[group.Key], weight);
+            });
         long penalties = items.Where(item => item.Weight < 0).Sum(item => (long)item.Weight);
         int score = (int)Math.Clamp(positives + penalties, 0L, 100L);
 

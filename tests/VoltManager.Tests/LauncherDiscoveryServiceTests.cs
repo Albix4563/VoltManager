@@ -10,6 +10,11 @@ namespace VoltManager.Tests;
 
 public sealed class LauncherDiscoveryServiceTests : IDisposable
 {
+    private static readonly string[] ExpectedSteamAndEpicIds = ["steam", "epic"];
+    private static readonly string[] ExpectedBattlenetAndRiotIds = ["battlenet", "riot"];
+    private static readonly string[] ExpectedNormalizedHiddenIds = ["steam"];
+    private static readonly string[] ExpectedNormalizedCategories = ["games", "games", "apps"];
+
     private readonly string _settingsPath = Path.Combine(Path.GetTempPath(), $"voltmanager-launcher-{Guid.NewGuid():N}.json");
     private readonly FakeLauncherEnvironment _env = new();
     private readonly List<(string Path, string? Args)> _launched = new();
@@ -36,7 +41,7 @@ public sealed class LauncherDiscoveryServiceTests : IDisposable
 
         var launchers = await Create().GetLaunchersAsync(refresh: false);
 
-        Assert.Equal(new[] { "steam", "epic" }, launchers.Select(l => l.Id));
+        Assert.Equal(ExpectedSteamAndEpicIds, launchers.Select(l => l.Id));
         Assert.All(launchers, l => Assert.Equal("detected", l.Source));
         Assert.Equal(@"c:\program files (x86)\steam\steam.exe", launchers[0].Path, ignoreCase: true);
         Assert.NotNull(launchers[0].IconDataUrl);
@@ -108,7 +113,7 @@ public sealed class LauncherDiscoveryServiceTests : IDisposable
 
         var launchers = await Create().GetLaunchersAsync(refresh: false);
 
-        Assert.Equal(new[] { "battlenet", "riot" }, launchers.Select(l => l.Id));
+        Assert.Equal(ExpectedBattlenetAndRiotIds, launchers.Select(l => l.Id));
         Assert.Equal(@"E:\Riot Games\Riot Client\RiotClientServices.exe", launchers[1].Path);
     }
 
@@ -291,7 +296,7 @@ public sealed class LauncherDiscoveryServiceTests : IDisposable
         Assert.Equal(LauncherSettings.CustomIdFor(@"D:\A\app.exe"), app.Id);
         Assert.Equal("app", app.Name);
         Assert.Equal("games", app.Category);
-        Assert.Equal(new[] { "steam" }, settings.HiddenIds);
+        Assert.Equal(ExpectedNormalizedHiddenIds, settings.HiddenIds);
     }
 
     [Fact]
@@ -309,7 +314,7 @@ public sealed class LauncherDiscoveryServiceTests : IDisposable
 
         settings.Normalize();
 
-        Assert.Equal(new[] { "games", "games", "apps" }, settings.CustomApps.Select(x => x.Category));
+        Assert.Equal(ExpectedNormalizedCategories, settings.CustomApps.Select(x => x.Category));
     }
 
     [Fact]

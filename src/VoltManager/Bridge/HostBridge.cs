@@ -294,6 +294,7 @@ public class HostBridge : IDisposable
 
         _disposed = true;
         _lifetime.Dispose();
+        GC.SuppressFinalize(this);
     }
 
     public void PushEvent(string name, object data)

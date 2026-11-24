@@ -7,7 +7,7 @@ using VoltManager.Services;
 
 namespace VoltManager.WindowsHarness;
 
-internal static class SoakRunner
+internal static partial class SoakRunner
 {
     private const uint WmNull = 0x0000;
     private const uint WmClose = 0x0010;
@@ -297,8 +297,8 @@ internal static class SoakRunner
                 if (hwnd == mainWindow || !IsWindowVisible(hwnd))
                     return true;
 
-                GetWindowThreadProcessId(hwnd, out uint pid);
-                if (pid != hostPid)
+                uint threadId = GetWindowThreadProcessId(hwnd, out uint pid);
+                if (threadId == 0 || pid != hostPid)
                     return true;
 
                 int exStyle = GetWindowLong(hwnd, GwlExStyle);
@@ -477,8 +477,8 @@ internal static class SoakRunner
         catch { return 0; }
     }
 
-    [DllImport("user32.dll", SetLastError = true)]
-    private static extern IntPtr SendMessageTimeout(
+    [LibraryImport("user32.dll", EntryPoint = "SendMessageTimeoutW", SetLastError = true)]
+    private static partial IntPtr SendMessageTimeout(
         IntPtr hWnd,
         uint Msg,
         IntPtr wParam,
@@ -487,39 +487,40 @@ internal static class SoakRunner
         uint uTimeout,
         out IntPtr lpdwResult);
 
-    [DllImport("user32.dll")]
-    private static extern int GetGuiResources(IntPtr hProcess, int uiFlags);
+    [LibraryImport("user32.dll")]
+    private static partial int GetGuiResources(IntPtr hProcess, int uiFlags);
 
-    [DllImport("user32.dll")]
+    [LibraryImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool EnumWindows(EnumWindowsProc callback, IntPtr lParam);
+    private static partial bool EnumWindows(EnumWindowsProc callback, IntPtr lParam);
 
-    [DllImport("user32.dll")]
-    private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
+    [LibraryImport("user32.dll")]
+    private static partial uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
 
-    [DllImport("user32.dll")]
+    [LibraryImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool IsWindowVisible(IntPtr hWnd);
+    private static partial bool IsWindowVisible(IntPtr hWnd);
 
-    [DllImport("user32.dll")]
+    [LibraryImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool IsWindow(IntPtr hWnd);
+    private static partial bool IsWindow(IntPtr hWnd);
 
-    [DllImport("user32.dll")]
+    [LibraryImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+    private static partial bool ShowWindow(IntPtr hWnd, int nCmdShow);
 
-    [DllImport("user32.dll", CharSet = CharSet.Auto)]
+    [LibraryImport("user32.dll", EntryPoint = "PostMessageW")]
     [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool PostMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
+    private static partial bool PostMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
 
-    [DllImport("user32.dll")]
-    private static extern int GetWindowLong(IntPtr hWnd, int nIndex);
+    [LibraryImport("user32.dll", EntryPoint = "GetWindowLongW")]
+    private static partial int GetWindowLong(IntPtr hWnd, int nIndex);
 
-    [DllImport("user32.dll")]
+    [LibraryImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool GetWindowRect(IntPtr hWnd, out Rect rect);
+    private static partial bool GetWindowRect(IntPtr hWnd, out Rect rect);
 
+    [return: MarshalAs(UnmanagedType.Bool)]
     private delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
 
     [StructLayout(LayoutKind.Sequential)]
@@ -536,7 +537,7 @@ internal static class SoakRunner
         private readonly Dictionary<int, Process> _tracked = new();
         private bool _crashDetected;
 
-        public bool Observe(IReadOnlySet<int> currentPids, int rootPid, int hostPid)
+        public bool Observe(HashSet<int> currentPids, int rootPid, int hostPid)
         {
             foreach (var pair in _tracked.ToArray())
             {

@@ -30,6 +30,16 @@ namespace VoltManager.Setup.Tests
         private const uint ScMaximize = 0xF030;
         private const uint ScMinimize = 0xF020;
 
+        private static readonly string[] DarkHostPalette = {
+            "#0B1120", "#111827", "#1E293B", "#123456", "#567890",
+            "#ABCDEF", "#F8FAFC", "#CBD5E1", "#434343", "#FFFFFF"
+        };
+
+        private static readonly string[] LightHostPalette = {
+            "#FFFFFF", "#F1F5F9", "#E2E8F0", "#1D4ED8", "#3B82F6",
+            "#1E40AF", "#0F172A", "#334155", "#CBD5E1", "#000000"
+        };
+
         [DllImport("user32.dll")]
         private static extern IntPtr GetSystemMenu(IntPtr windowHandle, bool revert);
 
@@ -198,11 +208,7 @@ namespace VoltManager.Setup.Tests
         {
             WpfSetupHost.Run(() =>
             {
-                string[] dark = {
-                    "#0B1120", "#111827", "#1E293B", "#123456", "#567890",
-                    "#ABCDEF", "#F8FAFC", "#CBD5E1", "#434343", "#FFFFFF"
-                };
-                ApplyHostPalette(dark);
+                ApplyHostPalette(DarkHostPalette);
 
                 UpdateWindow darkWindow = CreateWindow();
                 Assert.Equal(Color.FromRgb(0x12, 0x34, 0x56), ColorOf(ResourceBrush("AccentBrush")));
@@ -213,11 +219,7 @@ namespace VoltManager.Setup.Tests
                     ColorOf(((Border)darkWindow.FindName("Footer")).Background));
                 Assert.Equal(Color.FromRgb(0x1E, 0x29, 0x3B), ColorOf(ResourceBrush("InsetBrush")));
 
-                string[] light = {
-                    "#FFFFFF", "#F1F5F9", "#E2E8F0", "#1D4ED8", "#3B82F6",
-                    "#1E40AF", "#0F172A", "#334155", "#CBD5E1", "#000000"
-                };
-                ApplyHostPalette(light);
+                ApplyHostPalette(LightHostPalette);
 
                 UpdateWindow lightWindow = CreateWindow();
                 Assert.Equal(Color.FromRgb(0x1D, 0x4E, 0xD8), ColorOf(ResourceBrush("AccentBrush")));

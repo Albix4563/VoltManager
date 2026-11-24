@@ -53,9 +53,9 @@ namespace VoltManager.Setup.Engine
         internal Func<CancellationToken, Task> Execute { get; }
     }
 
-    internal sealed class SetupWorkflowRunner
+    internal static class SetupWorkflowRunner
     {
-        internal async Task<SetupWorkflowResult> RunAsync(
+        internal static async Task<SetupWorkflowResult> RunAsync(
             IEnumerable<SetupWorkflowStep> steps,
             CancellationToken cancellationToken,
             Action<string, bool>? onStepTransition = null)

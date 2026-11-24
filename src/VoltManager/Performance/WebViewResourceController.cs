@@ -1,3 +1,5 @@
+using System.Diagnostics.CodeAnalysis;
+
 namespace VoltManager.Performance;
 
 public sealed record WebViewResourcePlan(
@@ -13,6 +15,8 @@ public sealed record WebViewResourcePlan(
 /// </summary>
 public sealed class WebViewResourceController
 {
+    [SuppressMessage("Performance", "CA1822:Mark members as static",
+        Justification = "Preserves public instance signature used by callers and tests outside this scope.")]
     public WebViewResourcePlan Resolve(ResourceProfile profile, bool visible, bool active = true)
     {
         if (!visible)

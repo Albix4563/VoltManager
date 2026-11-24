@@ -41,7 +41,7 @@ public sealed class ProcessSnapshot
 /// Image paths are resolved lazily and cached per (pid, start time), so a long-running
 /// process is resolved once instead of on every scan.
 /// </summary>
-public static class ProcessSnapshotProvider
+public static partial class ProcessSnapshotProvider
 {
     private const int SystemProcessInformation = 5;
     private const uint StatusSuccess = 0x00000000;
@@ -61,8 +61,8 @@ public static class ProcessSnapshotProvider
     private const int OffWorkingSetSize = 0x90;
     private const int EntryMinSize = 0x98;
 
-    [DllImport("ntdll.dll")]
-    private static extern uint NtQuerySystemInformation(
+    [LibraryImport("ntdll.dll")]
+    private static partial uint NtQuerySystemInformation(
         int systemInformationClass, IntPtr systemInformation, int systemInformationLength, out int returnLength);
 
     private static readonly object Gate = new();
@@ -277,7 +277,10 @@ public static class ProcessSnapshotProvider
     // launcher-ancestry detection still works on the managed fallback path.
     private const uint Th32csSnapProcess = 0x00000002;
 
-    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    [System.Runtime.CompilerServices.InlineArray(260)]
+    private struct FixedUtf16_260 { private ushort _e0; }
+
+    [StructLayout(LayoutKind.Sequential)]
     private struct ProcessEntry32W
     {
         public uint DwSize;
@@ -289,21 +292,23 @@ public static class ProcessSnapshotProvider
         public uint Th32ParentProcessId;
         public int PcPriClassBase;
         public uint DwFlags;
-        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 260)]
-        public string SzExeFile;
+        public FixedUtf16_260 SzExeFile;
     }
 
-    [DllImport("kernel32.dll", SetLastError = true)]
-    private static extern IntPtr CreateToolhelp32Snapshot(uint dwFlags, uint th32ProcessId);
+    [LibraryImport("kernel32.dll", SetLastError = true)]
+    private static partial IntPtr CreateToolhelp32Snapshot(uint dwFlags, uint th32ProcessId);
 
-    [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
-    private static extern bool Process32FirstW(IntPtr hSnapshot, ref ProcessEntry32W lppe);
+    [LibraryImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool Process32FirstW(IntPtr hSnapshot, ref ProcessEntry32W lppe);
 
-    [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
-    private static extern bool Process32NextW(IntPtr hSnapshot, ref ProcessEntry32W lppe);
+    [LibraryImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool Process32NextW(IntPtr hSnapshot, ref ProcessEntry32W lppe);
 
-    [DllImport("kernel32.dll", SetLastError = true)]
-    private static extern bool CloseHandle(IntPtr hObject);
+    [LibraryImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool CloseHandle(IntPtr hObject);
 
     private static readonly IntPtr InvalidHandleValue = new(-1);
 
@@ -320,7 +325,7 @@ public static class ProcessSnapshotProvider
 
         try
         {
-            var entry = new ProcessEntry32W { DwSize = (uint)Marshal.SizeOf<ProcessEntry32W>() };
+            var entry = new ProcessEntry32W { DwSize = (uint)System.Runtime.CompilerServices.Unsafe.SizeOf<ProcessEntry32W>() };
             if (!Process32FirstW(snap, ref entry))
                 return map;
 

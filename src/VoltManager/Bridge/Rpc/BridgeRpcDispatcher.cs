@@ -5,7 +5,7 @@ namespace VoltManager.Bridge.Rpc;
 
 public sealed class BridgeRpcDispatcher
 {
-    private readonly IReadOnlyDictionary<string, IBridgeRpcHandler> _handlers;
+    private readonly ReadOnlyDictionary<string, IBridgeRpcHandler> _handlers;
     private readonly IReadOnlyCollection<string> _methods;
     private readonly Func<string, string> _unknownMethodMessage;
 

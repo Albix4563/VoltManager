@@ -8,6 +8,7 @@
     <IsTestProject>true</IsTestProject>
     <!-- Match main app RID so project reference resolves cleanly. -->
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>

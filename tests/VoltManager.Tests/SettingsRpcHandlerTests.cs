@@ -10,6 +10,10 @@ namespace VoltManager.Tests;
 
 public class SettingsRpcHandlerTests
 {
+    private static readonly string[] DefaultWebThemeCatalog = ["blue"];
+    private static readonly string[] ExpectedDismissedExtraPlanGuids = ["dismissed-guid"];
+    private static readonly string[] ExpectedHiddenLauncherIds = ["steam"];
+
     private sealed class FakeDialogs : IBridgeFileDialogService
     {
         public string? SavePath { get; set; }
@@ -34,7 +38,7 @@ public class SettingsRpcHandlerTests
         var loc = new LocalizationService();
         var actions = new SettingsRpcActions(
             GetWebTheme: () => new { color = "blue" },
-            GetWebThemeCatalog: () => new[] { "blue" },
+            GetWebThemeCatalog: () => DefaultWebThemeCatalog,
             RefreshAppPowerProfiles: refreshProfiles ?? (() => { }),
             RefreshHeavyAppDetection: refreshHeavy ?? (() => { }),
             RebuildJumpList: () => { },
@@ -136,12 +140,12 @@ public class SettingsRpcHandlerTests
 
         Assert.False(settings.Current.CloseToTray);
         Assert.Equal("machine-guid", settings.Current.PlanGuidMap["Balanced"]);
-        Assert.Equal(new[] { "dismissed-guid" }, settings.Current.DismissedExtraPlanGuids);
+        Assert.Equal(ExpectedDismissedExtraPlanGuids, settings.Current.DismissedExtraPlanGuids);
         Assert.Equal(7, settings.Current.AutostartTaskSchemaVersion);
         Assert.Equal("it", settings.Current.Language);
         Assert.False(settings.Current.Widgets.Enabled);
         Assert.Equal(@"D:\Games\tool.exe", Assert.Single(settings.Current.Launcher.CustomApps).Path);
-        Assert.Equal(new[] { "steam" }, settings.Current.Launcher.HiddenIds);
+        Assert.Equal(ExpectedHiddenLauncherIds, settings.Current.Launcher.HiddenIds);
         Assert.Equal(new DateTime(2026, 9, 21, 0, 0, 0, DateTimeKind.Utc),
             settings.Current.AutoUpdates.SnoozedUntilUtc);
         Assert.Equal(1, profiles);

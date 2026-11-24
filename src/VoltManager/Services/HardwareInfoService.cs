@@ -5,7 +5,7 @@ using VoltManager.Models;
 
 namespace VoltManager.Services;
 
-public class HardwareInfoService
+public partial class HardwareInfoService
 {
     private SystemInfo? _cached;
 
@@ -230,12 +230,13 @@ public class HardwareInfoService
 
     private readonly record struct GpuWmiRow(string? Name, long AdapterRamBytes, string? PnpDeviceId);
 
-    [DllImport("kernel32.dll", SetLastError = true)]
-    private static extern bool GetSystemPowerStatus(out SystemPowerStatus status);
-
-    [DllImport("kernel32.dll", SetLastError = true)]
+    [LibraryImport("kernel32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool GlobalMemoryStatusEx(ref MemoryStatusEx buffer);
+    private static partial bool GetSystemPowerStatus(out SystemPowerStatus status);
+
+    [LibraryImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool GlobalMemoryStatusEx(ref MemoryStatusEx buffer);
 
     [StructLayout(LayoutKind.Sequential)]
     private struct SystemPowerStatus

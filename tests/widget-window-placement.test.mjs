@@ -16,13 +16,13 @@ test('widget native placement is verified and has a corrective fallback', () => 
 
   assert.match(
     widgetWindow,
-    /DllImport\("user32\.dll",\s*SetLastError\s*=\s*true\)[\s\S]*?SetWindowPos/,
+    /(?:Dll|Library)Import\("user32\.dll",\s*SetLastError\s*=\s*true\)[\s\S]*?SetWindowPos/,
     'SetWindowPos failures must preserve the Win32 error code for diagnostics'
   );
 
   assert.match(
     widgetWindow,
-    /DllImport\("user32\.dll",\s*SetLastError\s*=\s*true\)[\s\S]*?MoveWindow/,
+    /(?:Dll|Library)Import\("user32\.dll",\s*SetLastError\s*=\s*true\)[\s\S]*?MoveWindow/,
     'MoveWindow failures must preserve the Win32 error code for diagnostics'
   );
 });

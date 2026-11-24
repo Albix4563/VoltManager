@@ -31,7 +31,11 @@ namespace VoltManager.Services
         {
             if (!TryValidateId(id, out string normalized))
                 throw new ArgumentException("Invalid update session identifier.", nameof(id));
+#if NETFRAMEWORK
             if (legacyArguments == null || legacyArguments.IndexOf('"') >= 0)
+#else
+            if (legacyArguments == null || legacyArguments.Contains('"'))
+#endif
                 throw new ArgumentException("Invalid legacy update arguments.", nameof(legacyArguments));
             string arguments = legacyArguments + " " + SessionArgument + " \"" + normalized + "\"";
             if (!string.IsNullOrWhiteSpace(encodedPalette))
@@ -67,7 +71,7 @@ namespace VoltManager.Services
 
         public static bool TryDecodePalette(string value, out string[] colors)
         {
-            colors = new string[0];
+            colors = Array.Empty<string>();
             if (string.IsNullOrWhiteSpace(value) || value.Length > 1024)
                 return false;
             try
@@ -78,7 +82,7 @@ namespace VoltManager.Services
 #if NETFRAMEWORK
                 string[] parsed = new JavaScriptSerializer().Deserialize<string[]>(json);
 #else
-                string[] parsed = JsonSerializer.Deserialize<string[]>(json) ?? new string[0];
+                string[] parsed = JsonSerializer.Deserialize<string[]>(json) ?? Array.Empty<string>();
 #endif
                 if (!IsValidPalette(parsed)) return false;
                 colors = parsed;

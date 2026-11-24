@@ -53,6 +53,7 @@ namespace VoltManager.Setup.Engine
     {
         private const string UpdateRepo = "Albix4563/VoltManager";
         private const int MaxChecksumsBytes = 64 * 1024;
+        private static readonly char[] LineFeedSeparator = { '\n' };
 
         private readonly Func<HttpClient> _httpFactory;
         private readonly string _updatesRoot;
@@ -257,7 +258,7 @@ namespace VoltManager.Setup.Engine
                 throw new ArgumentNullException(nameof(text));
 
             var result = new Dictionary<string, string>(StringComparer.Ordinal);
-            string[] lines = text.Split(new[] { '\n' });
+            string[] lines = text.Split(LineFeedSeparator);
             for (int index = 0; index < lines.Length; index++)
             {
                 string line = lines[index];

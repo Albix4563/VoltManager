@@ -11,6 +11,11 @@ namespace VoltManager.Setup.Tests
 {
     public sealed class InstallTransactionSnapshotTests
     {
+        private static readonly string[] SnapshotManifestEntries =
+        {
+            "VoltManager.exe", "VoltManager.dll",
+            "VoltManager.exe.config", "wwwroot",
+        };
         [Fact]
         public void Failed_last_staged_rename_restores_entire_original_tree_and_all_staged_bytes()
         {
@@ -29,11 +34,7 @@ namespace VoltManager.Setup.Tests
                     File.GetAttributes(personalBinary) | FileAttributes.ReadOnly);
                 fixture.AddDirectory("destination/UserData/empty-private/nested");
                 fixture.AddFile("destination/personal.txt", "private data");
-                InstallManifest.Write(fixture.Destination, new[]
-                {
-                    "VoltManager.exe", "VoltManager.dll",
-                    "VoltManager.exe.config", "wwwroot",
-                });
+                InstallManifest.Write(fixture.Destination, SnapshotManifestEntries);
 
                 // The installed bytes must independently match the trusted ZIP
                 // before a destructive replacement is attempted. New assets below
@@ -93,7 +94,7 @@ namespace VoltManager.Setup.Tests
             }
         }
 
-        private static IReadOnlyList<EntrySnapshot> SnapshotTree(string root)
+        private static EntrySnapshot[] SnapshotTree(string root)
         {
             Assert.True(Directory.Exists(root), "Expected snapshot root to exist: " + root);
             var snapshot = new List<EntrySnapshot>

@@ -53,6 +53,8 @@ namespace VoltManager.Setup.Engine
         private const string STARTUP_TASK   = "VoltManagerAutostart";
         private const string WEBVIEW2_CLIENT = "{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}";
 
+        private static readonly char[] QuoteSpecialChars = { ' ', '\t', '"' };
+
         private readonly IInstallProcessOperations _processOperations;
         private readonly IPreviewReleaseClient _previewReleaseClient;
         private readonly Func<string?> _findLegacyInnoUninstaller;
@@ -60,7 +62,6 @@ namespace VoltManager.Setup.Engine
         private readonly Func<string?> _readInstallLocation;
         private readonly Action<string> _requireProtectedInstallLocation;
         private readonly Func<string?> _trustedInstalledPayloadZipPath;
-        private readonly SetupWorkflowRunner _workflowRunner = new SetupWorkflowRunner();
         private readonly List<string> _operationWarnings = new List<string>();
 
         public event Action<string, double>? Progress; // (statusText, 0-100)
@@ -231,7 +232,7 @@ namespace VoltManager.Setup.Engine
 
             try
             {
-                CompleteWorkflow(await _workflowRunner.RunAsync(steps, ct).ConfigureAwait(false), ct);
+                CompleteWorkflow(await SetupWorkflowRunner.RunAsync(steps, ct).ConfigureAwait(false), ct);
             }
             finally
             {
@@ -304,7 +305,7 @@ namespace VoltManager.Setup.Engine
                 }),
             };
 
-            CompleteWorkflow(await _workflowRunner.RunAsync(steps, ct,
+            CompleteWorkflow(await SetupWorkflowRunner.RunAsync(steps, ct,
                 (name, completed) => UpdateStepTransition?.Invoke(name, completed)).ConfigureAwait(false), ct);
             UpdatePayloadInstalled = true;
         }
@@ -639,6 +640,7 @@ namespace VoltManager.Setup.Engine
 
         public sealed class PreviewPayloadExtractor : MarshalByRefObject
         {
+            [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "Executed via MarshalByRefObject proxy across AppDomain boundary.")]
             public bool CopyEmbeddedPayload(string previewSetupExe, string zipPath)
             {
                 var asm = Assembly.Load(File.ReadAllBytes(previewSetupExe));
@@ -678,6 +680,7 @@ namespace VoltManager.Setup.Engine
 
         public sealed class InstalledPayloadReader : MarshalByRefObject
         {
+            [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "Executed via MarshalByRefObject proxy across AppDomain boundary.")]
             public byte[]? Read(string setupImagePath)
             {
                 Assembly image = Assembly.ReflectionOnlyLoadFrom(setupImagePath);
@@ -776,7 +779,7 @@ namespace VoltManager.Setup.Engine
         private static string QuoteArg(string value)
         {
             if (value.Length == 0) return "\"\"";
-            if (value.IndexOfAny(new[] { ' ', '\t', '"' }) < 0) return value;
+            if (value.IndexOfAny(QuoteSpecialChars) < 0) return value;
             return "\"" + value.Replace("\"", "\\\"") + "\"";
         }
 
@@ -1517,7 +1520,7 @@ namespace VoltManager.Setup.Engine
             ((IPersistFile)link).Save(lnkPath, false);
         }
 
-        private static void CreateStartupTask(string installDir, ICollection<string> warnings)
+        private static void CreateStartupTask(string installDir, List<string> warnings)
         {
             if (!InstallDirectorySecurity.IsUnderProgramFiles(installDir))
             {

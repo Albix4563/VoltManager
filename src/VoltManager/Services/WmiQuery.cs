@@ -78,7 +78,7 @@ internal static class WmiQuery
     {
         TimeSpan effectiveTimeout = timeout ?? DefaultTimeout;
         string normalizedNamespace = NormalizeNamespace(namespacePath);
-        BoundedOperationResult<IReadOnlyList<T>> result = (executor ?? DefaultExecutor).Run(
+        BoundedOperationResult<IReadOnlyList<T>> result = (executor ?? DefaultExecutor).Run<IReadOnlyList<T>>(
             () => ReadCore(normalizedNamespace, query, projector, effectiveTimeout),
             effectiveTimeout);
 
@@ -106,7 +106,7 @@ internal static class WmiQuery
     {
         TimeSpan effectiveTimeout = timeout ?? DefaultTimeout;
         string normalizedNamespace = NormalizeNamespace(namespacePath);
-        BoundedOperationResult<IReadOnlyList<T>> result = (executor ?? DefaultExecutor).Run(
+        BoundedOperationResult<IReadOnlyList<T>> result = (executor ?? DefaultExecutor).Run<IReadOnlyList<T>>(
             () => ReadCore(normalizedNamespace, query, projector, effectiveTimeout),
             effectiveTimeout);
 
@@ -123,7 +123,7 @@ internal static class WmiQuery
         IBoundedOperationExecutor? executor = null)
         => (executor ?? DefaultExecutor).Run(operation, timeout);
 
-    private static IReadOnlyList<T> ReadCore<T>(
+    private static List<T> ReadCore<T>(
         string namespacePath,
         string query,
         Func<ManagementObject, T> projector,

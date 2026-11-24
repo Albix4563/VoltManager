@@ -29,6 +29,12 @@ namespace VoltManager.Setup.Engine
         private static readonly HashSet<string> KnownAppFileNames =
             new HashSet<string>(KnownAppEntries, StringComparer.OrdinalIgnoreCase);
 
+        private static readonly HashSet<string> ReservedWin32DeviceNames =
+            new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                "CON", "PRN", "AUX", "NUL", "CONIN$", "CONOUT$", "CLOCK$"
+            };
+
         internal static IReadOnlyCollection<string> ReadOwnedEntries(string installDir)
         {
             string marker = Path.Combine(installDir, FileName);
@@ -620,8 +626,7 @@ namespace VoltManager.Setup.Engine
                 name!.IndexOf(Path.DirectorySeparatorChar) >= 0 ||
                 name.IndexOf(Path.AltDirectorySeparatorChar) >= 0) return false;
             string device = name.Split('.')[0];
-            if (new[] { "CON", "PRN", "AUX", "NUL", "CONIN$", "CONOUT$", "CLOCK$" }
-                .Contains(device, StringComparer.OrdinalIgnoreCase)) return false;
+            if (ReservedWin32DeviceNames.Contains(device)) return false;
             if (device.Length == 4 && (device.StartsWith("COM", StringComparison.OrdinalIgnoreCase) ||
                 device.StartsWith("LPT", StringComparison.OrdinalIgnoreCase)) &&
                 ((device[3] >= '1' && device[3] <= '9') ||

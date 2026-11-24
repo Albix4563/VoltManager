@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 using VoltManager.Models;
 
@@ -11,7 +12,7 @@ namespace VoltManager.Services;
 /// Requires administrator rights (the app already runs elevated) and
 /// SeProfileSingleProcessPrivilege (present in the default admin token).
 /// </summary>
-public class MemoryOptimizerService
+public partial class MemoryOptimizerService
 {
     // ── P/Invoke declarations ──────────────────────────────────────────────────
 
@@ -29,8 +30,9 @@ public class MemoryOptimizerService
         public ulong ullAvailExtendedVirtual;
     }
 
-    [DllImport("kernel32.dll", SetLastError = true)]
-    private static extern bool GlobalMemoryStatusEx(ref MEMORYSTATUSEX lpBuffer);
+    [LibraryImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool GlobalMemoryStatusEx(ref MEMORYSTATUSEX lpBuffer);
 
     // ── Performance counter for standby (cached) pages ────────────────────────
     // "Memory\Standby Cache Normal Priority Bytes" + "Reserve Bytes" + "Core Bytes"
@@ -50,8 +52,8 @@ public class MemoryOptimizerService
 
     // ── NtSetSystemInformation for purge ──────────────────────────────────────
     // infoClass 80 = SystemMemoryListInformation, command value 4 = MemoryPurgeStandbyList
-    [DllImport("ntdll.dll")]
-    private static extern int NtSetSystemInformation(int infoClass, ref int info, int length);
+    [LibraryImport("ntdll.dll")]
+    private static partial int NtSetSystemInformation(int infoClass, ref int info, int length);
 
     private const int SystemMemoryListInformation = 80;
     private const int MemoryPurgeStandbyList      = 4;
@@ -72,21 +74,27 @@ public class MemoryOptimizerService
 
     private const uint SE_PRIVILEGE_ENABLED = 0x00000002;
 
-    [DllImport("advapi32.dll", SetLastError = true)]
-    private static extern bool OpenProcessToken(IntPtr hProcess, uint desiredAccess, out IntPtr tokenHandle);
-
-    [DllImport("advapi32.dll", SetLastError = true)]
-    private static extern bool LookupPrivilegeValue(string? lpSystemName, string lpName, out LUID lpLuid);
-
-    [DllImport("advapi32.dll", SetLastError = true)]
-    private static extern bool AdjustTokenPrivileges(
-        IntPtr tokenHandle, bool disableAllPrivileges,
-        ref TOKEN_PRIVILEGES newState, uint bufferLength,
-        IntPtr previousState, IntPtr returnLength);
-
-    [DllImport("kernel32.dll", SetLastError = true)]
+    [LibraryImport("advapi32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool CloseHandle(IntPtr hObject);
+    private static partial bool OpenProcessToken(IntPtr hProcess, uint desiredAccess, out IntPtr tokenHandle);
+
+    [LibraryImport("advapi32.dll", EntryPoint = "LookupPrivilegeValueW", StringMarshalling = StringMarshalling.Utf16, SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool LookupPrivilegeValue(string? lpSystemName, string lpName, out LUID lpLuid);
+
+    [LibraryImport("advapi32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool AdjustTokenPrivileges(
+        IntPtr tokenHandle,
+        [MarshalAs(UnmanagedType.Bool)] bool disableAllPrivileges,
+        ref TOKEN_PRIVILEGES newState,
+        uint bufferLength,
+        IntPtr previousState,
+        IntPtr returnLength);
+
+    [LibraryImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool CloseHandle(IntPtr hObject);
 
     private const uint TOKEN_ADJUST_PRIVILEGES = 0x0020;
     private const uint TOKEN_QUERY             = 0x0008;
@@ -96,6 +104,7 @@ public class MemoryOptimizerService
     /// <summary>
     /// Returns a snapshot of the current memory layout (total, in-use, standby, free).
     /// </summary>
+    [SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "Preserved as instance method for existing callers outside this change scope.")]
     public MemoryStatus GetMemoryStatus()
     {
         var ms = new MEMORYSTATUSEX { dwLength = (uint)Marshal.SizeOf<MEMORYSTATUSEX>() };
@@ -136,6 +145,7 @@ public class MemoryOptimizerService
     /// Requires SeProfileSingleProcessPrivilege — already present in the admin token.
     /// Returns true if the NT call succeeded.
     /// </summary>
+    [SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "Preserved as instance method for existing callers outside this change scope.")]
     public bool PurgeStandbyList()
     {
         EnablePrivilege("SeProfileSingleProcessPrivilege");

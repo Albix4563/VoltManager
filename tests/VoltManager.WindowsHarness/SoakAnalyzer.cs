@@ -172,7 +172,7 @@ internal static class SoakAnalyzer
     }
 
     private static void AddGrowthCheck(
-        ICollection<SoakCheckResult> checks,
+        List<SoakCheckResult> checks,
         string name,
         IReadOnlyList<SoakSample> samples,
         double slope,
@@ -188,7 +188,7 @@ internal static class SoakAnalyzer
     }
 
     private static void AddNullableGrowthCheck(
-        ICollection<SoakCheckResult> checks,
+        List<SoakCheckResult> checks,
         string name,
         IReadOnlyList<SoakSample> samples,
         double slope,

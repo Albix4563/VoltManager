@@ -7,11 +7,10 @@ using System.Text.RegularExpressions;
 
 namespace VoltManager.Tests;
 
-public sealed class NoEmptyCatchTests
+public sealed partial class NoEmptyCatchTests
 {
-    private static readonly Regex EmptyCatch = new(
-        @"catch(\s*\([^)]*\))?\s*\{\s*\}",
-        RegexOptions.Compiled);
+    [GeneratedRegex(@"catch(\s*\([^)]*\))?\s*\{\s*\}")]
+    private static partial Regex EmptyCatch();
 
     [Fact]
     public void Source_has_no_empty_catch_blocks()
@@ -27,7 +26,7 @@ public sealed class NoEmptyCatchTests
                 continue;
 
             string text = File.ReadAllText(file);
-            foreach (Match match in EmptyCatch.Matches(text))
+            foreach (Match match in EmptyCatch().Matches(text))
             {
                 int line = text.Take(match.Index).Count(ch => ch == '\n') + 1;
                 failures.Add(Path.GetRelativePath(root, file) + ":" + line);

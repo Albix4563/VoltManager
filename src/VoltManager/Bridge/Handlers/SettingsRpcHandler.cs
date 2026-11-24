@@ -230,8 +230,9 @@ public sealed class SettingsRpcHandler : IBridgeRpcHandler
             return (_settings.Current.ThemeColor, normalizedCustom);
         }
 
-        AppThemeColorExtensions.TryParse(requested, out AppThemeColor themeColor);
-        return (themeColor, null);
+        return AppThemeColorExtensions.TryParse(requested, out AppThemeColor themeColor)
+            ? (themeColor, null)
+            : (AppThemeColor.Blue, null);
     }
 
     private async Task<object> ExportSettingsAsync(CancellationToken cancellationToken)

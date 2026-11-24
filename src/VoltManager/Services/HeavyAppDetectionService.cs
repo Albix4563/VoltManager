@@ -55,9 +55,8 @@ public sealed class HeavyAppDetectionService : IDisposable
     private readonly HeavyAppEvidenceCollector _evidenceCollector;
     private readonly HeavyAppTracker _tracker = new();
     private readonly object _lock = new();
+    private readonly PeriodicScanRunner _runner;
     private Timer? _timer;
-    private int _scanRunning;
-    private bool _scanFaulted; // throttles scan-failure logging to once per streak
     private HeavyAppDetectionState _current = new();
 
     public event Action<HeavyAppDetectionState>? ActivityChanged;
@@ -77,6 +76,7 @@ public sealed class HeavyAppDetectionService : IDisposable
             gpu3DByProcess: gpu3DByProcess,
             gpuPreferenceReader: ReadWindowsHighPerformanceGpuPreferences,
             launcherAncestor: IsLauncherAncestor);
+        _runner = new PeriodicScanRunner(ScanInterval, Scan, "Heavy-app scan failed");
     }
 
     public HeavyAppDetectionState Current
@@ -84,52 +84,18 @@ public sealed class HeavyAppDetectionService : IDisposable
         get { lock (_lock) return _current; }
     }
 
-    public void Start()
-    {
-        lock (_lock)
-            _timer ??= new Timer(_ => ScanSafe(), null, TimeSpan.Zero, ScanInterval);
-    }
+    public void Start() => _runner.Start(_lock, ref _timer, TimeSpan.Zero);
 
     /// <summary>Starts detection after <paramref name="delay"/> to avoid
     /// competing with other startup work for process handles and WMI.</summary>
-    public void StartDelayed(TimeSpan delay)
-    {
-        lock (_lock)
-            _timer ??= new Timer(_ => ScanSafe(), null, delay, ScanInterval);
-    }
+    public void StartDelayed(TimeSpan delay) => _runner.Start(_lock, ref _timer, delay);
 
-    public void Stop()
-    {
-        Timer? timer;
-        lock (_lock)
-        {
-            timer = _timer;
-            _timer = null;
-        }
-        timer?.Dispose();
-    }
+    public void Stop() => PeriodicScanRunner.Stop(_lock, ref _timer);
 
     public HeavyAppDetectionState Refresh()
     {
-        ScanSafe();
+        _runner.RunOnce();
         return Current;
-    }
-
-    private void ScanSafe()
-    {
-        if (Interlocked.Exchange(ref _scanRunning, 1) != 0) return;
-        try
-        {
-            Scan();
-            _scanFaulted = false;
-        }
-        catch (Exception ex)
-        {
-            // Detection must never crash the background automation loop;
-            // log the first failure of a streak so a real bug isn't hidden.
-            _scanFaulted = Logger.WarnOnce(_scanFaulted, "Heavy-app scan failed", ex);
-        }
-        finally { Volatile.Write(ref _scanRunning, 0); }
     }
 
     private void Scan()
@@ -531,7 +497,7 @@ public sealed class HeavyAppDetectionService : IDisposable
             return false;
         if (normalizedPath.Equals(installRoot, StringComparison.OrdinalIgnoreCase))
             return true;
-        string prefix = installRoot.EndsWith("\\", StringComparison.Ordinal) ? installRoot : installRoot + "\\";
+        string prefix = installRoot.EndsWith('\\') ? installRoot : installRoot + "\\";
         return normalizedPath.StartsWith(prefix, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -710,7 +676,7 @@ public sealed class HeavyAppDetectionService : IDisposable
             string normalizedEntry = NormalizePath(entry);
             if (normalizedPath.Equals(normalizedEntry, StringComparison.OrdinalIgnoreCase))
                 return true;
-            string prefix = normalizedEntry.EndsWith("\\", StringComparison.Ordinal)
+            string prefix = normalizedEntry.EndsWith('\\')
                 ? normalizedEntry
                 : normalizedEntry + "\\";
             if (normalizedPath.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))

@@ -10,40 +10,45 @@ namespace VoltManager.Setup.Tests
 {
     public sealed class SetupWorkflowTests
     {
+        private static readonly string[] ExpectedOrderedTransitions =
+        {
+            "validate:False", "validate:True", "install:False", "install:True"
+        };
+        private static readonly string[] ExpectedBrokenTransition = { "broken:False" };
+        private static readonly string[] ExpectedFirstCallOnly = { "first" };
+        private static readonly string[] ExeOnlyManifest = { "VoltManager.exe" };
+
         [Fact]
         public async Task Runner_notifies_each_step_start_and_completion_in_order()
         {
             var transitions = new List<string>();
-            var runner = new SetupWorkflowRunner();
-            SetupWorkflowResult result = await runner.RunAsync(new[]
+            SetupWorkflowResult result = await SetupWorkflowRunner.RunAsync(new[]
             {
                 new SetupWorkflowStep("validate", _ => Task.CompletedTask),
                 new SetupWorkflowStep("install", _ => Task.CompletedTask),
             }, CancellationToken.None, (name, complete) => transitions.Add(name + ":" + complete));
 
             Assert.True(result.Success);
-            Assert.Equal(new[] { "validate:False", "validate:True", "install:False", "install:True" }, transitions);
+            Assert.Equal(ExpectedOrderedTransitions, transitions);
         }
 
         [Fact]
         public async Task Runner_does_not_report_failed_step_as_completed()
         {
             var transitions = new List<string>();
-            var runner = new SetupWorkflowRunner();
-            SetupWorkflowResult result = await runner.RunAsync(new[]
+            SetupWorkflowResult result = await SetupWorkflowRunner.RunAsync(new[]
             {
                 new SetupWorkflowStep("broken", _ => throw new IOException("synthetic")),
             }, CancellationToken.None, (name, complete) => transitions.Add(name + ":" + complete));
 
             Assert.False(result.Success);
-            Assert.Equal(new[] { "broken:False" }, transitions);
+            Assert.Equal(ExpectedBrokenTransition, transitions);
         }
 
         [Fact]
         public async Task Runner_stops_at_first_failure_and_records_diagnostic()
         {
             var calls = new List<string>();
-            var runner = new SetupWorkflowRunner();
             var steps = new[]
             {
                 new SetupWorkflowStep("first", _ => { calls.Add("first"); return Task.CompletedTask; }),
@@ -51,20 +56,19 @@ namespace VoltManager.Setup.Tests
                 new SetupWorkflowStep("never", _ => { calls.Add("never"); return Task.CompletedTask; }),
             };
 
-            SetupWorkflowResult result = await runner.RunAsync(steps, CancellationToken.None);
+            SetupWorkflowResult result = await SetupWorkflowRunner.RunAsync(steps, CancellationToken.None);
 
             Assert.False(result.Success);
             Assert.False(result.Cancelled);
             Assert.Equal("broken", result.FailedStep);
             Assert.Contains("boom", result.Summary);
-            Assert.Equal(new[] { "first" }, calls);
+            Assert.Equal(ExpectedFirstCallOnly, calls);
         }
 
         [Fact]
         public async Task Runner_records_cancellation_without_executing_later_steps()
         {
             var cts = new CancellationTokenSource();
-            var runner = new SetupWorkflowRunner();
             var calls = new List<string>();
             var steps = new[]
             {
@@ -77,7 +81,7 @@ namespace VoltManager.Setup.Tests
                 new SetupWorkflowStep("never", _ => { calls.Add("never"); return Task.CompletedTask; }),
             };
 
-            SetupWorkflowResult result = await runner.RunAsync(steps, cts.Token);
+            SetupWorkflowResult result = await SetupWorkflowRunner.RunAsync(steps, cts.Token);
 
             Assert.True(result.Cancelled);
             Assert.False(result.Success);
@@ -111,7 +115,7 @@ namespace VoltManager.Setup.Tests
             Directory.CreateDirectory(package);
             string foreign = Path.Combine(install, "VoltManager.exe");
             File.WriteAllText(foreign, "foreign executable bytes");
-            InstallManifest.Write(install, new[] { "VoltManager.exe" });
+            InstallManifest.Write(install, ExeOnlyManifest);
             File.WriteAllText(Path.Combine(package, "VoltManager.exe"), "independent expected bytes");
             string trustedZip = Path.Combine(root, "trusted.zip");
             ZipFile.CreateFromDirectory(package, trustedZip);
@@ -135,7 +139,7 @@ namespace VoltManager.Setup.Tests
                 Assert.Equal(0, legacyFindCalls);
                 Assert.Equal(0, preview.Calls);
                 Assert.Equal("foreign executable bytes", File.ReadAllText(foreign));
-                Assert.False(Directory.GetDirectories(root, "backup*").Any());
+                Assert.False(Directory.GetDirectories(root, "backup*").Length > 0);
             }
             finally
             {
@@ -182,7 +186,7 @@ namespace VoltManager.Setup.Tests
             Directory.CreateDirectory(package);
             string foreign = Path.Combine(install, "VoltManager.exe");
             File.WriteAllText(foreign, "foreign bytes");
-            InstallManifest.Write(install, new[] { "VoltManager.exe" });
+            InstallManifest.Write(install, ExeOnlyManifest);
             File.WriteAllText(Path.Combine(package, "VoltManager.exe"), "trusted release bytes");
             string trustedZip = Path.Combine(root, "trusted.zip");
             ZipFile.CreateFromDirectory(package, trustedZip);
@@ -218,7 +222,7 @@ namespace VoltManager.Setup.Tests
             string existing = Path.Combine(install, "VoltManager.exe");
             File.WriteAllText(existing, "same independently inventoried bytes");
             File.WriteAllText(Path.Combine(package, "VoltManager.exe"), "same independently inventoried bytes");
-            InstallManifest.Write(install, new[] { "VoltManager.exe" });
+            InstallManifest.Write(install, ExeOnlyManifest);
             string trustedZip = Path.Combine(root, "trusted.zip");
             ZipFile.CreateFromDirectory(package, trustedZip);
             var process = new FakeProcessOperations { StopForInstallResult = false };
@@ -235,7 +239,7 @@ namespace VoltManager.Setup.Tests
                 Assert.Equal(1, process.StopForInstallCalls);
                 Assert.Equal(0, preview.Calls);
                 Assert.Equal("same independently inventoried bytes", File.ReadAllText(existing));
-                Assert.False(Directory.GetDirectories(root, "backup*").Any());
+                Assert.False(Directory.GetDirectories(root, "backup*").Length > 0);
             }
             finally
             {

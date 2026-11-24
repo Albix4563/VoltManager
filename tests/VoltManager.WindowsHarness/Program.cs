@@ -11,7 +11,7 @@ using VoltManager.Services;
 
 namespace VoltManager.WindowsHarness;
 
-internal static class Program
+internal static partial class Program
 {
     [STAThread]
     private static int Main(string[] args)
@@ -329,8 +329,7 @@ internal static class Program
             })()
             """;
         string json = await surface.ExecuteAsync(probeScript).WaitAsync(TimeSpan.FromSeconds(10));
-        var probe = JsonSerializer.Deserialize<UiSmokeProbe>(json,
-            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        var probe = JsonSerializer.Deserialize<UiSmokeProbe>(json, CaseInsensitiveJsonOptions);
         bool passed = probe is not null
             && probe.Opened && probe.Closed && probe.Accessible
             && probe.Applied == "red" && probe.Theme == "red" && probe.Accent == "#ff0000"
@@ -363,8 +362,7 @@ internal static class Program
                 }))()
                 """;
             string cspJson = await surface.ExecuteAsync(cspProbeScript).WaitAsync(TimeSpan.FromSeconds(10));
-            var cspProbe = JsonSerializer.Deserialize<UiSmokeCspProbe>(cspJson,
-                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            var cspProbe = JsonSerializer.Deserialize<UiSmokeCspProbe>(cspJson, CaseInsensitiveJsonOptions);
             if (cspProbe is null || !cspProbe.MetaPresent)
                 cspMetaMissing.Add(page);
             if (cspProbe is not null)
@@ -558,6 +556,7 @@ internal static class Program
         return result;
     }
 
+    [return: MarshalAs(UnmanagedType.Bool)]
     private delegate bool MonitorEnumProc(IntPtr monitor, IntPtr hdc, IntPtr rect, IntPtr data);
 
     [StructLayout(LayoutKind.Sequential)]
@@ -572,17 +571,20 @@ internal static class Program
         public uint Flags;
     }
 
-    [DllImport("user32.dll")]
-    private static extern IntPtr MonitorFromWindow(IntPtr hwnd, uint flags);
+    [LibraryImport("user32.dll")]
+    private static partial IntPtr MonitorFromWindow(IntPtr hwnd, uint flags);
 
-    [DllImport("user32.dll", CharSet = CharSet.Auto)]
-    private static extern bool GetMonitorInfo(IntPtr monitor, ref NativeMonitorInfo info);
+    [LibraryImport("user32.dll", EntryPoint = "GetMonitorInfoW")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool GetMonitorInfo(IntPtr monitor, ref NativeMonitorInfo info);
 
-    [DllImport("user32.dll")]
-    private static extern bool EnumDisplayMonitors(IntPtr hdc, IntPtr clip, MonitorEnumProc callback, IntPtr data);
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool EnumDisplayMonitors(IntPtr hdc, IntPtr clip, MonitorEnumProc callback, IntPtr data);
 
-    [DllImport("user32.dll")]
-    private static extern bool SetWindowPos(IntPtr hwnd, IntPtr insertAfter, int x, int y, int cx, int cy, uint flags);
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool SetWindowPos(IntPtr hwnd, IntPtr insertAfter, int x, int y, int cx, int cy, uint flags);
 
     private static int RunSyntheticCpu(HarnessOptions options)
     {
@@ -867,7 +869,7 @@ internal static class Program
         return result;
     }
 
-    private static IReadOnlyList<Process> AssociatedWebViewProcesses()
+    private static List<Process> AssociatedWebViewProcesses()
     {
         var ownedPids = AppBenchmarkRunner.DescendantsAndSelf(Environment.ProcessId);
         return Process.GetProcessesByName("msedgewebview2")
@@ -1036,6 +1038,7 @@ internal static class Program
     }
 
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
+    private static readonly JsonSerializerOptions CaseInsensitiveJsonOptions = new() { PropertyNameCaseInsensitive = true };
 }
 
 internal sealed class WebViewSurface : IDisposable, IAsyncDisposable

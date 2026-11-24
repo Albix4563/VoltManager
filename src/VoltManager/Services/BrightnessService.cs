@@ -60,7 +60,7 @@ internal sealed class BrightnessService
                     percent = Math.Clamp(Convert.ToInt32(value), 0, 100);
                 return new DisplayBrightnessState { Supported = true, Percent = percent };
             });
-        return values.FirstOrDefault() ?? Unsupported();
+        return values.Count > 0 ? values[0] : Unsupported();
     }
 
     private static void WriteToWmi(byte percent)

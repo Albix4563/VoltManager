@@ -139,7 +139,10 @@ public class StandbyAutoCleanerService : IDisposable
     }
 
     public void Dispose()
-        => Stop();
+    {
+        Stop();
+        GC.SuppressFinalize(this);
+    }
 
     public void Stop()
     {

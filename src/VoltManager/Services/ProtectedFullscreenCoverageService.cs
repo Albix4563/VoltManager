@@ -8,7 +8,7 @@ namespace VoltManager.Services;
 /// fullscreen window. EnumWindows already yields top-level windows in Z order, so the
 /// decision can stay per-surface/per-monitor without treating focus loss as coverage.
 /// </summary>
-public sealed class ProtectedFullscreenCoverageService : IDisposable
+public sealed partial class ProtectedFullscreenCoverageService : IDisposable
 {
     private const uint MonitorDefaultToNearest = 2;
     private const uint WineventOutOfContext = 0x0000;
@@ -185,13 +185,14 @@ public sealed class ProtectedFullscreenCoverageService : IDisposable
     {
         var windows = new List<CoverageWindow>();
         int z = 0;
-        EnumWindows((hwnd, _) =>
+        EnumWindowsProc proc = (hwnd, _) =>
         {
             int currentZ = z++;
             bool visible = IsWindowVisible(hwnd);
             bool minimized = IsIconic(hwnd);
             bool cloaked = IsCloaked(hwnd);
-            GetWindowThreadProcessId(hwnd, out uint pid);
+            if (GetWindowThreadProcessId(hwnd, out uint pid) == 0)
+                pid = 0;
 
             PixelRect bounds = default;
             if (GetWindowRect(hwnd, out RECT rect))
@@ -221,7 +222,15 @@ public sealed class ProtectedFullscreenCoverageService : IDisposable
                 minimized,
                 cloaked));
             return true;
-        }, IntPtr.Zero);
+        };
+        try
+        {
+            EnumWindows(Marshal.GetFunctionPointerForDelegate(proc), IntPtr.Zero);
+        }
+        finally
+        {
+            GC.KeepAlive(proc);
+        }
         return windows;
     }
 
@@ -231,7 +240,7 @@ public sealed class ProtectedFullscreenCoverageService : IDisposable
             eventId,
             eventId,
             IntPtr.Zero,
-            _winEventDelegate,
+            Marshal.GetFunctionPointerForDelegate(_winEventDelegate),
             0,
             0,
             WineventOutOfContext | WineventSkipOwnProcess);
@@ -281,7 +290,9 @@ public sealed class ProtectedFullscreenCoverageService : IDisposable
         bool Minimized,
         bool Cloaked);
 
+    [UnmanagedFunctionPointer(CallingConvention.Winapi)]
     private delegate bool EnumWindowsProc(IntPtr hwnd, IntPtr lParam);
+    [UnmanagedFunctionPointer(CallingConvention.Winapi)]
     private delegate void WinEventDelegate(IntPtr hook, uint eventType, IntPtr hwnd, int idObject, int idChild, uint thread, uint time);
 
     [StructLayout(LayoutKind.Sequential)]
@@ -296,40 +307,46 @@ public sealed class ProtectedFullscreenCoverageService : IDisposable
         public uint dwFlags;
     }
 
-    [DllImport("user32.dll")]
-    private static extern bool EnumWindows(EnumWindowsProc callback, IntPtr lParam);
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool EnumWindows(IntPtr callback, IntPtr lParam);
 
-    [DllImport("user32.dll")]
-    private static extern bool IsWindowVisible(IntPtr hwnd);
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool IsWindowVisible(IntPtr hwnd);
 
-    [DllImport("user32.dll")]
-    private static extern bool IsIconic(IntPtr hwnd);
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool IsIconic(IntPtr hwnd);
 
-    [DllImport("user32.dll")]
-    private static extern bool GetWindowRect(IntPtr hwnd, out RECT rect);
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool GetWindowRect(IntPtr hwnd, out RECT rect);
 
-    [DllImport("user32.dll")]
-    private static extern IntPtr MonitorFromWindow(IntPtr hwnd, uint flags);
+    [LibraryImport("user32.dll")]
+    private static partial IntPtr MonitorFromWindow(IntPtr hwnd, uint flags);
 
-    [DllImport("user32.dll", CharSet = CharSet.Auto)]
-    private static extern bool GetMonitorInfo(IntPtr monitor, ref MONITORINFO info);
+    [LibraryImport("user32.dll", EntryPoint = "GetMonitorInfoW")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool GetMonitorInfo(IntPtr monitor, ref MONITORINFO info);
 
-    [DllImport("user32.dll")]
-    private static extern uint GetWindowThreadProcessId(IntPtr hwnd, out uint processId);
+    [LibraryImport("user32.dll")]
+    private static partial uint GetWindowThreadProcessId(IntPtr hwnd, out uint processId);
 
-    [DllImport("dwmapi.dll")]
-    private static extern int DwmGetWindowAttribute(IntPtr hwnd, int attribute, out int value, int size);
+    [LibraryImport("dwmapi.dll")]
+    private static partial int DwmGetWindowAttribute(IntPtr hwnd, int attribute, out int value, int size);
 
-    [DllImport("user32.dll")]
-    private static extern IntPtr SetWinEventHook(
+    [LibraryImport("user32.dll")]
+    private static partial IntPtr SetWinEventHook(
         uint eventMin,
         uint eventMax,
         IntPtr eventHook,
-        WinEventDelegate callback,
+        IntPtr callback,
         uint processId,
         uint threadId,
         uint flags);
 
-    [DllImport("user32.dll")]
-    private static extern bool UnhookWinEvent(IntPtr hook);
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool UnhookWinEvent(IntPtr hook);
 }

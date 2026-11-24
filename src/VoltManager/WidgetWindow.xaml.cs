@@ -455,7 +455,7 @@ public partial class WidgetWindow : Window
         }
     }
 
-    private bool TryApplyNativeAppearance(HwndSource source, string material)
+    private static bool TryApplyNativeAppearance(HwndSource source, string material)
     {
         IntPtr hwnd = source.Handle;
         if (!TryClearNativeEffects(hwnd)) return false;
@@ -505,7 +505,7 @@ public partial class WidgetWindow : Window
             var blur = new DWM_BLURBEHIND
             {
                 dwFlags = enable ? DwmBbEnable | DwmBbBlurRegion : DwmBbEnable,
-                fEnable = enable,
+                fEnable = enable ? 1 : 0,
                 hRgnBlur = region,
             };
             return DwmEnableBlurBehindWindow(hwnd, ref blur) == 0;
@@ -866,7 +866,9 @@ public partial class WidgetWindow : Window
         int h = (int)Math.Round(ActualHeight > 0 ? ActualHeight * m.M22 : Height * m.M22);
         if (w <= 0 || h <= 0) return;
         int d = (int)Math.Round(18 * 2 * m.M11); // diameter = 2 × 18px radius
-        SetWindowRgn(source.Handle, CreateRoundRectRgn(0, 0, w + 1, h + 1, d, d), true);
+        IntPtr region = CreateRoundRectRgn(0, 0, w + 1, h + 1, d, d);
+        if (region != IntPtr.Zero && SetWindowRgn(source.Handle, region, true) == 0)
+            DeleteObject(region);
     }
 
     private void ApplyToolWindowStyle()
@@ -875,7 +877,13 @@ public partial class WidgetWindow : Window
         if (hwnd == IntPtr.Zero) return;
 
         int exStyle = GetWindowLong(hwnd, GWL_EXSTYLE);
-        SetWindowLong(hwnd, GWL_EXSTYLE, exStyle | WS_EX_TOOLWINDOW);
+        if ((exStyle & WS_EX_TOOLWINDOW) == 0
+            && SetWindowLong(hwnd, GWL_EXSTYLE, exStyle | WS_EX_TOOLWINDOW) == 0)
+        {
+            int err = Marshal.GetLastWin32Error();
+            if (err != 0)
+                Logger.Warn($"ApplyToolWindowStyle SetWindowLong failed (Win32={err}).");
+        }
     }
 
     protected override void OnClosed(EventArgs e)
@@ -900,53 +908,58 @@ public partial class WidgetWindow : Window
         base.OnClosed(e);
     }
 
-    [DllImport("user32.dll")]
-    private static extern bool ReleaseCapture();
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool ReleaseCapture();
 
-    [DllImport("user32.dll")]
-    private static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
+    [LibraryImport("user32.dll", EntryPoint = "SendMessageW")]
+    private static partial IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
 
-    [DllImport("gdi32.dll")]
-    private static extern IntPtr CreateRoundRectRgn(int x1, int y1, int x2, int y2, int cx, int cy);
+    [LibraryImport("gdi32.dll")]
+    private static partial IntPtr CreateRoundRectRgn(int x1, int y1, int x2, int y2, int cx, int cy);
 
-    [DllImport("user32.dll")]
-    private static extern int SetWindowRgn(IntPtr hWnd, IntPtr hRgn, bool bRedraw);
+    [LibraryImport("user32.dll")]
+    private static partial int SetWindowRgn(IntPtr hWnd, IntPtr hRgn, [MarshalAs(UnmanagedType.Bool)] bool bRedraw);
 
-    [DllImport("user32.dll")]
-    private static extern int GetWindowLong(IntPtr hWnd, int nIndex);
+    [LibraryImport("user32.dll", EntryPoint = "GetWindowLongW", SetLastError = true)]
+    private static partial int GetWindowLong(IntPtr hWnd, int nIndex);
 
-    [DllImport("user32.dll")]
-    private static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
+    [LibraryImport("user32.dll", EntryPoint = "SetWindowLongW", SetLastError = true)]
+    private static partial int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
 
-    [DllImport("user32.dll", SetLastError = true)]
-    private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter,
+    [LibraryImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter,
         int x, int y, int cx, int cy, uint uFlags);
 
-    [DllImport("user32.dll", SetLastError = true)]
-    private static extern bool MoveWindow(IntPtr hWnd, int x, int y,
-        int nWidth, int nHeight, bool bRepaint);
-
-    [DllImport("user32.dll", SetLastError = true)]
-    private static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
-
-    [DllImport("dwmapi.dll")]
-    private static extern int DwmExtendFrameIntoClientArea(IntPtr hWnd, ref MARGINS pMarInset);
-
-    [DllImport("dwmapi.dll")]
-    private static extern int DwmEnableBlurBehindWindow(IntPtr hWnd, ref DWM_BLURBEHIND pBlurBehind);
-
-    [DllImport("gdi32.dll")]
-    private static extern IntPtr CreateRectRgn(int x1, int y1, int x2, int y2);
-
-    [DllImport("gdi32.dll")]
-    private static extern bool DeleteObject(IntPtr hObject);
-
-    [DllImport("dwmapi.dll")]
-    private static extern int DwmSetWindowAttribute(IntPtr hWnd, int dwAttribute, ref int pvAttribute, int cbAttribute);
-
-    [DllImport("user32.dll")]
+    [LibraryImport("user32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool SetWindowCompositionAttribute(IntPtr hwnd, ref WINDOWCOMPOSITIONATTRIBDATA data);
+    private static partial bool MoveWindow(IntPtr hWnd, int x, int y,
+        int nWidth, int nHeight, [MarshalAs(UnmanagedType.Bool)] bool bRepaint);
+
+    [LibraryImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
+
+    [LibraryImport("dwmapi.dll")]
+    private static partial int DwmExtendFrameIntoClientArea(IntPtr hWnd, ref MARGINS pMarInset);
+
+    [LibraryImport("dwmapi.dll")]
+    private static partial int DwmEnableBlurBehindWindow(IntPtr hWnd, ref DWM_BLURBEHIND pBlurBehind);
+
+    [LibraryImport("gdi32.dll")]
+    private static partial IntPtr CreateRectRgn(int x1, int y1, int x2, int y2);
+
+    [LibraryImport("gdi32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool DeleteObject(IntPtr hObject);
+
+    [LibraryImport("dwmapi.dll")]
+    private static partial int DwmSetWindowAttribute(IntPtr hWnd, int dwAttribute, ref int pvAttribute, int cbAttribute);
+
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool SetWindowCompositionAttribute(IntPtr hwnd, ref WINDOWCOMPOSITIONATTRIBDATA data);
 
     [StructLayout(LayoutKind.Sequential)]
     private struct RECT
@@ -964,9 +977,9 @@ public partial class WidgetWindow : Window
     private struct DWM_BLURBEHIND
     {
         public int dwFlags;
-        [MarshalAs(UnmanagedType.Bool)] public bool fEnable;
+        public int fEnable;
         public IntPtr hRgnBlur;
-        [MarshalAs(UnmanagedType.Bool)] public bool fTransitionOnMaximized;
+        public int fTransitionOnMaximized;
     }
 
     [StructLayout(LayoutKind.Sequential)]

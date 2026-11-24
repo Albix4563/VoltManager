@@ -251,13 +251,13 @@ namespace VoltManager.Setup.Windows
             if (menu == IntPtr.Zero) return;
 
             // This window never maximizes; growing it mid-update serves no purpose.
-            EnableMenuItem(menu, ScMaximize, MfByCommand | MfGrayed | MfDisabled);
-            EnableMenuItem(menu, ScClose, MfByCommand |
+            _ = EnableMenuItem(menu, ScMaximize, MfByCommand | MfGrayed | MfDisabled);
+            _ = EnableMenuItem(menu, ScClose, MfByCommand |
                 (IsCloseBlocked ? MfGrayed | MfDisabled : MfEnabled));
             DrawMenuBar(handle);
         }
 
-        private static Brush ContrastOn(Color background)
+        private static SolidColorBrush ContrastOn(Color background)
             => background.R * 0.299 + background.G * 0.587 + background.B * 0.114 > 150
                 ? Brushes.Black
                 : Brushes.White;

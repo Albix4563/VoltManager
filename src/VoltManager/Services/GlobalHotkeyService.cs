@@ -4,7 +4,7 @@ using VoltManager.Models;
 
 namespace VoltManager.Services;
 
-internal sealed class GlobalHotkeyService : IDisposable
+internal sealed partial class GlobalHotkeyService : IDisposable
 {
     public const int WmHotkey = 0x0312;
     private const uint ModAlt = 0x0001;
@@ -99,9 +99,11 @@ internal sealed class GlobalHotkeyService : IDisposable
         _hwnd = IntPtr.Zero;
     }
 
-    [DllImport("user32.dll", SetLastError = true)]
-    private static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
+    [LibraryImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
 
-    [DllImport("user32.dll")]
-    private static extern bool UnregisterHotKey(IntPtr hWnd, int id);
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool UnregisterHotKey(IntPtr hWnd, int id);
 }

@@ -92,7 +92,7 @@ namespace VoltManager.Setup
             }
         }
 
-        private async Task<int> RunSilent(SetupArgs args)
+        private static async Task<int> RunSilent(SetupArgs args)
         {
             var engine = new InstallEngine();
             var opts   = new InstallOptions
@@ -103,7 +103,7 @@ namespace VoltManager.Setup
             return 0;
         }
 
-        private async Task<int> RunUpdate(int pid)
+        private static async Task<int> RunUpdate(int pid)
         {
             var engine = new InstallEngine();
             string version = GetVersion();
@@ -202,10 +202,11 @@ namespace VoltManager.Setup
                 string version = GetVersion();
                 SetupUpdateLog.Info($"Interactive update to {version} began; app pid {args.WaitPid}.");
                 await new UpdateInstallCoordinator(engine).UpdateAsync(args.WaitPid, version,
-                    CancellationToken.None, requireProcessExit: true,
+                    requireProcessExit: true,
                     onStage: (name, complete) => ReportUpdateStage(window, name, complete),
                     updateSessionId: sessionId,
-                    isHandoffAborted: () => channels.IsAborted);
+                    isHandoffAborted: () => channels.IsAborted,
+                    ct: CancellationToken.None);
                 installed = true;
                 window.ReportStage(3);
                 engine.RelaunchUpdatedApp(sessionId);
@@ -278,7 +279,7 @@ namespace VoltManager.Setup
                 SetupUpdateLog.FilePath = Path.Combine(Path.GetDirectoryName(self)!, "uninstall.log");
         }
 
-        private async Task<int> RunSilentUninstall(SetupArgs args)
+        private static async Task<int> RunSilentUninstall(SetupArgs args)
         {
             var engine = new HardenedInstallEngine { PurgeUserData = args.PurgeUserData };
             UninstallResult result = await engine.UninstallAsync(args.TargetDir);

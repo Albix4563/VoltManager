@@ -2,7 +2,7 @@ namespace VoltManager.Services.GameDetection;
 
 public sealed class ProcessGraph
 {
-    private readonly IReadOnlyDictionary<int, ProcessSample> _processes;
+    private readonly Dictionary<int, ProcessSample> _processes;
 
     public ProcessGraph(IEnumerable<ProcessSample> processes)
     {

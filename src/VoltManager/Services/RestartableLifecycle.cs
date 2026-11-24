@@ -19,8 +19,7 @@ internal sealed class RestartableLifecycle : IDisposable
     {
         lock (_gate)
         {
-            if (_disposed)
-                throw new ObjectDisposedException(nameof(RestartableLifecycle));
+            ObjectDisposedException.ThrowIf(_disposed, this);
 
             if (_epoch is { IsCancellationRequested: false })
                 return _epoch.Token;

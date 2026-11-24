@@ -81,9 +81,13 @@ namespace VoltManager.Services
         {
             var validationRoot = Environment.GetEnvironmentVariable("VOLTMANAGER_VALIDATION_ROOT");
             if (string.IsNullOrWhiteSpace(validationRoot)) return productionName;
+#if NETFRAMEWORK
             byte[] digest;
             using (SHA256 sha = SHA256.Create())
                 digest = sha.ComputeHash(Encoding.UTF8.GetBytes(Path.GetFullPath(validationRoot).ToUpperInvariant()));
+#else
+            byte[] digest = SHA256.HashData(Encoding.UTF8.GetBytes(Path.GetFullPath(validationRoot).ToUpperInvariant()));
+#endif
             string suffix = BitConverter.ToString(digest, 0, 6).Replace("-", string.Empty);
             return productionName + "_Validation_" + suffix;
         }

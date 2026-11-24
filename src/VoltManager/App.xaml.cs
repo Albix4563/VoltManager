@@ -332,7 +332,7 @@ public partial class App : Application
         return CoreWebView2Environment.CreateAsync(null, userDataFolder, opts);
     }
 
-    private void HookGlobalExceptionHandlers()
+    private static void HookGlobalExceptionHandlers()
     {
         // UI-thread unhandled exceptions are owned exclusively by App.Reliability
         // (fatal shutdown + crash diagnostic). Do not register a second
@@ -526,7 +526,7 @@ public partial class App : Application
         SafeCleanup("power requests", () => PowerRequests.Stop());
     }
 
-    private IDisposable CreatePlanPollTimer(CancellationToken epoch)
+    private System.Threading.Timer CreatePlanPollTimer(CancellationToken epoch)
     {
         var gate = new SingleFlightGate("Active power-plan poll");
         return new System.Threading.Timer(_ => SingleFlightCallback.Run(gate, () =>
@@ -537,7 +537,7 @@ public partial class App : Application
         }), null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(3));
     }
 
-    private IDisposable CreateBatteryHistoryTimer(CancellationToken epoch)
+    private System.Threading.Timer CreateBatteryHistoryTimer(CancellationToken epoch)
     {
         var gate = new SingleFlightGate("Battery history sample");
         return new System.Threading.Timer(_ => SingleFlightCallback.Run(gate, () =>
@@ -557,7 +557,7 @@ public partial class App : Application
         }), null, TimeSpan.FromSeconds(20), TimeSpan.FromSeconds(60));
     }
 
-    private IDisposable CreateResumeRecovery(CancellationToken epoch)
+    private ResumeRecoveryCoordinator CreateResumeRecovery(CancellationToken epoch)
     {
         var coordinator = new ResumeRecoveryCoordinator(
         [
@@ -578,7 +578,7 @@ public partial class App : Application
         return coordinator;
     }
 
-    private IDisposable CreateResourceSelfMonitor(CancellationToken epoch)
+    private ResourceSelfMonitor CreateResourceSelfMonitor(CancellationToken epoch)
         => new ResourceSelfMonitor(() =>
         {
             if (_applicationLifecycle?.IsCurrent(epoch) != true)

@@ -616,7 +616,7 @@ public sealed class WidgetManager : IDisposable
         return snapshot;
     }
 
-    private bool EnsurePlacementModel(WidgetItem item, DisplaySnapshot displays)
+    private static bool EnsurePlacementModel(WidgetItem item, DisplaySnapshot displays)
     {
         if (item.Anchor != null && !string.IsNullOrEmpty(item.MonitorId))
             return false;

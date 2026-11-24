@@ -11,6 +11,16 @@ namespace VoltManager.Setup.Tests
 {
     public sealed class UninstallResidualTests
     {
+        private static readonly string[] PersonalTxtOnly = { "personal.txt" };
+        private static readonly string[] LinkedTxtOnly = { "linked.txt" };
+        private static readonly string[] ExpectedKeptAppDataEntries =
+        {
+            "battery-history.json", "launcher-shortcuts", "settings.json"
+        };
+        private static readonly string[] ExpectedManagedPlanGuids = { "aaaaaaaa-1111-2222-3333-444444444444" };
+        private static readonly string[] SilentPurgeArgs = { "/uninstall", "/silent", "/purge" };
+        private static readonly string[] SilentUninstallArgs = { "/uninstall", "/SILENT" };
+        private static readonly string[] DllOnlyManifest = { "VoltManager.dll" };
         [Theory]
         [InlineData(true)]
         [InlineData(false)]
@@ -65,7 +75,7 @@ namespace VoltManager.Setup.Tests
                 UninstallCleanupResult cleanup = InstallManifest.DeleteOwnedEntriesTolerant(installDir, zip);
 
                 Assert.Empty(cleanup.Failures);
-                Assert.Equal(new[] { "personal.txt" }, cleanup.Retained);
+                Assert.Equal(PersonalTxtOnly, cleanup.Retained);
                 Assert.Equal("keep", File.ReadAllText(personal));
                 Assert.False(File.Exists(Path.Combine(installDir, "VoltManager.dll")));
             }
@@ -87,7 +97,7 @@ namespace VoltManager.Setup.Tests
                 UninstallCleanupResult cleanup = InstallManifest.DeleteOwnedEntriesTolerant(installDir, zip);
 
                 Assert.Empty(cleanup.Failures);
-                Assert.Equal(new[] { "linked.txt" }, cleanup.Retained);
+                Assert.Equal(LinkedTxtOnly, cleanup.Retained);
                 Assert.Equal("foreign", File.ReadAllText(unlisted));
                 Assert.Equal("foreign", File.ReadAllText(outside));
 
@@ -169,7 +179,7 @@ namespace VoltManager.Setup.Tests
 
                 Assert.Empty(result.Failures);
                 Assert.Equal(
-                    new[] { "battery-history.json", "launcher-shortcuts", "settings.json" },
+                    ExpectedKeptAppDataEntries,
                     kept.OrderBy(name => name, StringComparer.Ordinal));
                 Assert.False(File.Exists(Path.Combine(appData, "remote-control-auth.json")));
                 Assert.False(Directory.Exists(Path.Combine(appData, "logs")));
@@ -311,7 +321,7 @@ namespace VoltManager.Setup.Tests
                 File.WriteAllText(Path.Combine(root, "settings.json"),
                     "{\"planGuidMap\":{\"Balanced\":\"aaaaaaaa-1111-2222-3333-444444444444\",\"Bad\":\"x\"}}");
 
-                Assert.Equal(new[] { "aaaaaaaa-1111-2222-3333-444444444444" }, PowerPlanRestore.ReadManagedPlanGuids(root));
+                Assert.Equal(ExpectedManagedPlanGuids, PowerPlanRestore.ReadManagedPlanGuids(root));
                 Assert.Empty(PowerPlanRestore.ReadManagedPlanGuids(Path.Combine(root, "missing")));
                 Assert.Equal("aaaaaaaa-1111-2222-3333-444444444444", PowerPlanRestore.ParseActiveGuid(
                     "GUID combinazione risparmio energia: AAAAAAAA-1111-2222-3333-444444444444  (VoltManager)"));
@@ -394,8 +404,8 @@ namespace VoltManager.Setup.Tests
         [Fact]
         public void Purge_flag_is_parsed_for_uninstall()
         {
-            Assert.True(SetupArgs.Parse(new[] { "/uninstall", "/silent", "/purge" }).PurgeUserData);
-            Assert.False(SetupArgs.Parse(new[] { "/uninstall", "/SILENT" }).PurgeUserData);
+            Assert.True(SetupArgs.Parse(SilentPurgeArgs).PurgeUserData);
+            Assert.False(SetupArgs.Parse(SilentUninstallArgs).PurgeUserData);
         }
 
         [Fact]
@@ -430,7 +440,7 @@ namespace VoltManager.Setup.Tests
             File.WriteAllText(Path.Combine(installDir, "VoltManager.dll"), "payload");
             string zip = Path.Combine(root, "payload.zip");
             ZipFile.CreateFromDirectory(source, zip);
-            InstallManifest.Write(installDir, new[] { "VoltManager.dll" });
+            InstallManifest.Write(installDir, DllOnlyManifest);
             return (installDir, zip);
         }
 

@@ -14,7 +14,7 @@ public record IdlePowerGuardDecision
 /// Switches to a frugal power plan after sustained user idle (GetLastInputInfo),
 /// then restores the previous plan when input resumes. Pure evaluate + session state.
 /// </summary>
-public sealed class IdlePowerGuardService
+public sealed partial class IdlePowerGuardService
 {
     private readonly SettingsService _settings;
     private readonly Func<uint?> _idleMsReader;
@@ -256,9 +256,11 @@ public sealed class IdlePowerGuardService
         public int BatteryFullLifeTime;
     }
 
-    [DllImport("user32.dll")]
-    private static extern bool GetLastInputInfo(ref LastInputInfo plii);
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool GetLastInputInfo(ref LastInputInfo plii);
 
-    [DllImport("kernel32.dll", SetLastError = true)]
-    private static extern bool GetSystemPowerStatus(out SystemPowerStatus sps);
+    [LibraryImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool GetSystemPowerStatus(out SystemPowerStatus sps);
 }

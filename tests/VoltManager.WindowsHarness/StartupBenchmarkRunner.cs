@@ -246,8 +246,8 @@ internal static class StartupBenchmarkRunner
             ]);
             var accepted = new Dictionary<string, double>(StringComparer.Ordinal);
             ReadMarkers(path, pid, launch, accepted);
-            if (accepted.Count != 1 || !accepted.ContainsKey("app_start") ||
-                Math.Abs(accepted["app_start"] - 500) >= 1 || ValidateStages(accepted) is null) return false;
+            if (accepted.Count != 1 || !accepted.TryGetValue("app_start", out double appStartMs) ||
+                Math.Abs(appStartMs - 500) >= 1 || ValidateStages(accepted) is null) return false;
 
             string profile = Path.Combine(outputDirectory, "startup-profile-fixture");
             PrepareProfile(profile, "fresh");
@@ -256,7 +256,7 @@ internal static class StartupBenchmarkRunner
             catch (InvalidOperationException) { repeatRejected = true; }
             PrepareProfile(profile, "reused");
             return repeatRejected &&
-                Math.Abs(accepted["app_start"] - 500) < 1 && ValidateStages(accepted) is not null;
+                Math.Abs(appStartMs - 500) < 1 && ValidateStages(accepted) is not null;
         }
         finally
         {

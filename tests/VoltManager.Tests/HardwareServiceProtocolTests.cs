@@ -77,10 +77,15 @@ public sealed class HardwareServiceProtocolTests
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => server.WaitAsync(TimeSpan.FromSeconds(5)));
     }
 
+    public static readonly TheoryData<string[], bool, string?, int> HardwareServiceArgumentCases = new()
+    {
+        { ["--pipe", "test-pipe", "--parent", "123"], true, "test-pipe", 123 },
+        { ["--parent", "123"], false, null, 0 },
+        { ["--pipe", "test-pipe", "--parent", "0"], false, null, 0 },
+    };
+
     [Theory]
-    [InlineData(new[] { "--pipe", "test-pipe", "--parent", "123" }, true, "test-pipe", 123)]
-    [InlineData(new[] { "--parent", "123" }, false, null, 0)]
-    [InlineData(new[] { "--pipe", "test-pipe", "--parent", "0" }, false, null, 0)]
+    [MemberData(nameof(HardwareServiceArgumentCases))]
     public void Hardware_service_arguments_are_validated(
         string[] args,
         bool expected,

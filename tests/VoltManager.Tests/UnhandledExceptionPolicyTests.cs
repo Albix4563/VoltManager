@@ -8,8 +8,11 @@ namespace VoltManager.Tests;
 /// Asserts the single coherent UI unhandled-exception policy and that the
 /// shipped App sources do not re-register a conflicting keep-alive handler.
 /// </summary>
-public class UnhandledExceptionPolicyTests
+public partial class UnhandledExceptionPolicyTests
 {
+    [GeneratedRegex(@"DispatcherUnhandledException\s*\+=")]
+    private static partial Regex DispatcherUnhandledExceptionSubscriptionRegex();
+
     [Fact]
     public void UiThreadPolicy_is_fatal_with_diagnostic_not_keep_alive()
     {
@@ -48,7 +51,7 @@ public class UnhandledExceptionPolicyTests
 
         // Only one DispatcherUnhandledException subscription in App sources.
         int total =
-            Regex.Matches(appXaml + "\n" + reliability, @"DispatcherUnhandledException\s*\+=").Count;
+            DispatcherUnhandledExceptionSubscriptionRegex().Matches(appXaml + "\n" + reliability).Count;
         Assert.Equal(1, total);
     }
 

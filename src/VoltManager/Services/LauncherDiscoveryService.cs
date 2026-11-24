@@ -153,11 +153,11 @@ internal sealed class LauncherDiscoveryService
     private LauncherEntry AddCustomCore(string path, string? name, string? category, bool notify)
     {
         if (string.IsNullOrWhiteSpace(path))
-            throw new ArgumentException("path");
+            throw new ArgumentException("Path cannot be empty.", nameof(path));
 
         string fullPath = Path.GetFullPath(path.Trim());
         if (!LauncherSettings.IsAllowedCustomPath(fullPath))
-            throw new ArgumentException("extension");
+            throw new ArgumentException("Unsupported executable extension.", nameof(path));
         if (!_environment.FileExists(fullPath))
             throw new FileNotFoundException(fullPath);
 
@@ -611,7 +611,7 @@ internal sealed class LauncherDiscoveryService
         }
     }
 
-    private static IEnumerable<string?> FromRiotInstalls(ILauncherEnvironment env)
+    private static List<string?> FromRiotInstalls(ILauncherEnvironment env)
     {
         string programData = env.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
         if (string.IsNullOrWhiteSpace(programData))
@@ -800,31 +800,39 @@ internal sealed class SystemLauncherEnvironment : ILauncherEnvironment
 }
 
 /// <summary>Extracts a file's shell icon as a small PNG data URL without System.Drawing.</summary>
-internal static class ShellIconLoader
+internal static partial class ShellIconLoader
 {
     private const uint SHGFI_ICON = 0x100;
     private const uint SHGFI_LARGEICON = 0x0;
 
-    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    [System.Runtime.CompilerServices.InlineArray(260)]
+    private struct FixedUtf16_260 { private ushort _e0; }
+
+    [System.Runtime.CompilerServices.InlineArray(80)]
+    private struct FixedUtf16_80 { private ushort _e0; }
+
+    [StructLayout(LayoutKind.Sequential)]
     private struct SHFILEINFO
     {
         public IntPtr hIcon;
         public int iIcon;
         public uint dwAttributes;
-        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 260)] public string szDisplayName;
-        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 80)] public string szTypeName;
+        public FixedUtf16_260 szDisplayName;
+        public FixedUtf16_80 szTypeName;
     }
 
-    [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
-    private static extern IntPtr SHGetFileInfo(string pszPath, uint dwFileAttributes, ref SHFILEINFO psfi, uint cbFileInfo, uint uFlags);
+    [LibraryImport("shell32.dll", EntryPoint = "SHGetFileInfoW", StringMarshalling = StringMarshalling.Utf16)]
+    private static partial IntPtr SHGetFileInfo(string pszPath, uint dwFileAttributes, ref SHFILEINFO psfi, uint cbFileInfo, uint uFlags);
 
-    [DllImport("user32.dll", SetLastError = true)]
-    private static extern bool DestroyIcon(IntPtr hIcon);
+    [LibraryImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool DestroyIcon(IntPtr hIcon);
 
     public static string? TryGetPngDataUrl(string path)
     {
         var info = new SHFILEINFO();
-        IntPtr result = SHGetFileInfo(path, 0, ref info, (uint)Marshal.SizeOf<SHFILEINFO>(), SHGFI_ICON | SHGFI_LARGEICON);
+        uint cbFileInfo = (uint)System.Runtime.CompilerServices.Unsafe.SizeOf<SHFILEINFO>();
+        IntPtr result = SHGetFileInfo(path, 0, ref info, cbFileInfo, SHGFI_ICON | SHGFI_LARGEICON);
         if (result == IntPtr.Zero || info.hIcon == IntPtr.Zero)
             return null;
 

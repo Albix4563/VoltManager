@@ -120,7 +120,7 @@ internal sealed class HeavyAppEvidenceCollector
         }
     }
 
-    private IReadOnlySet<string> GetGpuPreferences(DateTime nowUtc)
+    private HashSet<string> GetGpuPreferences(DateTime nowUtc)
     {
         lock (_cacheGate)
         {

@@ -7,9 +7,10 @@ using VoltManager.Localization;
 
 namespace VoltManager.Tests;
 
-public sealed class LocalizationContractTests
+public sealed partial class LocalizationContractTests
 {
-    private static readonly Regex PlaceholderRegex = new(@"\{\d+(?:[^}]*)\}", RegexOptions.Compiled);
+    [GeneratedRegex(@"\{\d+(?:[^}]*)\}")]
+    private static partial Regex PlaceholderRegex();
 
     [Fact]
     public void Native_resource_catalogs_keep_key_value_and_placeholder_parity()
@@ -45,5 +46,5 @@ public sealed class LocalizationContractTests
     }
 
     private static string[] Placeholders(string value)
-        => PlaceholderRegex.Matches(value).Select(match => match.Value).Order().ToArray();
+        => PlaceholderRegex().Matches(value).Select(match => match.Value).Order().ToArray();
 }

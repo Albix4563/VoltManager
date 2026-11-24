@@ -34,9 +34,8 @@ public sealed class AppPowerProfileService : IDisposable
 
     private readonly SettingsService _settings;
     private readonly object _lock = new();
+    private readonly PeriodicScanRunner _runner;
     private Timer? _timer;
-    private int _scanRunning;
-    private bool _scanFaulted; // throttles scan-failure logging to once per streak
     private AppPowerProfileState _current = new();
 
     public event Action<AppPowerProfileState>? ActivityChanged;
@@ -44,6 +43,7 @@ public sealed class AppPowerProfileService : IDisposable
     public AppPowerProfileService(SettingsService settings)
     {
         _settings = settings;
+        _runner = new PeriodicScanRunner(ScanInterval, Scan, "App-profile scan failed");
     }
 
     public AppPowerProfileState Current
@@ -51,52 +51,18 @@ public sealed class AppPowerProfileService : IDisposable
         get { lock (_lock) return _current; }
     }
 
-    public void Start()
-    {
-        lock (_lock)
-            _timer ??= new Timer(_ => ScanSafe(), null, TimeSpan.Zero, ScanInterval);
-    }
+    public void Start() => _runner.Start(_lock, ref _timer, TimeSpan.Zero);
 
     /// <summary>Starts detection after <paramref name="delay"/> to avoid
     /// competing with other startup work for process handles and WMI.</summary>
-    public void StartDelayed(TimeSpan delay)
-    {
-        lock (_lock)
-            _timer ??= new Timer(_ => ScanSafe(), null, delay, ScanInterval);
-    }
+    public void StartDelayed(TimeSpan delay) => _runner.Start(_lock, ref _timer, delay);
 
-    public void Stop()
-    {
-        Timer? timer;
-        lock (_lock)
-        {
-            timer = _timer;
-            _timer = null;
-        }
-        timer?.Dispose();
-    }
+    public void Stop() => PeriodicScanRunner.Stop(_lock, ref _timer);
 
     public AppPowerProfileState Refresh()
     {
-        ScanSafe();
+        _runner.RunOnce();
         return Current;
-    }
-
-    private void ScanSafe()
-    {
-        if (Interlocked.Exchange(ref _scanRunning, 1) != 0) return;
-        try
-        {
-            Scan();
-            _scanFaulted = false;
-        }
-        catch (Exception ex)
-        {
-            // App-profile detection must never crash background automation;
-            // log the first failure of a streak so a real bug isn't hidden.
-            _scanFaulted = Logger.WarnOnce(_scanFaulted, "App-profile scan failed", ex);
-        }
-        finally { Volatile.Write(ref _scanRunning, 0); }
     }
 
     private void Scan()

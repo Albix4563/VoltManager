@@ -8,6 +8,7 @@ namespace VoltManager.Setup.Tests
 {
     public sealed class UpdateInstallCoordinatorTests
     {
+        private static readonly string[] ExpectedWaitingStageOnly = { "waiting-for-exit:False" };
         [Fact]
         public async Task Interactive_handoff_aborted_after_pid_exit_prevents_cache_and_install()
         {
@@ -43,7 +44,7 @@ namespace VoltManager.Setup.Tests
             Assert.Equal(0, cacheCalls);
             Assert.Equal(0, engine.Calls);
             Assert.Equal(1, engine.PreflightCalls);
-            Assert.Equal(new[] { "waiting-for-exit:False" }, stages);
+            Assert.Equal(ExpectedWaitingStageOnly, stages);
         }
 
         [Fact]

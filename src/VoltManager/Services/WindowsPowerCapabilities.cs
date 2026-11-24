@@ -5,16 +5,16 @@ namespace VoltManager.Services;
 
 internal readonly record struct WindowsPowerCapabilityState(bool SleepAvailable, bool HibernateAvailable);
 
-internal static class WindowsPowerCapabilities
+internal static partial class WindowsPowerCapabilities
 {
     private const string PowerRegistryPath = @"SYSTEM\CurrentControlSet\Control\Power";
     private const string HiberFileTypeValueName = "HiberFileType";
     private const int HiberFileTypeReduced = 1;
     private const int HiberFileTypeFull = 2;
 
-    [DllImport("powrprof.dll", SetLastError = true)]
+    [LibraryImport("powrprof.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.U1)]
-    private static extern bool GetPwrCapabilities(out SystemPowerCapabilities capabilities);
+    private static partial bool GetPwrCapabilities(out SystemPowerCapabilities capabilities);
 
     public static WindowsPowerCapabilityState Query()
     {

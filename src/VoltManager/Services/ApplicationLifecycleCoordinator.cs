@@ -32,8 +32,7 @@ public sealed class ApplicationLifecycleCoordinator : IDisposable
         CancellationToken epoch;
         lock (_gate)
         {
-            if (_disposed)
-                throw new ObjectDisposedException(nameof(ApplicationLifecycleCoordinator));
+            ObjectDisposedException.ThrowIf(_disposed, this);
             if (_started)
                 return;
 

@@ -57,7 +57,7 @@ internal sealed record ResourceSelfMonitorOptions(
         100);
 }
 
-public sealed class ResourceSelfMonitor : IDisposable
+public sealed partial class ResourceSelfMonitor : IDisposable
 {
     private sealed class ConditionState
     {
@@ -365,6 +365,6 @@ public sealed class ResourceSelfMonitor : IDisposable
         catch { return null; }
     }
 
-    [DllImport("user32.dll")]
-    private static extern uint GetGuiResources(IntPtr process, uint flags);
+    [LibraryImport("user32.dll")]
+    private static partial uint GetGuiResources(IntPtr process, uint flags);
 }

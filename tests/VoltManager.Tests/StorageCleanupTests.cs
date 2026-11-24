@@ -6,7 +6,7 @@ using VoltManager.Services;
 
 namespace VoltManager.Tests;
 
-public sealed class StorageCleanupTests : IDisposable
+public sealed partial class StorageCleanupTests : IDisposable
 {
     private readonly string _root = Path.Combine(Path.GetTempPath(), "VoltManager.Cleanup." + Guid.NewGuid().ToString("N"));
     public StorageCleanupTests() => Directory.CreateDirectory(_root);
@@ -237,7 +237,7 @@ public sealed class StorageCleanupTests : IDisposable
     public void Unknown_tools_cannot_launch(string tool) =>
         Assert.Throws<ArgumentException>(() => StorageService.OpenTool(tool, _ => throw new Exception("Non deve avviarsi.")));
 
-    [DllImport("kernel32.dll", EntryPoint = "CreateHardLinkW", CharSet = CharSet.Unicode, SetLastError = true)]
+    [LibraryImport("kernel32.dll", EntryPoint = "CreateHardLinkW", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
     [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool CreateHardLink(string file, string existing, IntPtr security);
+    private static partial bool CreateHardLink(string file, string existing, IntPtr security);
 }

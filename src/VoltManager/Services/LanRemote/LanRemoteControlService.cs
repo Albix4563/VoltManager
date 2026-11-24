@@ -290,14 +290,14 @@ public sealed class LanRemoteControlService : IDisposable
         if (cancellationToken.IsCancellationRequested)
             return Task.FromCanceled(cancellationToken);
         long requestVersion = Interlocked.Increment(ref _lifecycleRequestVersion);
-        return Task.Run(() => ApplyStateAsync(requestVersion, running, cancellationToken, allowStartWhenDisabled), cancellationToken);
+        return Task.Run(() => ApplyStateAsync(requestVersion, running, allowStartWhenDisabled, cancellationToken), cancellationToken);
     }
 
     private async Task ApplyStateAsync(
         long requestVersion,
         bool running,
-        CancellationToken cancellationToken,
-        bool allowStartWhenDisabled)
+        bool allowStartWhenDisabled,
+        CancellationToken cancellationToken)
     {
         await _lifecycleGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
@@ -1008,6 +1008,6 @@ public sealed class LanRemoteControlService : IDisposable
 
     private void ThrowIfDisposed()
     {
-        if (Volatile.Read(ref _disposed) != 0) throw new ObjectDisposedException(nameof(LanRemoteControlService));
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
     }
 }

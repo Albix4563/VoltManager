@@ -21,8 +21,7 @@ public sealed class RemoteCommandService : IDisposable
     {
         lock (_gate)
         {
-            if (_disposed)
-                throw new ObjectDisposedException(nameof(RemoteCommandService));
+            ObjectDisposedException.ThrowIf(_disposed, this);
             if (_waits.Count != 0)
                 return;
 

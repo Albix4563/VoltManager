@@ -542,7 +542,7 @@ namespace VoltManager.Setup.Engine
                     yield return entry;
         }
 
-        private static IEnumerable<string> FindSwapLeftovers(string installDir)
+        private static string[] FindSwapLeftovers(string installDir)
         {
             string? parent;
             string name;

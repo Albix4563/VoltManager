@@ -6,6 +6,10 @@ namespace VoltManager.Setup.Tests;
 
 public sealed class InstallEngineRegressionTests
 {
+    private static readonly string[] ExeOnlyManifest = { "VoltManager.exe" };
+    private static readonly string[] WwwrootOnlyManifest = { "wwwroot" };
+    private static readonly string[] ExeAndDllManifest = { "VoltManager.exe", "VoltManager.dll" };
+    private static readonly string[] PersonalTxtOnly = { "personal.txt" };
     [Fact]
     public void Malformed_settings_backup_never_overwrites_preexisting_recovery_data()
     {
@@ -300,7 +304,7 @@ public sealed class InstallEngineRegressionTests
         // bytes. Keep the old managed content identical so ownership preflight
         // succeeds; this test targets the backup/rename mechanics only.
         File.WriteAllText(Path.Combine(dest, "VoltManager.exe"), "verified");
-        InstallManifest.Write(dest, new[] { "VoltManager.exe" });
+        InstallManifest.Write(dest, ExeOnlyManifest);
         File.WriteAllText(Path.Combine(staging, "VoltManager.exe"), "verified");
         File.WriteAllText(Path.Combine(staging, "VoltManager.Supervisor.exe"), "new payload");
         File.WriteAllText(Path.Combine(staging, "wwwroot", "index.html"), "<html>");
@@ -363,7 +367,7 @@ public sealed class InstallEngineRegressionTests
         File.WriteAllText(Path.Combine(dest, "wwwroot", "index.html"), "old app");
         File.WriteAllText(Path.Combine(dest, "wwwroot", "personal-notes.txt"), "user data");
         File.WriteAllText(Path.Combine(staging, "wwwroot", "index.html"), "new app");
-        InstallManifest.Write(dest, new[] { "wwwroot" });
+        InstallManifest.Write(dest, WwwrootOnlyManifest);
         string zip = CreateSyntheticPayloadZip(root, staging);
 
         try
@@ -485,7 +489,7 @@ public sealed class InstallEngineRegressionTests
         Directory.CreateDirectory(staging);
         File.WriteAllText(Path.Combine(dest, "old.txt"), "old");
         File.WriteAllText(Path.Combine(dest, "VoltManager.exe"), "old exe");
-        InstallManifest.Write(dest, new[] { "VoltManager.exe" });
+        InstallManifest.Write(dest, ExeOnlyManifest);
         File.WriteAllText(Path.Combine(staging, "a.txt"), "a");
         File.WriteAllText(Path.Combine(staging, "VoltManager.exe"), "old exe");
         string locked = Path.Combine(staging, "z-locked.txt");
@@ -525,7 +529,7 @@ public sealed class InstallEngineRegressionTests
         Directory.CreateDirectory(dest);
         Directory.CreateDirectory(Path.Combine(staging, "wwwroot"));
         File.WriteAllText(Path.Combine(dest, "VoltManager.exe"), "old");
-        InstallManifest.Write(dest, new[] { "VoltManager.exe" });
+        InstallManifest.Write(dest, ExeOnlyManifest);
         File.WriteAllText(Path.Combine(staging, "VoltManager.exe"), "old");
         File.WriteAllText(Path.Combine(staging, "wwwroot", "unverified.txt"), "keep");
         string locked = Path.Combine(staging, "z-locked.txt");
@@ -564,7 +568,7 @@ public sealed class InstallEngineRegressionTests
         string foreign = Path.Combine(dest, "private-user-file.txt");
         File.WriteAllText(previousExe, "old-executable");
         File.WriteAllText(foreign, "private-content");
-        InstallManifest.Write(dest, new[] { "VoltManager.exe" });
+        InstallManifest.Write(dest, ExeOnlyManifest);
         string previousManifest = File.ReadAllText(Path.Combine(dest, InstallManifest.FileName));
 
         // The installer moves staged entries in name order. The locked last file
@@ -615,7 +619,7 @@ public sealed class InstallEngineRegressionTests
         File.WriteAllText(Path.Combine(dest, "VoltManager.exe"), "old exe");
         File.WriteAllText(Path.Combine(dest, "VoltManager.dll"), "old dll");
         File.WriteAllText(Path.Combine(dest, "personal.txt"), "foreign user data");
-        InstallManifest.Write(dest, new[] { "VoltManager.exe", "VoltManager.dll" });
+        InstallManifest.Write(dest, ExeAndDllManifest);
         string oldManifest = File.ReadAllText(Path.Combine(dest, InstallManifest.FileName));
 
         File.WriteAllText(Path.Combine(staging, "VoltManager.exe"), "old exe");
@@ -689,7 +693,7 @@ public sealed class InstallEngineRegressionTests
         Directory.CreateDirectory(Path.Combine(staging, "wwwroot", "js"));
         File.WriteAllText(Path.Combine(dest, "VoltManager.exe"), "original executable");
         File.WriteAllText(Path.Combine(dest, "user-document.txt"), "private content");
-        InstallManifest.Write(dest, new[] { "VoltManager.exe" });
+        InstallManifest.Write(dest, ExeOnlyManifest);
         string originalManifest = File.ReadAllText(Path.Combine(dest, InstallManifest.FileName));
         File.WriteAllText(Path.Combine(staging, "VoltManager.exe"), "new executable");
         string stagedJs = Path.Combine(staging, "wwwroot", "js", "app.js");
@@ -770,7 +774,7 @@ public sealed class InstallEngineRegressionTests
 
             UninstallCleanupResult guardedUninstall = InstallManifest.DeleteOwnedEntriesTolerant(dest, firstZip);
             Assert.Empty(guardedUninstall.Failures);
-            Assert.Equal(new[] { "personal.txt" }, guardedUninstall.Retained);
+            Assert.Equal(PersonalTxtOnly, guardedUninstall.Retained);
             Assert.Equal("private content", File.ReadAllText(foreign));
             Assert.False(File.Exists(Path.Combine(dest, "VoltManager.exe")));
             Assert.Equal(new[] { foreign }, Directory.GetFileSystemEntries(dest));
@@ -907,7 +911,7 @@ public sealed class InstallEngineRegressionTests
         Directory.CreateDirectory(dest);
         Directory.CreateDirectory(staging);
         File.WriteAllText(Path.Combine(dest, "VoltManager.exe"), "verified");
-        InstallManifest.Write(dest, new[] { "VoltManager.exe" });
+        InstallManifest.Write(dest, ExeOnlyManifest);
         File.WriteAllText(Path.Combine(staging, "VoltManager.exe"), "verified");
         string zip = CreateSyntheticPayloadZip(root, staging);
 
@@ -943,7 +947,7 @@ public sealed class InstallEngineRegressionTests
         Directory.CreateDirectory(dest);
         Directory.CreateDirectory(staging);
         File.WriteAllText(Path.Combine(dest, "VoltManager.exe"), "verified");
-        InstallManifest.Write(dest, new[] { "VoltManager.exe" });
+        InstallManifest.Write(dest, ExeOnlyManifest);
         File.WriteAllText(Path.Combine(staging, "VoltManager.exe"), "verified");
         string zip = CreateSyntheticPayloadZip(root, staging);
         try
@@ -980,7 +984,7 @@ public sealed class InstallEngineRegressionTests
         string outsideFile = Path.Combine(outside, "target.txt");
         File.WriteAllText(outsideFile, "survive");
         File.WriteAllText(Path.Combine(dest, "VoltManager.exe"), "verified");
-        InstallManifest.Write(dest, new[] { "VoltManager.exe" });
+        InstallManifest.Write(dest, ExeOnlyManifest);
         File.WriteAllText(Path.Combine(staging, "VoltManager.exe"), "verified");
         string zip = CreateSyntheticPayloadZip(root, staging);
 

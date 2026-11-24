@@ -8,7 +8,7 @@ namespace VoltManager.Services;
 
 public sealed record StorageCleanupResult(bool Confirmed, int DeletedFiles, long FreedBytes, int SkippedCount, bool Partial);
 
-internal static class StorageTempCleaner
+internal static partial class StorageTempCleaner
 {
     // ponytail: pulizia conservativa entro 20 s/250.000 elementi/128 livelli; usare Pulizia disco per interventi più estesi.
     internal static StorageCleanupResult Clean(IEnumerable<string> roots, CancellationToken cancellationToken,
@@ -111,30 +111,33 @@ internal static class StorageTempCleaner
     private static FileInformation Info(SafeFileHandle handle) => GetFileInformationByHandle(handle, out var info)
         ? info : throw new Win32Exception(Marshal.GetLastWin32Error());
 
-    private static long FileTime(System.Runtime.InteropServices.ComTypes.FILETIME time) =>
-        ((long)time.dwHighDateTime << 32) | (uint)time.dwLowDateTime;
+    private static long FileTime(NativeFileTime time) =>
+        ((long)time.High << 32) | time.Low;
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct NativeFileTime { public uint Low, High; }
 
     [StructLayout(LayoutKind.Sequential)]
     private struct FileInformation
     {
         public uint Attributes;
-        public System.Runtime.InteropServices.ComTypes.FILETIME Created, Accessed, Written;
+        public NativeFileTime Created, Accessed, Written;
         public uint Volume, SizeHigh, SizeLow, Links, IndexHigh, IndexLow;
     }
 
     [StructLayout(LayoutKind.Sequential)]
     private struct FileDisposition { public byte Delete; }
 
-    [DllImport("kernel32.dll", EntryPoint = "CreateFileW", CharSet = CharSet.Unicode, SetLastError = true)]
-    private static extern SafeFileHandle CreateFile(string name, uint access, uint share, IntPtr security,
+    [LibraryImport("kernel32.dll", EntryPoint = "CreateFileW", StringMarshalling = StringMarshalling.Utf16, SetLastError = true)]
+    private static partial SafeFileHandle CreateFile(string name, uint access, uint share, IntPtr security,
         uint creation, uint flags, IntPtr template);
 
-    [DllImport("kernel32.dll", SetLastError = true)]
+    [LibraryImport("kernel32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool GetFileInformationByHandle(SafeFileHandle file, out FileInformation information);
+    private static partial bool GetFileInformationByHandle(SafeFileHandle file, out FileInformation information);
 
-    [DllImport("kernel32.dll", SetLastError = true)]
+    [LibraryImport("kernel32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool SetFileInformationByHandle(SafeFileHandle file, int informationClass,
+    private static partial bool SetFileInformationByHandle(SafeFileHandle file, int informationClass,
         ref FileDisposition information, uint size);
 }

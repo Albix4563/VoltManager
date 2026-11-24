@@ -33,7 +33,7 @@ public sealed class VerifiedUpdatePipelineTests
         Directory.CreateDirectory(dir);
         try
         {
-            IUpdateFileSystem fileSystem = new SystemUpdateFileSystem();
+            var fileSystem = new SystemUpdateFileSystem();
             string path = Path.Combine(dir, "setup.exe");
             Stream written = fileSystem.CreateInstallerFile(path);
             written.Write([1, 2, 3]);

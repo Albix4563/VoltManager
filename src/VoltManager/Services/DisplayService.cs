@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Threading;
@@ -18,7 +19,7 @@ public sealed record DisplaySnapshot(IReadOnlyList<DisplayInfo> Displays, bool I
 {
     public DisplayInfo Primary =>
         Displays.FirstOrDefault(d => d.IsPrimary)
-        ?? Displays.FirstOrDefault()
+        ?? (Displays.Count > 0 ? Displays[0] : null)
         ?? new DisplayInfo("primary-fallback", 1, @"\\.\DISPLAY1",
             new PixelRect(0, 0, 1920, 1080), 1, 1, true);
 
@@ -36,7 +37,7 @@ public sealed record DisplaySnapshot(IReadOnlyList<DisplayInfo> Displays, bool I
         false);
 }
 
-internal sealed class DisplayService : IDisposable
+internal sealed partial class DisplayService : IDisposable
 {
     private readonly DispatcherTimer _changeTimer;
     private readonly EventHandler _displaySettingsHandler;
@@ -58,6 +59,7 @@ internal sealed class DisplayService : IDisposable
         SystemEvents.DisplaySettingsChanged += _displaySettingsHandler;
     }
 
+    [SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "Preserved as instance method for existing callers outside this change scope.")]
     public DisplaySnapshot GetSnapshot() => CaptureSnapshot();
 
     public static DisplaySnapshot CaptureSnapshot()
@@ -119,32 +121,46 @@ internal sealed class DisplayService : IDisposable
     private static List<DisplayInfo> EnumerateDisplays()
     {
         var monitors = new List<NativeMonitor>();
-        EnumDisplayMonitors(IntPtr.Zero, IntPtr.Zero,
-            (IntPtr hMonitor, IntPtr hdc, ref RECT rect, IntPtr data) =>
+        MonitorEnumProc proc = (IntPtr hMonitor, IntPtr hdc, ref RECT rect, IntPtr data) =>
+        {
+            var info = new MONITORINFOEX { cbSize = System.Runtime.CompilerServices.Unsafe.SizeOf<MONITORINFOEX>() };
+            if (!GetMonitorInfo(hMonitor, ref info)) return true;
+            string device = ReadFixedString(info.szDevice);
+
+            uint dpiX = 96, dpiY = 96;
+            try
             {
-                var info = new MONITORINFOEX { cbSize = Marshal.SizeOf<MONITORINFOEX>() };
-                if (!GetMonitorInfo(hMonitor, ref info)) return true;
+                if (GetDpiForMonitor(hMonitor, MDT_EFFECTIVE_DPI, out uint measuredX, out uint measuredY) == 0
+                    && measuredX > 0 && measuredY > 0)
+                {
+                    dpiX = measuredX;
+                    dpiY = measuredY;
+                }
+            }
+            catch { /* fallback 96 */ }
 
-                uint dpiX = 96, dpiY = 96;
-                try { GetDpiForMonitor(hMonitor, MDT_EFFECTIVE_DPI, out dpiX, out dpiY); }
-                catch { /* fallback 96 */ }
-
-                string device = info.szDevice?.TrimEnd('\0') ?? "";
-                int number = ParseDisplayNumber(device);
-                monitors.Add(new NativeMonitor(
-                    device,
-                    number,
-                    new PixelRect(
-                        info.rcWork.Left,
-                        info.rcWork.Top,
-                        info.rcWork.Right - info.rcWork.Left,
-                        info.rcWork.Bottom - info.rcWork.Top),
-                    dpiX / 96.0,
-                    dpiY / 96.0,
-                    (info.dwFlags & MONITORINFOF_PRIMARY) != 0));
-                return true;
-            },
-            IntPtr.Zero);
+            int number = ParseDisplayNumber(device);
+            monitors.Add(new NativeMonitor(
+                device,
+                number,
+                new PixelRect(
+                    info.rcWork.Left,
+                    info.rcWork.Top,
+                    info.rcWork.Right - info.rcWork.Left,
+                    info.rcWork.Bottom - info.rcWork.Top),
+                dpiX / 96.0,
+                dpiY / 96.0,
+                (info.dwFlags & MONITORINFOF_PRIMARY) != 0));
+            return true;
+        };
+        try
+        {
+            EnumDisplayMonitors(IntPtr.Zero, IntPtr.Zero, Marshal.GetFunctionPointerForDelegate(proc), IntPtr.Zero);
+        }
+        finally
+        {
+            GC.KeepAlive(proc);
+        }
 
         var nameMap = QueryDisplayNames();
 
@@ -217,23 +233,23 @@ internal sealed class DisplayService : IDisposable
 
                 var sourceName = new DISPLAYCONFIG_SOURCE_DEVICE_NAME();
                 sourceName.header.type = DISPLAYCONFIG_DEVICE_INFO_GET_SOURCE_NAME;
-                sourceName.header.size = (uint)Marshal.SizeOf<DISPLAYCONFIG_SOURCE_DEVICE_NAME>();
+                sourceName.header.size = (uint)System.Runtime.CompilerServices.Unsafe.SizeOf<DISPLAYCONFIG_SOURCE_DEVICE_NAME>();
                 sourceName.header.adapterId = path.sourceInfo.adapterId;
                 sourceName.header.id = path.sourceInfo.id;
                 if (DisplayConfigGetDeviceInfo(ref sourceName) != 0) continue;
 
-                string gdi = sourceName.viewGdiDeviceName?.TrimEnd('\0') ?? "";
+                string gdi = ReadFixedString(sourceName.viewGdiDeviceName);
                 if (string.IsNullOrEmpty(gdi)) continue;
 
                 var targetName = new DISPLAYCONFIG_TARGET_DEVICE_NAME();
                 targetName.header.type = DISPLAYCONFIG_DEVICE_INFO_GET_TARGET_NAME;
-                targetName.header.size = (uint)Marshal.SizeOf<DISPLAYCONFIG_TARGET_DEVICE_NAME>();
+                targetName.header.size = (uint)System.Runtime.CompilerServices.Unsafe.SizeOf<DISPLAYCONFIG_TARGET_DEVICE_NAME>();
                 targetName.header.adapterId = path.targetInfo.adapterId;
                 targetName.header.id = path.targetInfo.id;
                 if (DisplayConfigGetDeviceInfo(ref targetName) != 0) continue;
 
-                string friendly = targetName.monitorFriendlyDeviceName?.TrimEnd('\0') ?? "";
-                string devicePath = targetName.monitorDevicePath?.TrimEnd('\0') ?? "";
+                string friendly = ReadFixedString(targetName.monitorFriendlyDeviceName);
+                string devicePath = ReadFixedString(targetName.monitorDevicePath);
                 map[gdi] = (
                     string.IsNullOrWhiteSpace(devicePath) ? gdi : devicePath,
                     string.IsNullOrWhiteSpace(friendly) ? gdi : friendly);
@@ -268,28 +284,47 @@ internal sealed class DisplayService : IDisposable
         }
     }
 
+    private static string ReadFixedString(ReadOnlySpan<ushort> buffer)
+    {
+        ReadOnlySpan<char> span = MemoryMarshal.Cast<ushort, char>(buffer);
+        int nul = span.IndexOf('\0');
+        return (nul >= 0 ? span[..nul] : span).ToString();
+    }
+
+    [System.Runtime.CompilerServices.InlineArray(32)]
+    private struct FixedUtf16_32 { private ushort _e0; }
+
+    [System.Runtime.CompilerServices.InlineArray(64)]
+    private struct FixedUtf16_64 { private ushort _e0; }
+
+    [System.Runtime.CompilerServices.InlineArray(128)]
+    private struct FixedUtf16_128 { private ushort _e0; }
+
     private const int MONITORINFOF_PRIMARY = 1;
     private const int MDT_EFFECTIVE_DPI = 0;
     private const uint QDC_ONLY_ACTIVE_PATHS = 2;
     private const int DISPLAYCONFIG_DEVICE_INFO_GET_SOURCE_NAME = 1;
     private const int DISPLAYCONFIG_DEVICE_INFO_GET_TARGET_NAME = 2;
 
+    [UnmanagedFunctionPointer(CallingConvention.Winapi)]
     private delegate bool MonitorEnumProc(IntPtr hMonitor, IntPtr hdcMonitor, ref RECT lprcMonitor, IntPtr dwData);
 
-    [DllImport("user32.dll")]
-    private static extern bool EnumDisplayMonitors(IntPtr hdc, IntPtr lprcClip, MonitorEnumProc lpfnEnum, IntPtr dwData);
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool EnumDisplayMonitors(IntPtr hdc, IntPtr lprcClip, IntPtr lpfnEnum, IntPtr dwData);
 
-    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
-    private static extern bool GetMonitorInfo(IntPtr hMonitor, ref MONITORINFOEX lpmi);
+    [LibraryImport("user32.dll", EntryPoint = "GetMonitorInfoW")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool GetMonitorInfo(IntPtr hMonitor, ref MONITORINFOEX lpmi);
 
-    [DllImport("shcore.dll")]
-    private static extern int GetDpiForMonitor(IntPtr hmonitor, int dpiType, out uint dpiX, out uint dpiY);
+    [LibraryImport("shcore.dll")]
+    private static partial int GetDpiForMonitor(IntPtr hmonitor, int dpiType, out uint dpiX, out uint dpiY);
 
-    [DllImport("user32.dll")]
-    private static extern int GetDisplayConfigBufferSizes(uint flags, out int numPathArrayElements, out int numModeInfoArrayElements);
+    [LibraryImport("user32.dll")]
+    private static partial int GetDisplayConfigBufferSizes(uint flags, out int numPathArrayElements, out int numModeInfoArrayElements);
 
-    [DllImport("user32.dll")]
-    private static extern int QueryDisplayConfig(
+    [LibraryImport("user32.dll")]
+    private static partial int QueryDisplayConfig(
         uint flags,
         ref int numPathArrayElements,
         [Out] DISPLAYCONFIG_PATH_INFO[] pathArray,
@@ -297,11 +332,11 @@ internal sealed class DisplayService : IDisposable
         [Out] DISPLAYCONFIG_MODE_INFO[] modeInfoArray,
         IntPtr currentTopologyId);
 
-    [DllImport("user32.dll", EntryPoint = "DisplayConfigGetDeviceInfo")]
-    private static extern int DisplayConfigGetDeviceInfo(ref DISPLAYCONFIG_SOURCE_DEVICE_NAME request);
+    [LibraryImport("user32.dll", EntryPoint = "DisplayConfigGetDeviceInfo")]
+    private static partial int DisplayConfigGetDeviceInfo(ref DISPLAYCONFIG_SOURCE_DEVICE_NAME request);
 
-    [DllImport("user32.dll", EntryPoint = "DisplayConfigGetDeviceInfo")]
-    private static extern int DisplayConfigGetDeviceInfo(ref DISPLAYCONFIG_TARGET_DEVICE_NAME request);
+    [LibraryImport("user32.dll", EntryPoint = "DisplayConfigGetDeviceInfo")]
+    private static partial int DisplayConfigGetDeviceInfo(ref DISPLAYCONFIG_TARGET_DEVICE_NAME request);
 
     [StructLayout(LayoutKind.Sequential)]
     private struct RECT
@@ -309,15 +344,14 @@ internal sealed class DisplayService : IDisposable
         public int Left, Top, Right, Bottom;
     }
 
-    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    [StructLayout(LayoutKind.Sequential)]
     private struct MONITORINFOEX
     {
         public int cbSize;
         public RECT rcMonitor;
         public RECT rcWork;
         public int dwFlags;
-        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)]
-        public string szDevice;
+        public FixedUtf16_32 szDevice;
     }
 
     [StructLayout(LayoutKind.Sequential)]
@@ -347,7 +381,7 @@ internal sealed class DisplayService : IDisposable
         public uint scaling;
         public DISPLAYCONFIG_RATIONAL refreshRate;
         public uint scanLineOrdering;
-        public bool targetAvailable;
+        public int targetAvailable;
         public uint statusFlags;
     }
 
@@ -391,15 +425,14 @@ internal sealed class DisplayService : IDisposable
         public uint id;
     }
 
-    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    [StructLayout(LayoutKind.Sequential)]
     private struct DISPLAYCONFIG_SOURCE_DEVICE_NAME
     {
         public DISPLAYCONFIG_DEVICE_INFO_HEADER header;
-        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)]
-        public string viewGdiDeviceName;
+        public FixedUtf16_32 viewGdiDeviceName;
     }
 
-    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    [StructLayout(LayoutKind.Sequential)]
     private struct DISPLAYCONFIG_TARGET_DEVICE_NAME
     {
         public DISPLAYCONFIG_DEVICE_INFO_HEADER header;
@@ -408,10 +441,8 @@ internal sealed class DisplayService : IDisposable
         public ushort edidManufactureId;
         public ushort edidProductCodeId;
         public uint connectorInstance;
-        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 64)]
-        public string monitorFriendlyDeviceName;
-        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)]
-        public string monitorDevicePath;
+        public FixedUtf16_64 monitorFriendlyDeviceName;
+        public FixedUtf16_128 monitorDevicePath;
     }
 
     [StructLayout(LayoutKind.Sequential)]
