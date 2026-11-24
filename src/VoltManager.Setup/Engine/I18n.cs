@@ -485,16 +485,31 @@ namespace VoltManager.Setup.Engine
                     Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
                     "VoltManager", "settings.json");
                 if (!File.Exists(settingsPath)) return null;
+                return ParseSavedLanguage(File.ReadAllText(settingsPath));
+            }
+            catch { /* best-effort */ }
+            return null;
+        }
+
+        internal static string? ParseSavedLanguage(string json)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(json)) return null;
+                // Timeout esplicito per evitare backtracking su settings.json anomali (S6444).
                 var match = Regex.Match(
-                    File.ReadAllText(settingsPath),
+                    json,
                     "\"language\"\\s*:\\s*\"(?<lang>[^\"]*)\"",
-                    RegexOptions.IgnoreCase);
+                    RegexOptions.IgnoreCase,
+                    TimeSpan.FromSeconds(1));
                 if (!match.Success) return null;
                 var val = match.Groups["lang"].Value;
                 return string.IsNullOrEmpty(val) ? null : val;
             }
-            catch { /* best-effort */ }
-            return null;
+            catch (RegexMatchTimeoutException)
+            {
+                return null;
+            }
         }
 
         private static bool IsSupported(string? code)

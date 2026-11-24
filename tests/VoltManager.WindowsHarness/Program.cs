@@ -168,6 +168,51 @@ internal static class Program
         {
             report.Checks.Add(new HarnessCheck("vram_real_counters", "not_verified", ex.Message));
         }
+
+        AddCheck(report, "harness_trusted_executable_paths", () =>
+        {
+            ProcessStartInfo? notepadPsi = null;
+            try
+            {
+                _ = AppBenchmarkRunner.StartFocusHelper(psi =>
+                {
+                    notepadPsi = psi;
+                    return null;
+                });
+                return false;
+            }
+            catch (InvalidOperationException)
+            {
+                // Atteso quando il launcher sintetico restituisce null senza avviare notepad.exe reale.
+            }
+
+            string expectedNotepad = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.System),
+                "notepad.exe");
+            bool notepadOk = notepadPsi != null
+                && string.Equals(notepadPsi.FileName, expectedNotepad, StringComparison.OrdinalIgnoreCase)
+                && notepadPsi.UseShellExecute;
+
+            string dotnetResolved = ResolveDotnetExecutablePath(
+                processPath: @"C:\Custom\VoltManager.WindowsHarness.exe",
+                runtimeDirectory: @"C:\TrustedDotnet\shared\Microsoft.NETCore.App\8.0.11\",
+                programFiles: @"C:\Program Files",
+                fileExists: path => string.Equals(path, @"C:\TrustedDotnet\dotnet.exe", StringComparison.OrdinalIgnoreCase));
+            bool dotnetOk = string.Equals(dotnetResolved, @"C:\TrustedDotnet\dotnet.exe", StringComparison.OrdinalIgnoreCase);
+
+            string? gitMissing = ResolveTrustedGitExecutablePath(
+                programFiles: @"C:\Program Files",
+                programFilesX86: @"C:\Program Files (x86)",
+                fileExists: _ => false);
+            string? gitFound = ResolveTrustedGitExecutablePath(
+                programFiles: @"C:\Program Files",
+                programFilesX86: @"C:\Program Files (x86)",
+                fileExists: path => string.Equals(path, @"C:\Program Files\Git\cmd\git.exe", StringComparison.OrdinalIgnoreCase));
+            bool gitOk = gitMissing == null
+                && string.Equals(gitFound, @"C:\Program Files\Git\cmd\git.exe", StringComparison.OrdinalIgnoreCase);
+
+            return notepadOk && dotnetOk && gitOk;
+        }, "harness notepad, dotnet, and git executable resolution uses trusted absolute paths without PATH");
     }
 
     private static void RunWebViewChecks(HarnessReport report, HarnessOptions options)
@@ -582,7 +627,8 @@ internal static class Program
 
         string appDll = Path.GetFullPath(options.AppPath);
         string appDir = Path.GetDirectoryName(appDll)!;
-        var start = new ProcessStartInfo("dotnet")
+        string dotnetPath = ResolveDotnetExecutablePath();
+        var start = new ProcessStartInfo(dotnetPath)
         {
             WorkingDirectory = appDir,
             UseShellExecute = false,
@@ -901,11 +947,81 @@ internal static class Program
         File.WriteAllLines(Path.Combine(output, "windows-harness.md"), markdown);
     }
 
+    internal static string ResolveDotnetExecutablePath(
+        string? processPath = null,
+        string? runtimeDirectory = null,
+        string? programFiles = null,
+        Func<string, bool>? fileExists = null)
+    {
+        Func<string, bool> exists = fileExists ?? File.Exists;
+        // Risoluzione diretta da host attivo, runtime CLR o Program Files senza dipendere da PATH (S4036).
+        string? currentProcess = processPath ?? Environment.ProcessPath;
+        if (!string.IsNullOrWhiteSpace(currentProcess)
+            && string.Equals(Path.GetFileName(currentProcess), "dotnet.exe", StringComparison.OrdinalIgnoreCase)
+            && Path.IsPathRooted(currentProcess)
+            && exists(currentProcess))
+        {
+            return currentProcess;
+        }
+
+        string runtimeDir = runtimeDirectory ?? RuntimeEnvironment.GetRuntimeDirectory();
+        if (!string.IsNullOrWhiteSpace(runtimeDir))
+        {
+            string? sharedDir = Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(runtimeDir));
+            string? frameworkDir = sharedDir == null ? null : Path.GetDirectoryName(sharedDir);
+            string? hostRoot = frameworkDir == null ? null : Path.GetDirectoryName(frameworkDir);
+            if (!string.IsNullOrWhiteSpace(hostRoot))
+            {
+                string runtimeHost = Path.Combine(hostRoot, "dotnet.exe");
+                if (Path.IsPathRooted(runtimeHost) && exists(runtimeHost))
+                    return runtimeHost;
+            }
+        }
+
+        string pf = programFiles ?? Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
+        if (!string.IsNullOrWhiteSpace(pf))
+        {
+            string standardHost = Path.Combine(pf, "dotnet", "dotnet.exe");
+            if (Path.IsPathRooted(standardHost) && exists(standardHost))
+                return standardHost;
+        }
+
+        throw new FileNotFoundException("Could not locate dotnet.exe in trusted runtime or Program Files paths.");
+    }
+
+    internal static string? ResolveTrustedGitExecutablePath(
+        string? programFiles = null,
+        string? programFilesX86 = null,
+        Func<string, bool>? fileExists = null)
+    {
+        Func<string, bool> exists = fileExists ?? File.Exists;
+        string pf = programFiles ?? Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
+        string pf86 = programFilesX86 ?? Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86);
+
+        string[] candidates =
+        [
+            string.IsNullOrWhiteSpace(pf) ? "" : Path.Combine(pf, "Git", "cmd", "git.exe"),
+            string.IsNullOrWhiteSpace(pf) ? "" : Path.Combine(pf, "Git", "bin", "git.exe"),
+            string.IsNullOrWhiteSpace(pf86) ? "" : Path.Combine(pf86, "Git", "cmd", "git.exe"),
+        ];
+
+        foreach (string candidate in candidates)
+        {
+            if (!string.IsNullOrWhiteSpace(candidate) && Path.IsPathRooted(candidate) && exists(candidate))
+                return candidate;
+        }
+        return null;
+    }
+
     internal static string TryGitCommit()
     {
         try
         {
-            using var process = Process.Start(new ProcessStartInfo("git", "rev-parse HEAD")
+            // Percorso assoluto da installazioni note di Git per evitare risoluzioni tramite PATH (S4036).
+            string? gitPath = ResolveTrustedGitExecutablePath();
+            if (gitPath == null) return "unknown";
+
+            using var process = Process.Start(new ProcessStartInfo(gitPath, "rev-parse HEAD")
             {
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
@@ -914,7 +1030,7 @@ internal static class Program
             if (process == null) return "unknown";
             string result = process.StandardOutput.ReadToEnd().Trim();
             process.WaitForExit(2000);
-            return result;
+            return string.IsNullOrEmpty(result) ? "unknown" : result;
         }
         catch { return "unknown"; }
     }

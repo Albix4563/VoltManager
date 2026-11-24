@@ -620,6 +620,28 @@ namespace VoltManager.Setup.Tests
             finally { Cleanup(root); }
         }
 
+        [Fact]
+        public void RunPowercfg_uses_trusted_system32_powercfg_path_and_preserves_arguments()
+        {
+            System.Diagnostics.ProcessStartInfo? observed = null;
+
+            string output = SystemUninstallSystemOperations.RunPowercfg("/getactivescheme", psi =>
+            {
+                observed = psi;
+                return null;
+            });
+
+            Assert.Equal("", output);
+            Assert.NotNull(observed);
+            Assert.Equal(
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "powercfg.exe"),
+                observed!.FileName);
+            Assert.Equal("/getactivescheme", observed.Arguments);
+            Assert.False(observed.UseShellExecute);
+            Assert.True(observed.CreateNoWindow);
+            Assert.True(observed.RedirectStandardOutput);
+        }
+
         private sealed class FakeUninstallOperations : IUninstallSystemOperations
         {
             public List<string> Order { get; } = new List<string>();

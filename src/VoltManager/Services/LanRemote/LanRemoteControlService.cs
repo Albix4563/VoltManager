@@ -47,7 +47,6 @@ public sealed class LanRemoteControlService : IDisposable
     private readonly Func<IReadOnlyCollection<IPAddress>, X509Certificate2> _certificateProvider;
     private readonly Func<IPAddress?, bool> _clientAddressAllowed;
     private readonly string _remoteAssetsPath;
-    private readonly bool _useHttps;
     private readonly TimeSpan _shutdownTimeout;
     private readonly Func<CancellationToken, Task> _beforeStart;
     private readonly Func<CancellationToken, Task> _beforeStop;
@@ -93,7 +92,6 @@ public sealed class LanRemoteControlService : IDisposable
         Func<IReadOnlyCollection<IPAddress>, X509Certificate2>? certificateProvider = null,
         Func<IPAddress?, bool>? clientAddressAllowed = null,
         string? remoteAssetsPath = null,
-        bool useHttps = true,
         TimeSpan? shutdownTimeout = null,
         Func<CancellationToken, Task>? beforeStart = null,
         Func<CancellationToken, Task>? beforeStop = null,
@@ -111,7 +109,6 @@ public sealed class LanRemoteControlService : IDisposable
         _certificateProvider = certificateProvider ?? LanRemoteCertificateManager.GetOrCreate;
         _clientAddressAllowed = clientAddressAllowed ?? (address => address is not null && LanRemoteNetwork.IsPrivateLanAddress(address));
         _remoteAssetsPath = remoteAssetsPath ?? Path.Combine(AppContext.BaseDirectory, "wwwroot", "remote");
-        _useHttps = useHttps;
         _shutdownTimeout = shutdownTimeout ?? TimeSpan.FromSeconds(5);
         _beforeStart = beforeStart ?? (_ => Task.CompletedTask);
         _beforeStop = beforeStop ?? (_ => Task.CompletedTask);
@@ -349,25 +346,33 @@ public sealed class LanRemoteControlService : IDisposable
         if (port != config.Port)
             _settings.Update(state => state.LanRemoteControl.Port = port);
 
-        X509Certificate2? certificate = _useHttps ? _certificateProvider(addresses) : null;
-        WebApplication app = BuildWebApplication(addresses, port, certificate);
+        X509Certificate2 certificate = _certificateProvider(addresses);
+        WebApplication? app = null;
         try
         {
+            app = BuildWebApplication(addresses, port, certificate);
             await app.StartAsync(cancellationToken).ConfigureAwait(false);
             _firewall.Apply(port);
         }
         catch
         {
-            try { await app.StopAsync(CancellationToken.None).ConfigureAwait(false); } catch { /* best-effort: the host is being disposed anyway. */ }
-            await app.DisposeAsync().ConfigureAwait(false);
-            certificate?.Dispose();
-            TryRemoveFirewall();
+            try
+            {
+                if (app is not null)
+                    await StopAndDisposeApplicationAsync(app, CancellationToken.None).ConfigureAwait(false);
+            }
+            catch (Exception ex) { _warningLogger("Impossibile chiudere il controllo remoto LAN: " + ex.Message); }
+            finally
+            {
+                certificate.Dispose();
+                TryRemoveFirewall();
+            }
             throw;
         }
 
         _addresses = addresses;
         _certificate = certificate;
-        _fingerprint = certificate is null ? null : LanRemoteCertificateManager.Sha256Fingerprint(certificate);
+        _fingerprint = LanRemoteCertificateManager.Sha256Fingerprint(certificate);
         _webApplication = app;
         PublishStateChanged();
     }
@@ -430,7 +435,7 @@ public sealed class LanRemoteControlService : IDisposable
             TaskScheduler.Default);
     }
 
-    private WebApplication BuildWebApplication(IReadOnlyList<IPAddress> addresses, int port, X509Certificate2? certificate)
+    private WebApplication BuildWebApplication(IReadOnlyList<IPAddress> addresses, int port, X509Certificate2 certificate)
     {
         var builder = WebApplication.CreateSlimBuilder(new WebApplicationOptions
         {
@@ -446,8 +451,7 @@ public sealed class LanRemoteControlService : IDisposable
                 options.Listen(address, port, listen =>
                 {
                     listen.Protocols = HttpProtocols.Http1AndHttp2;
-                    if (_useHttps)
-                        listen.UseHttps(certificate ?? throw new InvalidOperationException("TLS certificate is required."));
+                    listen.UseHttps(certificate);
                 });
             }
         });
@@ -577,7 +581,7 @@ public sealed class LanRemoteControlService : IDisposable
             LanRemoteSession session = _sessions.Create();
             context.Response.Cookies.Append(SessionCookieName, session.Id, new CookieOptions
             {
-                Secure = _useHttps,
+                Secure = true,
                 HttpOnly = true,
                 SameSite = SameSiteMode.Strict,
                 Path = "/",
@@ -593,7 +597,7 @@ public sealed class LanRemoteControlService : IDisposable
             (bool authorized, string sessionId) = await TryAuthorizePostAsync(context);
             if (!authorized) return;
             _sessions.Revoke(sessionId);
-            context.Response.Cookies.Delete(SessionCookieName, new CookieOptions { Secure = _useHttps, HttpOnly = true, SameSite = SameSiteMode.Strict, Path = "/" });
+            context.Response.Cookies.Delete(SessionCookieName, new CookieOptions { Secure = true, HttpOnly = true, SameSite = SameSiteMode.Strict, Path = "/" });
             await context.Response.WriteAsJsonAsync(new { success = true });
         });
 

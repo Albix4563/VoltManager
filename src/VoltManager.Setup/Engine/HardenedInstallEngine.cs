@@ -448,16 +448,24 @@ namespace VoltManager.Setup.Engine
         }
 
         private static bool StartupTaskExists()
+            => StartupTaskExists(null);
+
+        internal static bool StartupTaskExists(Func<ProcessStartInfo, Process?>? startProcess)
         {
             try
             {
-                using (Process? process = Process.Start(new ProcessStartInfo(
-                    "schtasks",
+                // Percorso assoluto in System32 per evitare risoluzioni tramite PATH (S4036).
+                string schtasksPath = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.System),
+                    "schtasks.exe");
+                var psi = new ProcessStartInfo(
+                    schtasksPath,
                     "/query /tn \"" + VoltManagerArtifacts.StartupTaskName + "\"")
                 {
                     CreateNoWindow = true,
                     UseShellExecute = false,
-                }))
+                };
+                using (Process? process = (startProcess ?? Process.Start)(psi))
                 {
                     if (process == null) return false;
                     if (!process.WaitForExit(10000))

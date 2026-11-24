@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Text.RegularExpressions;
+using VoltManager.Models;
 using VoltManager.Setup.Engine;
 
 namespace VoltManager.Setup.Tests
@@ -37,6 +38,28 @@ namespace VoltManager.Setup.Tests
         {
             I18n.Initialize("en");
             Assert.Equal("missing_contract_key", I18n.T("missing_contract_key"));
+        }
+
+        [Theory]
+        [InlineData("{\"language\":\"it\"}", "it")]
+        [InlineData("{\"Language\" : \"es\"}", "es")]
+        [InlineData("{\"language\":\"\"}", null)]
+        [InlineData("{}", null)]
+        [InlineData("", null)]
+        public void Setup_saved_language_parser_preserves_valid_values_and_falls_back_to_null(string json, string? expected)
+        {
+            Assert.Equal(expected, I18n.ParseSavedLanguage(json));
+        }
+
+        [Theory]
+        [InlineData("{\"themeColor\":\"green\"}", AppThemeColor.Green)]
+        [InlineData("{\"ThemeColor\" : \"RED\"}", AppThemeColor.Red)]
+        [InlineData("{\"themeColor\":\"unknown\"}", AppThemeColor.Blue)]
+        [InlineData("{}", AppThemeColor.Blue)]
+        [InlineData("", AppThemeColor.Blue)]
+        public void Setup_saved_theme_color_parser_preserves_valid_values_and_falls_back_to_blue(string json, AppThemeColor expected)
+        {
+            Assert.Equal(expected, VoltManager.Setup.App.ParseSavedThemeColor(json));
         }
 
         private static Dictionary<string, string> Dictionary(string field)

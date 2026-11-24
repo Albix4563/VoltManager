@@ -148,15 +148,25 @@ public sealed class DiagnosticsReportService
     }
 
     public static bool TryOpenLogFolder(out string? path, out string? error)
+        => TryOpenLogFolder(out path, out error, Process.Start);
+
+    internal static bool TryOpenLogFolder(
+        out string? path,
+        out string? error,
+        Func<ProcessStartInfo, Process?> startProcess)
     {
         path = LogDirectory;
         error = null;
         try
         {
             Directory.CreateDirectory(path);
-            Process.Start(new ProcessStartInfo
+            // Percorso assoluto nella cartella Windows per evitare risoluzioni tramite PATH (S4036).
+            string explorerPath = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.Windows),
+                "explorer.exe");
+            using Process? _ = startProcess(new ProcessStartInfo
             {
-                FileName = "explorer.exe",
+                FileName = explorerPath,
                 Arguments = "\"" + path + "\"",
                 UseShellExecute = true,
             });

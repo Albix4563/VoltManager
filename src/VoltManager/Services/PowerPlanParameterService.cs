@@ -37,7 +37,8 @@ public class PowerPlanParameterService
     // supported locale because the numeric representation itself is invariant.
     private static readonly Regex HexIndexRegex = new(
         @"0x([0-9a-fA-F]+)",
-        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        RegexOptions.Compiled | RegexOptions.IgnoreCase,
+        TimeSpan.FromSeconds(1));
 
     private readonly PowerPlanService _power;
 
@@ -178,11 +179,11 @@ public class PowerPlanParameterService
         dc = 0;
         if (string.IsNullOrWhiteSpace(output)) return false;
 
-        var matches = HexIndexRegex.Matches(output);
-        if (matches.Count < 2) return false;
-
         try
         {
+            var matches = HexIndexRegex.Matches(output);
+            if (matches.Count < 2) return false;
+
             ac = Convert.ToInt32(matches[^2].Groups[1].Value, 16);
             dc = Convert.ToInt32(matches[^1].Groups[1].Value, 16);
             return true;

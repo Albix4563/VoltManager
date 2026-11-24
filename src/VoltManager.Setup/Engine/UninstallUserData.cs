@@ -149,12 +149,22 @@ namespace VoltManager.Setup.Engine
         };
 
         private static readonly Regex GuidRegex = new Regex(
-            "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}");
+            "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}",
+            RegexOptions.None,
+            TimeSpan.FromSeconds(1));
 
         internal static string? ParseActiveGuid(string powercfgOutput)
         {
-            Match match = GuidRegex.Match(powercfgOutput ?? "");
-            return match.Success ? match.Value.ToLowerInvariant() : null;
+            try
+            {
+                Match match = GuidRegex.Match(powercfgOutput ?? "");
+                return match.Success ? match.Value.ToLowerInvariant() : null;
+            }
+            catch (RegexMatchTimeoutException)
+            {
+                // Fallback sicuro: non blocca la disinstallazione su output powercfg anomalo.
+                return null;
+            }
         }
 
         internal static bool ShouldRestore(string? activeGuid, IReadOnlyCollection<string> managedGuids)
@@ -171,11 +181,23 @@ namespace VoltManager.Setup.Engine
                 Dictionary<string, object?> root = SettingsJsonUpdater.ParseRootOrEmpty(File.ReadAllText(path), out _);
                 if (!root.TryGetValue("planGuidMap", out object? map) || !(map is Dictionary<string, object?> plans))
                     return Array.Empty<string>();
-                return plans.Values.OfType<string>().Where(value => GuidRegex.IsMatch(value)).ToArray();
+                return plans.Values.OfType<string>().Where(IsGuidMatch).ToArray();
             }
             catch
             {
                 return Array.Empty<string>();
+            }
+        }
+
+        private static bool IsGuidMatch(string value)
+        {
+            try
+            {
+                return GuidRegex.IsMatch(value);
+            }
+            catch (RegexMatchTimeoutException)
+            {
+                return false;
             }
         }
     }

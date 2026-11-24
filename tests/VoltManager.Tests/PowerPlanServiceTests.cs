@@ -1,4 +1,6 @@
 using System.ComponentModel;
+using System.Diagnostics;
+using System.IO;
 using VoltManager.Models;
 using VoltManager.Services;
 
@@ -559,5 +561,45 @@ public sealed class PowerPlanServiceTests
             }.Select(setting => $"    Power Setting GUID: {setting}\n" +
                 $"    Current AC Power Setting Index: 0x{ac:x8}\n" +
                 $"    Current DC Power Setting Index: 0x{dc:x8}"));
+    }
+
+    [Fact]
+    public void RunPowercfgCore_uses_trusted_system32_powercfg_path_and_preserves_arguments()
+    {
+        var factory = new CapturingProcessFactory();
+
+        string output = PowerPlanService.RunPowercfgCore("/list", validateFailure: true, factory);
+
+        Assert.Equal("ok", output);
+        Assert.NotNull(factory.Observed);
+        Assert.Equal(
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "powercfg.exe"),
+            factory.Observed!.FileName);
+        Assert.Equal("/list", factory.Observed.Arguments);
+        Assert.False(factory.Observed.UseShellExecute);
+        Assert.True(factory.Observed.RedirectStandardOutput);
+        Assert.True(factory.Observed.RedirectStandardError);
+        Assert.True(factory.Observed.CreateNoWindow);
+    }
+
+    private sealed class CapturingProcessFactory : IExternalProcessFactory
+    {
+        public ProcessStartInfo? Observed { get; private set; }
+
+        public IExternalProcessSession Start(ProcessStartInfo startInfo)
+        {
+            Observed = startInfo;
+            return new CompletedSession();
+        }
+
+        private sealed class CompletedSession : IExternalProcessSession
+        {
+            public Task<string> ReadStandardOutputAsync() => Task.FromResult("ok");
+            public Task<string> ReadStandardErrorAsync() => Task.FromResult("");
+            public bool WaitForExit(TimeSpan timeout) => true;
+            public int ExitCode => 0;
+            public void KillTree() { }
+            public void Dispose() { }
+        }
     }
 }

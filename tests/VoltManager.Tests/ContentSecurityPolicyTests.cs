@@ -32,6 +32,12 @@ public class ContentSecurityPolicyTests
         Assert.False(scriptSources.Contains("'unsafe-inline'", StringComparison.OrdinalIgnoreCase));
         Assert.False(scriptSources.Contains("'unsafe-eval'", StringComparison.OrdinalIgnoreCase));
 
+        const string styleDirective = "style-src 'self'";
+        Assert.Contains(policy.Split(';', StringSplitOptions.TrimEntries),
+            directive => string.Equals(directive, styleDirective, StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotMatch(@"(?i)<style\b", html);
+        Assert.DoesNotMatch(@"(?i)\sstyle\s*=", html);
+
         foreach (Match script in Regex.Matches(html, @"<script\b(?<attrs>[^>]*)>",
                      RegexOptions.IgnoreCase | RegexOptions.Singleline).Cast<Match>())
         {

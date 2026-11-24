@@ -398,6 +398,27 @@ namespace VoltManager.Setup.Tests
             Assert.False(SetupArgs.Parse(new[] { "/uninstall", "/SILENT" }).PurgeUserData);
         }
 
+        [Fact]
+        public void StartupTaskExists_uses_trusted_system32_schtasks_path_and_preserves_query_args()
+        {
+            ProcessStartInfo? observed = null;
+
+            bool exists = HardenedInstallEngine.StartupTaskExists(psi =>
+            {
+                observed = psi;
+                return null;
+            });
+
+            Assert.False(exists);
+            Assert.NotNull(observed);
+            Assert.Equal(
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "schtasks.exe"),
+                observed!.FileName);
+            Assert.Equal("/query /tn \"" + VoltManager.Services.VoltManagerArtifacts.StartupTaskName + "\"", observed.Arguments);
+            Assert.False(observed.UseShellExecute);
+            Assert.True(observed.CreateNoWindow);
+        }
+
         private static (string InstallDir, string Zip) CreateInstall(string root)
         {
             Directory.CreateDirectory(root);

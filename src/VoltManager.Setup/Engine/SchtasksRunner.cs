@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using System.IO;
 using System.Threading.Tasks;
 
 namespace VoltManager.Setup.Engine
@@ -28,7 +29,11 @@ namespace VoltManager.Setup.Engine
             TimeSpan? timeout = null,
             Func<ProcessStartInfo, Process?>? startProcess = null)
         {
-            var psi = new ProcessStartInfo("schtasks.exe", arguments)
+            // Percorso assoluto in System32 per evitare risoluzioni tramite PATH (S4036).
+            string schtasksPath = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.System),
+                "schtasks.exe");
+            var psi = new ProcessStartInfo(schtasksPath, arguments)
             {
                 CreateNoWindow = true,
                 UseShellExecute = false,

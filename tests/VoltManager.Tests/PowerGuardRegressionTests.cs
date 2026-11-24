@@ -1,4 +1,6 @@
+using System.Diagnostics;
 using System.Globalization;
+using System.IO;
 using System.Reflection;
 using VoltManager.Models;
 using VoltManager.Services;
@@ -237,6 +239,31 @@ public sealed class PowerGuardRegressionTests
         Assert.Null(settings.Current.AutoShutdown.ExecuteAtUtc);
         Assert.False(service.GetState().Enabled);
         Assert.Empty(executor.Actions);
+    }
+
+    [Theory]
+    [InlineData(ScheduledPowerActionType.Shutdown, 15, "/s /t 15")]
+    [InlineData(ScheduledPowerActionType.Restart, 0, "/r /t 0")]
+    public void PowerActionExecutor_uses_trusted_system32_shutdown_path_and_preserves_arguments(
+        ScheduledPowerActionType action,
+        int delaySeconds,
+        string expectedArguments)
+    {
+        ProcessStartInfo? observed = null;
+        var executor = new PowerActionExecutor(psi =>
+        {
+            observed = psi;
+            return null;
+        });
+
+        Assert.Throws<InvalidOperationException>(() => executor.Execute(action, delaySeconds));
+        Assert.NotNull(observed);
+        Assert.Equal(
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "shutdown.exe"),
+            observed!.FileName);
+        Assert.Equal(expectedArguments, observed.Arguments);
+        Assert.False(observed.UseShellExecute);
+        Assert.True(observed.CreateNoWindow);
     }
 
     private static object? Field(object instance, string name)

@@ -242,7 +242,7 @@
             scheduleDateTick();
             return;
         }
-        shell('<div class="widget-muted" id="calendar-title" style="margin-bottom:10px"></div><div class="calendar-head" id="calendar-head"></div><div class="calendar-grid" id="calendar-grid"></div>');
+        shell('<div class="widget-muted" id="calendar-title"></div><div class="calendar-head" id="calendar-head"></div><div class="calendar-grid" id="calendar-grid"></div>');
         dateTick = renderCalendar;
         scheduleDateTick();
     }
@@ -1108,16 +1108,21 @@
             if (window.I18n && I18n.apply) I18n.apply();
             return;
         }
-        host.innerHTML = rows.map((p) => {
-            const cpu = pct(p.cpuPercent);
+        const cpus = rows.map((p) => pct(p.cpuPercent));
+        host.innerHTML = rows.map((p, index) => {
+            const cpu = cpus[index];
             const name = (p.name || '?') + (p.instances > 1 ? ' ×' + p.instances : '');
             return '<div class="proc-row" role="listitem">' +
                 '<span class="proc-name" title="' + esc(name) + '">' + esc(name) + '</span>' +
                 (size === 'mini' ? '' : '<span class="proc-ram">' + mb(p.ramMb) + '</span>') +
                 '<strong class="proc-cpu">' + (cpu < 10 ? cpu.toFixed(1) : Math.round(cpu)) + '%</strong>' +
-                '<div class="proc-bar" aria-hidden="true"><span style="width:' + cpu + '%"></span></div>' +
+                '<div class="proc-bar" aria-hidden="true"><span></span></div>' +
                 '</div>';
         }).join('');
+        const bars = host.querySelectorAll('.proc-bar > span');
+        cpus.forEach((cpu, index) => {
+            if (bars[index]) bars[index].style.width = cpu + '%';
+        });
     }
 
     // ---- Memory ---------------------------------------------------------

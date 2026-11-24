@@ -1,11 +1,35 @@
 using System;
 using System.Diagnostics;
+using System.IO;
 using VoltManager.Setup.Engine;
 
 namespace VoltManager.Setup.Tests
 {
     public sealed class SchtasksRunnerTests
     {
+        [Fact]
+        public void Run_uses_trusted_system32_schtasks_path_and_preserves_arguments()
+        {
+            ProcessStartInfo? observed = null;
+            SchtasksResult result = SchtasksRunner.Run(
+                "/query /tn \"VoltManagerAutostart\"",
+                TimeSpan.FromSeconds(5),
+                psi =>
+                {
+                    observed = psi;
+                    return null;
+                });
+
+            Assert.NotNull(observed);
+            Assert.Equal(
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "schtasks.exe"),
+                observed!.FileName);
+            Assert.Equal("/query /tn \"VoltManagerAutostart\"", observed.Arguments);
+            Assert.False(observed.UseShellExecute);
+            Assert.False(result.Success);
+            Assert.Equal(-1, result.ExitCode);
+        }
+
         [Fact]
         public void Non_zero_exit_is_reported_with_output()
         {

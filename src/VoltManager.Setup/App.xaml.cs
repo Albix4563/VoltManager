@@ -370,10 +370,26 @@ namespace VoltManager.Setup
                     "VoltManager", "settings.json");
                 if (!File.Exists(path)) return AppThemeColor.Blue;
 
+                return ParseSavedThemeColor(File.ReadAllText(path));
+            }
+            catch
+            {
+                return AppThemeColor.Blue;
+            }
+        }
+
+        internal static AppThemeColor ParseSavedThemeColor(string json)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(json)) return AppThemeColor.Blue;
+
+                // Timeout esplicito per limitare la scansione su settings.json anomali (S6444).
                 var match = Regex.Match(
-                    File.ReadAllText(path),
+                    json,
                     "\"themeColor\"\\s*:\\s*\"(?<themeColor>[^\"]*)\"",
-                    RegexOptions.IgnoreCase);
+                    RegexOptions.IgnoreCase,
+                    TimeSpan.FromSeconds(1));
                 if (!match.Success) return AppThemeColor.Blue;
 
                 return AppThemeColorPalette.TryParseKey(match.Groups["themeColor"].Value, out var parsed)

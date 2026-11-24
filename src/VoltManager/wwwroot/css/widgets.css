@@ -393,6 +393,10 @@ html[data-size=large] .widget-stat strong {
   transition: width var(--vm-motion-fast) var(--vm-ease-standard);
 }
 
+#calendar-title {
+  margin-bottom: 10px;
+}
+
 .calendar-head,
 .calendar-grid {
   min-width: 0;

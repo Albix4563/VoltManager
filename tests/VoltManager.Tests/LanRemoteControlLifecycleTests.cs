@@ -253,7 +253,6 @@ public sealed class LanRemoteControlLifecycleTests
             auth: new LanRemoteAuthStore(authPath),
             firewall: new NoopFirewall(),
             addressProvider: () => [],
-            useHttps: false,
             powerRequests: coordinator);
 
         // The same subscription path as the public constructor, with fully synthetic
@@ -359,7 +358,7 @@ public sealed class LanRemoteControlLifecycleTests
                 portAvailable: (_, _) => true,
                 clientAddressAllowed: _ => true,
                 remoteAssetsPath: _root,
-                useHttps: false,
+                certificateProvider: _ => LanRemoteControlIntegrationTests.CreateTestCertificate(),
                 shutdownTimeout: shutdownTimeout,
                 beforeStart: beforeStart,
                 beforeStop: beforeStop,

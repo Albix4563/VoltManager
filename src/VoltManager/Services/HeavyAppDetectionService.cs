@@ -892,10 +892,19 @@ public sealed class HeavyAppDetectionService : IDisposable
             return true;
 
         // Token match: split on non-alnum so "client" does not hit "FortniteClient".
-        var tokens = System.Text.RegularExpressions.Regex
-            .Split(combined, @"[^a-z0-9]+")
-            .Where(t => t.Length > 0)
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        HashSet<string> tokens;
+        try
+        {
+            // Timeout esplicito per proteggere la scansione dei processi (S6444).
+            tokens = System.Text.RegularExpressions.Regex
+                .Split(combined, @"[^a-z0-9]+", System.Text.RegularExpressions.RegexOptions.None, TimeSpan.FromSeconds(1))
+                .Where(t => t.Length > 0)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        }
+        catch (System.Text.RegularExpressions.RegexMatchTimeoutException)
+        {
+            tokens = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        }
 
         // Pure companion processes: always exclude regardless of working set so a fat
         // Chromium-based launcher (EA Desktop, Epic, …) cannot pin the performance plan.

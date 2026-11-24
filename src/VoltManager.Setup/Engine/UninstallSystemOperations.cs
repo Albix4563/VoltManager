@@ -77,14 +77,23 @@ namespace VoltManager.Setup.Engine
         }
 
         private static string RunPowercfg(string arguments)
+            => RunPowercfg(arguments, null);
+
+        internal static string RunPowercfg(
+            string arguments,
+            Func<System.Diagnostics.ProcessStartInfo, System.Diagnostics.Process?>? startProcess)
         {
-            var psi = new System.Diagnostics.ProcessStartInfo("powercfg.exe", arguments)
+            // Percorso assoluto in System32 per evitare risoluzioni tramite PATH (S4036).
+            string powercfgPath = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.System),
+                "powercfg.exe");
+            var psi = new System.Diagnostics.ProcessStartInfo(powercfgPath, arguments)
             {
                 CreateNoWindow = true,
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
             };
-            using (var process = System.Diagnostics.Process.Start(psi))
+            using (var process = (startProcess ?? System.Diagnostics.Process.Start)(psi))
             {
                 if (process == null) return "";
                 Task<string> output = process.StandardOutput.ReadToEndAsync();

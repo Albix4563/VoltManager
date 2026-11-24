@@ -5,6 +5,8 @@ using System.Net.Http;
 using System.Net.Http.Json;
 using System.Net.Sockets;
 using System.Reflection;
+using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Text.Json;
 using Microsoft.AspNetCore.Http;
@@ -64,6 +66,7 @@ public sealed class LanRemoteControlIntegrationTests
 
         var firewall = new RecordingFirewall();
         var audit = new List<string>();
+        using var certificate = CreateTestCertificate();
         using var service = new LanRemoteControlService(
             settings,
             CreateActions(),
@@ -73,7 +76,7 @@ public sealed class LanRemoteControlIntegrationTests
             portAvailable: (_, _) => true,
             clientAddressAllowed: _ => true,
             remoteAssetsPath: remoteAssetsPath,
-            useHttps: false,
+            certificateProvider: _ => new X509Certificate2(certificate),
             auditLogger: audit.Add);
 
         await service.StartAsync();
@@ -85,8 +88,9 @@ public sealed class LanRemoteControlIntegrationTests
             UseCookies = true,
             CookieContainer = new CookieContainer(),
             UseProxy = false,
+            ServerCertificateCustomValidationCallback = (_, peer, _, _) => certificate.Equals(peer),
         };
-        using var client = new HttpClient(handler) { BaseAddress = new Uri($"http://127.0.0.1:{port}/") };
+        using var client = new HttpClient(handler) { BaseAddress = new Uri($"https://127.0.0.1:{port}/") };
 
         HttpResponseMessage remoteUi = await client.GetAsync("");
         Assert.Equal(HttpStatusCode.OK, remoteUi.StatusCode);
@@ -123,6 +127,7 @@ public sealed class LanRemoteControlIntegrationTests
         AddOrigin(login, port);
         HttpResponseMessage loginResponse = await client.SendAsync(login);
         Assert.Equal(HttpStatusCode.OK, loginResponse.StatusCode);
+        Assert.Contains("; secure", Assert.Single(loginResponse.Headers.GetValues("Set-Cookie")), StringComparison.OrdinalIgnoreCase);
         using JsonDocument loginJson = JsonDocument.Parse(await loginResponse.Content.ReadAsStringAsync());
         string csrf = loginJson.RootElement.GetProperty("csrfToken").GetString()!;
         Assert.False(string.IsNullOrWhiteSpace(csrf));
@@ -148,6 +153,7 @@ public sealed class LanRemoteControlIntegrationTests
         logout.Headers.Add(LanRemoteControlService.CsrfHeaderName, csrf);
         HttpResponseMessage logoutResponse = await client.SendAsync(logout);
         Assert.Equal(HttpStatusCode.OK, logoutResponse.StatusCode);
+        Assert.Contains("; secure", Assert.Single(logoutResponse.Headers.GetValues("Set-Cookie")), StringComparison.OrdinalIgnoreCase);
 
         HttpResponseMessage afterLogout = await client.GetAsync("api/state");
         Assert.Equal(HttpStatusCode.Unauthorized, afterLogout.StatusCode);
@@ -180,6 +186,7 @@ public sealed class LanRemoteControlIntegrationTests
         var routedActions = new List<ScheduledPowerActionType>();
         var delayedActions = new List<(ScheduledPowerActionType Action, int DelaySeconds)>();
         var audit = new List<string>();
+        using var certificate = CreateTestCertificate();
         using var service = new LanRemoteControlService(
             settings,
             CreateActions(
@@ -192,7 +199,7 @@ public sealed class LanRemoteControlIntegrationTests
             portAvailable: (_, _) => true,
             clientAddressAllowed: _ => true,
             remoteAssetsPath: root,
-            useHttps: false,
+            certificateProvider: _ => new X509Certificate2(certificate),
             auditLogger: audit.Add);
 
         await service.StartAsync();
@@ -201,8 +208,9 @@ public sealed class LanRemoteControlIntegrationTests
             UseCookies = true,
             CookieContainer = new CookieContainer(),
             UseProxy = false,
+            ServerCertificateCustomValidationCallback = (_, peer, _, _) => certificate.Equals(peer),
         };
-        using var client = new HttpClient(handler) { BaseAddress = new Uri($"http://127.0.0.1:{port}/") };
+        using var client = new HttpClient(handler) { BaseAddress = new Uri($"https://127.0.0.1:{port}/") };
 
         using var login = new HttpRequestMessage(HttpMethod.Post, "api/auth/login") { Content = JsonContent.Create(new { pin }) };
         AddOrigin(login, port);
@@ -283,8 +291,7 @@ public sealed class LanRemoteControlIntegrationTests
                 firewall: new RecordingFirewall(),
                 addressProvider: () => [],
                 clientAddressAllowed: _ => true,
-                remoteAssetsPath: root,
-                useHttps: false);
+                remoteAssetsPath: root);
 
             object sessionsObj = typeof(LanRemoteControlService)
                 .GetField("_sessions", BindingFlags.NonPublic | BindingFlags.Instance)!
@@ -366,6 +373,21 @@ public sealed class LanRemoteControlIntegrationTests
     {
         root = Path.Combine(Path.GetTempPath(), "VoltManager.Tests", Guid.NewGuid().ToString("N"));
         return new LanRemoteAuthStore(Path.Combine(root, "remote-control-auth.json"));
+    }
+
+    internal static X509Certificate2 CreateTestCertificate()
+    {
+        using RSA key = RSA.Create(2048);
+        var request = new CertificateRequest("CN=VoltManager test", key, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+        request.CertificateExtensions.Add(new X509BasicConstraintsExtension(false, false, 0, true));
+        request.CertificateExtensions.Add(new X509EnhancedKeyUsageExtension(new OidCollection { new("1.3.6.1.5.5.7.3.1") }, true));
+        var names = new SubjectAlternativeNameBuilder();
+        names.AddIpAddress(IPAddress.Loopback);
+        request.CertificateExtensions.Add(names.Build());
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        using var generated = request.CreateSelfSigned(now.AddMinutes(-5), now.AddHours(1));
+        // Schannel richiede una chiave accessibile tramite il provider Windows durante l'handshake.
+        return new X509Certificate2(generated.Export(X509ContentType.Pfx), (string?)null, X509KeyStorageFlags.UserKeySet);
     }
 
     private static int GetFreeTcpPort()

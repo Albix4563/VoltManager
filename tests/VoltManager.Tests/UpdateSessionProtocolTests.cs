@@ -40,6 +40,8 @@ public sealed class UpdateSessionProtocolTests
             palette.Take(9).ToArray()));
         Assert.Throws<ArgumentException>(() => UpdateSessionProtocol.EncodePalette(
             palette.Select((color, index) => index == 4 ? "#A0C" : color).ToArray()));
+        Assert.Throws<ArgumentException>(() => UpdateSessionProtocol.EncodePalette(
+            palette.Select((color, index) => index == 4 ? color + "\n" : color).ToArray()));
     }
 
     [Fact]

@@ -70,39 +70,7 @@
         statusEl.classList.add(isError ? 'err' : 'ok');
     }
 
-    function injectUpdateModalLayoutStyles() {
-        if (document.getElementById('update-modal-layout-fix')) return;
-        const style = document.createElement('style');
-        style.id = 'update-modal-layout-fix';
-        style.textContent = `
-#update-modal-overlay{overflow:hidden;padding:16px;box-sizing:border-box;}
-#update-modal{width:min(640px,calc(100vw - 32px));max-width:min(640px,calc(100vw - 32px));max-height:calc(100vh - 32px);display:flex;flex-direction:column;overflow:hidden;box-sizing:border-box;}
-#update-modal,#update-modal *{min-width:0;box-sizing:border-box;}
-#update-modal .update-modal-header{flex:0 0 auto;}
-#update-modal .update-modal-versions{display:flex;align-items:center;gap:16px;flex-wrap:wrap;flex:0 0 auto;}
-#update-modal .update-modal-version-card{flex:1 1 150px;max-width:210px;}
-#upd-modal-notes{flex:1 1 auto;max-height:min(42vh,260px);overflow-y:auto;overflow-x:hidden;scrollbar-gutter:stable;}
-#upd-modal-notes,#upd-modal-notes *{max-width:100%;overflow-wrap:anywhere;word-break:break-word;}
-#upd-modal-progress-wrap,#upd-modal-state-msg{flex:0 0 auto;}
-#update-modal .update-modal-footer{flex:0 0 auto;display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:12px;overflow:hidden;}
-#upd-modal-snooze-wrap{display:flex;align-items:end;gap:8px;flex-wrap:wrap;min-width:0;}
-#upd-modal-snooze-label{width:100%;}
-#upd-modal-snooze-minutes{width:128px;max-width:100%;}
-#update-modal .update-modal-actions{display:flex;justify-content:flex-end;gap:12px;flex-wrap:wrap;min-width:0;}
-#update-modal .update-modal-actions button,#upd-modal-btn-snooze{min-height:42px;white-space:normal;text-align:center;}
-#upd-modal-btn-install{min-width:130px;max-width:160px;justify-content:center;}
-@media (max-width:680px){
-  #update-modal{width:calc(100vw - 24px);max-width:calc(100vw - 24px);}
-  #update-modal .update-modal-footer{grid-template-columns:1fr;align-items:stretch;}
-  #update-modal .update-modal-actions{justify-content:stretch;}
-  #update-modal .update-modal-actions button,#upd-modal-btn-snooze,#upd-modal-btn-install,#upd-modal-btn-dismiss,#upd-modal-btn-skip{flex:1 1 140px;max-width:none;}
-}`;
-        document.head.appendChild(style);
-    }
-
     function applyUpdateModalLayout() {
-        injectUpdateModalLayoutStyles();
-
         const modal = document.getElementById('update-modal');
         const notesEl = document.getElementById('upd-modal-notes');
         const footer = document.getElementById('upd-modal-btn-dismiss')?.parentElement;
@@ -224,9 +192,7 @@
                     newBadge.parentElement?.appendChild(betaTag);
                 }
                 betaTag.textContent = isAlpha ? 'ALPHA' : 'BETA';
-                betaTag.style.cssText = isAlpha 
-                    ? 'margin-top:4px;padding:2px 8px;border-radius:9999px;font-size:11px;font-weight:700;background:rgba(239,68,68,0.18);color:#f87171;border:1px solid rgba(239,68,68,0.45);'
-                    : 'margin-top:4px;padding:2px 8px;border-radius:9999px;font-size:11px;font-weight:700;background:rgba(251,191,36,0.18);color:#fcd34d;border:1px solid rgba(251,191,36,0.45);';
+                betaTag.className = 'upd-channel-tag ' + (isAlpha ? 'upd-channel-tag--alpha' : 'upd-channel-tag--beta');
             } else if (betaTag) {
                 betaTag.remove();
             }
@@ -448,19 +414,14 @@
         if (document.getElementById('updated-toast')) return;
         const toast = document.createElement('div');
         toast.id = 'updated-toast';
-        toast.style.cssText =
-            'position:fixed;bottom:24px;right:24px;z-index:2000;' +
-            'border-radius:12px;padding:14px 18px;' +
-            'font-size:13px;display:flex;align-items:flex-start;gap:12px;max-width:min(420px,calc(100vw - 48px));' +
-            'overflow-wrap:anywhere;animation:slideInRight .45s var(--vm-ease-emphasized);';
         toast.innerHTML =
-            '<span class="material-symbols-outlined toast-icon" style="font-size:20px;margin-top:1px;">new_releases</span>' +
-            '<span style="display:flex;flex-direction:column;gap:6px;min-width:0;">' +
-            '  <strong class="toast-title" style="font-size:13px;">' + esc(lt('updatedToastTitle')) + (ver ? ' v' + esc(ver) : '') + '</strong>' +
-            '  <span class="toast-body" style="line-height:1.35;">' + esc(lt('updatedToastBody')) + '</span>' +
-            '  <button id="updated-toast-changelog" type="button" style="align-self:flex-start;border-radius:8px;padding:6px 10px;cursor:pointer;font-weight:700;font-size:12px;">' + esc(lt('updatedToastCta')) + '</button>' +
+            '<span class="material-symbols-outlined toast-icon">new_releases</span>' +
+            '<span class="updated-toast-content">' +
+            '  <strong class="toast-title">' + esc(lt('updatedToastTitle')) + (ver ? ' v' + esc(ver) : '') + '</strong>' +
+            '  <span class="toast-body">' + esc(lt('updatedToastBody')) + '</span>' +
+            '  <button id="updated-toast-changelog" type="button">' + esc(lt('updatedToastCta')) + '</button>' +
             '</span>' +
-            '<button id="updated-toast-close" type="button" style="background:none;border:none;cursor:pointer;font-size:18px;margin-left:4px;line-height:1;">x</button>';
+            '<button id="updated-toast-close" type="button">x</button>';
         document.body.appendChild(toast);
         document.getElementById('updated-toast-close')?.addEventListener('click', () => toast.remove());
         document.getElementById('updated-toast-changelog')?.addEventListener('click', () => {

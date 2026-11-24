@@ -6,12 +6,15 @@ internal static class CpuCoreTemperatureSelector
 {
     private static readonly string[] ExcludedNames =
         ["Package", "Max", "Average", "Avg", "Distance", "CCD", "Tctl", "Tdie", "Total", "Socket", "Warning", "Critical", "Trip", "Throttle"];
+    private static readonly TimeSpan RegexTimeout = TimeSpan.FromSeconds(1);
     private static readonly Regex CoreName = new(
         @"^(?:CPU\s*(?:\d+\s+)?)?(?:(?<kind>P|E)[-_]?)?Core\s*#?\s*(?<index>\d+)",
-        RegexOptions.IgnoreCase | RegexOptions.Compiled);
+        RegexOptions.IgnoreCase | RegexOptions.Compiled,
+        RegexTimeout);
     private static readonly Regex CoreRange = new(
         @"\d+\s*(?:-|to)\s*(?:(?:P-|E-)?Core\s*#?)?\d+",
-        RegexOptions.IgnoreCase | RegexOptions.Compiled);
+        RegexOptions.IgnoreCase | RegexOptions.Compiled,
+        RegexTimeout);
 
     // ponytail: nomi dei sensori Intel/AMD standard; estendere il riconoscimento solo per nuovi formati documentati.
     internal static List<T> Select<T>(IEnumerable<T> readings,
@@ -24,9 +27,18 @@ internal static class CpuCoreTemperatureSelector
             if (sensor.Category != "cpu" || sensor.Type != "temp" || !double.IsFinite(sensor.Value) || sensor.Value <= 0)
                 continue;
             string name = sensor.Name?.Trim() ?? "";
-            if (ExcludedNames.Any(word => name.Contains(word, StringComparison.OrdinalIgnoreCase)) || CoreRange.IsMatch(name))
+            Match match;
+            try
+            {
+                if (ExcludedNames.Any(word => name.Contains(word, StringComparison.OrdinalIgnoreCase)) || CoreRange.IsMatch(name))
+                    continue;
+                match = CoreName.Match(name);
+            }
+            catch (RegexMatchTimeoutException)
+            {
+                // Ignora solo il singolo sensore anomalo per preservare la telemetria degli altri core.
                 continue;
-            var match = CoreName.Match(name);
+            }
             if (!match.Success || !int.TryParse(match.Groups["index"].Value, out int index)) continue;
             int kind = match.Groups["kind"].Value.Equals("E", StringComparison.OrdinalIgnoreCase) ? 1 : 0;
             string identity = string.IsNullOrEmpty(sensor.Identifier) ? sensor.Hardware + "/" + name : sensor.Identifier;

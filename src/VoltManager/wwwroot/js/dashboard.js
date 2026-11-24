@@ -353,7 +353,7 @@
 
         if (batteryHistorySourceStrip) {
             const sourceHtml = pts.map(s =>
-                '<span style="flex:1;background:' + (s.ac ? 'var(--vm-accent)' : 'rgba(255,255,255,.16)') + '" title="' +
+                '<span class="battery-source-seg ' + (s.ac ? 'is-ac' : 'is-dc') + '" title="' +
                 (s.ac ? I18n.t('battery_history_ac') : I18n.t('battery_history_dc')) + '"></span>'
             ).join('');
             if (batteryHistorySourceStrip.innerHTML !== sourceHtml)

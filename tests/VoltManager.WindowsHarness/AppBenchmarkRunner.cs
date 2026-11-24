@@ -286,8 +286,15 @@ internal static class AppBenchmarkRunner
     }
 
     private static Process StartFocusHelper()
+        => StartFocusHelper(Process.Start);
+
+    internal static Process StartFocusHelper(Func<ProcessStartInfo, Process?> startProcess)
     {
-        Process process = Process.Start(new ProcessStartInfo("notepad.exe") { UseShellExecute = true })
+        // Percorso assoluto in System32 per evitare risoluzioni tramite PATH (S4036).
+        string notepadPath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.System),
+            "notepad.exe");
+        Process process = startProcess(new ProcessStartInfo(notepadPath) { UseShellExecute = true })
             ?? throw new InvalidOperationException("Could not start focus helper.");
         process.WaitForInputIdle(5000);
         return process;

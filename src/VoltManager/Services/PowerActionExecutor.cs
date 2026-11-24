@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Diagnostics;
+using System.IO;
 using System.Runtime.InteropServices;
 using VoltManager.Models;
 
@@ -7,6 +8,15 @@ namespace VoltManager.Services;
 
 public sealed class PowerActionExecutor : IPowerActionExecutor
 {
+    private readonly Func<ProcessStartInfo, Process?> _startProcess;
+
+    public PowerActionExecutor() : this(Process.Start)
+    {
+    }
+
+    internal PowerActionExecutor(Func<ProcessStartInfo, Process?> startProcess)
+        => _startProcess = startProcess ?? throw new ArgumentNullException(nameof(startProcess));
+
     [DllImport("powrprof.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.U1)]
     private static extern bool SetSuspendState(
@@ -48,11 +58,15 @@ public sealed class PowerActionExecutor : IPowerActionExecutor
             throw new Win32Exception(Marshal.GetLastWin32Error());
     }
 
-    private static void StartShutdownProcess(string arguments)
+    private void StartShutdownProcess(string arguments)
     {
-        using var process = Process.Start(new ProcessStartInfo
+        // Percorso assoluto in System32 per evitare risoluzioni tramite PATH (S4036).
+        string shutdownPath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.System),
+            "shutdown.exe");
+        using var process = _startProcess(new ProcessStartInfo
         {
-            FileName = "shutdown.exe",
+            FileName = shutdownPath,
             Arguments = arguments,
             UseShellExecute = false,
             CreateNoWindow = true

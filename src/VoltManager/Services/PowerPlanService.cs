@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Diagnostics;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using VoltManager.Models;
@@ -15,13 +16,17 @@ public class PowerPlanService
     public const string BalancedGuid = "381b4222-f694-41f0-9685-ff5bb260df2e";
     public const string PerformanceGuid = "8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c";
 
+    private static readonly TimeSpan RegexTimeout = TimeSpan.FromSeconds(1);
+
     private static readonly Regex GuidRegex = new(
         @"(?<guid>[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\s*(?:\((?<name>[^)]*)\))?",
-        RegexOptions.Compiled);
+        RegexOptions.Compiled,
+        RegexTimeout);
     private static readonly Regex BareGuidRegex = new(
         @"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}",
-        RegexOptions.Compiled);
-    private static readonly Regex WhitespaceRegex = new(@"\s+", RegexOptions.Compiled);
+        RegexOptions.Compiled,
+        RegexTimeout);
+    private static readonly Regex WhitespaceRegex = new(@"\s+", RegexOptions.Compiled, RegexTimeout);
 
     private readonly SettingsService _settings;
     private readonly Func<Guid?> _readActiveScheme;
@@ -104,15 +109,25 @@ public class PowerPlanService
         => RunPowercfgCore(args, validateFailure: true);
 
     private static string RunPowercfgCore(string args, bool validateFailure)
+        => RunPowercfgCore(args, validateFailure, null);
+
+    internal static string RunPowercfgCore(
+        string args,
+        bool validateFailure,
+        IExternalProcessFactory? processFactory)
     {
         if (ValidationEnvironment.SuppressPowerChanges && IsMutatingPowercfg(args))
         {
             Logger.Info("Validation run suppressed powercfg mutation: " + args);
             return "";
         }
+        // Percorso assoluto in System32 per evitare risoluzioni tramite PATH (S4036).
+        string powercfgPath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.System),
+            "powercfg.exe");
         var psi = new ProcessStartInfo
         {
-            FileName = "powercfg",
+            FileName = powercfgPath,
             Arguments = args,
             UseShellExecute = false,
             RedirectStandardOutput = true,
@@ -120,7 +135,7 @@ public class PowerPlanService
             CreateNoWindow = true,
         };
 
-        ExternalProcessResult result = ExternalProcessRunner.Run(psi, TimeSpan.FromSeconds(10));
+        ExternalProcessResult result = ExternalProcessRunner.Run(psi, TimeSpan.FromSeconds(10), processFactory);
         if (!result.Started)
         {
             if (result.Error != null) Logger.Error($"powercfg {args} failed", result.Error);

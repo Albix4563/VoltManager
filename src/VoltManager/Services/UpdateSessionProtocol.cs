@@ -3,7 +3,6 @@ using System.Diagnostics;
 using System.Security.AccessControl;
 using System.Security.Principal;
 using System.Text;
-using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 #if NETFRAMEWORK
@@ -101,8 +100,12 @@ namespace VoltManager.Services
         {
             if (colors == null || colors.Length != PaletteColorCount) return false;
             foreach (string color in colors)
-                if (color == null || !Regex.IsMatch(color, "^#[0-9A-Fa-f]{6}$", RegexOptions.CultureInvariant))
-                    return false;
+            {
+                if (color == null || color.Length != 7 || color[0] != '#') return false;
+                for (int i = 1; i < color.Length; i++)
+                    if (color[i] is not (>= '0' and <= '9' or >= 'A' and <= 'F' or >= 'a' and <= 'f'))
+                        return false;
+            }
             return true;
         }
 

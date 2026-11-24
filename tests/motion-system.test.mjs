@@ -68,7 +68,7 @@ test('structural motion is relaxed while click feedback remains faster', () => {
   assert.match(redesign, /transition:\s*margin-left\s+var\(--vm-motion-sidebar\)\s+var\(--vm-ease-emphasized\)/);
   assert.match(powerFeatures, /grid-template-rows\s+var\(--vm-motion-base\)/);
   assert.match(powerFeatures, /padding\s+var\(--vm-motion-base\)/);
-  assert.match(app, /transform\s+480ms/);
+  assert.match(polish, /transform\s+480ms/);
   assert.match(reorg, /animation:\s*vmReorgViewIn\s+var\(--vm-motion-enter\)/);
   assert.match(reorg, /animation:\s*vmReorgPanelIn\s+var\(--vm-motion-enter\)/);
   assert.match(reorg, /animation-delay:\s*calc\(var\(--vm-motion-stagger\)\s*\*\s*1\)/);
@@ -89,15 +89,15 @@ test('decorative motion is slower and reduced-motion/performance tiers remain in
 });
 
 test('welcome-adjacent toast and tour motion use relaxed timings', () => {
-  assert.match(settings, /slideInRight\s+0?\.45s/);
-  assert.match(tour, /\.vm-tour-hole[\s\S]*top\s+\.42s[\s\S]*left\s+\.42s/);
-  assert.match(tour, /\.vm-tour-pop[\s\S]*opacity\s+\.42s[\s\S]*transform\s+\.42s/);
+  assert.match(polish, /slideInRight\s+0?\.45s/);
+  assert.match(polish, /\.vm-tour-hole[\s\S]*top\s+\.42s[\s\S]*left\s+\.42s/);
+  assert.match(polish, /\.vm-tour-pop[\s\S]*opacity\s+\.42s[\s\S]*transform\s+\.42s/);
   assert.match(tour, /TOUR_TRANSITION_SETTLE_MS\s*=\s*680/);
   assert.match(tour, /setTimeout\(\(\) => measureAndPlace\(s\),\s*TOUR_TRANSITION_SETTLE_MS\)/);
 });
 
 test('reduced motion disables the newly relaxed onboarding and advanced motion', () => {
-  assert.match(tour, /#vm-tour-root\[data-reduce="true"\][\s\S]*transition:none/);
+  assert.match(polish, /#vm-tour-root\[data-reduce="true"\][\s\S]*transition:none/);
   assert.match(motion, /prefers-reduced-motion:\s*reduce[\s\S]*\.welcome-step[\s\S]*animation:\s*none\s*!important/);
   assert.match(motion, /prefers-reduced-motion:\s*reduce[\s\S]*\.adv-panel\s*>\s*\*[\s\S]*animation:\s*none\s*!important/);
   assert.match(motion, /prefers-reduced-motion:\s*reduce[\s\S]*\.vm-acc-body[\s\S]*transition:\s*none\s*!important/);
@@ -109,9 +109,9 @@ test('reduced motion disables the newly relaxed onboarding and advanced motion',
 test('remaining micro interactions use shared relaxed timing instead of legacy 150-250ms values', () => {
   assert.doesNotMatch(reorg, /transition:[^;\n]*(?:\.18s|\.22s)/);
   assert.doesNotMatch(advanced, /transition:[^;\n]*(?:\.15s|\.2s|\.22s|\.25s)/);
-  assert.match(advanced, /\.adv-panel>\*\{animation:advSlideIn var\(--vm-motion-enter\) var\(--vm-ease-emphasized\) both;\}/);
-  assert.match(app, /\.startup-card__accent[^\n]*var\(--vm-motion-fast\)/);
-  assert.match(app, /\.startup-remove-btn[^\n]*var\(--vm-motion-fast\)/);
+  assert.match(powerFeatures, /\.adv-panel>\*\{animation:advSlideIn var\(--vm-motion-enter\) var\(--vm-ease-emphasized\) both;\}/);
+  assert.match(polish, /\.startup-card__accent[^\n]*var\(--vm-motion-fast\)/);
+  assert.match(polish, /\.startup-remove-btn[^\n]*var\(--vm-motion-fast\)/);
   assert.match(powerFeatures, /\.app-profile-icon-btn[^\n]*var\(--vm-motion-fast\)/);
   assert.match(widgets, /\.widget-bar span[\s\S]*transition:\s*width var\(--vm-motion-fast\) var\(--vm-ease-standard\)/);
 });
@@ -285,7 +285,7 @@ test('entrance keyframes release transform and filter layers once settled', () =
   assert.match(reorg, /@keyframes\s+vmReorgViewIn\s*\{[\s\S]*to\s*\{[^}]*transform:\s*none/);
   assert.match(reorg, /@keyframes\s+vmReorgPanelIn\s*\{[\s\S]*to\s*\{[^}]*transform:\s*none/);
   assert.match(reorg, /@keyframes\s+vmReorgGroupIn\s*\{[\s\S]*to\s*\{[^}]*transform:\s*none/);
-  assert.match(app, /@keyframes\s+startupCardIn\{from\{[^}]*\}to\{opacity:1;transform:none\}\}/);
-  assert.match(advanced, /@keyframes\s+advSlideIn\{from\{[^}]*\}to\{opacity:1;transform:none\}\}/);
+  assert.match(polish, /@keyframes\s+startupCardIn\{from\{[^}]*\}to\{opacity:1;transform:none\}\}/);
+  assert.match(powerFeatures, /@keyframes\s+advSlideIn\{from\{[^}]*\}to\{opacity:1;transform:none\}\}/);
   assert.match(effectsJs, /if\s*\(el\.textContent\s*!==\s*nextText\)\s*el\.textContent\s*=\s*nextText/);
 });
