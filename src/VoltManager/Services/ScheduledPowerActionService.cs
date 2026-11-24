@@ -194,10 +194,12 @@ public sealed class ScheduledPowerActionService : IDisposable
 
         TimeSpan remaining = executeAt - _clock.UtcNow;
 
-        if (remaining <= TimeSpan.Zero)
+        if (remaining <= TimeSpan.Zero || remaining > MaxDelay)
         {
             DisableInvalidScheduleUnsafe();
-            Logger.Warn($"Expired scheduled action discarded: executeAtUtc={executeAt:O}");
+            Logger.Warn(remaining <= TimeSpan.Zero
+                ? $"Expired scheduled action discarded: executeAtUtc={executeAt:O}"
+                : $"Out-of-range scheduled action discarded: executeAtUtc={executeAt:O}, remaining={remaining}");
             return;
         }
 

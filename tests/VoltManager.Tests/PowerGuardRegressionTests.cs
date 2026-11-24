@@ -197,6 +197,30 @@ public sealed class PowerGuardRegressionTests
         Assert.Empty(executor.Actions);
     }
 
+    [Fact]
+    public void Start_discards_out_of_range_relative_schedule_instead_of_throwing()
+    {
+        SettingsService settings = TestSettings.Create();
+        var clock = new FixedClock();
+        settings.Update(state =>
+        {
+            state.AutoShutdown.Enabled = true;
+            state.AutoShutdown.Mode = ScheduledPowerMode.Relative;
+            state.AutoShutdown.Action = ScheduledPowerActionType.Shutdown;
+            state.AutoShutdown.ExecuteAtUtc = clock.UtcNow.AddDays(60);
+        });
+
+        var executor = new RecordingPowerActionExecutor();
+        using var service = new ScheduledPowerActionService(settings, executor, clock);
+
+        service.Start();
+
+        Assert.False(settings.Current.AutoShutdown.Enabled);
+        Assert.Null(settings.Current.AutoShutdown.ExecuteAtUtc);
+        Assert.False(service.GetState().Enabled);
+        Assert.Empty(executor.Actions);
+    }
+
     private static object? Field(object instance, string name)
         => instance.GetType().GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(instance);
 

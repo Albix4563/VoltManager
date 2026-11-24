@@ -163,7 +163,7 @@ public sealed class StorageService
                     var entry = owner;
                     if (entry == null)
                     {
-                        if (entries.Count >= maxRootEntries) { Skip(); limitReached = true; break; }
+                        if (entries.Count >= maxRootEntries) { Skip(); break; }
                         entry = new StorageEntryInfo(item.Name, isDirectory);
                         entries.Add(entry);
                     }

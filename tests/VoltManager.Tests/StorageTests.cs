@@ -48,6 +48,28 @@ public sealed class StorageTests : IDisposable
     }
 
     [Fact]
+    public void Root_entry_limit_still_scans_admitted_root_directories()
+    {
+        for (int index = 0; index < 3; index++)
+        {
+            string dir = Path.Combine(_root, $"dir{index}");
+            Directory.CreateDirectory(dir);
+            File.WriteAllBytes(Path.Combine(dir, "data.bin"), new byte[100]);
+        }
+
+        var result = StorageService.ScanDirectory(_root, CancellationToken.None, maxRootEntries: 2);
+        Assert.True(result.Partial);
+        Assert.Equal(2, result.Entries.Count);
+        Assert.True(result.SkippedCount > 0);
+        Assert.Equal(200, result.ScannedBytes);
+        Assert.All(result.Entries, entry =>
+        {
+            Assert.True(entry.IsDirectory);
+            Assert.Equal(100, entry.Bytes);
+        });
+    }
+
+    [Fact]
     public void File_limit_never_inflates_accounted_bytes()
     {
         for (int index = 0; index < 5; index++) File.WriteAllBytes(Path.Combine(_root, $"{index}.bin"), new byte[10]);
