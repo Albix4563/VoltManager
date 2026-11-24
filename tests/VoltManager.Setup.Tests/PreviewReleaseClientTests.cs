@@ -82,6 +82,46 @@ namespace VoltManager.Setup.Tests
             }
         }
 
+        [Fact]
+        public async Task Client_downloads_and_verifies_multi_chunk_sha256sums_document()
+        {
+            string root = CreateTempDirectory();
+            string hash = Sha256("payload");
+            var checksumsBuilder = new StringBuilder();
+            string dummyHash = new string('b', 64);
+            for (int i = 0; i < 80; i++)
+                checksumsBuilder.Append(dummyHash).Append("  other-").Append(i).Append(".exe\n");
+            checksumsBuilder.Append(hash).Append("  setup.exe\n");
+
+            var releases = new TrackingContent(
+                "[{\"tag_name\":\"v1.4.0-beta\",\"assets\":[" +
+                "{\"name\":\"setup.exe\",\"browser_download_url\":\"https://example.test/setup.exe\"}," +
+                "{\"name\":\"SHA256SUMS\",\"browser_download_url\":\"https://example.test/SHA256SUMS\"}]}]");
+            var checksums = new StreamContent(new ChunkedReadStream(Encoding.UTF8.GetBytes(checksumsBuilder.ToString()), 512));
+            var asset = new TrackingContent("payload");
+            var handler = new SequenceHandler(
+                new HttpResponseMessage(HttpStatusCode.OK) { Content = releases },
+                new HttpResponseMessage(HttpStatusCode.OK) { Content = checksums },
+                new HttpResponseMessage(HttpStatusCode.OK) { Content = asset });
+            var client = new GitHubPreviewReleaseClient(
+                () => new HttpClient(handler, false),
+                root,
+                runDirectoryFactory: CreateUnprotectedRunDirectory);
+
+            try
+            {
+                using PreviewReleaseDownload result =
+                    await client.DownloadLatestAsync(_ => { }, CancellationToken.None);
+
+                Assert.Equal("1.4.0-beta", result.Version);
+                Assert.Equal("payload", File.ReadAllText(result.ExePath));
+            }
+            finally
+            {
+                Cleanup(root);
+            }
+        }
+
         private static string CreateTempDirectory()
         {
             string root = Path.Combine(Path.GetTempPath(), "VoltManagerPreviewTests", Guid.NewGuid().ToString("N"));
@@ -135,6 +175,15 @@ namespace VoltManager.Setup.Tests
                 Disposed = true;
                 base.Dispose(disposing);
             }
+        }
+
+        private sealed class ChunkedReadStream : MemoryStream
+        {
+            private readonly int _maxChunkSize;
+            public ChunkedReadStream(byte[] data, int maxChunkSize) : base(data) => _maxChunkSize = maxChunkSize;
+
+            public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
+                => base.ReadAsync(buffer, offset, Math.Min(count, _maxChunkSize), cancellationToken);
         }
     }
 }

@@ -65,6 +65,18 @@ public sealed class HardwareServiceProtocolTests
         await server;
     }
 
+    [Fact]
+    public async Task Named_pipe_wait_for_connection_can_be_cancelled()
+    {
+        using var shutdown = new CancellationTokenSource();
+        string pipeName = "VoltManager.HardwareService.Tests." + Guid.NewGuid().ToString("N");
+        Task server = HardwareProgram.RunServerAsync(pipeName, (_, _) => null, shutdown.Token);
+
+        await shutdown.CancelAsync();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => server.WaitAsync(TimeSpan.FromSeconds(5)));
+    }
+
     [Theory]
     [InlineData(new[] { "--pipe", "test-pipe", "--parent", "123" }, true, "test-pipe", 123)]
     [InlineData(new[] { "--parent", "123" }, false, null, 0)]

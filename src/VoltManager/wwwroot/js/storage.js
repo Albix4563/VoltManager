@@ -212,7 +212,7 @@
             analysisRows.sort((a, b) => b.bytes - a.bytes);
             renderEntries();
             message(result?.partial ? 'storage_partial' : 'storage_complete', {
-                size: Number.isFinite(result?.scannedBytes) ? result.scannedBytes : NaN, count: Number.isFinite(result?.skippedCount) ? result.skippedCount : 0,
+                size: Number.isFinite(result?.scannedBytes) ? result.scannedBytes : Number.NaN, count: Number.isFinite(result?.skippedCount) ? result.skippedCount : 0,
             });
         } catch (_) {
             message('storage_error');

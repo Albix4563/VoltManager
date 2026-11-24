@@ -94,5 +94,5 @@ public class ForegroundProcessProbeTests
 
     [Fact]
     public void IsD3dFullscreenActive_does_not_throw()
-        => _ = ForegroundProcessProbe.IsD3dFullscreenActive();
+        => Assert.Null(Record.Exception(() => { _ = ForegroundProcessProbe.IsD3dFullscreenActive(); }));
 }

@@ -366,6 +366,92 @@ public sealed class VerifiedUpdatePipelineTests
         Assert.DoesNotContain(link, fs.DeletedDirectories, StringComparer.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public async Task Chunked_sha256sums_over_buffer_size_verifies_successfully()
+    {
+        byte[] payload = Encoding.UTF8.GetBytes("verified chunked payload");
+        var checksumBuilder = new StringBuilder();
+        string dummyHash = new('a', 64);
+        for (int i = 0; i < 80; i++)
+            checksumBuilder.Append(dummyHash).Append("  OtherInstaller-").Append(i).Append(".exe\n");
+        checksumBuilder.Append(Hash(payload)).Append("  ").Append(AssetName).Append('\n');
+
+        var fs = new TestUpdateFileSystem();
+        using var http = new HttpClient(new StubHandler(request =>
+        {
+            if (request.RequestUri?.AbsolutePath.EndsWith("/SHA256SUMS", StringComparison.Ordinal) == true)
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StreamContent(new ChunkedReadStream(Encoding.UTF8.GetBytes(checksumBuilder.ToString()), 512)),
+                };
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new ByteArrayContent(payload),
+            };
+        }));
+        var downloader = new UpdateDownloadClient(http, fs, TimeSpan.FromSeconds(2));
+
+        using VerifiedUpdateDownload download = await downloader.DownloadAsync(
+            InstallerUrl, AssetName, ChecksumsUrl, null, CancellationToken.None);
+
+        download.VerifyOrThrow();
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Failed_checksum_download_disposes_installer_stream_before_deleting_run_directory(bool failOnDispose)
+    {
+        byte[] payload = [1, 2, 3, 4];
+        var fs = new DisposeOrderFileSystem(failOnDispose);
+        using var http = new HttpClient(new StubHandler(request =>
+        {
+            if (request.RequestUri?.AbsolutePath.EndsWith("/SHA256SUMS", StringComparison.Ordinal) == true)
+                return new HttpResponseMessage(HttpStatusCode.InternalServerError);
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new ByteArrayContent(payload),
+            };
+        }));
+        var downloader = new UpdateDownloadClient(http, fs, TimeSpan.FromSeconds(1));
+
+        await Assert.ThrowsAsync<HttpRequestException>(() =>
+            downloader.DownloadAsync(InstallerUrl, AssetName, ChecksumsUrl, null, CancellationToken.None));
+
+        Assert.True(fs.StreamDisposedBeforeDirectoryDelete);
+        Assert.False(fs.HasRunDirectories);
+    }
+
+    [Fact]
+    public async Task Interactive_launcher_completes_async_visibility_and_cancels_exit_wait()
+    {
+        using VerifiedUpdateDownload download = UpdateTestHelpers.CreateVerifiedDownload();
+        download.SupportsInteractiveUpdate = true;
+        UpdateSessionChannels? setup = null;
+        Task? handshakeTask = null;
+        var launcher = new UpdateInstallerLauncher(startProcess: info =>
+        {
+            string[] args = info.Arguments.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            string id = args[Array.IndexOf(args, UpdateSessionProtocol.SessionArgument) + 1].Trim('"');
+            setup = UpdateSessionProtocol.OpenSetup(id);
+            handshakeTask = Task.Run(async () =>
+            {
+                await Task.Delay(20);
+                setup.SignalVisible();
+                if (await setup.WaitProceedAsync(TimeSpan.FromSeconds(5)))
+                    setup.SignalAccepted();
+            });
+            return Process.GetCurrentProcess();
+        });
+
+        await launcher.LaunchVerifiedAsync(download, "/update", null);
+        if (handshakeTask is not null)
+            await handshakeTask;
+        setup?.Dispose();
+
+        Assert.Throws<ObjectDisposedException>(() => download.VerifyOrThrow());
+    }
+
     private static HttpClient CreateHttp(byte[] installer, string checksums)
         => new(new StubHandler(request =>
         {
@@ -389,5 +475,63 @@ public sealed class VerifiedUpdatePipelineTests
         internal StubHandler(Func<HttpRequestMessage, HttpResponseMessage> send) => _send = send;
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
             => Task.FromResult(_send(request));
+    }
+
+    private sealed class ChunkedReadStream : MemoryStream
+    {
+        private readonly int _maxChunkSize;
+        internal ChunkedReadStream(byte[] data, int maxChunkSize) : base(data) => _maxChunkSize = maxChunkSize;
+
+        public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            int count = Math.Min(buffer.Length, _maxChunkSize);
+            return base.ReadAsync(buffer[..count], cancellationToken);
+        }
+    }
+
+    private sealed class DisposeOrderFileSystem(bool failOnDispose) : IUpdateFileSystem
+    {
+        private readonly TestUpdateFileSystem _inner = new();
+        private bool _streamDisposed;
+        public string UpdatesBasePath => _inner.UpdatesBasePath;
+        internal bool StreamDisposedBeforeDirectoryDelete { get; private set; }
+        internal bool HasRunDirectories => _inner.HasRunDirectories;
+
+        public bool DirectoryExists(string path) => _inner.DirectoryExists(path);
+        public void CreateDirectory(string path) => _inner.CreateDirectory(path);
+        public void ApplyProtectedDirectoryAcl(string path) => _inner.ApplyProtectedDirectoryAcl(path);
+        public IEnumerable<string> EnumerateDirectories(string path) => _inner.EnumerateDirectories(path);
+        public DateTime GetDirectoryCreationTimeUtc(string path) => _inner.GetDirectoryCreationTimeUtc(path);
+        public bool IsReparsePoint(string path) => _inner.IsReparsePoint(path);
+
+        public Stream CreateInstallerFile(string path)
+        {
+            _streamDisposed = false;
+            return new TrackingMemoryStream(() =>
+            {
+                _streamDisposed = true;
+                if (failOnDispose) throw new IOException("Chiusura non riuscita (test).");
+            });
+        }
+
+        public void DeleteDirectory(string path, bool recursive)
+        {
+            // Verifica che lo stream aperto sia già stato chiuso prima della rimozione della directory.
+            StreamDisposedBeforeDirectoryDelete = _streamDisposed;
+            _inner.DeleteDirectory(path, recursive);
+        }
+
+        private sealed class TrackingMemoryStream : MemoryStream
+        {
+            private readonly Action _onDisposed;
+            internal TrackingMemoryStream(Action onDisposed) => _onDisposed = onDisposed;
+
+            protected override void Dispose(bool disposing)
+            {
+                if (disposing)
+                    _onDisposed();
+                base.Dispose(disposing);
+            }
+        }
     }
 }

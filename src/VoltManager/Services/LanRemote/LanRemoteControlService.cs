@@ -838,7 +838,7 @@ public sealed class LanRemoteControlService : IDisposable
                     context.RequestAborted);
                 if (read == 0)
                     break;
-                payload.Write(buffer, 0, read);
+                await payload.WriteAsync(buffer.AsMemory(0, read), context.RequestAborted);
                 if (payload.Length > MaxAuthRequestBodySize)
                     return (null, true);
             }

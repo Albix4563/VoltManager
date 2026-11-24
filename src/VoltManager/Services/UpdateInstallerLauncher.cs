@@ -107,7 +107,7 @@ internal sealed class UpdateInstallerLauncher
                     throw new InvalidOperationException("Setup si è terminato prima di rendere visibile la finestra.");
             }
             bool visible = await visibility.ConfigureAwait(false);
-            waitCts.Cancel();
+            await waitCts.CancelAsync().ConfigureAwait(false);
             if (!visible)
                 throw new TimeoutException("La finestra Setup non ha confermato l'avvio entro il tempo previsto.");
 

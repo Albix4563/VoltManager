@@ -354,7 +354,7 @@ namespace VoltManager.Setup.Engine
                         total += read;
                         if (total > MaxChecksumsBytes)
                             throw MalformedChecksums();
-                        memory.Write(buffer, 0, read);
+                        await memory.WriteAsync(buffer, 0, read, cancellationToken).ConfigureAwait(false);
                     }
                     return Encoding.UTF8.GetString(memory.ToArray());
                 }

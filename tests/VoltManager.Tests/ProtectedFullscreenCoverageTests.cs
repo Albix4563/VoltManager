@@ -25,8 +25,12 @@ public sealed class ProtectedFullscreenCoverageTests
     public void Queued_notifications_can_race_disposal_without_touching_disposed_timer()
     {
         using var service = new ProtectedFullscreenCoverageService(() => new HashSet<int>());
-        Parallel.Invoke(() => { for (int i = 0; i < 1000; i++) service.QueueScan(); }, service.Dispose);
-        service.QueueScan();
+        Exception? failure = Record.Exception(() =>
+        {
+            Parallel.Invoke(() => { for (int i = 0; i < 1000; i++) service.QueueScan(); }, service.Dispose);
+            service.QueueScan();
+        });
+        Assert.Null(failure);
     }
 
     [Fact]

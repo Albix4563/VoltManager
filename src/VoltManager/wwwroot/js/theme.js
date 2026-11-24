@@ -21,14 +21,14 @@
         let b;
         let a = 255;
         if (hex.length === 3 || hex.length === 4) {
-            r = parseInt(hex[0] + hex[0], 16);
-            g = parseInt(hex[1] + hex[1], 16);
-            b = parseInt(hex[2] + hex[2], 16);
-            if (hex.length === 4) a = parseInt(hex[3] + hex[3], 16);
+            r = Number.parseInt(hex[0] + hex[0], 16);
+            g = Number.parseInt(hex[1] + hex[1], 16);
+            b = Number.parseInt(hex[2] + hex[2], 16);
+            if (hex.length === 4) a = Number.parseInt(hex[3] + hex[3], 16);
         } else {
-            r = parseInt(hex.slice(0, 2), 16);
-            g = parseInt(hex.slice(2, 4), 16);
-            b = parseInt(hex.slice(4, 6), 16);
+            r = Number.parseInt(hex.slice(0, 2), 16);
+            g = Number.parseInt(hex.slice(2, 4), 16);
+            b = Number.parseInt(hex.slice(4, 6), 16);
         }
 
         if (a < 255) {
@@ -52,7 +52,7 @@
         const value = String(hex || '').replace('#', '');
         if (!/^[0-9a-f]{6}$/i.test(value)) return '59 130 246';
         return [0, 2, 4]
-            .map(index => parseInt(value.slice(index, index + 2), 16))
+            .map(index => Number.parseInt(value.slice(index, index + 2), 16))
             .join(' ');
     }
 

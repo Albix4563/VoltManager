@@ -957,7 +957,7 @@
 
     function scheduleRemainingSeconds() {
         if (!scheduleState || !scheduleState.enabled) return 0;
-        const at = scheduleState.executeAtUtc ? new Date(scheduleState.executeAtUtc).getTime() : NaN;
+        const at = scheduleState.executeAtUtc ? new Date(scheduleState.executeAtUtc).getTime() : Number.NaN;
         if (Number.isFinite(at)) return Math.max(0, Math.floor((at - Date.now()) / 1000));
         return Math.max(0, Math.floor(Number(scheduleState.remainingSeconds) || 0));
     }
@@ -1016,7 +1016,7 @@
                 applySchedule(await Host.call('cancelScheduledPowerAction'));
                 return;
             }
-            const minutes = parseInt(value, 10);
+            const minutes = Number.parseInt(value, 10);
             if (!TIMER_PRESETS.includes(minutes)) return;
             applySchedule(await Host.call('schedulePowerAction', { mode: 'relative', action: 'shutdown', delayMinutes: minutes }));
         } catch {

@@ -33,7 +33,7 @@ internal static class Program
         }
         catch (OperationCanceledException) { /* expected: service shutdown cancels the worker. */ }
         catch { /* best-effort: hardware-service teardown must stay non-fatal. */ }
-        finally { shutdown.Cancel(); }
+        finally { await shutdown.CancelAsync(); }
         return 0;
     }
 

@@ -165,8 +165,16 @@ internal sealed class UpdateDownloadClient
         }
         catch
         {
-            target?.Dispose();
-            TryDeleteRunDirectory(runDirectory);
+            try
+            {
+                if (target is not null)
+                    await target.DisposeAsync().ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                _warningLogger($"Chiusura del download non riuscita: {ex.Message}");
+            }
+            finally { TryDeleteRunDirectory(runDirectory); }
             throw;
         }
     }
@@ -222,7 +230,7 @@ internal sealed class UpdateDownloadClient
                 break;
             if (target.Length + read > MaxChecksumBytes)
                 throw Reject("Update rifiutato: file SHA256SUMS troppo grande.");
-            target.Write(buffer, 0, read);
+            await target.WriteAsync(buffer.AsMemory(0, read), cancellationToken).ConfigureAwait(false);
         }
 
         return Encoding.UTF8.GetString(target.ToArray());
