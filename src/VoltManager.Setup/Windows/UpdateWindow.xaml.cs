@@ -1,13 +1,12 @@
 using System;
 using System.ComponentModel;
-using System.Diagnostics;
-using System.IO;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Interop;
 using System.Windows.Media;
+using System.Windows.Threading;
 using VoltManager.Setup.Engine;
 
 namespace VoltManager.Setup.Windows
@@ -34,6 +33,8 @@ namespace VoltManager.Setup.Windows
 
         private readonly TextBlock[] _stageLabels = new TextBlock[4];
         private readonly Border[] _stageMarkers = new Border[4];
+        private readonly SetupLogReader _logReader;
+        private readonly DispatcherTimer _logRefreshTimer;
         private bool _busy = true;
         private Func<System.Threading.Tasks.Task>? _retryLaunch;
         private bool _retryPending;
@@ -69,12 +70,29 @@ namespace VoltManager.Setup.Windows
         }
 
         public UpdateWindow()
+            : this(new SetupLogReader())
         {
+        }
+
+        internal UpdateWindow(SetupLogReader logReader)
+        {
+            _logReader = logReader ?? throw new ArgumentNullException(nameof(logReader));
             InitializeComponent();
             MaxHeight = Math.Max(320, SystemParameters.WorkArea.Height - 28);
             // The handle can already exist when the host sets the waiting state,
             // so the native guard is applied again on source initialization.
             SourceInitialized += (_, __) => ApplyWindowCommandState();
+            _logRefreshTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+            _logRefreshTimer.Tick += (_, __) =>
+            {
+                if (LogContentBox.SelectionLength == 0 &&
+                    LogContentBox.VerticalOffset + LogContentBox.ViewportHeight >= LogContentBox.ExtentHeight - 24)
+                    RefreshLogViewer();
+            };
+            IsVisibleChanged += (_, __) => SyncLogPolling();
+            StateChanged += (_, __) => SyncLogPolling();
+            Closed += (_, __) => _logRefreshTimer.Stop();
+
             if (!SystemParameters.ClientAreaAnimation)
                 BusyIndicator.Style = (Style)FindResource("UpdateStaticProgress");
             ModeText.Text = I18n.T("update_mode");
@@ -82,9 +100,14 @@ namespace VoltManager.Setup.Windows
             DescriptionText.Text = I18n.T("update_description");
             MinimizeHintText.Text = I18n.T("update_minimize_hint");
             LogButton.Content = I18n.T("update_log");
+            LogUpdateRadio.Content = I18n.T("update_log_source_update");
+            LogAppRadio.Content = I18n.T("update_log_source_app");
+            LogRefreshButton.Content = I18n.T("update_log_refresh");
+            LogUpdateRadio.IsChecked = true;
             RetryLaunchButton.Content = I18n.T("update_retry_launch");
             CloseButton.Content = I18n.T("btn_close");
             AutomationProperties.SetName(BusyIndicator, I18n.T("update_progress"));
+            AutomationProperties.SetName(LogContentBox, I18n.T("update_log_viewer"));
             string[] stages = {
                 I18n.T("update_stage_prepare"),
                 I18n.T("update_stage_install"),
@@ -158,41 +181,6 @@ namespace VoltManager.Setup.Windows
                 ? _stageLabels[stage].Text : detail;
         }
 
-        public void ShowCompleted()
-        {
-            if (!Dispatcher.CheckAccess())
-            {
-                Dispatcher.BeginInvoke(new Action(ShowCompleted));
-                return;
-            }
-            _busy = false;
-            _canAbort = false;
-            BusyIndicator.Visibility = Visibility.Visible;
-            BusyIndicator.IsIndeterminate = false;
-            BusyIndicator.Value = 100;
-            ReportStage(3, I18n.T("update_success"));
-            for (int i = 0; i < _stageMarkers.Length; i++)
-            {
-                _stageMarkers[i].Background = (Brush)FindResource("SuccessBrush");
-                if (_stageMarkers[i].Child is TextBlock number)
-                {
-                    number.Text = "✓";
-                    number.Foreground = ContrastOn(((SolidColorBrush)FindResource("SuccessBrush")).Color);
-                }
-            }
-            HeadingText.Text = I18n.T("update_success");
-            CloseButton.Visibility = Visibility.Visible;
-            CloseButton.Focus();
-            ApplyWindowCommandState();
-        }
-
-        public void ShowLegacyCompleted()
-        {
-            ShowCompleted();
-            HeadingText.Text = I18n.T("update_legacy_success");
-            CurrentStatusText.Text = I18n.T("update_legacy_success");
-        }
-
         public void ShowFailure(Exception error, Func<System.Threading.Tasks.Task>? retryLaunch = null)
         {
             if (!Dispatcher.CheckAccess())
@@ -234,7 +222,6 @@ namespace VoltManager.Setup.Windows
                 // Never interrupt filesystem replacement after the host proceeds.
                 e.Cancel = true;
                 ApplyWindowCommandState();
-                return;
             }
         }
 
@@ -264,18 +251,41 @@ namespace VoltManager.Setup.Windows
 
         private void LogButton_Click(object sender, RoutedEventArgs e)
         {
-            try
+            bool show = LogPanel.Visibility != Visibility.Visible;
+            LogPanel.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+            LogButton.Content = I18n.T(show ? "update_log_hide" : "update_log");
+            if (show)
             {
-                if (File.Exists(SetupUpdateLog.FilePath))
-                    Process.Start(new ProcessStartInfo(SetupUpdateLog.FilePath) { UseShellExecute = true });
-                else
-                    MessageBox.Show(I18n.T("update_log_missing"), "VoltManager",
-                        MessageBoxButton.OK, MessageBoxImage.Information);
+                RefreshLogViewer(forceScroll: true);
+                LogUpdateRadio.Focus();
+                LogPanel.BringIntoView();
             }
-            catch (Exception ex)
+            SyncLogPolling();
+        }
+
+        private void LogSource_Checked(object sender, RoutedEventArgs e)
+        {
+            if (LogPanel.Visibility == Visibility.Visible)
+                RefreshLogViewer(forceScroll: true);
+        }
+
+        private void LogRefreshButton_Click(object sender, RoutedEventArgs e)
+            => RefreshLogViewer(forceScroll: true);
+
+        private void SyncLogPolling()
+            => _logRefreshTimer.IsEnabled = IsVisible && WindowState != WindowState.Minimized &&
+                LogPanel.Visibility == Visibility.Visible;
+
+        private void RefreshLogViewer(bool forceScroll = false)
+        {
+            string text = _logReader.Read(LogAppRadio.IsChecked == true);
+            if (!string.Equals(LogContentBox.Text, text, StringComparison.Ordinal))
             {
-                MessageBox.Show(ex.Message, "VoltManager", MessageBoxButton.OK, MessageBoxImage.Warning);
+                LogContentBox.Text = text;
+                forceScroll = true;
             }
+            if (forceScroll)
+                LogContentBox.ScrollToEnd();
         }
 
         private async void RetryLaunchButton_Click(object sender, RoutedEventArgs e)

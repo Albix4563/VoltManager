@@ -9,6 +9,7 @@
         FontFamily="Segoe UI" TextOptions.TextFormattingMode="Display"
         UseLayoutRounding="True" SnapsToDevicePixels="True"
         ContentRendered="UpdateWindow_ContentRendered" Closing="UpdateWindow_Closing">
+
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="*"/>
@@ -50,6 +51,37 @@
                                AutomationProperties.LiveSetting="Assertive"/>
                 </ScrollViewer>
             </StackPanel>
+
+            <Border x:Name="LogPanel" Margin="0,16,0,0" Padding="12" CornerRadius="8"
+                    Background="{DynamicResource SurfaceBrush}"
+                    BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                    Visibility="Collapsed">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <DockPanel Grid.Row="0" LastChildFill="False" Margin="0,0,0,8">
+                        <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
+                            <RadioButton x:Name="LogUpdateRadio" GroupName="UpdateLogSource"
+                                         Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,14,0"
+                                         Checked="LogSource_Checked"/>
+                            <RadioButton x:Name="LogAppRadio" GroupName="UpdateLogSource"
+                                         Foreground="{StaticResource TextPrimaryBrush}"
+                                         Checked="LogSource_Checked"/>
+                        </StackPanel>
+                        <Button x:Name="LogRefreshButton" DockPanel.Dock="Right"
+                                Style="{StaticResource GhostBtn}" FontSize="12" Padding="10,4" MinHeight="28" Click="LogRefreshButton_Click"/>
+                    </DockPanel>
+                    <TextBox x:Name="LogContentBox" Grid.Row="1" Height="152"
+                             FontFamily="Consolas" FontSize="12" FontWeight="Normal" Padding="10,8"
+                             VerticalContentAlignment="Stretch"
+                             IsReadOnly="True" IsReadOnlyCaretVisible="True"
+                             AcceptsReturn="True" TextWrapping="Wrap"
+                             VerticalScrollBarVisibility="Auto"
+                             HorizontalScrollBarVisibility="Disabled"/>
+                </Grid>
+            </Border>
         </StackPanel>
         </ScrollViewer>
 

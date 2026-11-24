@@ -338,7 +338,7 @@
                                 CornerRadius="6" SnapsToDevicePixels="True">
                             <ScrollViewer x:Name="PART_ContentHost"
                                           Margin="{TemplateBinding Padding}"
-                                          VerticalAlignment="Center"
+                                          VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
                                           Focusable="False"
                                           TextElement.Foreground="{TemplateBinding Foreground}"/>
                         </Border>

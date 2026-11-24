@@ -133,6 +133,12 @@ test('header, toggle 52x48 a x=6 e colonna icone restano geometricamente stabili
     assert.doesNotMatch(reorgCss, /#side-nav\[data-collapsed="true"\] #nav-list \.nav-item\s*\{[^}]*justify-content:\s*center/);
 });
 
+test('il marchio usa una dimensione compatta e si nasconde nella barra ridotta', () => {
+    assert.match(indexHtml, /class="side-nav__title [^"]*" data-i18n="app_title">VOLT MANAGER<\/h1>/);
+    assert.match(rule(sidebarCss, '.side-nav__title'), /font-size:\s*1rem;/);
+    assert.match(rule(sidebarCss, 'body.sidebar-collapsed .side-nav__brand'), /max-width:\s*0;/);
+});
+
 test('wireSidebarCollapse ripristina stato salvato e alterna subito anche su click rapidi senza transitionend', () => {
     const restored = mountWireSidebarCollapse({ savedValue: '1' });
     assert.equal(restored.document.body.classList.contains('sidebar-collapsed'), true);

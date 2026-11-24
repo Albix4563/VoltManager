@@ -128,18 +128,37 @@ namespace VoltManager.Setup
                 await new UpdateInstallCoordinator(engine).UpdateAsync(args.WaitPid, version,
                     onStage: (name, complete) => ReportUpdateStage(window, name, complete));
                 window.ReportStage(3);
-                engine.RelaunchUpdatedApp();
-                SetupUpdateLog.Info($"Legacy update to {version} launched.");
-                window.ShowLegacyCompleted();
-                await Task.Delay(1200);
-                window.Close();
-                Shutdown(0);
+                await RelaunchAsync();
             }
             catch (Exception ex)
             {
                 SetupUpdateLog.Error("Legacy update failed: " + ex);
-                window.ShowFailure(ex, engine.UpdatePayloadInstalled
-                    ? new Func<Task>(() => { engine.RelaunchUpdatedApp(); return Task.CompletedTask; }) : null);
+                window.ShowFailure(ex, engine.UpdatePayloadInstalled ? new Func<Task>(RelaunchAsync) : null);
+            }
+
+            async Task RelaunchAsync()
+            {
+                await RelaunchWithWindowHiddenAsync(window.Hide, window.Show, () =>
+                {
+                    engine.RelaunchUpdatedApp();
+                    return Task.CompletedTask;
+                });
+                SetupUpdateLog.Info("Legacy update launched.");
+                Shutdown(0);
+            }
+        }
+
+        internal static async Task RelaunchWithWindowHiddenAsync(Action hide, Action show, Func<Task> relaunch)
+        {
+            hide();
+            try
+            {
+                await relaunch();
+            }
+            catch
+            {
+                show();
+                throw;
             }
         }
 
@@ -209,15 +228,7 @@ namespace VoltManager.Setup
                     ct: CancellationToken.None);
                 installed = true;
                 window.ReportStage(3);
-                engine.RelaunchUpdatedApp(sessionId);
-                if (!await channels.WaitReadyAsync(TimeSpan.FromSeconds(90)))
-                    throw new TimeoutException(I18n.T("update_ready_timeout"));
-
-                SetupUpdateLog.Info($"Interactive update to {version} confirmed ready.");
-                window.ShowCompleted();
-                await Task.Delay(1200);
-                window.Close();
-                Shutdown(0);
+                await RelaunchAsync();
             }
             catch (Exception ex)
             {
@@ -226,17 +237,7 @@ namespace VoltManager.Setup
                     channels.SignalAbort();
                 retainChannelsForRetry = installed && channels != null && !closing;
                 if (!closing)
-                    window.ShowFailure(ex, retainChannelsForRetry ? new Func<Task>(async () => {
-                    if (closing) return;
-                    engine.RelaunchUpdatedApp(args.UpdateSessionToken);
-                    if (!await channels!.WaitReadyAsync(TimeSpan.FromSeconds(90)))
-                        throw new TimeoutException(I18n.T("update_ready_timeout"));
-                    SetupUpdateLog.Info("Updated application restart confirmed after retry.");
-                    window.ShowCompleted();
-                    await Task.Delay(1200);
-                    if (!closing) window.Close();
-                    Shutdown(0);
-                    }) : null);
+                    window.ShowFailure(ex, retainChannelsForRetry ? new Func<Task>(RelaunchAsync) : null);
             }
             finally
             {
@@ -248,6 +249,18 @@ namespace VoltManager.Setup
                     channels.Dispose();
                     channelsDisposed = true;
                 }
+            }
+
+            async Task RelaunchAsync()
+            {
+                await RelaunchWithWindowHiddenAsync(window.Hide, window.Show, async () =>
+                {
+                    engine.RelaunchUpdatedApp(args.UpdateSessionToken);
+                    if (!await channels!.WaitReadyAsync(TimeSpan.FromSeconds(90)))
+                        throw new TimeoutException(I18n.T("update_ready_timeout"));
+                });
+                SetupUpdateLog.Info("Updated application restart confirmed.");
+                Shutdown(0);
             }
         }
 

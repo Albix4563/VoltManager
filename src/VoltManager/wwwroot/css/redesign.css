@@ -207,6 +207,10 @@ html[data-perf-tier="balanced"] .vm-scrim{
     max-width var(--vm-motion-sidebar) var(--vm-ease-emphasized),
     margin-left var(--vm-motion-sidebar) var(--vm-ease-emphasized);
 }
+.side-nav__title{
+  font-size: 1rem;
+  line-height: 1.25;
+}
 .nav-indicator{
   transition: top var(--vm-motion-base) var(--vm-ease-emphasized), height var(--vm-motion-base) var(--vm-ease-emphasized);
 }

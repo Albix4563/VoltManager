@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Reflection;
 using System.Runtime.ExceptionServices;
 using System.Runtime.InteropServices;
@@ -120,24 +121,169 @@ namespace VoltManager.Setup.Tests
         }
 
         [Fact]
-        public void Completed_update_restores_the_expected_exit_actions()
+        public void Log_panel_toggles_inline_and_switches_between_update_and_app_logs()
         {
-            WpfSetupHost.Run(() =>
+            string tempDir = Path.Combine(Path.GetTempPath(), "VoltManagerLogPanel_" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(tempDir);
+            try
             {
-                UpdateWindow window = CreateWindow();
-                IntPtr handle = Handle(window);
+                string setupLog = Path.Combine(tempDir, "setup-update.log");
+                string appLog = Path.Combine(tempDir, "voltmanager.log");
+                File.WriteAllText(setupLog, "2026-11-24 10:00:00.000 [INFO] setup line 1\n");
+                File.WriteAllText(appLog, "2026-11-24 10:00:01.000 [INFO] app line 1\n");
 
-                window.SetUpdateStarted();
-                window.ShowCompleted();
+                WpfSetupHost.Run(() =>
+                {
+                    UpdateWindow window = CreateWindow(new SetupLogReader(setupLog, appLog));
+                    var logPanel = (Border)window.FindName("LogPanel");
+                    var logButton = (Button)window.FindName("LogButton");
+                    var logBox = (TextBox)window.FindName("LogContentBox");
+                    var appRadio = (RadioButton)window.FindName("LogAppRadio");
+                    var refreshButton = (Button)window.FindName("LogRefreshButton");
 
-                Assert.False(IsCommandDisabled(handle, ScClose));
-                Assert.Equal(Visibility.Visible, ((Button)window.FindName("CloseButton")).Visibility);
+                    Assert.Equal(Visibility.Collapsed, logPanel.Visibility);
+                    Assert.Equal(string.Empty, logBox.Text);
 
-                int aborts = 0;
-                window.UpdateAborted += (_, __) => aborts++;
-                Assert.True(CloseAndReport(window));
-                Assert.Equal(0, aborts);
-            });
+                    logButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+
+                    Assert.Equal(Visibility.Visible, logPanel.Visibility);
+                    Assert.Equal(I18n.T("update_log_hide"), logButton.Content);
+                    Assert.True(logBox.IsReadOnly);
+                    Assert.True(logBox.Focusable);
+                    Assert.Equal(TextAlignment.Left, logBox.TextAlignment);
+                    Assert.Equal("Consolas", logBox.FontFamily.Source);
+                    Assert.Contains("setup line 1", logBox.Text);
+
+                    appRadio.IsChecked = true;
+                    Assert.Contains("app line 1", logBox.Text);
+
+                    File.AppendAllText(appLog, "2026-11-24 10:00:02.000 [WARN] app line 2\n");
+                    refreshButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                    Assert.Contains("app line 2", logBox.Text);
+
+                    logButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                    Assert.Equal(Visibility.Collapsed, logPanel.Visibility);
+                    Assert.Equal(I18n.T("update_log"), logButton.Content);
+
+                    window.SetWaitingForProceed();
+                    Assert.True(CloseAndReport(window));
+                });
+            }
+            finally
+            {
+                if (Directory.Exists(tempDir))
+                    Directory.Delete(tempDir, recursive: true);
+            }
+        }
+
+        [Fact]
+        public void Log_panel_reports_localized_messages_for_missing_and_empty_logs()
+        {
+            string tempDir = Path.Combine(Path.GetTempPath(), "VoltManagerLogEmpty_" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(tempDir);
+            try
+            {
+                string missingSetupLog = Path.Combine(tempDir, "setup-update.log");
+                string emptyAppLog = Path.Combine(tempDir, "voltmanager.log");
+                File.WriteAllText(emptyAppLog, string.Empty);
+
+                WpfSetupHost.Run(() =>
+                {
+                    UpdateWindow window = CreateWindow(new SetupLogReader(missingSetupLog, emptyAppLog));
+                    var logButton = (Button)window.FindName("LogButton");
+                    var logBox = (TextBox)window.FindName("LogContentBox");
+                    var appRadio = (RadioButton)window.FindName("LogAppRadio");
+
+                    logButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                    Assert.Equal(I18n.T("update_log_missing"), logBox.Text);
+
+                    appRadio.IsChecked = true;
+                    Assert.Equal(I18n.T("update_log_empty"), logBox.Text);
+
+                    window.SetWaitingForProceed();
+                    Assert.True(CloseAndReport(window));
+                });
+            }
+            finally
+            {
+                if (Directory.Exists(tempDir))
+                    Directory.Delete(tempDir, recursive: true);
+            }
+        }
+
+        [Fact]
+        public void Log_panel_does_not_poll_when_hidden_or_after_close()
+        {
+            string tempDir = Path.Combine(Path.GetTempPath(), "VoltManagerLogPoll_" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(tempDir);
+            try
+            {
+                string setupLog = Path.Combine(tempDir, "setup-update.log");
+                string appLog = Path.Combine(tempDir, "voltmanager.log");
+                File.WriteAllText(setupLog, "2026-11-24 10:00:00.000 [INFO] hidden check\n");
+
+                WpfSetupHost.Run(() =>
+                {
+                    UpdateWindow window = CreateWindow(new SetupLogReader(setupLog, appLog));
+                    FieldInfo timerField = typeof(UpdateWindow).GetField(
+                        "_logRefreshTimer", BindingFlags.Instance | BindingFlags.NonPublic)!;
+                    var timer = (DispatcherTimer)timerField.GetValue(window)!;
+
+                    // La finestra sintetica non è visibile: il pannello si aggiorna sul click ma non avvia polling.
+                    ((Button)window.FindName("LogButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                    Assert.False(timer.IsEnabled);
+
+                    // Anche se avviato manualmente, alla chiusura il timer viene fermato.
+                    timer.Start();
+                    Assert.True(timer.IsEnabled);
+                    window.SetWaitingForProceed();
+                    Assert.True(CloseAndReport(window));
+                    Assert.False(timer.IsEnabled);
+                });
+            }
+            finally
+            {
+                if (Directory.Exists(tempDir))
+                    Directory.Delete(tempDir, recursive: true);
+            }
+        }
+
+        [Fact]
+        public void Height_limited_content_with_open_log_panel_scrolls_without_clipping_the_footer()
+        {
+            string tempDir = Path.Combine(Path.GetTempPath(), "VoltManagerLogLayout_" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(tempDir);
+            try
+            {
+                string setupLog = Path.Combine(tempDir, "setup-update.log");
+                string appLog = Path.Combine(tempDir, "voltmanager.log");
+                File.WriteAllText(setupLog, "line 1\nline 2\nline 3\nline 4\nline 5\n");
+
+                WpfSetupHost.Run(() =>
+                {
+                    UpdateWindow window = CreateWindow(new SetupLogReader(setupLog, appLog));
+                    ((Button)window.FindName("LogButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+
+                    var root = (Grid)window.Content;
+                    var size = new Size(520, 280);
+                    root.Measure(size);
+                    root.Arrange(new Rect(size));
+                    root.UpdateLayout();
+
+                    var footer = (Border)window.FindName("Footer");
+                    var scroll = (ScrollViewer)window.FindName("ContentScroll");
+                    Assert.True(scroll.ScrollableHeight > 0);
+                    Assert.True(footer.ActualHeight > 0);
+                    Assert.True(footer.TranslatePoint(new Point(0, footer.ActualHeight), root).Y <= size.Height + 1);
+                    window.SetWaitingForProceed();
+                    Assert.True(CloseAndReport(window));
+                });
+            }
+            finally
+            {
+                if (Directory.Exists(tempDir))
+                    Directory.Delete(tempDir, recursive: true);
+            }
         }
 
         [Fact]
@@ -300,9 +446,9 @@ namespace VoltManager.Setup.Tests
             });
         }
 
-        private static UpdateWindow CreateWindow()
+        private static UpdateWindow CreateWindow(SetupLogReader? logReader = null)
         {
-            var window = new UpdateWindow();
+            var window = logReader == null ? new UpdateWindow() : new UpdateWindow(logReader);
             window.SetVersion("9.9.9");
             return window;
         }
