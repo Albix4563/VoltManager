@@ -59,7 +59,7 @@
                 if (request !== revision) return;
                 console.error('setDisplayBrightness failed', error);
                 if (pendingSetRevision === request) pendingSetRevision = 0;
-                refresh();
+                await refresh();
             }
         }, 150);
     }
@@ -73,7 +73,7 @@
         $('vm-brightness-increase')?.addEventListener('click', () => queueSet(clamp((currentPercent ?? Number(slider.value)) + 10)));
         translateLabels();
         showPercent(currentPercent);
-        refresh();
+        void refresh();
     }
 
     function translateLabels() {
@@ -87,7 +87,7 @@
     document.addEventListener('voltuiready', wire);
     document.addEventListener('langchanged', translateLabels);
     window.addEventListener('focus', refresh);
-    document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) void refresh(); });
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', refresh);
-    else refresh();
+    else void refresh();
 })();

@@ -834,7 +834,7 @@ namespace VoltManager.Setup.Engine
                         return true;
                     }
                 }
-            }).ConfigureAwait(false);
+            }, ct).ConfigureAwait(false);
             return (exited, exited ? process.ExitCode : 0);
         }
 

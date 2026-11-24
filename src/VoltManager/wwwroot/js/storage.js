@@ -283,7 +283,7 @@
     refresh.addEventListener('click', loadDrives);
     analyze.addEventListener('click', scan);
     function activate() {
-        if (!loaded && api.state.view === 'monitoring' && api.state.subviews.monitoring === 'storage') loadDrives();
+        if (!loaded && api.state.view === 'monitoring' && api.state.subviews.monitoring === 'storage') void loadDrives();
     }
     document.addEventListener('voltuiviewchanged', activate);
     document.addEventListener('voltuisubviewchanged', activate);

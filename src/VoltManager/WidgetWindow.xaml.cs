@@ -212,7 +212,7 @@ public partial class WidgetWindow : Window
         _metricsPublisher.ResetCadence();
         PublishWidgetFreshState();
         // Navigation resumes WebView2 even when coverage was detected before initialization.
-        if (!HasVisibleResourceSurface) TrySuspendWebView();
+        if (!HasVisibleResourceSurface) _ = TrySuspendWebViewAsync();
     }
 
     private void PublishWidgetFreshState()
@@ -722,13 +722,13 @@ public partial class WidgetWindow : Window
         WebView.Visibility = active ? Visibility.Visible : Visibility.Hidden;
         if (!active)
         {
-            TrySuspendWebView();
+            _ = TrySuspendWebViewAsync();
             return;
         }
         ResumeWebView();
     }
 
-    private async void TrySuspendWebView()
+    private async Task TrySuspendWebViewAsync()
     {
         if (Interlocked.Exchange(ref _suspendRunning, 1) != 0) return;
         int generation = Interlocked.Increment(ref _suspendGeneration);

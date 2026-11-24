@@ -1,5 +1,5 @@
 using System.IO;
-using System.Text.RegularExpressions;
+using System.Text;
 using VoltManager.Services;
 
 namespace VoltManager.Tests;
@@ -25,45 +25,30 @@ public sealed class StartupServiceTests
         Assert.Equal("/query /tn \"VoltManagerAutostart\"", observedArgs);
     }
 
-    [Fact]
-    public void SetStartWithWindows_enable_creates_task_with_temp_xml_and_cleans_up_file()
+    [Theory]
+    [InlineData(0, true)]
+    [InlineData(1, false)]
+    public void SetStartWithWindows_enable_passes_utf16_xml_and_removes_its_temp_directory(int exitCode, bool expected)
     {
-        string? observedArgs = null;
-        string? capturedXmlPath = null;
-        bool xmlExistedDuringCall = false;
+        const string prefix = "/create /f /tn \"VoltManagerAutostart\" /xml \"";
+        const string exe = @"C:\Program Files\VoltManager\VoltManager.exe";
+        string? xmlPath = null;
+        var service = new StartupService(args =>
+        {
+            Assert.StartsWith(prefix, args);
+            Assert.EndsWith("\"", args);
+            xmlPath = args[prefix.Length..^1];
+            Assert.NotEqual(Path.TrimEndingDirectorySeparator(Path.GetTempPath()), Path.GetDirectoryName(xmlPath));
+            byte[] xml = File.ReadAllBytes(xmlPath);
+            Assert.True(xml.AsSpan().StartsWith(Encoding.Unicode.Preamble));
+            Assert.Contains($"<Command>{exe}</Command>", Encoding.Unicode.GetString(xml));
+            return exitCode;
+        }, () => exe);
 
-        var service = new StartupService(
-            args =>
-            {
-                observedArgs = args;
-                Match match = Regex.Match(args, "/xml \"(?<path>[^\"]+)\"");
-                if (match.Success)
-                {
-                    capturedXmlPath = match.Groups["path"].Value;
-                    xmlExistedDuringCall = File.Exists(capturedXmlPath);
-                }
-                return 0;
-            },
-            () => @"C:\Program Files\VoltManager\VoltManager.exe");
-
-        bool ok = service.SetStartWithWindows(true);
-
-        Assert.True(ok);
-        Assert.NotNull(observedArgs);
-        Assert.StartsWith("/create /f /tn \"VoltManagerAutostart\" /xml \"", observedArgs);
-        Assert.True(xmlExistedDuringCall);
-        Assert.NotNull(capturedXmlPath);
-        Assert.False(File.Exists(capturedXmlPath));
-    }
-
-    [Fact]
-    public void SetStartWithWindows_enable_returns_false_when_create_fails()
-    {
-        var service = new StartupService(
-            _ => 1,
-            () => @"C:\Program Files\VoltManager\VoltManager.exe");
-
-        Assert.False(service.SetStartWithWindows(true));
+        Assert.Equal(expected, service.SetStartWithWindows(true));
+        Assert.NotNull(xmlPath);
+        Assert.False(File.Exists(xmlPath));
+        Assert.False(Directory.Exists(Path.GetDirectoryName(xmlPath)));
     }
 
     [Fact]

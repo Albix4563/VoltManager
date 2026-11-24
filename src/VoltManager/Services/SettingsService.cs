@@ -491,11 +491,7 @@ public class SettingsService
 
         settings.LowBatteryThresholdPercent = Math.Clamp(settings.LowBatteryThresholdPercent, 5, 50);
 
-        settings.UnpluggedMode = settings.UnpluggedMode switch
-        {
-            "previous" => "previous",
-            _ => "previous",
-        };
+        settings.UnpluggedMode = "previous";
     }
 
     private static void NormalizeGlobalHotkeySettings(GlobalHotkeySettings settings)
@@ -627,16 +623,10 @@ public class SettingsService
             else if (r.Id == "performance") performance = r;
         }
 
-        if (saver == null || !saver.Enabled || saver.Comparison != "lt" || saver.ThresholdPct != 10 || saver.DurationMinutes != 1 || saver.TargetPlan != PlanId.PowerSaver)
-            return false;
-
-        if (balanced == null || !balanced.Enabled || balanced.Comparison != "gt" || balanced.ThresholdPct != 10 || balanced.DurationMinutes != 1 || balanced.TargetPlan != PlanId.Balanced)
-            return false;
-
-        if (performance == null || !performance.Enabled || performance.Comparison != "gt" || performance.ThresholdPct != 50 || performance.DurationMinutes != 1 || performance.TargetPlan != PlanId.Performance)
-            return false;
-
-        return true;
+        // La migrazione deve riconoscere solo i valori originali, senza arrotondare regole personalizzate.
+        return saver is { Enabled: true, Comparison: "lt", ThresholdPct: 10, DurationMinutes: 1, TargetPlan: PlanId.PowerSaver }
+            && balanced is { Enabled: true, Comparison: "gt", ThresholdPct: 10, DurationMinutes: 1, TargetPlan: PlanId.Balanced }
+            && performance is { Enabled: true, Comparison: "gt", ThresholdPct: 50, DurationMinutes: 1, TargetPlan: PlanId.Performance };
     }
 
     public void Update(AppSettings settings)

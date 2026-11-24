@@ -159,28 +159,28 @@
     if (permissions.shutdown) {
       const card = makeCard('Shut down', 'power_settings_new');
       card.append(makeButton('Shut down computer', 'power_settings_new', () => {
-        if (window.confirm('Shut down this computer now?')) runAction('/api/actions/shutdown', null, 'Shutdown requested.');
+        if (window.confirm('Shut down this computer now?')) void runAction('/api/actions/shutdown', null, 'Shutdown requested.');
       }, 'action-button danger'));
       actionsGrid.append(card);
     }
     if (permissions.restart) {
       const card = makeCard('Restart', 'restart_alt');
       card.append(makeButton('Restart computer', 'restart_alt', () => {
-        if (window.confirm('Restart this computer now?')) runAction('/api/actions/restart', null, 'Restart requested.');
+        if (window.confirm('Restart this computer now?')) void runAction('/api/actions/restart', null, 'Restart requested.');
       }, 'action-button danger'));
       actionsGrid.append(card);
     }
     if (permissions.sleep && capabilities.sleep) {
       const card = makeCard('Sleep', 'bedtime');
       card.append(makeButton('Put computer to sleep', 'bedtime', () => {
-        if (window.confirm('Put this computer to sleep now?')) runAction('/api/actions/sleep', null, 'Sleep requested.');
+        if (window.confirm('Put this computer to sleep now?')) void runAction('/api/actions/sleep', null, 'Sleep requested.');
       }));
       actionsGrid.append(card);
     }
     if (permissions.hibernate && capabilities.hibernate) {
       const card = makeCard('Hibernate', 'mode_standby');
       card.append(makeButton('Hibernate computer', 'mode_standby', () => {
-        if (window.confirm('Hibernate this computer now?')) runAction('/api/actions/hibernate', null, 'Hibernate requested.');
+        if (window.confirm('Hibernate this computer now?')) void runAction('/api/actions/hibernate', null, 'Hibernate requested.');
       }));
       actionsGrid.append(card);
     }
@@ -214,15 +214,15 @@
     source.addEventListener('ready', () => {
       if (eventSource !== source || !csrfToken) return;
       setConnection(true);
-      loadState();
+      void loadState();
     });
     source.addEventListener('state', () => {
-      if (eventSource === source && csrfToken) loadState();
+      if (eventSource === source && csrfToken) void loadState();
     });
     source.onerror = () => {
       if (eventSource !== source || !csrfToken) return;
       setConnection(false);
-      window.setTimeout(() => { if (eventSource === source && csrfToken) loadState(); }, 800);
+      window.setTimeout(() => { if (eventSource === source && csrfToken) void loadState(); }, 800);
     };
   }
 

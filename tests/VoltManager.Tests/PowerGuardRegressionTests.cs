@@ -29,6 +29,24 @@ public sealed class PowerGuardRegressionTests
         Assert.Equal(PlanId.Balanced, service.Evaluate(PlanId.PowerSaver, false).TargetPlan);
     }
 
+    [Theory]
+    [InlineData(null, 85d, false, null)]
+    [InlineData(null, 85d, true, 85d)]
+    [InlineData(75d, 85d, false, 75d)]
+    [InlineData(75d, 85d, true, 85d)]
+    [InlineData(75d, null, true, 75d)]
+    public void Thermal_guard_peak_uses_only_enabled_sensors(double? cpu, double? gpu, bool watchGpu, double? peak)
+    {
+        SettingsService settings = TestSettings.Create();
+        settings.Update(state => state.ThermalGuard.WatchGpu = watchGpu);
+        var service = new ThermalGuardService(settings);
+
+        var state = service.Evaluate(cpu, gpu, PlanId.Balanced, false, true, DateTime.UnixEpoch).State;
+
+        Assert.Equal(peak, state.PeakTemp);
+        Assert.Equal(peak.HasValue, state.SensorsAvailable);
+    }
+
     [Fact]
     public void Thermal_guard_does_not_restore_balanced_when_user_was_already_on_target()
     {

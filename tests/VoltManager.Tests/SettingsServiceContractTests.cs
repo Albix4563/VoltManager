@@ -30,6 +30,34 @@ public sealed class SettingsServiceContractTests
         }
     }
 
+    [Theory]
+    [InlineData(10d, 20d)]
+    [InlineData(10.0000000001d, 10.0000000001d)]
+    public void Rules_migration_replaces_only_exact_legacy_defaults(double oldThreshold, double expectedThreshold)
+    {
+        var settings = TestSettings.Create(out string path);
+        try
+        {
+            settings.Update(state =>
+            {
+                state.Rules = AppSettings.DefaultRules();
+                state.Rules[0].ThresholdPct = oldThreshold;
+                state.Rules[1].ThresholdPct = 10;
+                state.Rules[2].ThresholdPct = 50;
+                foreach (var rule in state.Rules) rule.DurationMinutes = 1;
+                state.PowerSourcePlan.UnpluggedMode = "unsupported";
+            });
+
+            var saved = new SettingsService(path).Current;
+            Assert.Equal(expectedThreshold, saved.Rules.Single(rule => rule.Id == "saver").ThresholdPct);
+            Assert.Equal("previous", saved.PowerSourcePlan.UnpluggedMode);
+        }
+        finally
+        {
+            Directory.Delete(Path.GetDirectoryName(path)!, recursive: true);
+        }
+    }
+
     [Fact]
     public void Current_ReturnsDetachedSnapshot()
     {

@@ -169,7 +169,7 @@
     document.addEventListener('voltuiviewchanged', event => {
         if (event.detail?.view !== 'remote-control') return;
         wire();
-        refresh();
+        void refresh();
     });
     document.addEventListener('langchanged', () => { if (state) render(state); });
 })();

@@ -74,7 +74,7 @@ public sealed class ThermalGuardService
                 return Decision(null, false, "no_sensors");
             }
 
-            double peak = PeakTemp(cfg);
+            double peak = GetPeakTemperature(_lastCpu, _lastGpu, cfg.WatchGpu) ?? 0;
             bool hot = peak >= cfg.ThresholdCelsius;
             bool cool = peak <= cfg.CoolThresholdCelsius;
 
@@ -169,23 +169,16 @@ public sealed class ThermalGuardService
         double? hotHold = null)
     {
         var cfg = EnsureSettings();
-        double? peak = null;
-        if (cpu != null || gpu != null)
-        {
-            peak = cpu ?? double.MinValue;
-            if (cfg.WatchGpu && gpu != null)
-                peak = Math.Max(peak.Value, gpu.Value);
-            if (peak == double.MinValue) peak = null;
-        }
+        double? peak = GetPeakTemperature(cpu, gpu, cfg.WatchGpu);
 
         return new ThermalGuardState
         {
             Enabled = cfg.Enabled,
             Active = active,
-            SensorsAvailable = cpu != null || (cfg.WatchGpu && gpu != null),
+            SensorsAvailable = peak.HasValue,
             CpuTemp = cpu,
             GpuTemp = gpu,
-            PeakTemp = peak is double.MinValue ? null : peak,
+            PeakTemp = peak,
             ThresholdCelsius = cfg.ThresholdCelsius,
             CoolThresholdCelsius = cfg.CoolThresholdCelsius,
             HoldSeconds = cfg.HoldSeconds,
@@ -199,13 +192,8 @@ public sealed class ThermalGuardService
         };
     }
 
-    private double PeakTemp(ThermalGuardSettings cfg)
-    {
-        double peak = _lastCpu ?? double.MinValue;
-        if (cfg.WatchGpu && _lastGpu != null)
-            peak = Math.Max(peak, _lastGpu.Value);
-        return peak == double.MinValue ? 0 : peak;
-    }
+    private static double? GetPeakTemperature(double? cpu, double? gpu, bool watchGpu)
+        => watchGpu && gpu.HasValue ? Math.Max(cpu ?? gpu.Value, gpu.Value) : cpu;
 
     private ThermalGuardSettings EnsureSettings()
     {
@@ -223,18 +211,6 @@ public sealed class ThermalGuardService
     }
 
     private static bool StatesEqual(ThermalGuardState a, ThermalGuardState b)
-        => a.Enabled == b.Enabled
-           && a.Active == b.Active
-           && a.SensorsAvailable == b.SensorsAvailable
-           && a.CpuTemp == b.CpuTemp
-           && a.GpuTemp == b.GpuTemp
-           && a.PeakTemp == b.PeakTemp
-           && a.ThresholdCelsius == b.ThresholdCelsius
-           && a.CoolThresholdCelsius == b.CoolThresholdCelsius
-           && a.HoldSeconds == b.HoldSeconds
-           && a.TargetPlan == b.TargetPlan
-           && a.WatchGpu == b.WatchGpu
-           && a.SavedPlan == b.SavedPlan
-           && a.Message == b.Message
-           && Math.Abs(a.HotHoldSeconds - b.HotHoldSeconds) < 0.5;
+        => a == b || (Math.Abs(a.HotHoldSeconds - b.HotHoldSeconds) < 0.5
+                      && a == (b with { HotHoldSeconds = a.HotHoldSeconds }));
 }

@@ -217,3 +217,29 @@ test('brightness refresh does not override a pending or in-flight set', async ()
   await setPromise;
   assert.equal(output.textContent, '68%');
 });
+
+test('brightness handles rejected setDisplayBrightness and fallback refresh without unhandled rejections', async () => {
+  const document = createDocumentHarness();
+  const slider = document.registerId(new FakeNode({ id: 'vm-brightness-range' }));
+  document.registerId(new FakeNode({ id: 'vm-brightness-value' }));
+  document.registerId(new FakeNode({ id: 'vm-brightness-increase' }));
+  document.registerId(new FakeNode({ id: 'vm-brightness-decrease' }));
+  const context = contextFor(document);
+  const errors = [];
+  let timer;
+  context.console = { error: (...args) => errors.push(args[0]) };
+  context.setTimeout = callback => { timer = callback; return 1; };
+  context.Host.call = async () => { throw new Error('rpc_failed'); };
+
+  run('brightness.js', context);
+  document.dispatchEvent(event('voltuiready'));
+  await new Promise(resolve => setImmediate(resolve));
+  slider.value = '55';
+  slider.dispatchEvent(event('input'));
+  await timer();
+  await new Promise(resolve => setImmediate(resolve));
+
+  assert.equal(document.documentElement.dataset.vmBrightness, 'unknown');
+  assert.ok(errors.includes('getDisplayBrightness failed'));
+  assert.ok(errors.includes('setDisplayBrightness failed'));
+});

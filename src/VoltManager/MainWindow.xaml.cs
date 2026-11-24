@@ -401,7 +401,7 @@ public partial class MainWindow : Window
                 _navStopwatch.Reset();
             }
             StartupValidationProbe.Mark("navigation_completed");
-            StartStartupProbe(core);
+            _ = StartStartupProbeAsync(core);
             LoadUpdateSuspensionUi(core);
         }
 

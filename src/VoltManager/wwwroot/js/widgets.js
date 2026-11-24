@@ -391,8 +391,8 @@
         if (window.I18n && I18n.apply) I18n.apply();
         syncPolling();
         if (size !== 'mini') {
-            pollPlan();
-            pollCpuAutomation();
+            void pollPlan();
+            void pollCpuAutomation();
         }
         Host.on('activePlanChanged', (data) => renderPlan(data && data.plan));
         Host.on('cpuAutomationStateChanged', renderCpuAutomation);
@@ -415,7 +415,7 @@
         if (pollTimer != null) clearInterval(pollTimer);
         pollTimer = null;
         if (!POLLERS[type] || document.hidden) return;
-        runPoll();
+        void runPoll();
         pollTimer = setInterval(runPoll,
             resourceProfile === 'critical' ? 15000 :
             (resourceProfile === 'gaming' || resourceProfile === 'workload') ? 10000 : 5000);
@@ -506,7 +506,7 @@
         if (window.I18n && I18n.apply && !short) I18n.apply();
         document.querySelectorAll('.plan-option').forEach(function (btn) {
             btn.addEventListener('click', function () {
-                selectPlan(btn.dataset.plan);
+                void selectPlan(btn.dataset.plan);
             });
         });
 
@@ -528,13 +528,13 @@
 
                 if (nextIndex !== activeIndex) {
                     const targetBtn = btns[nextIndex];
-                    selectPlan(targetBtn.dataset.plan);
+                    void selectPlan(targetBtn.dataset.plan);
                     targetBtn.focus();
                 }
             });
         }
 
-        pollPlanSelector();
+        void pollPlanSelector();
     }
 
     async function pollPlanSelector() {
@@ -722,7 +722,7 @@
         const launcherGrid = document.getElementById('launcher-grid');
         launcherGrid.addEventListener('click', (e) => {
             const tile = e.target && e.target.closest ? e.target.closest('[data-launch-id]') : null;
-            if (tile) launchTile(tile);
+            if (tile) void launchTile(tile);
         });
         launcherGrid.addEventListener('contextmenu', async (e) => {
             const tile = e.target && e.target.closest ? e.target.closest('[data-launch-id]') : null;
@@ -747,7 +747,7 @@
             Host.call('showMainWindow').catch(() => {});
         });
         if (launcherLoaded) renderLaunchers();
-        else loadLaunchers();
+        else void loadLaunchers();
     }
 
     async function loadLaunchers() {
@@ -771,7 +771,7 @@
         scheduleLauncherIconRetry();
         if (launcherReloadPending) {
             launcherReloadPending = false;
-            loadLaunchers();
+            void loadLaunchers();
         }
     }
 
@@ -795,7 +795,7 @@
         const delay = LAUNCHER_ICON_RETRY_DELAYS[launcherIconRetryAttempt++];
         launcherIconRetryTimer = setTimeout(() => {
             launcherIconRetryTimer = null;
-            loadLaunchers();
+            void loadLaunchers();
         }, delay);
     }
 
@@ -832,7 +832,7 @@
         try {
             const result = await Host.call('launchApp', { id: tile.dataset.launchId });
             ok = !!(result && result.success);
-            if (!ok && result && (result.error === 'unknown' || result.error === 'missing')) loadLaunchers();
+            if (!ok && result && (result.error === 'unknown' || result.error === 'missing')) void loadLaunchers();
         } catch { }
         flashState(tile, ok);
     }
@@ -866,8 +866,8 @@
         document.getElementById('action-grid').addEventListener('click', (e) => {
             const target = e.target && e.target.closest ? e.target.closest('[data-action],[data-timer]') : null;
             if (!target) return;
-            if (target.dataset.timer) runTimerAction(target.dataset.timer);
-            else runAction(target.dataset.action);
+            if (target.dataset.timer) void runTimerAction(target.dataset.timer);
+            else void runAction(target.dataset.action);
         });
         reflectKeepAwake();
         reflectGaming();
@@ -1043,10 +1043,10 @@
         });
         slider.addEventListener('change', () => {
             if (brightnessTimer != null) clearTimeout(brightnessTimer);
-            commitBrightness();
+            void commitBrightness();
         });
         document.getElementById('brightness-control').addEventListener('pointerenter', readBrightness);
-        readBrightness();
+        void readBrightness();
     }
 
     async function readBrightness() {
@@ -1064,7 +1064,7 @@
         if (brightnessTimer != null) return;
         brightnessDragging = false;
         if (state) applyBrightness(state);
-        else readBrightness();
+        else await readBrightness();
     }
 
     function applyBrightness(state) {
@@ -1250,7 +1250,7 @@
                 clearTimeout(launcherIconRetryTimer);
                 launcherIconRetryTimer = null;
             }
-            loadLaunchers();
+            void loadLaunchers();
         });
         Host.on('launcherDropResult', result => showLauncherToast(result));
     }
@@ -1273,7 +1273,7 @@
         scheduleDateTick();
         syncPolling();
         if (type === 'actions') renderSchedule();
-        if (type === 'brightness') readBrightness();
+        if (type === 'brightness') void readBrightness();
     });
 
     ({

@@ -1,4 +1,5 @@
 using System.IO;
+using System.Reflection;
 using System.Text.Json;
 using VoltManager.Bridge;
 using VoltManager.Bridge.Handlers;
@@ -151,5 +152,20 @@ public sealed class StorageTests : IDisposable
             Assert.Empty(linkedRoot.Entries);
         }
         finally { Directory.Delete(link); }
+    }
+
+    [Fact]
+    public async Task CleanTempAsync_cancelled_token_cancels_without_holding_scan_lock()
+    {
+        var storage = new StorageService(() => []);
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => storage.CleanTempAsync(cts.Token));
+
+        int scanning = (int)typeof(StorageService)
+            .GetField("_scanning", BindingFlags.NonPublic | BindingFlags.Instance)!
+            .GetValue(storage)!;
+        Assert.Equal(0, scanning);
     }
 }

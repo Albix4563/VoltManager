@@ -265,6 +265,38 @@ public sealed class LanRemoteControlLifecycleTests
         Assert.DoesNotContain(ActivePlanSubscribers(coordinator), handler => ReferenceEquals(handler.Target, service));
     }
 
+    [Fact]
+    public async Task Cancelled_lifecycle_tokens_cancel_before_hooks_and_keep_gate_usable()
+    {
+        using var fixture = new LanFixture(enabled: false);
+        int startHooks = 0;
+        using var service = fixture.Create(
+            beforeStart: _ =>
+            {
+                Interlocked.Increment(ref startHooks);
+                return Task.CompletedTask;
+            },
+            addresses: []);
+
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => service.SetEnabledAsync(true, cts.Token));
+        Assert.Equal(0, startHooks);
+        Assert.False(service.GetState().Enabled);
+
+        LanRemoteEnableResult enabled = await service.SetEnabledAsync(true).WaitAsync(TimeSpan.FromSeconds(5));
+        // addresses: [] leaves _webApplication null, so SetEnabledAsync records error and rolls back;
+        // verify start hook ran exactly once and a cancelled StartAsync still observes cancellation.
+        Assert.Equal(1, startHooks);
+        Assert.False(enabled.State.Enabled);
+
+        fixture.Settings.Update(state => state.LanRemoteControl.Enabled = true);
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => service.StartAsync(cts.Token));
+        Assert.Equal(1, startHooks);
+        await service.StopAsync().WaitAsync(TimeSpan.FromSeconds(2));
+    }
+
     private static Delegate[] ActivePlanSubscribers(PowerRequestCoordinator coordinator)
         => (typeof(PowerRequestCoordinator).GetField("ActivePlanChanged", BindingFlags.Instance | BindingFlags.NonPublic)!
             .GetValue(coordinator) as Delegate)?.GetInvocationList() ?? [];

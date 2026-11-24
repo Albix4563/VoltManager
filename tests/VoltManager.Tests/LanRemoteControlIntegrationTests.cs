@@ -4,8 +4,10 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Net.Sockets;
+using System.Reflection;
 using System.Text;
 using System.Text.Json;
+using Microsoft.AspNetCore.Http;
 using VoltManager.Models;
 using VoltManager.Services;
 using VoltManager.Services.LanRemote;
@@ -258,6 +260,81 @@ public sealed class LanRemoteControlIntegrationTests
             ],
             delayedActions);
         Assert.DoesNotContain(audit, line => line.Contains(pin, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task HttpHelpers_PropagateRequestAbortedWithoutExecutingPowerActions()
+    {
+        SettingsService settings = TestSettings.Create(out string settingsPath);
+        string root = Path.GetDirectoryName(settingsPath)!;
+        try
+        {
+            string assetPath = Path.Combine(root, "asset.txt");
+            await File.WriteAllTextAsync(assetPath, "synthetic-asset");
+
+            settings.Update(current => current.LanRemoteControl.AllowSleep = true);
+            WindowsPowerCapabilityState capabilities = new(SleepAvailable: false, HibernateAvailable: false);
+            var routedActions = new List<ScheduledPowerActionType>();
+
+            using var service = new LanRemoteControlService(
+                settings,
+                CreateActions(() => capabilities, routedActions.Add),
+                auth: CreateAuthStore(out _),
+                firewall: new RecordingFirewall(),
+                addressProvider: () => [],
+                clientAddressAllowed: _ => true,
+                remoteAssetsPath: root,
+                useHttps: false);
+
+            object sessionsObj = typeof(LanRemoteControlService)
+                .GetField("_sessions", BindingFlags.NonPublic | BindingFlags.Instance)!
+                .GetValue(service)!;
+            LanRemoteSession session = (LanRemoteSession)sessionsObj.GetType()
+                .GetMethod("Create")!
+                .Invoke(sessionsObj, null)!;
+
+            using var cts = new CancellationTokenSource();
+            cts.Cancel();
+
+            DefaultHttpContext NewAbortedContext(bool withSession = false, bool withCsrf = false, string? jsonBody = null)
+            {
+                var ctx = new DefaultHttpContext { RequestAborted = cts.Token };
+                ctx.Response.Body = new MemoryStream();
+                if (withSession)
+                    ctx.Request.Headers.Cookie = $"{LanRemoteControlService.SessionCookieName}={session.Id}";
+                if (withCsrf)
+                    ctx.Request.Headers[LanRemoteControlService.CsrfHeaderName] = session.CsrfToken;
+                if (jsonBody is not null)
+                    ctx.Request.Body = new MemoryStream(Encoding.UTF8.GetBytes(jsonBody));
+                return ctx;
+            }
+
+            MethodInfo tryAuthorize = typeof(LanRemoteControlService).GetMethod("TryAuthorizeAsync", BindingFlags.NonPublic | BindingFlags.Instance)!;
+            MethodInfo tryAuthorizePost = typeof(LanRemoteControlService).GetMethod("TryAuthorizePostAsync", BindingFlags.NonPublic | BindingFlags.Instance)!;
+            MethodInfo readString = typeof(LanRemoteControlService).GetMethod("ReadStringPropertyAsync", BindingFlags.NonPublic | BindingFlags.Static)!;
+            MethodInfo writeForbidden = typeof(LanRemoteControlService).GetMethod("WriteForbiddenAsync", BindingFlags.NonPublic | BindingFlags.Static)!;
+            MethodInfo sendAsset = typeof(LanRemoteControlService).GetMethod("SendAssetAsync", BindingFlags.NonPublic | BindingFlags.Static)!;
+            MethodInfo execPower = typeof(LanRemoteControlService).GetMethod("ExecutePowerActionAsync", BindingFlags.NonPublic | BindingFlags.Instance)!;
+
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => (Task)tryAuthorize.Invoke(service, [NewAbortedContext()])!);
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => (Task)tryAuthorizePost.Invoke(service, [NewAbortedContext(withSession: true)])!);
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => (Task)readString.Invoke(null, [NewAbortedContext(jsonBody: "{\"plan\":\"balanced\"}"), "plan"])!);
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => (Task)writeForbidden.Invoke(null, [NewAbortedContext(), "permission_denied"])!);
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => (Task)sendAsset.Invoke(null, [NewAbortedContext(), assetPath, "text/plain"])!);
+
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+                (Task)execPower.Invoke(service, [NewAbortedContext(withSession: true, withCsrf: true), LanRemoteAction.Sleep, ScheduledPowerActionType.Sleep])!);
+
+            capabilities = new WindowsPowerCapabilityState(SleepAvailable: true, HibernateAvailable: false);
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+                (Task)execPower.Invoke(service, [NewAbortedContext(withSession: true, withCsrf: true), LanRemoteAction.Sleep, ScheduledPowerActionType.Sleep])!);
+
+            Assert.Empty(routedActions);
+        }
+        finally
+        {
+            try { Directory.Delete(root, recursive: true); } catch { /* pulizia fixture sintetica */ }
+        }
     }
 
     private static LanRemoteControlActions CreateActions(

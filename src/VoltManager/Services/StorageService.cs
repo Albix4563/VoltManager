@@ -37,7 +37,7 @@ public sealed class StorageService
             throw new InvalidOperationException("Un’operazione di archiviazione è già in corso.");
         try { return StorageTempCleaner.Clean(GetTempRoots(), cancellationToken); }
         finally { Volatile.Write(ref _scanning, 0); }
-    });
+    }, cancellationToken);
 
     public void OpenTool(string tool) => OpenTool(tool, info =>
     {

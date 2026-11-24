@@ -42,16 +42,31 @@ public class StartupService
             string exe = _processPathProvider() ?? "";
             if (string.IsNullOrEmpty(exe)) return false;
 
-            string xmlPath = Path.GetTempFileName();
+            DirectoryInfo tempDirectory = Directory.CreateTempSubdirectory();
+            string xmlPath = Path.Combine(tempDirectory.FullName, "task.xml");
+            bool created = false;
             try
             {
-                // schtasks expects task XML files in UTF-16.
-                File.WriteAllText(xmlPath, BuildTaskXml(exe), System.Text.Encoding.Unicode);
+                // schtasks richiede UTF-16; CreateNew impedisce di sovrascrivere un file esistente.
+                using (var stream = File.Open(xmlPath, FileMode.CreateNew, FileAccess.Write))
+                {
+                    created = true;
+                    using var writer = new StreamWriter(stream, System.Text.Encoding.Unicode);
+                    writer.Write(BuildTaskXml(exe));
+                }
                 return _runSchtasks($"/create /f /tn \"{TaskName}\" /xml \"{xmlPath}\"") == 0;
             }
             finally
             {
-                try { File.Delete(xmlPath); } catch { /* best-effort: legacy startup artifact cleanup is optional. */ }
+                try
+                {
+                    if (created) File.Delete(xmlPath);
+                    tempDirectory.Delete();
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    Logger.Warn($"Pulizia del task XML non riuscita: {ex.Message}");
+                }
             }
         }
 
@@ -123,7 +138,7 @@ public class StartupService
         {
             var psi = new ProcessStartInfo
             {
-                FileName = "schtasks",
+                FileName = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "schtasks.exe"),
                 Arguments = args,
                 UseShellExecute = false,
                 RedirectStandardOutput = true,

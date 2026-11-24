@@ -453,3 +453,47 @@ test('global search indexes the LAN remote control page', () => {
   assert.match(source, /view: 'remote-control'/);
   assert.match(source, /descriptionKey: 'search_desc_remote'/);
 });
+
+test('lan-remote-control and remote client handle rejected refresh, SSE load and action calls without unhandled rejections', async () => {
+  const desktopDoc = createDocumentHarness({ readyState: 'complete' });
+  const feedbackNode = desktopDoc.registerId(new FakeNode({ id: 'lan-remote-feedback' }));
+  desktopDoc.registerId(new FakeNode({ id: 'lan-remote-enabled' }));
+  const errors = [];
+  const desktopWindow = { Host: { available: true }, VoltUiReorg: { t: key => key } };
+  vm.runInContext(read('src/VoltManager/wwwroot/js/lan-remote-control.js'), vm.createContext({
+    window: desktopWindow,
+    Host: { available: true, call: async () => { throw new Error('rpc_offline'); } },
+    VoltUiReorg: desktopWindow.VoltUiReorg,
+    document: desktopDoc,
+    navigator: { clipboard: { writeText: async () => {} } },
+    console: { error: (...args) => errors.push(args[0]) },
+  }));
+  desktopDoc.dispatchEvent({ type: 'voltuiviewchanged', detail: { view: 'remote-control' } });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(feedbackNode.textContent, 'remote_error');
+  assert.equal(feedbackNode.dataset.error, 'true');
+  assert.ok(errors.includes('getLanRemoteControlState failed'));
+
+  let failRequests = false;
+  const { document, eventSources } = createRemoteHarness(async path => {
+    if (path === '/api/auth/login') return jsonResponse({ csrfToken: 'tok-err' });
+    if (failRequests) throw new Error('network_down');
+    return jsonResponse({
+      device: 'PC', version: '1.0', plan: 'balanced',
+      permissions: { shutdown: true }, capabilities: {},
+    });
+  });
+  document.getElementById('pin-input').value = 'ValidSecret123';
+  await document.getElementById('login-form').events.get('submit')[0]({ preventDefault() {} });
+  failRequests = true;
+  eventSources[0].emit('ready');
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(document.getElementById('connection-pill').dataset.state, 'offline');
+  assert.equal(document.getElementById('action-feedback').dataset.error, 'true');
+
+  const shutdownBtn = document.getElementById('actions-grid').children[0].children[1];
+  shutdownBtn.events.get('click')[0]();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(document.getElementById('action-feedback').textContent, 'The command could not be completed.');
+  assert.equal(document.getElementById('action-feedback').dataset.error, 'true');
+});

@@ -21,7 +21,7 @@
     function statusText(items, translate, format) {
         var value = counts(items);
         var appliedKey = value.globalCount === 1 ? 'widget_appearance_applied_one' : 'widget_appearance_applied_many';
-        var appliedFallback = value.globalCount === 1 ? 'Applicato a {count} widget.' : 'Applicato a {count} widget.';
+        var appliedFallback = 'Applicato a {count} widget.';
         var text = format(translate(appliedKey, appliedFallback), { count: value.globalCount });
         if (!value.overrideCount) return text;
         var overrideKey = value.overrideCount === 1 ? 'widget_appearance_custom_one' : 'widget_appearance_custom_many';

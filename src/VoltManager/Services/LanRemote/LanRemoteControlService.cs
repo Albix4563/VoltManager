@@ -290,8 +290,10 @@ public sealed class LanRemoteControlService : IDisposable
 
     private Task RequestStateAsync(bool running, CancellationToken cancellationToken, bool allowStartWhenDisabled = false)
     {
+        if (cancellationToken.IsCancellationRequested)
+            return Task.FromCanceled(cancellationToken);
         long requestVersion = Interlocked.Increment(ref _lifecycleRequestVersion);
-        return Task.Run(() => ApplyStateAsync(requestVersion, running, cancellationToken, allowStartWhenDisabled));
+        return Task.Run(() => ApplyStateAsync(requestVersion, running, cancellationToken, allowStartWhenDisabled), cancellationToken);
     }
 
     private async Task ApplyStateAsync(
@@ -701,7 +703,16 @@ public sealed class LanRemoteControlService : IDisposable
     private async Task ExecutePowerActionAsync(HttpContext context, LanRemoteAction permission, ScheduledPowerActionType action)
     {
         string ip = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
-        var (authorized, _) = await TryAuthorizePostAsync(context);
+        bool authorized;
+        try
+        {
+            (authorized, _) = await TryAuthorizePostAsync(context);
+        }
+        catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
+        {
+            AuditPowerAction(ip, action, "authorization_rejected");
+            throw;
+        }
         if (!authorized)
         {
             AuditPowerAction(ip, action, "authorization_rejected");
@@ -710,8 +721,8 @@ public sealed class LanRemoteControlService : IDisposable
         LanRemoteControlSettings settings = _settings.Current.LanRemoteControl;
         if (!LanRemotePermissionPolicy.Allows(permission, settings))
         {
-            await WriteForbiddenAsync(context, "permission_denied");
             AuditPowerAction(ip, action, "permission_denied");
+            await WriteForbiddenAsync(context, "permission_denied");
             return;
         }
 
@@ -726,8 +737,8 @@ public sealed class LanRemoteControlService : IDisposable
         if (!available)
         {
             context.Response.StatusCode = StatusCodes.Status409Conflict;
-            await context.Response.WriteAsJsonAsync(new { error = "capability_unavailable" });
             AuditPowerAction(ip, action, "capability_unavailable");
+            await context.Response.WriteAsJsonAsync(new { error = "capability_unavailable" }, context.RequestAborted);
             return;
         }
 
@@ -735,7 +746,7 @@ public sealed class LanRemoteControlService : IDisposable
             ? PowerActionDelaySeconds
             : 0;
         context.Response.StatusCode = StatusCodes.Status202Accepted;
-        await context.Response.WriteAsJsonAsync(new { accepted = true, delaySeconds });
+        await context.Response.WriteAsJsonAsync(new { accepted = true, delaySeconds }, context.RequestAborted);
         await context.Response.CompleteAsync();
         try
         {
@@ -791,7 +802,7 @@ public sealed class LanRemoteControlService : IDisposable
             return (true, sessionId);
         context.Response.StatusCode = StatusCodes.Status401Unauthorized;
         context.Response.ContentType = "application/json";
-        await context.Response.WriteAsync("{\"error\":\"unauthorized\"}");
+        await context.Response.WriteAsync("{\"error\":\"unauthorized\"}", context.RequestAborted);
         return (false, sessionId);
     }
 
@@ -805,7 +816,7 @@ public sealed class LanRemoteControlService : IDisposable
             return (true, sessionId);
         context.Response.StatusCode = StatusCodes.Status403Forbidden;
         context.Response.ContentType = "application/json";
-        await context.Response.WriteAsync("{\"error\":\"csrf_rejected\"}");
+        await context.Response.WriteAsync("{\"error\":\"csrf_rejected\"}", context.RequestAborted);
         return (false, sessionId);
     }
 
@@ -858,7 +869,9 @@ public sealed class LanRemoteControlService : IDisposable
     {
         try
         {
-            JsonElement payload = await JsonSerializer.DeserializeAsync<JsonElement>(context.Request.Body);
+            JsonElement payload = await JsonSerializer.DeserializeAsync<JsonElement>(
+                context.Request.Body,
+                cancellationToken: context.RequestAborted);
             if (payload.ValueKind == JsonValueKind.Object
                 && payload.TryGetProperty(property, out JsonElement value)
                 && value.ValueKind == JsonValueKind.String)
@@ -873,7 +886,7 @@ public sealed class LanRemoteControlService : IDisposable
     private static async Task WriteForbiddenAsync(HttpContext context, string code)
     {
         context.Response.StatusCode = StatusCodes.Status403Forbidden;
-        await context.Response.WriteAsJsonAsync(new { error = code });
+        await context.Response.WriteAsJsonAsync(new { error = code }, context.RequestAborted);
     }
 
     private static async Task SendAssetAsync(HttpContext context, string path, string contentType)
@@ -884,7 +897,7 @@ public sealed class LanRemoteControlService : IDisposable
             return;
         }
         context.Response.ContentType = contentType;
-        await context.Response.SendFileAsync(path);
+        await context.Response.SendFileAsync(path, context.RequestAborted);
     }
 
     private static bool CanBind(IReadOnlyList<IPAddress> addresses, int port)

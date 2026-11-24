@@ -459,7 +459,7 @@
                     <span class="material-symbols-outlined text-secondary-fixed-dim">schedule</span>
                   </div>
                   <div>
-                    <h3 class="text-title-md text-on-surface" data-i18n="power_sample_title">Intervallo campionamento CPU</h3>
+                    <h3 class="text-title-md text-on-surface"><label class="cursor-pointer" for="cpu-sample-interval" data-i18n="power_sample_title">Intervallo campionamento CPU</label></h3>
                     <p class="text-body-sm text-on-surface-variant mt-1" data-i18n="power_sample_sub">Scegli ogni quanti secondi VOLT MANAGER legge l'uso CPU per decidere il piano energetico automatico.</p>
                   </div>
                 </div>
@@ -478,15 +478,15 @@
                 <span class="material-symbols-outlined text-secondary-fixed-dim">battery_saver</span>
               </div>
               <div class="flex-1 flex flex-wrap items-center gap-x-xs gap-y-2 text-body-md text-on-surface">
-                <span data-i18n="power_rule_if">Se CPU &lt;</span>
+                <span id="rule-saver-if" data-i18n="power_rule_if">Se CPU &lt;</span>
                 <!-- power.js builds rule-{id}-{threshold,minutes,toggle} IDs when loading and wiring settings. -->
-                <input class="w-12 h-8 bg-surface-container-lowest border-b border-white/20 rounded text-center text-body-md text-secondary-container input-glow transition-all" data-rule="saver" data-field="thresholdPct" id="rule-saver-threshold" max="99" min="1" type="number" value="10"/>
+                <input aria-labelledby="rule-saver-target rule-saver-if" class="w-12 h-8 bg-surface-container-lowest border-b border-white/20 rounded text-center text-body-md text-secondary-container input-glow transition-all" data-rule="saver" data-field="thresholdPct" id="rule-saver-threshold" max="99" min="1" type="number" value="10"/>
                 <span data-i18n="power_rule_for">% per</span>
-                <input class="w-12 h-8 bg-surface-container-lowest border-b border-white/20 rounded text-center text-body-md text-secondary-container input-glow transition-all" data-rule="saver" data-field="durationMinutes" id="rule-saver-minutes" max="60" min="1" type="number" value="1"/>
-                <span data-i18n="power_rule_min">minuto</span>
+                <input aria-labelledby="rule-saver-target rule-saver-min" class="w-12 h-8 bg-surface-container-lowest border-b border-white/20 rounded text-center text-body-md text-secondary-container input-glow transition-all" data-rule="saver" data-field="durationMinutes" id="rule-saver-minutes" max="60" min="1" type="number" value="1"/>
+                <span id="rule-saver-min" data-i18n="power_rule_min">minuto</span>
                 <span class="vm-rule-target">
                   <span class="text-on-surface-variant">→</span>
-                  <span class="text-tertiary-fixed font-medium" data-i18n="power_rule_saver">Risparmio Energetico</span>
+                  <span class="text-tertiary-fixed font-medium" id="rule-saver-target" data-i18n="power_rule_saver">Risparmio Energetico</span>
                 </span>
               </div>
             </div>
@@ -507,14 +507,14 @@
                 <span class="material-symbols-outlined text-secondary-fixed-dim">balance</span>
               </div>
               <div class="flex-1 flex flex-wrap items-center gap-x-xs gap-y-2 text-body-md text-on-surface">
-                <span data-i18n="power_rule_if_gt">Se CPU &gt;</span>
-                <input class="w-12 h-8 bg-surface-container-lowest border-b border-white/20 rounded text-center text-body-md text-secondary-container input-glow transition-all" data-rule="balanced" data-field="thresholdPct" id="rule-balanced-threshold" max="99" min="1" type="number" value="10"/>
+                <span id="rule-balanced-if" data-i18n="power_rule_if_gt">Se CPU &gt;</span>
+                <input aria-labelledby="rule-balanced-target rule-balanced-if" class="w-12 h-8 bg-surface-container-lowest border-b border-white/20 rounded text-center text-body-md text-secondary-container input-glow transition-all" data-rule="balanced" data-field="thresholdPct" id="rule-balanced-threshold" max="99" min="1" type="number" value="10"/>
                 <span data-i18n="power_rule_for">% per</span>
-                <input class="w-12 h-8 bg-surface-container-lowest border-b border-white/20 rounded text-center text-body-md text-secondary-container input-glow transition-all" data-rule="balanced" data-field="durationMinutes" id="rule-balanced-minutes" max="60" min="1" type="number" value="1"/>
-                <span data-i18n="power_rule_min">minuto</span>
+                <input aria-labelledby="rule-balanced-target rule-balanced-min" class="w-12 h-8 bg-surface-container-lowest border-b border-white/20 rounded text-center text-body-md text-secondary-container input-glow transition-all" data-rule="balanced" data-field="durationMinutes" id="rule-balanced-minutes" max="60" min="1" type="number" value="1"/>
+                <span id="rule-balanced-min" data-i18n="power_rule_min">minuto</span>
                 <span class="vm-rule-target">
                   <span class="text-on-surface-variant">→</span>
-                  <span class="text-tertiary-fixed font-medium" data-i18n="power_rule_balanced">Balanced</span>
+                  <span class="text-tertiary-fixed font-medium" id="rule-balanced-target" data-i18n="power_rule_balanced">Balanced</span>
                 </span>
               </div>
             </div>
@@ -535,14 +535,14 @@
                 <span class="material-symbols-outlined text-secondary-fixed-dim">speed</span>
               </div>
               <div class="flex-1 flex flex-wrap items-center gap-x-xs gap-y-2 text-body-md text-on-surface">
-                <span data-i18n="power_rule_if_gt">Se CPU &gt;</span>
-                <input class="w-12 h-8 bg-surface-container-lowest border-b border-white/20 rounded text-center text-body-md text-secondary-container input-glow transition-all" data-rule="performance" data-field="thresholdPct" id="rule-performance-threshold" max="99" min="1" type="number" value="50"/>
+                <span id="rule-performance-if" data-i18n="power_rule_if_gt">Se CPU &gt;</span>
+                <input aria-labelledby="rule-performance-target rule-performance-if" class="w-12 h-8 bg-surface-container-lowest border-b border-white/20 rounded text-center text-body-md text-secondary-container input-glow transition-all" data-rule="performance" data-field="thresholdPct" id="rule-performance-threshold" max="99" min="1" type="number" value="50"/>
                 <span data-i18n="power_rule_for">% per</span>
-                <input class="w-12 h-8 bg-surface-container-lowest border-b border-white/20 rounded text-center text-body-md text-secondary-container input-glow transition-all" data-rule="performance" data-field="durationMinutes" id="rule-performance-minutes" max="60" min="1" type="number" value="1"/>
-                <span data-i18n="power_rule_min">minuto</span>
+                <input aria-labelledby="rule-performance-target rule-performance-min" class="w-12 h-8 bg-surface-container-lowest border-b border-white/20 rounded text-center text-body-md text-secondary-container input-glow transition-all" data-rule="performance" data-field="durationMinutes" id="rule-performance-minutes" max="60" min="1" type="number" value="1"/>
+                <span id="rule-performance-min" data-i18n="power_rule_min">minuto</span>
                 <span class="vm-rule-target">
                   <span class="text-on-surface-variant">→</span>
-                  <span class="text-tertiary-fixed font-medium" data-i18n="power_rule_performance">Performance</span>
+                  <span class="text-tertiary-fixed font-medium" id="rule-performance-target" data-i18n="power_rule_performance">Performance</span>
                 </span>
               </div>
             </div>
@@ -742,7 +742,7 @@
               </div>
               <div class="flex items-start justify-between gap-md group mt-md" id="pref-animation-level">
                 <div class="min-w-0 flex-1">
-                  <p class="text-body-md text-on-surface" data-i18n="set_animation_label">Animations</p>
+                  <label class="text-body-md text-on-surface block cursor-pointer" for="animation-level-select" data-i18n="set_animation_label">Animations</label>
                   <p class="text-label-sm text-on-surface-variant mt-1" id="animation-level-note"></p>
                 </div>
                 <select id="animation-level-select" class="text-label-md text-on-surface shrink-0"
@@ -827,7 +827,7 @@
               </div>
               <div class="flex items-center justify-between group mt-md" id="pref-lang">
                 <div>
-                  <p class="text-body-md text-on-surface group-hover:text-secondary-fixed transition-colors" data-i18n="set_pref_lang">Lingua</p>
+                  <label class="text-body-md text-on-surface group-hover:text-secondary-fixed transition-colors block cursor-pointer" for="lang-select" data-i18n="set_pref_lang">Lingua</label>
                   <p class="text-label-sm text-on-surface-variant" data-i18n="set_pref_lang_sub">Lingua dell'interfaccia</p>
                 </div>
                 <select id="lang-select" class="bg-surface-container-low/50 text-secondary-container font-medium border border-white/10 rounded-lg py-2 px-4 pr-10 text-body-md focus:outline-none focus:border-secondary-container transition-all duration-300 cursor-pointer hover:bg-white/10 shadow-lg backdrop-blur-md" style="-webkit-appearance: none; -moz-appearance: none; appearance: none; background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2300f1fe%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E'); background-repeat: no-repeat; background-position: right 0.75rem center; background-size: 1.2em 1.2em;">
@@ -1273,7 +1273,7 @@
         <!-- Language -->
         <div class="flex items-center justify-between gap-md">
           <div>
-            <p class="text-body-md text-on-surface font-medium" data-i18n="set_pref_lang">Lingua</p>
+            <label class="text-body-md text-on-surface font-medium block cursor-pointer" for="welcome-lang-select" data-i18n="set_pref_lang">Lingua</label>
             <p class="text-label-sm text-on-surface-variant" data-i18n="set_pref_lang_sub">Lingua dell'interfaccia</p>
           </div>
           <select id="welcome-lang-select" class="bg-surface-container-low/50 text-secondary-container font-medium border border-white/10 rounded-lg py-2 px-4 pr-10 text-body-md focus:outline-none focus:border-secondary-container transition-all duration-300 cursor-pointer hover:bg-white/10 shadow-lg backdrop-blur-md" style="-webkit-appearance: none; -moz-appearance: none; appearance: none; background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2300f1fe%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E'); background-repeat: no-repeat; background-position: right 0.75rem center; background-size: 1.2em 1.2em;">

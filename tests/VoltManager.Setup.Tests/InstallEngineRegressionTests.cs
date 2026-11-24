@@ -1136,6 +1136,19 @@ public sealed class InstallEngineRegressionTests
         }
     }
 
+    [Fact]
+    public async Task RunLegacyInnoUninstallerAsync_with_cancelled_token_cancels_without_starting_process()
+    {
+        MethodInfo method = typeof(InstallEngine).GetMethod(
+            "RunLegacyInnoUninstallerAsync", BindingFlags.NonPublic | BindingFlags.Static)!;
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        string missing = Path.Combine(Path.GetTempPath(), "VoltManagerSetupTests", Guid.NewGuid().ToString("N"), "unins000.exe");
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            (Task)method.Invoke(null, new object[] { missing, cts.Token })!);
+    }
+
     private static string CreateSyntheticPayloadZip(string root, string staging)
     {
         string zip = Path.Combine(root, "payload.zip");

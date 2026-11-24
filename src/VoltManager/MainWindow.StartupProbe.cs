@@ -50,7 +50,7 @@ public partial class MainWindow
         catch (InvalidOperationException) { /* Ignore messages without the expected validation payload. */ }
     }
 
-    private async void StartStartupProbe(CoreWebView2 core)
+    private async Task StartStartupProbeAsync(CoreWebView2 core)
     {
         if (!ValidationEnvironment.IsActive || _startMinimized || _startupReadyObserved) return;
         // Injected only in validation: observes real initial payloads, the first painted
@@ -101,6 +101,6 @@ public partial class MainWindow
     }
 #else
     private static void AttachStartupProbe(CoreWebView2 core) { }
-    private static void StartStartupProbe(CoreWebView2 core) { }
+    private static Task StartStartupProbeAsync(CoreWebView2 core) => Task.CompletedTask;
 #endif
 }

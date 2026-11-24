@@ -155,3 +155,47 @@ test('language changes never accumulate power-plan event listeners', () => {
   assert.equal(widget.handlers.get('activePlanChanged').length, 1);
   assert.equal(widget.timers.size, 0);
 });
+
+test('widget fire-and-forget async calls handle Host.call rejections without unhandled rejections', async () => {
+  const elements = new Map();
+  const calls = [];
+  const document = {
+    hidden: false,
+    documentElement: { dataset: {} },
+    getElementById(id) {
+      if (!elements.has(id)) elements.set(id, {
+        innerHTML: '', textContent: '', value: '42', dataset: {}, style: { setProperty() {} },
+        addEventListener(name, handler) { (this.listeners ??= new Map()).set(name, handler); },
+        setAttribute() {},
+        classList: { toggle() {} },
+      });
+      return elements.get(id);
+    },
+    querySelectorAll() { return []; },
+    querySelector() { return null; },
+    addEventListener() {},
+  };
+  vm.runInContext(source, vm.createContext({
+    window: {},
+    document,
+    Host: { available: true, call: async name => { calls.push(name); throw new Error('host_down'); }, on() {} },
+    location: { search: '?w=brightness&s=mini' },
+    URLSearchParams,
+    Date,
+    Intl,
+    Promise,
+    console,
+    setInterval() { return 1; },
+    clearInterval() {},
+    setTimeout() { return 1; },
+    clearTimeout() {},
+  }));
+  await new Promise(setImmediate);
+  elements.get('brightness-slider').listeners.get('change')();
+  await new Promise(setImmediate);
+  assert.deepEqual(calls.filter(name => name === 'setDisplayBrightness' || name === 'getDisplayBrightness'), [
+    'getDisplayBrightness',
+    'setDisplayBrightness',
+    'getDisplayBrightness',
+  ]);
+});
