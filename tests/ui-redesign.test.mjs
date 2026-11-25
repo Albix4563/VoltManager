@@ -41,6 +41,14 @@ test('dense views keep compact navigation horizontal at every viewport width', (
   assert.doesNotMatch(css, /\.vm-dense-shell\s+\.vm-subnav\s*\{[^}]*flex-direction\s*:\s*column/s);
 });
 
+test('tutte le viste condividono la stessa larghezza fluida e centrata', () => {
+  assert.match(layout, /section\.className = 'view vm-reorg-view\b/);
+  assert.match(css, /\.vm-reorg-view\s*\{[^}]*\bwidth:\s*100%;[^}]*max-width:\s*\d+px;[^}]*margin-inline:\s*auto;/);
+  assert.doesNotMatch(css, /(?:\.vm-settings-list|#vm-power-active|#vm-power-source|#vm-system-memory\s+#ram-panel|#vm-settings-info\s*>\s*\.glass-panel)[^{}]*\{[^}]*max-width:\s*\d+px/);
+  assert.match(css, /#vm-power-active\s*>\s*\*\s*,\s*#vm-power-source\s*>\s*\*\s*,\s*#vm-automation-gaming\s*>\s*\*\s*\{[^}]*max-width:\s*100%;/);
+  assert.match(css, /\.vm-reorg-view\s+\.lan-remote-columns\s*\{[^}]*grid-template-columns:\s*repeat\(auto-fit,\s*minmax\(min\(100%,\s*\d+px\),\s*1fr\)\);/);
+});
+
 test('overview status uses unboxed rows instead of nested square tiles', () => {
   assert.match(css, /\.vm-status-card\s*\{[^}]*display\s*:\s*grid[^}]*border\s*:\s*0[^}]*background\s*:\s*transparent/s);
   assert.match(css, /\.vm-status-card__header\s*\{[^}]*display\s*:\s*contents/s);

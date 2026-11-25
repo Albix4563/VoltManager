@@ -272,7 +272,7 @@ test('slower decorative loops keep the ambient glow restrained', () => {
 
 test('scroll containers stabilize layout gutter and suppress spotlight churn while scrolling', () => {
   const effectsJs = read('../src/VoltManager/wwwroot/js/effects.js');
-  assert.match(polish, /#main-content\s*\{[^}]*overscroll-behavior-y:\s*contain[^}]*scrollbar-gutter:\s*stable/s);
+  assert.match(polish, /#main-content\s*\{[^}]*overscroll-behavior-y:\s*contain[^}]*scrollbar-gutter:\s*stable\s+both-edges\s*;/s);
   assert.match(effects, /html\[data-scrolling="true"\]\s+\.glass-card\.fx-spot::after[\s\S]*opacity:\s*0\s*!important/);
   assert.match(effectsJs, /document\.addEventListener\('scroll',\s*onScroll,\s*\{\s*capture:\s*true,\s*passive:\s*true\s*\}\)/);
   assert.match(effectsJs, /if\s*\(!spotRect\)\s*spotRect\s*=\s*spotEl\.getBoundingClientRect\(\)/);

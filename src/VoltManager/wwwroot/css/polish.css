@@ -102,7 +102,7 @@
 /* ---------- 5. Scrollbar — brand-tinted ---------- */
 #main-content{
   overscroll-behavior-y: contain;
-  scrollbar-gutter: stable;
+  scrollbar-gutter: stable both-edges;
 }
 .changelog-scroll,
 .heavy-app-list,
