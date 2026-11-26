@@ -1099,10 +1099,7 @@
             color-mix(in srgb, var(--vm-surface-high, #1e293b) 22%, transparent),
             transparent 60%),
         color-mix(in srgb, var(--vm-panel, #111827) 96%, transparent);
-    box-shadow:
-        inset 0 1px 0 rgb(255 255 255 / .06),
-        0 25px 50px -12px rgb(0 0 0 / .55),
-        0 4px 20px rgb(var(--vm-accent-rgb, 59 130 246) / .08);
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / .06), 0 25px 50px -12px rgb(0 0 0 / .55), 0 4px 20px rgb(var(--vm-accent-rgb, 59 130 246) / .08);
 }
 
 .vm-search-input-row {

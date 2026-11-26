@@ -5,10 +5,7 @@
     color-mix(in srgb, var(--vm-surface-high) 22%, transparent),
     color-mix(in srgb, var(--vm-surface) 7%, transparent)
   );
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,.08),
-    0 1px 2px rgba(0,0,0,.28),
-    0 16px 34px -18px rgba(0,0,0,.66);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 1px 2px rgba(0,0,0,.28), 0 16px 34px -18px rgba(0,0,0,.66);
   transition:
     transform var(--vm-motion-fast) var(--vm-ease-standard),
     border-color var(--vm-motion-fast) var(--vm-ease-standard),
@@ -17,11 +14,7 @@
 .glass-card:not(.fx-metric):hover {
   transform: translateY(-1px);
   border-color: color-mix(in srgb, var(--vm-accent) 34%, var(--vm-border));
-  box-shadow:
-    inset 0 1px 0 rgb(var(--vm-accent-rgb) / .30),
-    0 1px 2px rgba(0,0,0,.28),
-    0 22px 44px -20px rgba(0,0,0,.70),
-    0 0 40px -12px rgb(var(--vm-accent-rgb) / .28);
+  box-shadow: inset 0 1px 0 rgb(var(--vm-accent-rgb) / .30), 0 1px 2px rgba(0,0,0,.28), 0 22px 44px -20px rgba(0,0,0,.70), 0 0 40px -12px rgb(var(--vm-accent-rgb) / .28);
 }
 .glass-panel {
   background-image: linear-gradient(
@@ -29,14 +22,10 @@
     color-mix(in srgb, var(--vm-surface-high) 16%, transparent),
     color-mix(in srgb, var(--vm-surface) 5%, transparent)
   );
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,.06),
-    0 12px 30px -20px rgba(0,0,0,.62);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 12px 30px -20px rgba(0,0,0,.62);
 }
 .glass-modal {
-  box-shadow:
-    0 25px 50px -12px rgba(0,0,0,.5),
-    0 4px 20px rgb(var(--vm-accent-rgb) / .05);
+  box-shadow: 0 25px 50px -12px rgba(0,0,0,.5), 0 4px 20px rgb(var(--vm-accent-rgb) / .05);
 }
 
 /* ---------- 2. Progress tracks — inset depth ----------
@@ -77,9 +66,7 @@
    and a resting glow so the main action carries weight. */
 .btn-primary{
   background-image: linear-gradient(180deg, var(--vm-accent-dim), var(--vm-accent-hover));
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,.45),
-    0 6px 16px -6px rgb(var(--vm-accent-rgb) / .5);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.45), 0 6px 16px -6px rgb(var(--vm-accent-rgb) / .5);
 }
 
 .btn-primary,
