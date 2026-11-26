@@ -169,6 +169,7 @@ public partial class WidgetWindow : Window
         _bridge?.Dispose();
         _bridge = _context.CreateBridge(webView, false, _type);
         _bridge.Attach();
+        _bridge.SetSurfaceVisible(HasVisibleResourceSurface);
         _bridge.WidgetDragRequested += BeginNativeDrag;
         _bridge.WidgetResizeRequested += BeginNativeResize;
         _bridge.WidgetTopmostRequested += SetTopmostFromWidget;
@@ -376,26 +377,45 @@ public partial class WidgetWindow : Window
         if (_requestedAppearanceHwnd == hwnd && _requestedAppearance.ValueEquals(normalized)) return;
         _requestedAppearance = normalized.CloneNormalized();
         _requestedAppearanceHwnd = IntPtr.Zero;
-        _appearance = normalized;
+        _appearance = EffectiveAppearance(normalized, _context.ResourcePressureState().Profile);
         SetPresentationBackgrounds();
         ApplyNativeAppearanceSafe(pushFallbackToWeb: false);
         PushAppearanceEvent();
     }
 
+    internal static string ResolveEffectiveAppearanceMaterial(string requestedMaterial, ResourceProfile profile)
+    {
+        string normalized = WidgetAppearance.NormalizeMaterial(requestedMaterial);
+        return profile is ResourceProfile.Gaming or ResourceProfile.Critical
+            ? "solid"
+            : normalized;
+    }
+
+    internal static WidgetAppearance EffectiveAppearance(WidgetAppearance requested, ResourceProfile profile)
+    {
+        var copy = requested.CloneNormalized();
+        copy.Material = ResolveEffectiveAppearanceMaterial(copy.Material, profile);
+        return copy;
+    }
+
     private void PushAppearanceEvent()
         => _bridge?.PushEvent(BridgeEventNames.WidgetAppearanceChanged, _appearance.CloneNormalized());
 
+    private bool IsEffectiveSolid => string.Equals(
+        ResolveEffectiveAppearanceMaterial(_appearance.Material, _context.ResourcePressureState().Profile),
+        "solid",
+        StringComparison.OrdinalIgnoreCase);
+
     private void SetWebViewBackgroundForAppearance()
     {
-        WebView.DefaultBackgroundColor = string.Equals(_appearance.Material, "solid", StringComparison.OrdinalIgnoreCase)
+        WebView.DefaultBackgroundColor = IsEffectiveSolid
             ? Drawing.Color.FromArgb(255, 14, 26, 46)
             : Drawing.Color.Transparent;
     }
 
     private void SetPresentationBackgrounds()
     {
-        bool solid = string.Equals(_appearance.Material, "solid", StringComparison.OrdinalIgnoreCase);
-        if (solid)
+        if (IsEffectiveSolid)
         {
             SetResourceReference(BackgroundProperty, "ThemeBackgroundBrush");
             RootGrid.SetResourceReference(System.Windows.Controls.Panel.BackgroundProperty, "ThemeBackgroundBrush");
@@ -415,20 +435,22 @@ public partial class WidgetWindow : Window
         if (_requestedAppearanceHwnd == source.Handle)
             return;
 
+        ResourceProfile profile = _context.ResourcePressureState().Profile;
         var requested = _requestedAppearance.CloneNormalized();
+        var effective = EffectiveAppearance(requested, profile);
         _requestedAppearanceHwnd = source.Handle;
-        if (!_appearance.ValueEquals(requested))
+        if (!_appearance.ValueEquals(effective))
         {
-            _appearance = requested.CloneNormalized();
+            _appearance = effective.CloneNormalized();
             SetPresentationBackgrounds();
         }
 
         try
         {
-            if (!TryApplyNativeAppearance(source, requested.Material))
+            if (!TryApplyNativeAppearance(source, requested.Material, profile))
                 throw new InvalidOperationException("Native material API returned failure.");
             _nativeAppearanceHwnd = source.Handle;
-            _nativeAppearance = requested.CloneNormalized();
+            _nativeAppearance = effective.CloneNormalized();
         }
         catch (Exception ex)
         {
@@ -443,7 +465,7 @@ public partial class WidgetWindow : Window
             SetPresentationBackgrounds();
             try
             {
-                if (TryApplyNativeAppearance(source, "solid"))
+                if (TryApplyNativeAppearance(source, "solid", profile))
                 {
                     _nativeAppearanceHwnd = source.Handle;
                     _nativeAppearance = _appearance.CloneNormalized();
@@ -454,12 +476,13 @@ public partial class WidgetWindow : Window
         }
     }
 
-    private static bool TryApplyNativeAppearance(HwndSource source, string material)
+    private static bool TryApplyNativeAppearance(HwndSource source, string material, ResourceProfile profile = ResourceProfile.Full)
     {
+        string effectiveMaterial = ResolveEffectiveAppearanceMaterial(material, profile);
         IntPtr hwnd = source.Handle;
         if (!TryClearNativeEffects(hwnd)) return false;
 
-        if (string.Equals(material, "solid", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(effectiveMaterial, "solid", StringComparison.OrdinalIgnoreCase))
         {
             source.CompositionTarget.BackgroundColor = Color.FromRgb(14, 26, 46);
             var opaqueMargins = new MARGINS();
@@ -474,10 +497,10 @@ public partial class WidgetWindow : Window
         // Without it transparent pixels (and the rounded corners) are composed as black.
         if (!TrySetBlurBehind(hwnd, enable: true)) return false;
 
-        if (string.Equals(material, "transparent", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(effectiveMaterial, "transparent", StringComparison.OrdinalIgnoreCase))
             return true;
 
-        if (!string.Equals(material, "acrylic", StringComparison.OrdinalIgnoreCase))
+        if (!string.Equals(effectiveMaterial, "acrylic", StringComparison.OrdinalIgnoreCase))
             return false;
 
         int dark = 1;
@@ -691,6 +714,24 @@ public partial class WidgetWindow : Window
     {
         if (_closed) return;
         _metricsPublisher.ResetCadence();
+        string nextMaterial = ResolveEffectiveAppearanceMaterial(_requestedAppearance.Material, state.Profile);
+        if (!string.Equals(_appearance.Material, nextMaterial, StringComparison.OrdinalIgnoreCase))
+        {
+            void ReapplyAppearance()
+            {
+                if (_closed) return;
+                _requestedAppearanceHwnd = IntPtr.Zero;
+                _appearance = EffectiveAppearance(_requestedAppearance, state.Profile);
+                SetPresentationBackgrounds();
+                ApplyNativeAppearanceSafe(pushFallbackToWeb: false);
+                PushAppearanceEvent();
+            }
+
+            if (Dispatcher.CheckAccess())
+                ReapplyAppearance();
+            else
+                _ = Dispatcher.InvokeAsync(ReapplyAppearance);
+        }
         var plan = WebViewResourceController.Resolve(state.Profile, HasVisibleResourceSurface, active: false);
         _bridge?.PushEvent(BridgeEventNames.ResourceProfileChanged, new
         {
@@ -718,6 +759,7 @@ public partial class WidgetWindow : Window
     {
         if (_closed) return;
         bool active = HasVisibleResourceSurface;
+        _bridge?.SetSurfaceVisible(active);
         WebView.Visibility = active ? Visibility.Visible : Visibility.Hidden;
         if (!active)
         {

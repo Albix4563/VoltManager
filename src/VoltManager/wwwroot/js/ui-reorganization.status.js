@@ -216,8 +216,27 @@
         document.addEventListener('voltuiviewchanged', queue);
         document.addEventListener('voltuisubviewchanged', queue);
         document.addEventListener('voltuistranslated', queue);
-        document.addEventListener('visibilitychange', () => { if (!document.hidden) queue(); });
-        setInterval(() => { if (!document.hidden) queue(); }, 5000);
+        let statusInterval = null;
+        function startStatusInterval() {
+            if (document.hidden || statusInterval != null) return;
+            statusInterval = setInterval(() => {
+                if (!document.hidden) queue();
+            }, 5000);
+        }
+        function stopStatusInterval() {
+            if (statusInterval == null) return;
+            if (typeof clearInterval === 'function') clearInterval(statusInterval);
+            statusInterval = null;
+        }
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                stopStatusInterval();
+            } else {
+                startStatusInterval();
+                queue();
+            }
+        });
+        startStatusInterval();
         queue();
     }
 

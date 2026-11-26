@@ -147,7 +147,7 @@ body,
 }
 
 nav {
-    background: color-mix(in srgb, var(--vm-surface) 88%, transparent);
+    background: color-mix(in srgb, var(--vm-surface) 96%, transparent);
     border-right-color: var(--vm-border);
 }
 
@@ -373,6 +373,11 @@ option {
 
 .progress-glow {
     filter: drop-shadow(0 0 6px rgb(var(--vm-accent-rgb) / .55)) !important;
+}
+
+#cpu-ring,
+#gpu-ring {
+    filter: none !important;
 }
 
 .theme-progress-fill {

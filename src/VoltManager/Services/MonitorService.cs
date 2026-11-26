@@ -264,6 +264,16 @@ public partial class MonitorService : IDisposable
     public void RequestForegroundRefresh()
         => Interlocked.Exchange(ref _foregroundRefreshRequested, 1);
 
+    internal static bool ShouldSampleVram(MonitorSamplingDemand demand)
+        => demand.VisualDetails || demand.GpuProcessDetection;
+
+    internal static TimeSpan ResolveGpuSampleInterval(MonitorSamplingDemand demand)
+        => demand.GpuProcessDetection
+            ? TimeSpan.FromSeconds(2)
+            : demand.VisualDetails
+                ? TimeSpan.FromSeconds(5)
+                : TimeSpan.FromSeconds(15);
+
     internal static HardwareSampleRequest ResolveHardwareSampleRequest(MonitorSamplingDemand demand)
     {
         if (demand.VisualDetails)
@@ -308,11 +318,11 @@ public partial class MonitorService : IDisposable
                     _lastDiskSampleUtc = nowUtc;
                 }
             }
-            TimeSpan gpuInterval = demand.GpuProcessDetection
-                ? TimeSpan.FromSeconds(2)
-                : TimeSpan.FromSeconds(5);
+            TimeSpan gpuInterval = ResolveGpuSampleInterval(demand);
             double gpu = _gpu.Read(gpuInterval, demand.GpuProcessDetection, forceAccessoryRefresh);
-            var vram = _vram.Read(forceAccessoryRefresh);
+            VramMemorySnapshot? vram = ShouldSampleVram(demand)
+                ? _vram.Read(forceAccessoryRefresh)
+                : null;
             var (usedGb, pct) = ReadRam();
             var sensors = _sensors.Read(ResolveHardwareSampleRequest(demand), forceAccessoryRefresh);
 

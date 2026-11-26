@@ -377,7 +377,31 @@
 
     var currentScheduleState = null;
     var scheduleCountdownTimer = null;
+    var scheduleCountdownTick = null;
     var scheduleMode = 'relative';
+
+    function stopScheduleCountdownTimer() {
+        if (scheduleCountdownTimer) {
+            clearInterval(scheduleCountdownTimer);
+            scheduleCountdownTimer = null;
+        }
+    }
+
+    function startScheduleCountdownTimer() {
+        if (document.hidden || scheduleCountdownTimer || !scheduleCountdownTick) return;
+        scheduleCountdownTick();
+        if (currentScheduleState && currentScheduleState.enabled && currentScheduleState.remainingSeconds > 0) {
+            scheduleCountdownTimer = setInterval(scheduleCountdownTick, 1000);
+        }
+    }
+
+    document.addEventListener('visibilitychange', function() {
+        if (document.hidden) {
+            stopScheduleCountdownTimer();
+        } else {
+            startScheduleCountdownTimer();
+        }
+    });
 
     function renderPresetButtons() {
         var container = document.getElementById('schedule-presets');
@@ -401,8 +425,8 @@
 
     function applyScheduledPowerActionState(state) {
         currentScheduleState = state;
-        clearInterval(scheduleCountdownTimer);
-        scheduleCountdownTimer = null;
+        stopScheduleCountdownTimer();
+        scheduleCountdownTick = null;
 
         var activeEl = document.getElementById('schedule-active');
         var relativeContent = document.getElementById('schedule-relative-content');
@@ -437,13 +461,13 @@
                         var s = remaining % 60;
                         countdownEl.textContent = t('remaining') + ' ' + h + 'h ' + m + 'm ' + s + 's';
                     }
-                    if (remaining <= 0 && scheduleCountdownTimer) {
-                        clearInterval(scheduleCountdownTimer);
-                        scheduleCountdownTimer = null;
+                    if (remaining <= 0) {
+                        stopScheduleCountdownTimer();
+                        scheduleCountdownTick = null;
                     }
                 };
-                updateCountdown();
-                scheduleCountdownTimer = setInterval(updateCountdown, 1000);
+                scheduleCountdownTick = updateCountdown;
+                startScheduleCountdownTimer();
             } else if (mode === 'daily' && state.dailyTime) {
                 var countdownEl = document.getElementById('schedule-active-countdown');
                 if (countdownEl) countdownEl.textContent = t('at') + ' ' + state.dailyTime;

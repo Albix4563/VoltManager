@@ -27,6 +27,7 @@ public class HostBridge : IDisposable
     private readonly UiMetricsPublisher _metricsPublisher = new();
     private volatile bool _disposed;
     private bool _pushEventFaulted;
+    private int _surfaceVisible = 1;
 
     public event Action? ExitRequested;
     public event Action? MinimizeToTrayRequested;
@@ -297,9 +298,18 @@ public class HostBridge : IDisposable
         GC.SuppressFinalize(this);
     }
 
+    public void SetSurfaceVisible(bool visible)
+        => Volatile.Write(ref _surfaceVisible, visible ? 1 : 0);
+
+    internal bool IsSurfaceVisible
+        => Volatile.Read(ref _surfaceVisible) != 0;
+
+    internal static bool ShouldDispatchEvent(string eventName, bool surfaceVisible)
+        => surfaceVisible && !string.IsNullOrWhiteSpace(eventName);
+
     public void PushEvent(string name, object data)
     {
-        if (IsStopped)
+        if (IsStopped || !ShouldDispatchEvent(name, IsSurfaceVisible))
             return;
 
         if (!string.Equals(name, BridgeEventNames.Metrics, StringComparison.Ordinal))
@@ -325,7 +335,7 @@ public class HostBridge : IDisposable
 
     private void PostEvent(string name, object data)
     {
-        if (IsStopped)
+        if (IsStopped || !ShouldDispatchEvent(name, IsSurfaceVisible))
             return;
 
         try
@@ -336,7 +346,7 @@ public class HostBridge : IDisposable
             string payload = BridgeRpc.FormatEvent(name, data);
             void Post()
             {
-                if (IsStopped)
+                if (IsStopped || !ShouldDispatchEvent(name, IsSurfaceVisible))
                     return;
                 try { _webView.CoreWebView2?.PostWebMessageAsJson(payload); }
                 catch { /* best-effort: malformed bridge payload probing is ignored here. */ }

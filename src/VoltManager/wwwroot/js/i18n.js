@@ -1,5 +1,10 @@
 window.I18n = (function() {
     const catalogRoot = window.VoltI18nCatalogs || { metadata: {}, namespaces: { core: {} } };
+    if (typeof document.getElementById === 'function' && document.getElementById('widget-root') && catalogRoot.namespaces) {
+        Object.keys(catalogRoot.namespaces).forEach(function(ns) {
+            if (ns !== 'core') delete catalogRoot.namespaces[ns];
+        });
+    }
     const metadata = catalogRoot.metadata;
 
     let lang = localStorage.getItem('volt_lang') || 'it';

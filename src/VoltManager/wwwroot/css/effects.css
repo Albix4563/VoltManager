@@ -8,7 +8,8 @@
 /* The live rings repaint every second. Fill is smoothed per-frame in JS, so
    only colour/halo transition via CSS. */
 #cpu-ring, #gpu-ring{
-  transition: stroke .8s ease, filter .8s ease;
+  transition: stroke .8s ease;
+  filter: none !important;
 }
 
 /* Linear bars are scaled (not width-animated). */
@@ -43,29 +44,16 @@
 .vm-aurora__orb{
   position: absolute;
   border-radius: 50%;
-  /* Smaller blur + no mix-blend: both force large intermediate textures in WebView2. */
-  filter: blur(36px);
+  /* Bounded static radial gradients: no CSS blur filter and no infinite drift animations. */
   opacity: .34;
 }
 .vm-aurora__orb--1{
-  width: 34vw; height: 34vw; left: -4vw; top: -6vw;
+  width: min(34vw, 420px); height: min(34vw, 420px); left: -4vw; top: -6vw;
   background: radial-gradient(circle at 30% 30%, rgb(var(--vm-accent-rgb) / .45), rgb(var(--vm-accent-rgb) / 0) 68%);
-  animation: vmOrb1 36s ease-in-out infinite;
 }
 .vm-aurora__orb--2{
-  width: 30vw; height: 30vw; right: -6vw; top: 18vh;
+  width: min(30vw, 420px); height: min(30vw, 420px); right: -6vw; top: 18vh;
   background: radial-gradient(circle at 60% 40%, rgba(94,124,255,.34), rgba(94,124,255,0) 70%);
-  animation: vmOrb2 44s ease-in-out infinite;
-}
-@keyframes vmOrb1{
-  0%,100%{ transform: translate3d(0,0,0) scale(1); }
-  33%{ transform: translate3d(8vw,6vh,0) scale(1.12); }
-  66%{ transform: translate3d(-4vw,12vh,0) scale(.94); }
-}
-@keyframes vmOrb2{
-  0%,100%{ transform: translate3d(0,0,0) scale(1); }
-  40%{ transform: translate3d(-10vw,8vh,0) scale(1.15); }
-  70%{ transform: translate3d(-2vw,-6vh,0) scale(.9); }
 }
 /* ---------- 2. Card spotlight + hover sheen ---------- */
 /* --mx/--my are written by effects.js on pointermove (0-100%). The radial
@@ -144,18 +132,14 @@ html[data-scrolling="true"] .glass-panel.fx-spot::after{ opacity: 0 !important; 
 
 .fx-title{
   background: linear-gradient(100deg,
-              var(--vm-text,#d4e4fa) 0%, var(--vm-text,#d4e4fa) 38%,
-              var(--vm-accent) 50%,
-              var(--vm-text,#d4e4fa) 62%, var(--vm-text,#d4e4fa) 100%);
-  background-size: 220% 100%;
+              var(--vm-text,#d4e4fa) 0%,
+              var(--vm-accent) 55%,
+              var(--vm-text,#d4e4fa) 100%);
+  background-size: 100% 100%;
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
-  animation: vmTitleSheen 10s ease-in-out infinite;
-}
-@keyframes vmTitleSheen{
-  0%,100%{ background-position: 130% 0; }
-  50%{ background-position: -30% 0; }
+  animation: none;
 }
 
 /* ---------- 5. Navigation indicator ---------- */
@@ -190,12 +174,9 @@ html[data-scrolling="true"] .glass-panel.fx-spot::after{ opacity: 0 !important; 
   position: absolute;
   inset: -3px;
   border-radius: 50%;
-  border: 1px solid rgb(var(--vm-accent-rgb) / .48);
-  animation: vmPing 2.6s var(--vm-ease-standard) infinite;
-}
-@keyframes vmPing{
-  0%{ transform: scale(1); opacity: .65; }
-  80%,100%{ transform: scale(2.4); opacity: 0; }
+  border: 1px solid rgb(var(--vm-accent-rgb) / .38);
+  opacity: .55;
+  animation: none;
 }
 
 /* ---------- 8. Segmented plan pill — accent glow ---------- */
@@ -244,9 +225,12 @@ html:not([data-fx="rich"]) .fx-title {
 /* The UI leans hard on backdrop-blur. Users who request reduced transparency
    (or weak GPUs) get opaque surfaces and no translucent aurora wash. */
 @media (prefers-reduced-transparency: reduce){
-  .glass-panel, .glass-modal{
+  .glass-panel, .glass-modal,
+  .theme-chooser-overlay, .vm-search-overlay, .backdrop-blur-md, .vm-tour-pop{
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
+  }
+  .glass-panel, .glass-modal{
     background: var(--vm-card, #1e2a4a) !important;
   }
   nav.backdrop-blur-\[30px\]{
@@ -295,6 +279,17 @@ html[data-perf-tier="lite"] .glass-modal{
   -webkit-backdrop-filter: none !important;
   background: var(--vm-card, #1e2a4a) !important;
 }
+html[data-perf="lite"] .theme-chooser-overlay,
+html[data-perf="lite"] .vm-search-overlay,
+html[data-perf="lite"] .backdrop-blur-md,
+html[data-perf="lite"] .vm-tour-pop,
+html[data-perf-tier="lite"] .theme-chooser-overlay,
+html[data-perf-tier="lite"] .vm-search-overlay,
+html[data-perf-tier="lite"] .backdrop-blur-md,
+html[data-perf-tier="lite"] .vm-tour-pop{
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
 html[data-perf="lite"] nav.backdrop-blur-\[30px\],
 html[data-perf-tier="lite"] nav.backdrop-blur-\[30px\]{
   backdrop-filter: none !important;
@@ -318,6 +313,13 @@ html[data-perf-tier="balanced"] .glass-modal{
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
   background: var(--vm-card, #1e2a4a) !important;
+}
+html[data-perf-tier="balanced"] .theme-chooser-overlay,
+html[data-perf-tier="balanced"] .vm-search-overlay,
+html[data-perf-tier="balanced"] .backdrop-blur-md,
+html[data-perf-tier="balanced"] .vm-tour-pop{
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 html[data-perf-tier="balanced"] nav.backdrop-blur-\[30px\]{
   backdrop-filter: none !important;
@@ -367,4 +369,15 @@ html[data-perf-tier="lite"] .fx-title,
 html[data-perf="lite"] .fx-title{
   color: var(--vm-text,#d4e4fa);
   -webkit-text-fill-color: currentColor;
+}
+
+/* ---------- 13. Background tab/window pause ---------- */
+html[data-hidden="true"] *,
+html[data-hidden="true"] *::before,
+html[data-hidden="true"] *::after{
+  animation-play-state: paused !important;
+  transition: none !important;
+}
+html[data-hidden="true"] .vm-aurora{
+  display: none !important;
 }

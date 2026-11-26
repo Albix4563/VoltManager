@@ -146,6 +146,18 @@
     applyAnimationLevel();
   });
 
+  function syncDocumentHidden() {
+    const isHidden = !!document.hidden;
+    if (isHidden) {
+      document.documentElement.dataset.hidden = 'true';
+      if (window.VoltFx && window.VoltFx.stopMotion) window.VoltFx.stopMotion();
+    } else {
+      delete document.documentElement.dataset.hidden;
+    }
+  }
+  syncDocumentHidden();
+  document.addEventListener('visibilitychange', syncDocumentHidden);
+
   if (window.Host && Host.on) {
     Host.on('metrics', function (m) {
       if (!m || typeof m.ramPct !== 'number') return;

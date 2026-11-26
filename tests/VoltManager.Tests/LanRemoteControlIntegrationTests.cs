@@ -344,6 +344,145 @@ public sealed class LanRemoteControlIntegrationTests
         }
     }
 
+    [Fact]
+    public async Task Middleware_RejectsDisallowedOriginAndClientAddress()
+    {
+        int port = GetFreeTcpPort();
+        SettingsService settings = TestSettings.Create(out string settingsPath);
+        string root = Path.GetDirectoryName(settingsPath)!;
+        var auth = new LanRemoteAuthStore(Path.Combine(root, "remote-control-auth.json"));
+        auth.SetPin("Abc2345678");
+        settings.Update(current =>
+        {
+            current.LanRemoteControl.Enabled = true;
+            current.LanRemoteControl.Port = port;
+        });
+
+        bool allowClient = true;
+        using var certificate = CreateTestCertificate();
+        using var service = new LanRemoteControlService(
+            settings,
+            CreateActions(),
+            auth: auth,
+            firewall: new RecordingFirewall(),
+            addressProvider: () => [IPAddress.Loopback],
+            portAvailable: (_, _) => true,
+            clientAddressAllowed: _ => allowClient,
+            remoteAssetsPath: root,
+            certificateProvider: _ => new X509Certificate2(certificate),
+            auditLogger: _ => { });
+
+        await service.StartAsync();
+        using var handler = new HttpClientHandler
+        {
+            UseProxy = false,
+            ServerCertificateCustomValidationCallback = (_, peer, _, _) => certificate.Equals(peer),
+        };
+        using var client = new HttpClient(handler) { BaseAddress = new Uri($"https://127.0.0.1:{port}/") };
+
+        using var badOrigin = new HttpRequestMessage(HttpMethod.Post, "api/auth/login")
+        {
+            Content = JsonContent.Create(new { pin = "Abc2345678" }),
+        };
+        badOrigin.Headers.Add("Origin", "https://evil.example");
+        using HttpResponseMessage originResp = await client.SendAsync(badOrigin);
+        Assert.Equal(HttpStatusCode.Forbidden, originResp.StatusCode);
+        Assert.Contains("origin_rejected", await originResp.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+
+        allowClient = false;
+        using HttpResponseMessage blockedResp = await client.GetAsync("api/state");
+        Assert.Equal(HttpStatusCode.Forbidden, blockedResp.StatusCode);
+        Assert.Contains("forbidden", await blockedResp.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+
+        await service.StopAsync();
+    }
+
+    [Fact]
+    public async Task PowerPlanEndpoint_HandlesInvalidPlanActionFailedAndSuccess()
+    {
+        const string pin = "Abc2345678";
+        int port = GetFreeTcpPort();
+        SettingsService settings = TestSettings.Create(out string settingsPath);
+        string root = Path.GetDirectoryName(settingsPath)!;
+        var auth = new LanRemoteAuthStore(Path.Combine(root, "remote-control-auth.json"));
+        auth.SetPin(pin);
+        settings.Update(current =>
+        {
+            current.LanRemoteControl.Enabled = true;
+            current.LanRemoteControl.Port = port;
+            current.LanRemoteControl.AllowPlanChange = true;
+        });
+
+        bool setPlanResult = false;
+        var actions = new LanRemoteControlActions(
+            () => new PowerPlan { PlanId = PlanId.Balanced, Name = "Balanced", IsActive = true },
+            _ => setPlanResult,
+            _ => { },
+            () => new WindowsPowerCapabilityState(SleepAvailable: true, HibernateAvailable: true),
+            () => "1.0.0");
+
+        using var certificate = CreateTestCertificate();
+        using var service = new LanRemoteControlService(
+            settings,
+            actions,
+            auth: auth,
+            firewall: new RecordingFirewall(),
+            addressProvider: () => [IPAddress.Loopback],
+            portAvailable: (_, _) => true,
+            clientAddressAllowed: _ => true,
+            remoteAssetsPath: root,
+            certificateProvider: _ => new X509Certificate2(certificate),
+            auditLogger: _ => { });
+
+        await service.StartAsync();
+        using var handler = new HttpClientHandler
+        {
+            UseCookies = true,
+            CookieContainer = new CookieContainer(),
+            UseProxy = false,
+            ServerCertificateCustomValidationCallback = (_, peer, _, _) => certificate.Equals(peer),
+        };
+        using var client = new HttpClient(handler) { BaseAddress = new Uri($"https://127.0.0.1:{port}/") };
+
+        using var login = new HttpRequestMessage(HttpMethod.Post, "api/auth/login") { Content = JsonContent.Create(new { pin }) };
+        AddOrigin(login, port);
+        using HttpResponseMessage loginResp = await client.SendAsync(login);
+        using JsonDocument loginJson = JsonDocument.Parse(await loginResp.Content.ReadAsStringAsync());
+        string csrf = loginJson.RootElement.GetProperty("csrfToken").GetString()!;
+
+        HttpRequestMessage PlanRequest(string plan)
+        {
+            var req = new HttpRequestMessage(HttpMethod.Post, "api/actions/power-plan") { Content = JsonContent.Create(new { plan }) };
+            AddOrigin(req, port);
+            req.Headers.Add(LanRemoteControlService.CsrfHeaderName, csrf);
+            return req;
+        }
+
+        using (var invalidReq = PlanRequest("unknown"))
+        using (HttpResponseMessage invalidResp = await client.SendAsync(invalidReq))
+        {
+            Assert.Equal(HttpStatusCode.BadRequest, invalidResp.StatusCode);
+            Assert.Contains("invalid_plan", await invalidResp.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+        }
+
+        using (var failReq = PlanRequest("performance"))
+        using (HttpResponseMessage failResp = await client.SendAsync(failReq))
+        {
+            Assert.Equal(HttpStatusCode.Conflict, failResp.StatusCode);
+            Assert.Contains("action_failed", await failResp.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+        }
+
+        setPlanResult = true;
+        using (var okReq = PlanRequest("powerSaver"))
+        using (HttpResponseMessage okResp = await client.SendAsync(okReq))
+        {
+            Assert.Equal(HttpStatusCode.OK, okResp.StatusCode);
+            Assert.Contains("true", await okResp.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+        }
+
+        await service.StopAsync();
+    }
+
     private static LanRemoteControlActions CreateActions(
         Func<WindowsPowerCapabilityState>? getCapabilities = null,
         Action<ScheduledPowerActionType>? executePowerAction = null,

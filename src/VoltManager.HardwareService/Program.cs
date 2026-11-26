@@ -197,19 +197,24 @@ internal sealed class HardwareHost : IDisposable
         return new { success = true };
     }
 
+    internal static Computer CreateComputer() => new()
+    {
+        IsCpuEnabled = true,
+        IsGpuEnabled = true,
+        IsMotherboardEnabled = true,
+        IsStorageEnabled = true,
+        IsControllerEnabled = false,
+        IsMemoryEnabled = true,
+    };
+
+    internal static bool ShouldUpdateAny(HardwareSampleRequestDto request)
+        => request.Temperatures || request.VisualDetails;
+
     private void Initialize()
     {
         try
         {
-            var computer = new Computer
-            {
-                IsCpuEnabled = true,
-                IsGpuEnabled = true,
-                IsMotherboardEnabled = true,
-                IsStorageEnabled = true,
-                IsControllerEnabled = true,
-                IsMemoryEnabled = true,
-            };
+            var computer = CreateComputer();
             computer.Open();
             lock (_gate)
             {
@@ -235,6 +240,16 @@ internal sealed class HardwareHost : IDisposable
         DateTime nowUtc = DateTime.UtcNow;
         if (!force && _lastRequest.Covers(request) && nowUtc - _lastUpdateUtc < request.MinimumInterval) return;
         _lastUpdateUtc = nowUtc;
+        if (!ShouldUpdateAny(request))
+        {
+            _last = new SensorReportDto
+            {
+                SampledAtUtc = nowUtc,
+                DetailsAvailable = false,
+            };
+            _lastRequest = request;
+            return;
+        }
         var readings = new List<SensorReadingDto>();
         try
         {
@@ -251,12 +266,12 @@ internal sealed class HardwareHost : IDisposable
             }
             _last = new SensorReportDto
             {
-                CpuTemp = SelectTemperature(readings, "cpu", "Tctl/Tdie", "CPU Package", "Package", "Core Max"),
-                GpuTemp = SelectTemperature(readings, "gpu", "GPU Core", "GPU Hot Spot", "Temperature"),
-                CpuClock = SelectClock(readings, "cpu"),
-                RamClock = SelectMemoryClock(readings),
-                CpuCoreTemps = request.VisualDetails ? SelectCpuCoreTemps(readings) : new(),
-                Readings = CapReadingsForUi(readings),
+                CpuTemp = request.Temperatures && readings.Count > 0 ? SelectTemperature(readings, "cpu", "Tctl/Tdie", "CPU Package", "Package", "Core Max") : null,
+                GpuTemp = request.Temperatures && readings.Count > 0 ? SelectTemperature(readings, "gpu", "GPU Core", "GPU Hot Spot", "Temperature") : null,
+                CpuClock = request.VisualDetails && readings.Count > 0 ? SelectClock(readings, "cpu") : null,
+                RamClock = request.VisualDetails && readings.Count > 0 ? SelectMemoryClock(readings) : null,
+                CpuCoreTemps = request.VisualDetails && readings.Count > 0 ? SelectCpuCoreTemps(readings) : new(),
+                Readings = readings.Count > 0 ? CapReadingsForUi(readings) : readings,
                 SampledAtUtc = nowUtc,
                 DetailsAvailable = request.VisualDetails,
             };

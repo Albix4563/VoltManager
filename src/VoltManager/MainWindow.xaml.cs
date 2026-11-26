@@ -302,6 +302,7 @@ public partial class MainWindow : Window
         _bridge?.Dispose();
         _bridge = new HostBridge(WebView, _app.Hardware, _app.Power, _app.Settings, _app.Updates, _app.AutoStart, _app.Monitor, _app);
         _bridge.Attach();
+        _bridge.SetSurfaceVisible(_webViewVisible);
         // Queued, not inline: the requesting RPC must finish and reply before
         // ExitApp disposes the bridge it is still running on.
         _bridge.ExitRequested += () => Dispatcher.BeginInvoke(() => { _exiting = true; _app.ExitApp(); });
@@ -1238,6 +1239,7 @@ public partial class MainWindow : Window
         public void SetWebViewVisible(bool visible) => Run(() =>
         {
             _owner._webViewVisible = visible;
+            _owner._bridge?.SetSurfaceVisible(visible);
             _owner.WebView.Visibility = visible ? Visibility.Visible : Visibility.Hidden;
         });
 

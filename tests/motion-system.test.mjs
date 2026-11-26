@@ -46,7 +46,7 @@ test('shared motion tokens are loaded by the app and widget surfaces', () => {
 test('view changes use the relaxed motion tokens and restrained transforms', () => {
   assert.match(redesign, /animation:\s*vmLeave\s+var\(--vm-motion-exit\)\s+var\(--vm-ease-exit\)/);
   assert.match(redesign, /scale\(\.985\)\s+translateY\(-3px\)/);
-  assert.match(redesign, /blur\(2px\)/);
+  assert.doesNotMatch(redesign, /filter:\s*blur\(/);
   assert.match(redesign, /animation:\s*vmEnter\s+var\(--vm-motion-enter\)\s+var\(--vm-ease-emphasized\)/);
   assert.match(redesign, /scale\(1\.008\)/);
   assert.match(redesign, /animation:\s*vmRise\s+var\(--vm-motion-slow\)\s+var\(--vm-ease-emphasized\)/);
@@ -79,10 +79,9 @@ test('decorative motion is slower and reduced-motion/performance tiers remain in
   assert.match(effects, /vmRipple\s+\.8s/);
   assert.doesNotMatch(effects, /vmNavPulse/);
   assert.match(effects, /\.nav-indicator\s*\{[\s\S]*animation:\s*none/s);
-  assert.match(effects, /vmPing\s+2\.6s/);
-  assert.match(effects, /vmTitleSheen\s+10s/);
-  assert.match(effects, /vmOrb1\s+36s/);
-  assert.match(effects, /vmOrb2\s+44s/);
+  assert.doesNotMatch(effects, /@keyframes\s+(?:vmPing|vmTitleSheen|vmOrb1|vmOrb2)\b/);
+  assert.match(effects, /#monitoring-dot\.animate-pulse::after\s*\{[\s\S]*animation:\s*none/s);
+  assert.match(effects, /\.fx-title\s*\{[\s\S]*animation:\s*none/s);
   assert.match(effects, /prefers-reduced-motion:\s*reduce/);
   assert.match(effects, /data-perf-tier="balanced"/);
   assert.match(effects, /data-perf-tier="lite"/);
@@ -279,9 +278,9 @@ test('scroll containers stabilize layout gutter and suppress spotlight churn whi
   assert.doesNotMatch(effectsJs, /void\s+spotEl\.offsetWidth/);
 });
 
-test('entrance keyframes release transform and filter layers once settled', () => {
+test('entrance keyframes release transform layers once settled', () => {
   const effectsJs = read('../src/VoltManager/wwwroot/js/effects.js');
-  assert.match(redesign, /@keyframes\s+vmRiseHigh\s*\{[\s\S]*to\s*\{[^}]*transform:\s*none;[^}]*filter:\s*none/);
+  assert.match(redesign, /@keyframes\s+vmRiseHigh\s*\{[\s\S]*to\s*\{[^}]*transform:\s*none/);
   assert.match(reorg, /@keyframes\s+vmReorgViewIn\s*\{[\s\S]*to\s*\{[^}]*transform:\s*none/);
   assert.match(reorg, /@keyframes\s+vmReorgPanelIn\s*\{[\s\S]*to\s*\{[^}]*transform:\s*none/);
   assert.match(reorg, /@keyframes\s+vmReorgGroupIn\s*\{[\s\S]*to\s*\{[^}]*transform:\s*none/);

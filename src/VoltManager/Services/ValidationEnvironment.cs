@@ -78,7 +78,8 @@ internal static class WebViewRuntimeOptions
         "--disable-accelerated-2d-canvas " +
         "--disable-accelerated-video-decode " +
         "--disable-gpu-shader-disk-cache " +
-        "--disk-cache-size=67108864 " +
+        "--disk-cache-size=4194304 " +
+        "--media-cache-size=1048576 " +
         "--disable-background-networking " +
         "--disable-component-update " +
         "--disable-client-side-phishing-detection " +

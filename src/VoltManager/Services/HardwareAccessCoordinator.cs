@@ -110,6 +110,17 @@ public sealed class HardwareAccessCoordinator : IHardwareAccess
                 return _last;
 
             _lastUpdateUtc = nowUtc;
+            if (!ShouldUpdateAny(request))
+            {
+                _last = new SensorReport
+                {
+                    SampledAtUtc = nowUtc,
+                    DetailsAvailable = false,
+                };
+                _lastRequest = request;
+                _readFaulted = false;
+                return _last;
+            }
             try
             {
                 var readings = new List<SensorReading>();
@@ -125,17 +136,7 @@ public sealed class HardwareAccessCoordinator : IHardwareAccess
                     }
                 }
 
-                _last = new SensorReport
-                {
-                    CpuTemp = SensorAggregation.SelectCpuTemp(readings),
-                    GpuTemp = SensorAggregation.SelectGpuTemp(readings),
-                    CpuClock = SensorAggregation.SelectCpuClock(readings),
-                    RamClock = SensorAggregation.SelectRamClock(readings),
-                    CpuCoreTemps = request.VisualDetails ? SensorAggregation.SelectCpuCoreTemps(readings) : new(),
-                    Readings = SensorAggregation.CapForUi(readings),
-                    SampledAtUtc = nowUtc,
-                    DetailsAvailable = request.VisualDetails,
-                };
+                _last = BuildSensorReport(request, readings, nowUtc);
                 _lastRequest = request;
                 _readFaulted = false;
             }
@@ -148,24 +149,41 @@ public sealed class HardwareAccessCoordinator : IHardwareAccess
         }
     }
 
+    internal static SensorReport BuildSensorReport(HardwareSampleRequest request, List<SensorReading> readings, DateTime nowUtc) => new()
+    {
+        CpuTemp = request.Temperatures && readings.Count > 0 ? SensorAggregation.SelectCpuTemp(readings) : null,
+        GpuTemp = request.Temperatures && readings.Count > 0 ? SensorAggregation.SelectGpuTemp(readings) : null,
+        CpuClock = request.VisualDetails && readings.Count > 0 ? SensorAggregation.SelectCpuClock(readings) : null,
+        RamClock = request.VisualDetails && readings.Count > 0 ? SensorAggregation.SelectRamClock(readings) : null,
+        CpuCoreTemps = request.VisualDetails && readings.Count > 0 ? SensorAggregation.SelectCpuCoreTemps(readings) : new(),
+        Readings = readings.Count > 0 ? SensorAggregation.CapForUi(readings) : readings,
+        SampledAtUtc = nowUtc,
+        DetailsAvailable = request.VisualDetails,
+    };
+
     public void Invalidate()
     {
         lock (_gate) _lastUpdateUtc = DateTime.MinValue;
     }
 
+    internal static Computer CreateComputer() => new()
+    {
+        IsCpuEnabled = true,
+        IsGpuEnabled = true,
+        IsMotherboardEnabled = true,
+        IsStorageEnabled = true,
+        IsControllerEnabled = false,
+        IsMemoryEnabled = true,
+    };
+
+    internal static bool ShouldUpdateAny(HardwareSampleRequest request)
+        => request.Temperatures || request.VisualDetails;
+
     private void InitComputer()
     {
         try
         {
-            var computer = new Computer
-            {
-                IsCpuEnabled = true,
-                IsGpuEnabled = true,
-                IsMotherboardEnabled = true,
-                IsStorageEnabled = true,
-                IsControllerEnabled = true,
-                IsMemoryEnabled = true,
-            };
+            var computer = CreateComputer();
             computer.Open();
 
             lock (_gate)

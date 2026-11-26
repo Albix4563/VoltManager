@@ -46,16 +46,32 @@
   // next sample lands. HALF_LIFE is tuned so a 1s-cadence metric closes ~85%
   // of the gap per second — smooth, still responsive to real spikes.
   const HALF_LIFE = 350; // ms to halve the remaining gap
+  const MIN_FRAME_MS = 33; // ~30fps cap for live metric chase rAF
   const channels = new Map(); // el -> { value, target, render, eps }
   let rafId = 0;
-  let lastTs = 0;
+  let lastTs = null;
+
+  const isElementHidden = (el) => !el || (typeof el.closest === 'function' && !!el.closest('.hidden'));
 
   function frame(ts) {
-    const dt = lastTs ? Math.min(100, ts - lastTs) : 16; // clamp post-throttle jumps
+    if (document.hidden || reduce()) {
+      rafId = 0;
+      lastTs = null;
+      return;
+    }
+    if (lastTs !== null && ts - lastTs < MIN_FRAME_MS) {
+      rafId = requestAnimationFrame(frame);
+      return;
+    }
+    const dt = lastTs !== null ? Math.min(100, ts - lastTs) : 16; // clamp post-throttle jumps
     lastTs = ts;
     const alpha = 1 - Math.pow(2, -dt / HALF_LIFE);
     let alive = false;
-    channels.forEach((ch) => {
+    channels.forEach((ch, el) => {
+      if (isElementHidden(el)) {
+        if (ch.value !== ch.target) { ch.value = ch.target; ch.render(ch.value); }
+        return;
+      }
       const gap = ch.target - ch.value;
       if (Math.abs(gap) <= ch.eps) {
         if (ch.value !== ch.target) { ch.value = ch.target; ch.render(ch.value); }
@@ -66,13 +82,13 @@
       alive = true;
     });
     if (alive) { rafId = requestAnimationFrame(frame); }
-    else { rafId = 0; lastTs = 0; } // all idle — park the loop until next retarget
+    else { rafId = 0; lastTs = null; } // all idle — park the loop until next retarget
   }
 
   // Register/retarget a channel. First sighting snaps (no animate-from-zero);
-  // reduced-motion always snaps and never starts the loop.
+  // reduced-motion or hidden views always snap and never start the loop.
   function chase(el, target, render, eps, empty = 0) {
-    if (reduce()) { channels.delete(el); render(target); return; }
+    if (reduce() || isElementHidden(el)) { channels.delete(el); render(target); return; }
     const ch = channels.get(el);
     if (!ch) {
       channels.set(el, { value: target, target, render, eps, empty });
@@ -83,7 +99,7 @@
     ch.render = render;
     ch.eps = eps;
     ch.empty = empty;
-    if (!rafId) { lastTs = 0; rafId = requestAnimationFrame(frame); }
+    if (!rafId) { lastTs = null; rafId = requestAnimationFrame(frame); }
   }
 
   const VoltFx = {
@@ -104,11 +120,11 @@
       // rAF is the sole driver of the fill — strip the CSS transition so it
       // can't re-ease every per-frame write (that layering smeared the chase).
       if (circle.dataset.fxRing !== '1') {
-        circle.style.transition = 'stroke .4s ease, filter .4s ease';
+        circle.style.transition = 'stroke .4s ease';
         circle.dataset.fxRing = '1';
       }
       // Promote only while the chase runs; drop will-change when settled.
-      const nextWill = reduce() ? 'auto' : 'stroke-dashoffset';
+      const nextWill = (reduce() || isElementHidden(circle)) ? 'auto' : 'stroke-dashoffset';
       if (circle.style.willChange !== nextWill) circle.style.willChange = nextWill;
       const toOff = CIRC * (1 - clamped / 100);
       chase(circle, toOff, (v) => {
@@ -123,9 +139,8 @@
       if (circle.dataset.fxStroke !== stroke) {
         circle.dataset.fxStroke = stroke;
         circle.style.stroke = stroke;
-        circle.style.filter = 'drop-shadow(0 0 6px ' + stroke + 'aa)';
       }
-      const card = circle.closest('.glass-card');
+      const card = typeof circle.closest === 'function' ? circle.closest('.glass-card') : null;
       if (card && card.dataset.load !== load) card.dataset.load = load;
     },
 
@@ -140,7 +155,7 @@
         bar.style.transition = 'none';
         bar.dataset.fxBar = '1';
       }
-      const nextWill = reduce() ? 'auto' : 'transform';
+      const nextWill = (reduce() || isElementHidden(bar)) ? 'auto' : 'transform';
       if (bar.style.willChange !== nextWill) bar.style.willChange = nextWill;
       chase(bar, clamped, (v) => {
         const nextTransform = 'scaleX(' + (v / 100).toFixed(4) + ')';
@@ -156,23 +171,23 @@
       if (!root || document.documentElement.dataset.anim !== 'high' || reduce()) return;
       let replayed = false;
       channels.forEach((ch, el) => {
-        if (!root.contains(el)) return;
+        if (!root.contains(el) || isElementHidden(el)) return;
         ch.value = ch.empty;
         ch.render(ch.value);
         replayed = true;
       });
       if (replayed && !rafId) {
-        lastTs = 0;
+        lastTs = null;
         rafId = requestAnimationFrame(frame);
       }
     },
 
     /** Freeze + drop every running tween at once. perf-guard.js calls this when
-     *  RAM-pressure lite mode kicks in so the rAF loop parks immediately instead
-     *  of waiting for each channel's next retarget. */
+     *  RAM-pressure lite mode or background visibility kicks in so the rAF loop
+     *  parks immediately instead of waiting for each channel's next retarget. */
     stopMotion() {
       channels.clear();
-      if (rafId) { cancelAnimationFrame(rafId); rafId = 0; lastTs = 0; }
+      if (rafId) { cancelAnimationFrame(rafId); rafId = 0; lastTs = null; }
       cancelSpotRaf();
     },
   };
@@ -239,7 +254,7 @@
   function flushSpot(ts) {
     spotQueued = false;
     spotRaf = 0;
-    if (!spotEl || isScrolling) { spotLastTs = 0; return; }
+    if (!spotEl || isScrolling || document.hidden) { spotLastTs = 0; return; }
     if (!spotRect) spotRect = spotEl.getBoundingClientRect();
     if (!spotRect.width || !spotRect.height) { spotLastTs = 0; return; }
     const targetX = Math.max(0, Math.min(100, (spotX - spotRect.left) / spotRect.width * 100));
@@ -359,6 +374,7 @@
   }
 
   function syncRichEffects() {
+    if (document.hidden) VoltFx.stopMotion();
     if (reduce()) unmountRichEffects();
     else mountRichEffects();
   }

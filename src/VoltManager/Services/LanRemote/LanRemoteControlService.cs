@@ -7,13 +7,7 @@ using System.Reflection;
 using System.Security.Cryptography.X509Certificates;
 using System.Text.Json;
 using System.Threading.Channels;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Http.Features;
-using Microsoft.AspNetCore.Server.Kestrel.Core;
-using Microsoft.Extensions.FileProviders;
-using Microsoft.Extensions.Logging;
 using VoltManager.Models;
 
 namespace VoltManager.Services.LanRemote;
@@ -33,7 +27,7 @@ public sealed class LanRemoteControlService : IDisposable
     internal const string SessionCookieName = "vm_lan_session";
     internal const string CsrfHeaderName = "X-CSRF-Token";
     internal const int PowerActionDelaySeconds = 10;
-    private const long MaxAuthRequestBodySize = 4 * 1024;
+    internal const long MaxAuthRequestBodySize = 4 * 1024;
 
     private readonly SettingsService _settings;
     private readonly LanRemoteControlActions _actions;
@@ -56,7 +50,7 @@ public sealed class LanRemoteControlService : IDisposable
     private readonly SemaphoreSlim _enableGate = new(1, 1);
     private readonly ConcurrentDictionary<Guid, Channel<byte>> _eventClients = new();
 
-    private WebApplication? _webApplication;
+    private LanRemoteWebHost? _webHost;
     private X509Certificate2? _certificate;
     private IReadOnlyList<IPAddress> _addresses = [];
     private string? _fingerprint;
@@ -134,7 +128,7 @@ public sealed class LanRemoteControlService : IDisposable
         return new LanRemoteControlState
         {
             Enabled = settings.Enabled,
-            Running = _webApplication is not null,
+            Running = _webHost is not null,
             Port = settings.Port,
             Addresses = addresses,
             Urls = addresses.Select(address => $"https://{address}:{settings.Port}/").ToArray(),
@@ -206,7 +200,7 @@ public sealed class LanRemoteControlService : IDisposable
         try
         {
             await RequestStateAsync(running: true, cancellationToken, allowStartWhenDisabled: true).ConfigureAwait(false);
-            if (_webApplication is null)
+            if (_webHost is null)
                 throw new InvalidOperationException("No eligible LAN address is available.");
 
             _settings.Update(state => state.LanRemoteControl.Enabled = true);
@@ -323,7 +317,7 @@ public sealed class LanRemoteControlService : IDisposable
     private async Task StartCoreAsync(CancellationToken cancellationToken, bool allowStartWhenDisabled = false)
     {
         EnsureNetworkSubscription();
-        if ((!allowStartWhenDisabled && !_settings.Current.LanRemoteControl.Enabled) || _webApplication is not null)
+        if ((!allowStartWhenDisabled && !_settings.Current.LanRemoteControl.Enabled) || _webHost is not null)
             return;
 
         IReadOnlyList<IPAddress> addresses = _addressProvider()
@@ -347,19 +341,25 @@ public sealed class LanRemoteControlService : IDisposable
             _settings.Update(state => state.LanRemoteControl.Port = port);
 
         X509Certificate2 certificate = _certificateProvider(addresses);
-        WebApplication? app = null;
+        LanRemoteWebHost? host = null;
         try
         {
-            app = BuildWebApplication(addresses, port, certificate);
-            await app.StartAsync(cancellationToken).ConfigureAwait(false);
+            host = await LanRemoteWebHost.StartAsync(
+                this,
+                addresses,
+                port,
+                certificate,
+                _remoteAssetsPath,
+                _clientAddressAllowed,
+                cancellationToken).ConfigureAwait(false);
             _firewall.Apply(port);
         }
         catch
         {
             try
             {
-                if (app is not null)
-                    await StopAndDisposeApplicationAsync(app, CancellationToken.None).ConfigureAwait(false);
+                if (host is not null)
+                    await host.StopAndDisposeAsync(CancellationToken.None).ConfigureAwait(false);
             }
             catch (Exception ex) { _warningLogger("Impossibile chiudere il controllo remoto LAN: " + ex.Message); }
             finally
@@ -373,19 +373,19 @@ public sealed class LanRemoteControlService : IDisposable
         _addresses = addresses;
         _certificate = certificate;
         _fingerprint = LanRemoteCertificateManager.Sha256Fingerprint(certificate);
-        _webApplication = app;
+        _webHost = host;
         PublishStateChanged();
     }
 
     private async Task StopCoreAsync(CancellationToken cancellationToken)
     {
-        WebApplication? app = _webApplication;
-        _webApplication = null;
+        LanRemoteWebHost? host = _webHost;
+        _webHost = null;
         _sessions.Clear();
         CompleteEventClients();
-        if (app is not null)
+        if (host is not null)
         {
-            Task cleanup = StopAndDisposeApplicationAsync(app, cancellationToken);
+            Task cleanup = host.StopAndDisposeAsync(cancellationToken);
             try
             {
                 await cleanup.WaitAsync(_shutdownTimeout, cancellationToken).ConfigureAwait(false);
@@ -403,18 +403,6 @@ public sealed class LanRemoteControlService : IDisposable
         _fingerprint = null;
         TryRemoveFirewall();
         PublishStateChanged();
-    }
-
-    private static async Task StopAndDisposeApplicationAsync(WebApplication app, CancellationToken cancellationToken)
-    {
-        try
-        {
-            await app.StopAsync(cancellationToken).ConfigureAwait(false);
-        }
-        finally
-        {
-            await app.DisposeAsync().ConfigureAwait(false);
-        }
     }
 
     public void Dispose()
@@ -435,225 +423,110 @@ public sealed class LanRemoteControlService : IDisposable
             TaskScheduler.Default);
     }
 
-    private WebApplication BuildWebApplication(IReadOnlyList<IPAddress> addresses, int port, X509Certificate2 certificate)
+    internal async Task HandleLoginAsync(HttpContext context)
     {
-        var builder = WebApplication.CreateSlimBuilder(new WebApplicationOptions
+        string ip = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        bool hasValidSession = HasValidSession(context);
+        LanRemoteRateLimitResult limit = _rateLimiter.TryAcquire(ip, hasValidSession);
+        if (!limit.Allowed)
         {
-            ApplicationName = typeof(LanRemoteControlService).Assembly.GetName().Name,
-            ContentRootPath = AppContext.BaseDirectory,
-        });
-        builder.Logging.ClearProviders();
-        builder.WebHost.ConfigureKestrel(options =>
-        {
-            options.AddServerHeader = false;
-            foreach (IPAddress address in addresses)
-            {
-                options.Listen(address, port, listen =>
-                {
-                    listen.Protocols = HttpProtocols.Http1AndHttp2;
-                    listen.UseHttps(certificate);
-                });
-            }
-        });
-
-        WebApplication app = builder.Build();
-        string[] allowedHosts = [.. addresses.Select(static address => address.ToString()), Environment.MachineName];
-
-        app.UseExceptionHandler(errorApp => errorApp.Run(async context =>
-        {
-            context.Response.StatusCode = StatusCodes.Status500InternalServerError;
-            context.Response.ContentType = "application/json";
-            context.Response.Headers.CacheControl = "no-store";
-            await context.Response.WriteAsJsonAsync(new { error = "internal_error" });
-        }));
-
-        app.Use(async (context, next) =>
-        {
-            context.Response.Headers.ContentSecurityPolicy = "default-src 'self'; script-src 'self'; style-src 'self'; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'";
-            context.Response.Headers.XContentTypeOptions = "nosniff";
-            context.Response.Headers["Referrer-Policy"] = "no-referrer";
-            context.Response.Headers.XFrameOptions = "DENY";
-            if (context.Request.Path.StartsWithSegments("/api"))
-                context.Response.Headers.CacheControl = "no-store";
-
-            if (context.Request.Path.StartsWithSegments("/api/auth"))
-            {
-                IHttpMaxRequestBodySizeFeature? bodySize = context.Features.Get<IHttpMaxRequestBodySizeFeature>();
-                if (bodySize is { IsReadOnly: false })
-                    bodySize.MaxRequestBodySize = MaxAuthRequestBodySize;
-                if (context.Request.ContentLength is long contentLength && contentLength > MaxAuthRequestBodySize)
-                {
-                    if (string.Equals(
-                            context.Request.Path.Value,
-                            "/api/auth/login",
-                            StringComparison.OrdinalIgnoreCase))
-                        AuditLogin(context.Connection.RemoteIpAddress?.ToString() ?? "unknown", "payload_too_large");
-                    context.Response.StatusCode = StatusCodes.Status413PayloadTooLarge;
-                    context.Response.Headers.Connection = "close";
-                    await context.Response.WriteAsJsonAsync(new { error = "payload_too_large" });
-                    return;
-                }
-            }
-
-            if (!_clientAddressAllowed(context.Connection.RemoteIpAddress)
-                || !LanRemoteOriginPolicy.IsAllowedHost(context.Request.Host.Value, port, allowedHosts))
-            {
-                context.Response.StatusCode = StatusCodes.Status403Forbidden;
-                await context.Response.WriteAsJsonAsync(new { error = "forbidden" });
-                return;
-            }
-
-            if (HttpMethods.IsPost(context.Request.Method)
-                && !LanRemoteOriginPolicy.IsAllowed(
-                    context.Request.Host.Value,
-                    context.Request.Headers.Origin.ToString(),
-                    port,
-                    allowedHosts))
-            {
-                context.Response.StatusCode = StatusCodes.Status403Forbidden;
-                await context.Response.WriteAsJsonAsync(new { error = "origin_rejected" });
-                return;
-            }
-
-            await next();
-        });
-
-        MapStaticAssets(app);
-        MapApi(app);
-        return app;
-    }
-
-    private void MapStaticAssets(WebApplication app)
-    {
-        if (Directory.Exists(_remoteAssetsPath))
-        {
-            var provider = new PhysicalFileProvider(_remoteAssetsPath);
-            app.UseStaticFiles(new StaticFileOptions { FileProvider = provider });
-            app.MapGet("/", context => SendAssetAsync(
-                context,
-                Path.Combine(_remoteAssetsPath, "index.html"),
-                "text/html; charset=utf-8"));
+            int retrySeconds = Math.Max(1, (int)Math.Ceiling(limit.RetryAfter.TotalSeconds));
+            context.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+            context.Response.Headers.RetryAfter = retrySeconds.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            await context.Response.WriteAsJsonAsync(new { error = "rate_limited" }, context.RequestAborted);
+            AuditLogin(ip, "locked");
+            return;
         }
 
-        string webRoot = Path.Combine(AppContext.BaseDirectory, "wwwroot", "vendor", "fonts");
-        app.MapGet("/fonts/inter-latin.woff2", context => SendAssetAsync(context, Path.Combine(webRoot, "inter-latin.woff2"), "font/woff2"));
-        app.MapGet("/fonts/material-symbols-outlined.woff2", context => SendAssetAsync(context, Path.Combine(webRoot, "material-symbols-outlined.woff2"), "font/woff2"));
+        (string? pin, bool tooLarge) = await ReadLoginPinAsync(context);
+        if (tooLarge)
+        {
+            _rateLimiter.RecordFailure(ip);
+            context.Response.StatusCode = StatusCodes.Status413PayloadTooLarge;
+            context.Response.Headers.Connection = "close";
+            await context.Response.WriteAsJsonAsync(new { error = "payload_too_large" }, context.RequestAborted);
+            AuditLogin(ip, "payload_too_large");
+            return;
+        }
+
+        if (!_auth.Verify(pin))
+        {
+            _rateLimiter.RecordFailure(ip);
+            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            await context.Response.WriteAsJsonAsync(new { error = "invalid_credentials" }, context.RequestAborted);
+            AuditLogin(ip, "failure");
+            return;
+        }
+
+        _rateLimiter.RecordSuccess(ip);
+        LanRemoteSession session = _sessions.Create();
+        context.Response.Cookies.Append(SessionCookieName, session.Id, new CookieOptions
+        {
+            Secure = true,
+            HttpOnly = true,
+            SameSite = SameSiteMode.Strict,
+            Path = "/",
+            MaxAge = TimeSpan.FromHours(8),
+            IsEssential = true,
+        });
+        await context.Response.WriteAsJsonAsync(new { csrfToken = session.CsrfToken }, context.RequestAborted);
+        AuditLogin(ip, "success");
     }
 
-    private void MapApi(WebApplication app)
+    internal async Task HandleLogoutAsync(HttpContext context)
     {
-        app.MapPost("/api/auth/login", async context =>
-        {
-            string ip = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
-            bool hasValidSession = HasValidSession(context);
-            LanRemoteRateLimitResult limit = _rateLimiter.TryAcquire(ip, hasValidSession);
-            if (!limit.Allowed)
-            {
-                int retrySeconds = Math.Max(1, (int)Math.Ceiling(limit.RetryAfter.TotalSeconds));
-                context.Response.StatusCode = StatusCodes.Status429TooManyRequests;
-                context.Response.Headers.RetryAfter = retrySeconds.ToString(System.Globalization.CultureInfo.InvariantCulture);
-                await context.Response.WriteAsJsonAsync(new { error = "rate_limited" });
-                AuditLogin(ip, "locked");
-                return;
-            }
-
-            (string? pin, bool tooLarge) = await ReadLoginPinAsync(context);
-            if (tooLarge)
-            {
-                _rateLimiter.RecordFailure(ip);
-                context.Response.StatusCode = StatusCodes.Status413PayloadTooLarge;
-                context.Response.Headers.Connection = "close";
-                await context.Response.WriteAsJsonAsync(new { error = "payload_too_large" });
-                AuditLogin(ip, "payload_too_large");
-                return;
-            }
-
-            if (!_auth.Verify(pin))
-            {
-                _rateLimiter.RecordFailure(ip);
-                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-                await context.Response.WriteAsJsonAsync(new { error = "invalid_credentials" });
-                AuditLogin(ip, "failure");
-                return;
-            }
-
-            _rateLimiter.RecordSuccess(ip);
-            LanRemoteSession session = _sessions.Create();
-            context.Response.Cookies.Append(SessionCookieName, session.Id, new CookieOptions
-            {
-                Secure = true,
-                HttpOnly = true,
-                SameSite = SameSiteMode.Strict,
-                Path = "/",
-                MaxAge = TimeSpan.FromHours(8),
-                IsEssential = true,
-            });
-            await context.Response.WriteAsJsonAsync(new { csrfToken = session.CsrfToken });
-            AuditLogin(ip, "success");
-        });
-
-        app.MapPost("/api/auth/logout", async context =>
-        {
-            (bool authorized, string sessionId) = await TryAuthorizePostAsync(context);
-            if (!authorized) return;
-            _sessions.Revoke(sessionId);
-            context.Response.Cookies.Delete(SessionCookieName, new CookieOptions { Secure = true, HttpOnly = true, SameSite = SameSiteMode.Strict, Path = "/" });
-            await context.Response.WriteAsJsonAsync(new { success = true });
-        });
-
-        app.MapGet("/api/state", async context =>
-        {
-            var (authorized, _) = await TryAuthorizeAsync(context);
-            if (!authorized) return;
-            await context.Response.WriteAsJsonAsync(BuildRemoteState());
-        });
-
-        app.MapGet("/api/events", HandleEventsAsync);
-
-        app.MapPost("/api/actions/power-plan", async context =>
-        {
-            var (authorized, _) = await TryAuthorizePostAsync(context);
-            if (!authorized) return;
-            LanRemoteControlSettings settings = _settings.Current.LanRemoteControl;
-            if (!LanRemotePermissionPolicy.Allows(LanRemoteAction.PowerPlan, settings))
-            {
-                await WriteForbiddenAsync(context, "permission_denied");
-                return;
-            }
-
-            string? planValue = await ReadStringPropertyAsync(context, "plan");
-            PlanId? plan = planValue switch
-            {
-                "powerSaver" => PlanId.PowerSaver,
-                "balanced" => PlanId.Balanced,
-                "performance" => PlanId.Performance,
-                _ => null,
-            };
-            if (plan is null)
-            {
-                context.Response.StatusCode = StatusCodes.Status400BadRequest;
-                await context.Response.WriteAsJsonAsync(new { error = "invalid_plan" });
-                return;
-            }
-
-            if (!_actions.SetManualPlan(plan.Value))
-            {
-                context.Response.StatusCode = StatusCodes.Status409Conflict;
-                await context.Response.WriteAsJsonAsync(new { error = "action_failed" });
-                return;
-            }
-
-            PublishEvent();
-            await context.Response.WriteAsJsonAsync(new { success = true });
-        });
-
-        app.MapPost("/api/actions/shutdown", context => ExecutePowerActionAsync(context, LanRemoteAction.Shutdown, ScheduledPowerActionType.Shutdown));
-        app.MapPost("/api/actions/restart", context => ExecutePowerActionAsync(context, LanRemoteAction.Restart, ScheduledPowerActionType.Restart));
-        app.MapPost("/api/actions/sleep", context => ExecutePowerActionAsync(context, LanRemoteAction.Sleep, ScheduledPowerActionType.Sleep));
-        app.MapPost("/api/actions/hibernate", context => ExecutePowerActionAsync(context, LanRemoteAction.Hibernate, ScheduledPowerActionType.Hibernate));
+        (bool authorized, string sessionId) = await TryAuthorizePostAsync(context);
+        if (!authorized) return;
+        _sessions.Revoke(sessionId);
+        context.Response.Cookies.Delete(SessionCookieName, new CookieOptions { Secure = true, HttpOnly = true, SameSite = SameSiteMode.Strict, Path = "/" });
+        await context.Response.WriteAsJsonAsync(new { success = true }, context.RequestAborted);
     }
 
-    private async Task HandleEventsAsync(HttpContext context)
+    internal async Task HandleGetStateAsync(HttpContext context)
+    {
+        var (authorized, _) = await TryAuthorizeAsync(context);
+        if (!authorized) return;
+        await context.Response.WriteAsJsonAsync(BuildRemoteState(), context.RequestAborted);
+    }
+
+    internal async Task HandlePowerPlanAsync(HttpContext context)
+    {
+        var (authorized, _) = await TryAuthorizePostAsync(context);
+        if (!authorized) return;
+        LanRemoteControlSettings settings = _settings.Current.LanRemoteControl;
+        if (!LanRemotePermissionPolicy.Allows(LanRemoteAction.PowerPlan, settings))
+        {
+            await WriteForbiddenAsync(context, "permission_denied");
+            return;
+        }
+
+        string? planValue = await ReadStringPropertyAsync(context, "plan");
+        PlanId? plan = planValue switch
+        {
+            "powerSaver" => PlanId.PowerSaver,
+            "balanced" => PlanId.Balanced,
+            "performance" => PlanId.Performance,
+            _ => null,
+        };
+        if (plan is null)
+        {
+            context.Response.StatusCode = StatusCodes.Status400BadRequest;
+            await context.Response.WriteAsJsonAsync(new { error = "invalid_plan" }, context.RequestAborted);
+            return;
+        }
+
+        if (!_actions.SetManualPlan(plan.Value))
+        {
+            context.Response.StatusCode = StatusCodes.Status409Conflict;
+            await context.Response.WriteAsJsonAsync(new { error = "action_failed" }, context.RequestAborted);
+            return;
+        }
+
+        PublishEvent();
+        await context.Response.WriteAsJsonAsync(new { success = true }, context.RequestAborted);
+    }
+
+    internal async Task HandleEventsAsync(HttpContext context)
     {
         (bool authorized, string sessionId) = await TryAuthorizeAsync(context);
         if (!authorized) return;
@@ -704,7 +577,7 @@ public sealed class LanRemoteControlService : IDisposable
         }
     }
 
-    private async Task ExecutePowerActionAsync(HttpContext context, LanRemoteAction permission, ScheduledPowerActionType action)
+    internal async Task ExecutePowerActionAsync(HttpContext context, LanRemoteAction permission, ScheduledPowerActionType action)
     {
         string ip = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
         bool authorized;
@@ -863,7 +736,7 @@ public sealed class LanRemoteControlService : IDisposable
         return (null, false);
     }
 
-    private void AuditLogin(string ip, string result)
+    internal void AuditLogin(string ip, string result)
         => _auditLogger($"LAN remote login ip={ip} result={result}");
 
     private void AuditPowerAction(string ip, ScheduledPowerActionType action, string result)
@@ -893,7 +766,7 @@ public sealed class LanRemoteControlService : IDisposable
         await context.Response.WriteAsJsonAsync(new { error = code }, context.RequestAborted);
     }
 
-    private static async Task SendAssetAsync(HttpContext context, string path, string contentType)
+    internal static async Task SendAssetAsync(HttpContext context, string path, string contentType)
     {
         if (!File.Exists(path))
         {
