@@ -601,12 +601,14 @@
 
 .vm-meter > span {
     display: block;
-    width: 0;
+    width: 100%;
     height: 100%;
     border-radius: inherit;
     background: linear-gradient(90deg, color-mix(in srgb, var(--vm-metric-accent) 72%, var(--vm-surface-high)), var(--vm-metric-accent));
     box-shadow: 0 0 10px color-mix(in srgb, var(--vm-metric-accent) 38%, transparent);
-    transition: width var(--vm-motion-base) var(--vm-ease-standard);
+    transform: scaleX(0);
+    transform-origin: left center;
+    transition: transform var(--vm-motion-base) var(--vm-ease-standard);
 }
 
 .vm-automation-summary {

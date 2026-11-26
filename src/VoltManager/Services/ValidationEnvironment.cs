@@ -75,9 +75,7 @@ internal static class WebViewRuntimeOptions
     private const string CommonArguments =
         "--js-flags=--max-old-space-size=128 " +
         "--process-per-site " +
-        "--disable-accelerated-2d-canvas " +
         "--disable-accelerated-video-decode " +
-        "--disable-gpu-shader-disk-cache " +
         "--disk-cache-size=4194304 " +
         "--media-cache-size=1048576 " +
         "--disable-background-networking " +

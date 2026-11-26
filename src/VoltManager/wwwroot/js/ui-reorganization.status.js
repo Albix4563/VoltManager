@@ -17,7 +17,7 @@
     function hidden(node) {
         return !node || node.classList.contains('hidden') ||
             node.getAttribute('aria-hidden') === 'true' ||
-            getComputedStyle(node).display === 'none';
+            node.style?.display === 'none';
     }
 
     function set(id, value) {
@@ -66,8 +66,8 @@
         set(target, value);
         const meterNode = $(meter);
         if (meterNode) {
-            const nextWidth = percentage(value) + '%';
-            if (meterNode.style.width !== nextWidth) meterNode.style.width = nextWidth;
+            const nextTransform = 'scaleX(' + (percentage(value) / 100).toFixed(4) + ')';
+            if (meterNode.style.transform !== nextTransform) meterNode.style.transform = nextTransform;
         }
     }
 
@@ -141,17 +141,10 @@
 
         const plan = planName();
         const overrideChip = $('manual-override-chip');
-        const override = overrideChip && !hidden(overrideChip)
-            ? ($('manual-override-label')?.textContent.trim() || api.t('state_active'))
-            : api.t('state_none');
-        const automation = $('master-toggle')?.checked && hidden(overrideChip)
+        const overrideHidden = hidden(overrideChip);
+        const automation = $('master-toggle')?.checked && overrideHidden
             ? api.t('state_active') : api.t('state_inactive');
 
-        set('ov-status-plan', plan);
-        set('ov-status-power', powerSource());
-        set('ov-status-monitoring', monitoring());
-        set('ov-status-override', override);
-        set('ov-status-automation', automation);
         set('vm-top-plan', plan);
         set('vm-top-automation', automation);
 
@@ -164,17 +157,32 @@
             batteryChip.classList.add('hidden');
         }
 
+        const currentView = api.state?.view;
+        const onOverview = !currentView || currentView === 'overview';
+        if (onOverview || currentView === 'automations') {
+            const rules = activeRules();
+            const rulesLabel = rules === 1
+                ? api.t('rules_count_one')
+                : api.t('rules_count', { count: rules });
+            set('vm-rules-count', rulesLabel);
+            if (onOverview) set('ov-auto-rules', rulesLabel);
+        }
+        if (!onOverview) return;
+
+        const override = overrideChip && !overrideHidden
+            ? ($('manual-override-label')?.textContent.trim() || api.t('state_active'))
+            : api.t('state_none');
+        set('ov-status-plan', plan);
+        set('ov-status-power', powerSource());
+        set('ov-status-monitoring', monitoring());
+        set('ov-status-override', override);
+        set('ov-status-automation', automation);
+
         metric('cpu-pct', 'ov-metric-cpu', 'ov-meter-cpu');
         metric('gpu-pct', 'ov-metric-gpu', 'ov-meter-gpu');
         metric('ram-pct', 'ov-metric-ram', 'ov-meter-ram');
         metric('disk-pct', 'ov-metric-disk', 'ov-meter-disk');
 
-        const rules = activeRules();
-        const rulesLabel = rules === 1
-            ? api.t('rules_count_one')
-            : api.t('rules_count', { count: rules });
-        set('ov-auto-rules', rulesLabel);
-        set('vm-rules-count', rulesLabel);
         set('ov-auto-profile', appProfileActive()
             ? api.t('profile_detected') : api.t('no_profile'));
         set('ov-auto-gaming', window.__voltGamingMode?.isActive?.()
@@ -319,7 +327,7 @@
         });
         rootObserver.observe(document.body, {
             childList: true,
-            subtree: true
+            subtree: false
         });
     }
 

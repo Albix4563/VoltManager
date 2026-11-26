@@ -212,6 +212,7 @@
   // ---- Pointer-tracking spotlight (delegated + rAF damped micro-glide) ----
   const SPOT_HALF_LIFE = 28; // ms — tight cursor synchronization with silky micro-smoothing
   const SPOT_EPS = 0.08;     // % threshold to park the rAF loop once settled
+  const SPOT_MIN_FRAME_MS = 32; // ~30fps cap avoids 120-165Hz radial-mask repaints on desktop monitors
   let spotEl = null, spotRect = null, spotX = 0, spotY = 0, spotQueued = false;
   let spotRaf = 0, spotLastTs = 0, spotCurX = 50, spotCurY = 50, spotSnap = true;
   let lastMx = '', lastMy = '';
@@ -238,10 +239,14 @@
 
   function onScroll() {
     spotRect = null;
-    cancelSpotRaf();
+    if (spotRaf || spotQueued) cancelSpotRaf();
     if (!isScrolling) {
       isScrolling = true;
       document.documentElement.dataset.scrolling = 'true';
+      if (spotEl) {
+        spotEl.classList.remove('fx-spot');
+        spotEl.classList.remove('fx-sheen');
+      }
     }
     if (scrollIdleTimer) clearTimeout(scrollIdleTimer);
     scrollIdleTimer = setTimeout(() => {
@@ -255,6 +260,11 @@
     spotQueued = false;
     spotRaf = 0;
     if (!spotEl || isScrolling || document.hidden) { spotLastTs = 0; return; }
+    if (!spotSnap && ts && spotLastTs && ts - spotLastTs < SPOT_MIN_FRAME_MS) {
+      spotQueued = true;
+      spotRaf = requestAnimationFrame(flushSpot);
+      return;
+    }
     if (!spotRect) spotRect = spotEl.getBoundingClientRect();
     if (!spotRect.width || !spotRect.height) { spotLastTs = 0; return; }
     const targetX = Math.max(0, Math.min(100, (spotX - spotRect.left) / spotRect.width * 100));
@@ -337,9 +347,12 @@
     span.style.width = span.style.height = size + 'px';
     span.style.left = (e.clientX - r.left) + 'px';
     span.style.top = (e.clientY - r.top) + 'px';
-    const cs = getComputedStyle(btn);
-    if (cs.position === 'static') btn.style.position = 'relative';
-    if (cs.overflow !== 'hidden') btn.style.overflow = 'hidden';
+    if (!btn.dataset || btn.dataset.fxRippleReady !== '1') {
+      const cs = getComputedStyle(btn);
+      if (cs.position === 'static') btn.style.position = 'relative';
+      if (cs.overflow !== 'hidden') btn.style.overflow = 'hidden';
+      if (btn.dataset) btn.dataset.fxRippleReady = '1';
+    }
     btn.appendChild(span);
     span.addEventListener('animationend', () => span.remove());
   }
@@ -394,7 +407,6 @@
     }
     document.addEventListener('viewchange', (event) => {
       spotRect = null;
-      decorateTitles();
       if (event.detail && event.detail.view === 'monitoring' && event.detail.reorganized) {
         VoltFx.replayIntro(document.querySelector('.vm-reorg-view[data-vm-view="monitoring"]'));
       } else if (event.detail && event.detail.view === 'home' && !event.detail.reorganized) {
@@ -402,6 +414,7 @@
       }
     });
     document.addEventListener('navmounted', decorateTitles);
+    document.addEventListener('voltuiready', decorateTitles);
     document.addEventListener('perftierchange', syncRichEffects);
     document.addEventListener('perfmodechange', syncRichEffects);
     document.addEventListener('visibilitychange', syncRichEffects);

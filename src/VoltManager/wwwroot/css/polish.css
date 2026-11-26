@@ -88,6 +88,7 @@
 
 /* ---------- 5. Scrollbar — brand-tinted ---------- */
 #main-content{
+  contain: layout style;
   overscroll-behavior-y: contain;
   scrollbar-gutter: stable both-edges;
 }

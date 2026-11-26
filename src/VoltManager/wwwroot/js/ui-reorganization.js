@@ -263,60 +263,9 @@
         });
     }
 
-    api.activateView = function (name, updateHash) {
-        const target = document.querySelector(`.vm-reorg-view[data-vm-view="${name}"]`);
-        if (!target) return;
-        state.view = name;
+    let renderedView = null;
 
-        const finish = () => {
-            document.querySelectorAll('.vm-reorg-view').forEach(view => {
-                const active = view === target;
-                view.classList.toggle('hidden', !active);
-                view.classList.toggle('flex', active);
-                view.setAttribute('aria-hidden', active ? 'false' : 'true');
-            });
-            document.querySelectorAll('.vm-legacy-view').forEach(view => {
-                view.classList.add('hidden');
-                view.classList.remove('flex');
-                view.setAttribute('aria-hidden', 'true');
-            });
-
-            document.querySelectorAll('#nav-list .nav-item[data-view]').forEach(link => {
-                const active = link.dataset.view === name;
-                link.classList.toggle('text-secondary-container', active);
-                link.classList.toggle('font-bold', active);
-                link.classList.toggle('bg-surface-container-high/50', active);
-                link.classList.toggle('text-on-surface-variant', !active);
-                link.classList.toggle('font-medium', !active);
-                link.classList.toggle('opacity-80', !active);
-                link.querySelector('.material-symbols-outlined')?.classList.toggle('icon-fill', active);
-                if (active) api.positionIndicator?.(link);
-            });
-
-            $('main-content').scrollTop = 0;
-            if (updateHash) {
-                try { history.replaceState(null, '', '#' + name); }
-                catch (_) { location.hash = name; }
-            }
-            dispatchView(name);
-            if (legacy[name]) setTimeout(() => dispatchView(legacy[name]), 0);
-            if (name === 'settings' && state.subviews.settings === 'updates') loadChangelog();
-            syncLifecycle();
-            document.dispatchEvent(new CustomEvent('voltuiviewchanged', { detail: { view: name } }));
-        };
-
-        // power.js/advanced.js are deferred from cold start — pull them before
-        // painting power-related reorg views so panels wire correctly.
-        const needPower = name === 'power-plans' || name === 'automations'
-            || name === 'system-tools' || name === 'settings';
-        if (needPower && typeof window.__voltEnsurePowerScripts === 'function') {
-            window.__voltEnsurePowerScripts().then(finish).catch(finish);
-            return;
-        }
-        finish();
-    };
-
-    api.activateSubview = function (group, name) {
+    function applySubviewDom(group, name) {
         state.subviews[group] = name;
         document.querySelectorAll(`[data-vm-subnav-group="${group}"]`).forEach(button => {
             const active = button.dataset.vmSubnavTarget === name;
@@ -329,6 +278,72 @@
             panel.classList.toggle('hidden', !active);
             panel.classList.toggle('active', active);
         });
+    }
+
+    api.activateView = function (name, updateHash) {
+        const target = document.querySelector(`.vm-reorg-view[data-vm-view="${name}"]`);
+        if (!target) return;
+        if (renderedView === name && !target.classList.contains('hidden')) {
+            if (updateHash) {
+                try { history.replaceState(null, '', '#' + name); }
+                catch (_) { location.hash = name; }
+            }
+            return;
+        }
+        state.view = name;
+        renderedView = name;
+
+        // Read and position the sidebar indicator BEFORE toggling main views so
+        // getBoundingClientRect() does not force synchronous full-page layout.
+        let activeLink = null;
+        document.querySelectorAll('#nav-list .nav-item[data-view]').forEach(link => {
+            const active = link.dataset.view === name;
+            link.classList.toggle('text-secondary-container', active);
+            link.classList.toggle('font-bold', active);
+            link.classList.toggle('bg-surface-container-high/50', active);
+            link.classList.toggle('text-on-surface-variant', !active);
+            link.classList.toggle('font-medium', !active);
+            link.classList.toggle('opacity-80', !active);
+            link.querySelector('.material-symbols-outlined')?.classList.toggle('icon-fill', active);
+            if (active) activeLink = link;
+        });
+        if (activeLink) api.positionIndicator?.(activeLink);
+
+        document.querySelectorAll('.vm-reorg-view').forEach(view => {
+            const active = view === target;
+            view.classList.toggle('hidden', !active);
+            view.classList.toggle('flex', active);
+            view.setAttribute('aria-hidden', active ? 'false' : 'true');
+        });
+        document.querySelectorAll('.vm-legacy-view').forEach(view => {
+            if (!view.classList.contains('hidden')) view.classList.add('hidden');
+            if (view.classList.contains('flex')) view.classList.remove('flex');
+            if (view.getAttribute('aria-hidden') !== 'true') view.setAttribute('aria-hidden', 'true');
+        });
+
+        const main = $('main-content');
+        if (main && main.scrollTop !== 0) main.scrollTop = 0;
+        if (updateHash) {
+            try { history.replaceState(null, '', '#' + name); }
+            catch (_) { location.hash = name; }
+        }
+        dispatchView(name);
+        if (legacy[name]) setTimeout(() => dispatchView(legacy[name]), 0);
+        if (name === 'settings' && state.subviews.settings === 'updates') loadChangelog();
+        syncLifecycle();
+        document.dispatchEvent(new CustomEvent('voltuiviewchanged', { detail: { view: name } }));
+
+        // Pull deferred advanced.js without blocking the visual section switch.
+        const needPower = name === 'power-plans' || name === 'system-tools';
+        if (needPower && !window.__voltPowerScriptsLoaded && typeof window.__voltEnsurePowerScripts === 'function') {
+            window.__voltEnsurePowerScripts()
+                .then(() => { if (state.view === name) syncLifecycle(); })
+                .catch(() => {});
+        }
+    };
+
+    api.activateSubview = function (group, name) {
+        applySubviewDom(group, name);
         if (group === 'settings' && name === 'updates') loadChangelog();
         if (group === 'system-tools' && name === 'startup') dispatchView('system');
 
@@ -522,9 +537,9 @@
             else reposition();
         }, { passive: true });
 
-        api.activateView(initialView(), false);
         Object.entries(state.subviews).forEach(([group, name]) =>
-            api.activateSubview(group, name));
+            applySubviewDom(group, name));
+        api.activateView(initialView(), false);
         document.dispatchEvent(new CustomEvent('voltuiready'));
     }
 

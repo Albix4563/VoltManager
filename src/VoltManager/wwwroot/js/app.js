@@ -138,11 +138,12 @@
     }
     function ensurePowerScripts() {
         return deferredPowerScripts.reduce(
-            (p, src) => p.then(() => loadScriptOnce(src)), Promise.resolve());
+            (p, src) => p.then(() => loadScriptOnce(src)), Promise.resolve())
+            .then(() => { window.__voltPowerScriptsLoaded = true; });
     }
     function needsPowerScripts(name) {
-        return name === 'power' || name === 'settings' || name === 'system'
-            || name === 'power-plans' || name === 'automations' || name === 'system-tools';
+        return name === 'power' || name === 'system'
+            || name === 'power-plans' || name === 'system-tools';
     }
     // Reorg shell navigates without showView — still pull power scripts on demand.
     window.__voltEnsurePowerScripts = ensurePowerScripts;

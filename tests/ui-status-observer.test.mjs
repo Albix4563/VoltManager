@@ -40,7 +40,10 @@ test('status projection listens for host metrics without observing metric text n
     vm.runInContext(status, context);
     assert.equal(typeof subscriptions.get('metrics'), 'function');
     assert.equal(observed.filter(({ node }) => /^(cpu|gpu|ram|disk)-pct$/.test(node.id)).length, 0);
-    assert.deepEqual(observed.filter(({ node }) => node.id === 'body').map(({ options }) => Object.keys(options)), [['childList', 'subtree']]);
+    assert.deepEqual(
+        observed.filter(({ node }) => node.id === 'body').map(({ options }) => ({ ...options })),
+        [{ childList: true, subtree: false }]
+    );
     const before = frames;
     ids.get('cpu-pct').textContent = '20%';
     for (const observer of observers) {

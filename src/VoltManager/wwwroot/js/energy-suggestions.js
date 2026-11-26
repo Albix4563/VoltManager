@@ -563,9 +563,9 @@
         badgeEl = document.getElementById('vm-tips-badge');
         refreshLabel();
 
-        document.addEventListener('voltuiready', () => { if (mount()) render(); });
-        document.addEventListener('viewchange', () => { if (mount()) render(); });
-        document.addEventListener('voltuiviewchanged', () => { if (mount()) render(); });
+        document.addEventListener('voltuiready', () => { if (!mounted && mount()) render(); });
+        document.addEventListener('viewchange', () => { if (!mounted && mount()) render(); });
+        document.addEventListener('voltuiviewchanged', () => { if (!mounted && mount()) render(); });
         document.addEventListener('settingsloaded', () => { renderedSignature = ''; render(); });
         document.addEventListener('voltbatteryavailabilitychanged', () => {
             renderedSignature = '';
@@ -589,7 +589,7 @@
             });
             Host.on('metrics', () => {
                 maybeRefreshPowerState();
-                render();
+                if (document.documentElement.dataset.vmHasBattery !== 'false') render();
             });
         }
     }

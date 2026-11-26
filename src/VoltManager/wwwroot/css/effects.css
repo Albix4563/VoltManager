@@ -95,6 +95,11 @@
 }
 html[data-scrolling="true"] .glass-card.fx-spot::after,
 html[data-scrolling="true"] .glass-panel.fx-spot::after{ opacity: 0 !important; }
+html[data-scrolling="true"] .glass-card::before{ animation: none !important; }
+html[data-scrolling="true"] .glass-card:not(.fx-metric):hover{
+  transform: none !important;
+  transition: none !important;
+}
 
 @keyframes fadeSlideUp{
   0%{ opacity: 0; transform: translateY(20px); }
@@ -156,11 +161,10 @@ html[data-scrolling="true"] .glass-panel.fx-spot::after{ opacity: 0 !important; 
   position: absolute;
   border-radius: 50%;
   transform: translate(-50%, -50%) scale(0);
-  background: radial-gradient(circle, rgba(255,255,255,.5), rgba(255,255,255,0) 70%);
+  background: radial-gradient(circle, rgba(255,255,255,.32), rgba(255,255,255,0) 70%);
   pointer-events: none;
   animation: vmRipple .8s var(--vm-ease-exit) forwards;
   z-index: 3;
-  mix-blend-mode: screen;
 }
 @keyframes vmRipple{
   to{ transform: translate(-50%, -50%) scale(1); opacity: 0; }

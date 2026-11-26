@@ -25,6 +25,8 @@ public sealed class WebViewRuntimeOptionsTests
             Assert.DoesNotContain("--disk-cache-size=67108864", productionArguments, StringComparison.Ordinal);
             Assert.DoesNotContain("--enable-low-end-device-mode", productionArguments, StringComparison.Ordinal);
             Assert.DoesNotContain("--force-gpu-mem-available-mb", productionArguments, StringComparison.Ordinal);
+            Assert.DoesNotContain("--disable-gpu-shader-disk-cache", productionArguments, StringComparison.Ordinal);
+            Assert.DoesNotContain("--disable-accelerated-2d-canvas", productionArguments, StringComparison.Ordinal);
 
             Environment.SetEnvironmentVariable(ValidationEnvironment.RootVariable, Path.GetTempPath());
             Environment.SetEnvironmentVariable(ValidationEnvironment.RendererVariable, null);
