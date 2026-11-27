@@ -253,7 +253,7 @@
       scrollIdleTimer = 0;
       isScrolling = false;
       delete document.documentElement.dataset.scrolling;
-    }, 120);
+    }, 220);
   }
 
   function flushSpot(ts) {
@@ -320,7 +320,7 @@
       }
       flushSpot(0);
       spotEl.classList.add('fx-spot');
-      if (spotEl.classList.contains('glass-card') && !spotEl.classList.contains('fx-sheen')) {
+      if (!isScrolling && spotEl.classList.contains('glass-card') && !spotEl.classList.contains('fx-sheen')) {
         spotEl.classList.add('fx-sheen');
         spotEl.addEventListener('animationend', function clearSheen(ev) {
           if (ev.animationName === 'vmSheen') {
@@ -396,6 +396,7 @@
     decorateTitles();
     syncRichEffects();
     document.addEventListener('scroll', onScroll, { capture: true, passive: true });
+    document.addEventListener('wheel', onScroll, { passive: true });
     window.addEventListener('resize', invalidateSpotRect, { passive: true });
     document.addEventListener('settingsloaded', invalidateAccent);
     document.addEventListener('themeChanged', invalidateAccent);

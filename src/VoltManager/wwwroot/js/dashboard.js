@@ -439,29 +439,14 @@
     });
 
     const viewHome = document.getElementById('view-home');
-    function homeVisible() {
-        // Skip DOM/tween work when neither the legacy home nor reorg shells that
-        // mirror #cpu-pct/#ram-pct (overview status + monitoring hardware) are up.
-        if (document.hidden) return false;
-        const reorgActive = document.querySelector('.vm-reorg-view:not(.hidden)');
-        if (reorgActive) {
-            const id = reorgActive.id || '';
-            return id === 'view-overview' || id === 'view-monitoring';
-        }
-        return !!(viewHome && !viewHome.classList.contains('hidden'));
-    }
-
-    function monitoringVisible() {
-        const reorgActive = document.querySelector('.vm-reorg-view:not(.hidden)');
-        if (reorgActive) return reorgActive.id === 'view-monitoring';
-        return !!(viewHome && !viewHome.classList.contains('hidden'));
-    }
-
     Host.on('metrics', (m) => {
-        if (!homeVisible()) return;
-        // Overview only needs text mirrors for status.js — skip rings/bars/sensors
-        // (and their rAF chases) until the user opens Monitoring.
-        const full = monitoringVisible();
+        if (document.hidden) return;
+        const reorgActive = document.querySelector('.vm-reorg-view:not(.hidden)');
+        const legacyVisible = !reorgActive && viewHome && !viewHome.classList.contains('hidden');
+        if (!legacyVisible && reorgActive?.id !== 'view-overview' && reorgActive?.id !== 'view-monitoring') return;
+        // Keep the text mirrors current even when the hardware panels are hidden.
+        const full = legacyVisible || (reorgActive?.id === 'view-monitoring' &&
+            !!reorgActive.querySelector('.vm-subview.active[data-vm-panel-group="monitoring"]:is([data-vm-panel="hardware"], [data-vm-panel="temperatures"])'));
         if (full) {
             setTempBadge(cpuTempBadge, cpuTemp, m.cpuTemp);
             setTempBadge(gpuTempBadge, gpuTemp, m.gpuTemp);

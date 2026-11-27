@@ -264,6 +264,14 @@
     }
 
     let renderedView = null;
+    let switchingView = null;
+    let switchingTimer = 0;
+
+    function clearViewSwitch() {
+        clearTimeout(switchingTimer);
+        switchingView?.classList.remove('vm-view-switching');
+        switchingView = null;
+    }
 
     function applySubviewDom(group, name) {
         state.subviews[group] = name;
@@ -290,6 +298,10 @@
             }
             return;
         }
+        clearViewSwitch();
+        switchingView = target;
+        target.classList.add('vm-view-switching');
+        switchingTimer = setTimeout(clearViewSwitch, 260);
         state.view = name;
         renderedView = name;
 
@@ -343,6 +355,7 @@
     };
 
     api.activateSubview = function (group, name) {
+        clearViewSwitch();
         applySubviewDom(group, name);
         if (group === 'settings' && name === 'updates') loadChangelog();
         if (group === 'system-tools' && name === 'startup') dispatchView('system');
@@ -543,6 +556,7 @@
         document.dispatchEvent(new CustomEvent('voltuiready'));
     }
 
-    if (document.readyState === 'complete') boot();
+    if (document.readyState !== 'loading') boot();
+    else if (typeof document.addEventListener === 'function') document.addEventListener('DOMContentLoaded', boot, { once: true });
     else window.addEventListener('load', boot, { once: true });
 })();

@@ -1507,6 +1507,9 @@
 .vm-subview.active > *:nth-child(3) { animation-delay: calc(var(--vm-motion-stagger) * 2); }
 .vm-subview.active > *:nth-child(4) { animation-delay: calc(var(--vm-motion-stagger) * 3); }
 
+.vm-reorg-view.vm-view-switching .vm-subview.active,
+.vm-reorg-view.vm-view-switching .vm-subview.active > * { animation-duration: 0s !important; animation-delay: 0s !important; }
+
 @keyframes vmReorgViewIn {
     from { opacity: 0; transform: translateY(var(--vm-space-2)); }
     to { opacity: 1; transform: none; }

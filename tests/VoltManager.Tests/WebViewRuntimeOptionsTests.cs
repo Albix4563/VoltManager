@@ -20,6 +20,7 @@ public sealed class WebViewRuntimeOptionsTests
             Assert.False(ValidationEnvironment.IsActive);
             Assert.Equal(WebViewRendererVariant.HardwareDefault, ValidationEnvironment.RendererVariant);
             string productionArguments = WebViewRuntimeOptions.BrowserArguments(ValidationEnvironment.RendererVariant);
+            Assert.Contains("--js-flags=--max-old-space-size=256", productionArguments, StringComparison.Ordinal);
             Assert.Contains("--disk-cache-size=4194304", productionArguments, StringComparison.Ordinal);
             Assert.Contains("--media-cache-size=1048576", productionArguments, StringComparison.Ordinal);
             Assert.DoesNotContain("--disk-cache-size=67108864", productionArguments, StringComparison.Ordinal);

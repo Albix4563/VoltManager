@@ -73,7 +73,7 @@ internal enum WebViewRendererVariant
 internal static class WebViewRuntimeOptions
 {
     private const string CommonArguments =
-        "--js-flags=--max-old-space-size=128 " +
+        "--js-flags=--max-old-space-size=256 " +
         "--process-per-site " +
         "--disable-accelerated-video-decode " +
         "--disk-cache-size=4194304 " +

@@ -109,6 +109,7 @@
         reportError,
     };
 
-    if (document.readyState === 'complete') loadReorganization();
+    if (document.readyState !== 'loading') loadReorganization();
+    else if (typeof document.addEventListener === 'function') document.addEventListener('DOMContentLoaded', loadReorganization, { once: true });
     else window.addEventListener('load', loadReorganization, { once: true });
 })();

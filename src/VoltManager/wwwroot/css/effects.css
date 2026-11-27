@@ -20,10 +20,8 @@
 /* Hidden views stay in the DOM for instant tab switches, but skip layout/paint
    and can discard offscreen raster layers — large RAM win on multi-section UI.
    Covers both legacy .view shells and reorg view wrappers. */
-#main-content .view.hidden,
-#main-content .vm-reorg-view.hidden,
-#main-content .vm-legacy-view.hidden,
-#main-content .vm-subview.hidden{
+#main-content .view.hidden:not(.vm-reorg-view),
+#main-content .vm-legacy-view.hidden{
   content-visibility: hidden;
   contain-intrinsic-size: 0 800px;
 }
@@ -99,7 +97,10 @@ html[data-scrolling="true"] .glass-card::before{ animation: none !important; }
 html[data-scrolling="true"] .glass-card:not(.fx-metric):hover{
   transform: none !important;
   transition: none !important;
+  box-shadow: none !important;
+  border-color: var(--vm-glass-border) !important;
 }
+html[data-scrolling="true"] #main-content *{ backdrop-filter: none !important; }
 
 @keyframes fadeSlideUp{
   0%{ opacity: 0; transform: translateY(20px); }

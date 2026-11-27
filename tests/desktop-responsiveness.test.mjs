@@ -61,6 +61,7 @@ function makeEl(tag, { id = '', classes = [], dataset = {}, rect = { left: 0, to
 test('effects.js throttles spotlight rAF, clears hover classes on scroll, and caches ripple styles', () => {
   const docListeners = new Map();
   const rafQueue = [];
+  const timers = [];
   let getComputedStyleCalls = 0;
   const docEl = {
     dataset: { perfTier: 'full', fx: 'rich', anim: 'high' },
@@ -95,7 +96,7 @@ test('effects.js throttles spotlight rAF, clears hover classes on scroll, and ca
     },
     requestAnimationFrame: (cb) => { rafQueue.push(cb); return rafQueue.length; },
     cancelAnimationFrame: () => {},
-    setTimeout: () => 1,
+    setTimeout: (fn, delay) => { timers.push({ fn, delay }); return timers.length; },
     clearTimeout: () => {},
   });
   ctx.window.document = ctx.document;
@@ -121,8 +122,14 @@ test('effects.js throttles spotlight rAF, clears hover classes on scroll, and ca
   assert.notEqual(card.style.props['--mx'], mxAfter100);
 
   // Scroll immediately drops fx-spot and fx-sheen
-  docListeners.get('scroll')[0]();
+  docListeners.get('wheel')[0]();
+  assert.equal(timers.at(-1).delay, 220);
   assert.equal(docEl.dataset.scrolling, 'true');
+  move({ target: card, clientX: 20, clientY: 50 });
+  assert.equal(card.classList.contains('fx-sheen'), false);
+  timers.at(-1).fn();
+  assert.equal(docEl.dataset.scrolling, undefined);
+  docListeners.get('scroll')[0]();
   assert.equal(card.classList.contains('fx-spot'), false);
   assert.equal(card.classList.contains('fx-sheen'), false);
 
@@ -197,6 +204,7 @@ test('activateView positions sidebar indicator before toggling views, never bloc
   // Indicator positioned BEFORE view visibility toggle, and switch completed synchronously
   assert.deepEqual(order, ['position-indicator', 'toggle-view']);
   assert.equal(plans.classList.contains('hidden'), false);
+  assert.equal(plans.classList.contains('vm-view-switching'), true);
   assert.equal(legacyView.classList.contains('hidden'), true);
   assert.equal(powerLoadCalls, 1);
   assert.equal(lifecycleCalls, 1);
@@ -209,6 +217,7 @@ test('activateView positions sidebar indicator before toggling views, never bloc
 
   // Subview activation updates state and emits voltuisubviewchanged
   ctx.window.VoltUiReorg.activateSubview('power-plans', 'advanced');
+  assert.equal(plans.classList.contains('vm-view-switching'), false);
   assert.equal(ctx.window.VoltUiReorg.state.subviews['power-plans'], 'advanced');
   assert.equal(lifecycleCalls, 2);
 
@@ -377,4 +386,27 @@ test('CSS responsiveness rules keep main-content contained, disable scroll hover
   assert.match(effectsCss, /html\[data-scrolling="true"\]\s+\.glass-card::before\s*\{\s*animation:\s*none\s*!important;\s*\}/);
   assert.match(effectsCss, /html\[data-scrolling="true"\]\s+\.glass-card:not\(\.fx-metric\):hover/);
   assert.match(reorgCss, /\.vm-meter\s*>\s*span\s*\{[^}]*transform:\s*scaleX\(0\)/);
+  assert.doesNotMatch(effectsCss, /\.vm-(?:reorg-view|subview)\.hidden/);
+  assert.match(effectsCss, /#main-content \*\s*\{\s*backdrop-filter:\s*none\s*!important/);
+  assert.match(reorgCss, /\.vm-reorg-view\.vm-view-switching \.vm-subview\.active > \*\s*\{\s*animation-duration:\s*0s/);
+  assert.doesNotMatch(read('../src/VoltManager/wwwroot/index.html'), /backdrop-blur-md/);
+});
+
+test('startup waits for DOMContentLoaded instead of window load', () => {
+  for (const file of ['bootstrap-loader.js', 'ui-reorganization.js']) {
+    const source = read('../src/VoltManager/wwwroot/js/' + file);
+    assert.match(source, /document\.readyState !== 'loading'/);
+    assert.match(source, /document\.addEventListener\('DOMContentLoaded'/);
+    assert.match(source, /typeof document\.addEventListener === 'function'/);
+  }
+});
+
+test('metrics query the active view once and limit monitoring rendering to hardware panels', () => {
+  const source = read('../src/VoltManager/wwwroot/js/dashboard.js');
+  const metrics = source.slice(source.indexOf("Host.on('metrics', (m) => {"), source.indexOf('// ----- Top Processes -----'));
+  assert.equal((metrics.match(/querySelector\('\.vm-reorg-view:not\(\.hidden\)'\)/g) || []).length, 1);
+  assert.match(metrics, /data-vm-panel="hardware"/);
+  assert.match(metrics, /data-vm-panel="temperatures"/);
+  assert.match(metrics, /if \(full\) \{[\s\S]*renderSensors\(m\)/);
+  assert.match(metrics, /setText\(cpuPct, Math\.round\(m\.cpu\)/);
 });
